@@ -57,7 +57,9 @@ Die CI (`.github/workflows/build.yml`) führt den Workflow `ci` mit GCC 13 und 1
 
 Der Build-Workflow prüft außerdem, dass der Build reproduzierbar ist (die Bibliothek wird an zwei Orten gebaut, die Prüfsummen müssen übereinstimmen). Daneben erzeugt er eine SBOM (SPDX 2.3) der ausgelieferten vcpkg-Abhängigkeiten und prüft sie gegen die [OSV-Datenbank](https://osv.dev/), auch wöchentlich ohne neuen Commit. Einzelheiten stehen in [`CONVENTIONS.md`](CONVENTIONS.md), Abschnitt 8.2.
 
-Weitere Workflows: `docs.yml` (Doku-Site nach GitHub Pages, bei PRs nur gebaut), `codeql.yml` (statische Analyse von C++ und den Workflows), `scorecard.yml` (OpenSSF Scorecard). Dependabot hält die vcpkg-Baseline und die gepinnten Actions aktuell.
+Releases (`release.yml`) tragen ein reproduzierbares Quellarchiv, die SBOM und eine signierte SLSA-Provenance. Der Ablauf und die Prüfung stehen in [`CONVENTIONS.md`](CONVENTIONS.md), Abschnitt 8.4.
+
+Weitere Workflows: `docs.yml` (Doku-Site nach GitHub Pages, bei PRs nur gebaut), `codeql.yml` (statische Analyse von C++ und den Workflows), `scorecard.yml` (OpenSSF Scorecard), `release.yml` (Release-Assets mit Provenance). Dependabot hält die vcpkg-Baseline und die gepinnten Actions aktuell.
 
 ## Lizenz
 

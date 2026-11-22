@@ -1,0 +1,146 @@
+# Copyright 2026, The NewGUI Authors. All rights reserved.
+# Distributed under the terms of the MIT License.
+# SPDX-License-Identifier: MIT
+
+# Attaches verifiable artifacts to every GitHub release: the source archive
+# and the SBOM, built from the release tag, plus SLSA build provenance signed
+# via Sigstore. The provenance (*.intoto.jsonl) lets consumers verify that an
+# asset was built by this repository's workflow from this tag
+# (slsa-verifier), and is what the OpenSSF Scorecard Signed-Releases check
+# looks for.
+#
+# For a C++ library the source archive is the published artifact - a vcpkg
+# port or a package build downloads it. It is reproducible: the same tag
+# gives the same bytes with the command in CONVENTIONS.md 8.4, so the
+# provenance verifies every copy, not only this one.
+
+name: Release
+
+on:
+  release:
+    types: [published]
+  # Backfill or retry for an existing release: rebuilds from its tag and
+  # replaces the release assets (--clobber). Since the assets are
+  # reproducible, the checksums stay the same.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to (re)build and attest
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build release assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      # Upload the assets to the release.
+      contents: write
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Resolve tag and version
+        id: meta
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::tag $TAG is not of the form vMAJOR.MINOR.PATCH[-PRERELEASE]"; exit 1 ;;
+          esac
+          version="${TAG#v}"
+          {
+            echo "tag=$TAG"
+            echo "version=$version"
+            echo "base=${version%%-*}"
+          } >> "$GITHUB_OUTPUT"
+
+      # Checks out the RELEASE TAG, not the triggering ref, so a
+      # workflow_dispatch backfill builds the released state too.
+      - name: Check out the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.meta.outputs.tag }}
+          persist-credentials: false
+
+      # The tag names the version; CMakeLists.txt and vcpkg.json must state
+      # the same (a pre-release tag v1.2.0-rc.1 releases 1.2.0).
+      - name: Check the version in the sources
+        env:
+          BASE: ${{ steps.meta.outputs.base }}
+        run: |
+          cmake_version=$(sed -n 's/^    VERSION \([0-9.]*\)$/\1/p' CMakeLists.txt)
+          vcpkg_version=$(jq -r '."version-semver"' vcpkg.json)
+          echo "tag: $BASE, CMakeLists.txt: $cmake_version, vcpkg.json: $vcpkg_version"
+          test "$cmake_version" = "$BASE" && test "$vcpkg_version" = "$BASE"
+
+      # All timestamps in the assets come from the tagged commit.
+      - name: Set SOURCE_DATE_EPOCH
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
+      # Built twice and compared: the archive must be reproducible, or the
+      # provenance would vouch for bytes nobody else can rebuild.
+      - name: Build the source archive
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          mkdir -p dist
+          for out in dist/newgui-"$VERSION".tar.gz "$RUNNER_TEMP"/check.tar.gz; do
+            git archive --format=tar --prefix="newgui-$VERSION/" HEAD | gzip -9n > "$out"
+          done
+          cmp dist/newgui-"$VERSION".tar.gz "$RUNNER_TEMP"/check.tar.gz
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          cache-key: release
+
+      # The SBOM of the shipped dependencies, as in the dependency scan of
+      # build.yml: the manifest without the "tests" feature.
+      - name: Build the SBOM
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          "$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-install-root=build/sbom/vcpkg_installed
+          python3 .github/scripts/vcpkg-sbom.py build/sbom/vcpkg_installed/x64-linux dist/newgui-"$VERSION".spdx.json
+
+      - name: Upload assets to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+
+      # The provenance subjects: sha256 of exactly the uploaded assets,
+      # base64-encoded as the SLSA generator expects.
+      - name: Compute subject digests for provenance
+        id: hash
+        run: |
+          cd dist
+          sha256sum *
+          echo "hashes=$(sha256sum * | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+  provenance:
+    name: Provenance
+    needs: build
+    permissions:
+      actions: read # read the run context that goes into the provenance
+      id-token: write # keyless Sigstore signing of the provenance
+      contents: write # upload the *.intoto.jsonl to the release
+    # Referenced by TAG deliberately, unlike every other action here: the
+    # SLSA trusted builder only supports semantic-version tag references -
+    # calling it by commit SHA is unsupported and breaks the build and its
+    # verification. Scorecard's Pinned-Dependencies check flags this one
+    # reference; that is the accepted price for verifiable provenance, not
+    # an oversight.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+      provenance-name: newgui-${{ needs.build.outputs.version }}.intoto.jsonl
+      upload-assets: true
+      upload-tag-name: ${{ needs.build.outputs.tag }}
