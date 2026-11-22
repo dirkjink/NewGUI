@@ -27,3 +27,16 @@ using uint64 = std::uint64_t;	/*!< Unsigned 64-bit integer, port phase only. */
 
 
 } // namespace ngui
+
+
+/*!	The smaller of \a a and \a b, as in Haiku; port phase only. */
+#define min_c(a, b) ((a) > (b) ? (b) : (a))
+
+/*!	The larger of \a a and \a b, as in Haiku; port phase only. */
+#define max_c(a, b) ((a) > (b) ? (a) : (b))
+
+
+namespace ngui {
+
+
+} // namespace ngui
