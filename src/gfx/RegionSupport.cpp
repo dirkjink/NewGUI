@@ -708,7 +708,7 @@ Region::Support::miCoalesce(
 	{
 	    pRegEnd--;
 	}
-	curStart = pRegEnd - pReg->fData;
+	curStart = (int)(pRegEnd - pReg->fData);
 	pRegEnd = pReg->fData + pReg->fCount;
     }
 
