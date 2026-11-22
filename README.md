@@ -52,6 +52,7 @@ cmake --workflow --preset ci
 | `release` | Release | optimiert |
 | `ci` | RelWithDebInfo | Warnungen als Fehler |
 | `docs` | Debug | Coverage, JUnit-Ausgabe der Tests, API-Referenz (braucht GCC oder Clang, Doxygen 1.9.8+) |
+| `fuzz` | RelWithDebInfo | libFuzzer-Programme mit ASan und UBSan (braucht Clang: `CC=clang CXX=clang++`) |
 
 Die CI (`.github/workflows/build.yml`) führt den Workflow `ci` mit GCC 13 und 14, Clang 17 und 18 unter Linux sowie MSVC 2022 unter Windows aus. vcpkg wird dort genau auf dem Commit der `builtin-baseline` ausgecheckt. Der Job `Build` fasst die Ergebnisse zusammen und ist Pflicht-Check für `main`.
 
@@ -59,7 +60,7 @@ Der Build-Workflow prüft außerdem, dass der Build reproduzierbar ist (die Bibl
 
 Releases (`release.yml`) tragen ein reproduzierbares Quellarchiv, die SBOM und eine signierte SLSA-Provenance. Der Ablauf und die Prüfung stehen in [`CONVENTIONS.md`](CONVENTIONS.md), Abschnitt 8.4.
 
-Weitere Workflows: `docs.yml` (Doku-Site nach GitHub Pages, bei PRs nur gebaut), `codeql.yml` (statische Analyse von C++ und den Workflows), `scorecard.yml` (OpenSSF Scorecard), `release.yml` (Release-Assets mit Provenance). Dependabot hält die vcpkg-Baseline und die gepinnten Actions aktuell.
+Weitere Workflows: `docs.yml` (Doku-Site nach GitHub Pages, bei PRs nur gebaut), `codeql.yml` (statische Analyse von C++ und den Workflows), `scorecard.yml` (OpenSSF Scorecard), `release.yml` (Release-Assets mit Provenance), `fuzz.yml` (nächtliches Fuzzing mit libFuzzer). Dependabot hält die vcpkg-Baseline und die gepinnten Actions aktuell.
 
 ## Lizenz
 

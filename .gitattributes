@@ -1,0 +1,2 @@
+# Headers are C++ (GitHub language statistics, OpenSSF Scorecard).
+*.h linguist-language=C++

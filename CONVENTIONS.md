@@ -216,6 +216,11 @@ Grobe Größenordnung: Tage bis zwei Wochen, solange die Regeln aus Abschnitt 3 
   ```
 
 - Aus den Blöcken und dem Testlauf erzeugt `.github/scripts/generate-test-catalog.py` die Seite **Test-Nachweis** der Doku-Site. Der Build-Workflow prüft die Form der Blöcke bei jedem PR (`--check`). Die erzeugten Seiten (`docs/tests/`, `docs/project/`) werden **nicht** eingecheckt und nicht von Hand bearbeitet.
+- **Fuzzing:** Code, der Daten von außen verarbeitet oder Grenzen berechnet (Region, Bilder, Schriften, serialisierte DisplayLists …), bekommt ein Fuzz-Ziel `tests/fuzz/<Name>Fuzz.cpp` mit `NGUI_FUZZ_TARGET(Name) { … }` aus `tests/fuzz/FuzzTarget.h`. Der Rumpf prüft die Invarianten mit `NGUI_FUZZ_CHECK` und trägt denselben Begründungsblock wie ein Test. Ein Ziel läuft auf zwei Arten:
+  - **Regression, in jedem Testlauf** und mit jedem Compiler als Test `FuzzRegressionTest.<Name>`: die leere Eingabe und alle Dateien in `tests/fuzz/corpus/<Name>/`.
+  - **Fuzzing, nachts** im Workflow `fuzz.yml`: libFuzzer mit AddressSanitizer und UndefinedBehaviorSanitizer (Preset `fuzz`, nur Clang, `CC=clang CXX=clang++`), je Ziel ein eigener Job. Lokal: `cmake --preset fuzz && cmake --build --preset fuzz`, dann `build/fuzz/tests/ngui_fuzz_<Name> <Arbeitsverzeichnis>`.
+
+  Ein Fund (Artefakt `fuzz-finding-<Name>`) kommt nach `tests/fuzz/corpus/<Name>/` und ist damit dauerhaft eine Regressionseingabe. Danach wird der Code korrigiert. Die Ziele werden über den Dateinamen gefunden, eine Liste der Ziele gibt es nicht.
 - **API-Dokumentation:** Jedes Element der öffentlichen Header bekommt einen Doxygen-Kommentar `/*! */` (bei Aufzählungen und Feldern auch nachgestellt als `/*!< */`). Doxygen bricht bei einem undokumentierten Element ab. Namensräume und die Hauptseite der Referenz sind in `docs/api/*.dox` dokumentiert.
 
 ### 8.4 Release

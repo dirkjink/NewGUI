@@ -8,7 +8,8 @@
 #
 # Sets C++23 without compiler extensions (PUBLIC for libraries, PRIVATE for
 # executables), the warning level, optionally warnings as errors, and options
-# for reproducible builds or, with NGUI_COVERAGE, for coverage measurement.
+# for reproducible builds or, with NGUI_COVERAGE, for coverage measurement,
+# and with NGUI_FUZZING the instrumentation for libFuzzer.
 
 function(ngui_configure_target target)
     get_target_property(type ${target} TYPE)
@@ -35,6 +36,15 @@ function(ngui_configure_target target)
             -Wall -Wextra -Wpedantic -Wdate-time)
         if(NGUI_WARNINGS_AS_ERRORS)
             target_compile_options(${target} PRIVATE -Werror)
+        endif()
+        if(NGUI_FUZZING)
+            # Coverage feedback for libFuzzer in all code, not only in the
+            # fuzz executables, plus the sanitizers that turn memory errors
+            # and undefined behaviour into findings.
+            set(sanitizers -fsanitize=fuzzer-no-link,address,undefined
+                -fno-sanitize-recover=undefined -fno-omit-frame-pointer)
+            target_compile_options(${target} PRIVATE ${sanitizers})
+            target_link_options(${target} PRIVATE ${sanitizers})
         endif()
         if(NGUI_COVERAGE)
             # Instrumented build for the coverage report (gcov/gcovr). It is
