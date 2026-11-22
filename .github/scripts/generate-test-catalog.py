@@ -7,7 +7,7 @@
 Reads the JUnit report of the test run (build/docs/test-results.xml, written
 by the test preset "docs") - the authoritative record of what actually ran -
 and enriches each test with its rationale block from the test sources
-(tests/**/*Test.cpp): the "What is tested / Success criteria / Why it
+(tests/**/*Test.cpp, and the fuzz targets tests/fuzz/*Fuzz.cpp): the "What is tested / Success criteria / Why it
 matters" comment run at the top of the test body (CONVENTIONS.md, section
 8.3). Writes docs/tests/test-evidence.md, which the Docs workflow feeds into
 MkDocs.
@@ -43,6 +43,10 @@ REPO_URL = "https://github.com/dirkjink/NewGUI"
 # GoogleTest's test definitions; the opening brace follows on its own line
 # (CONVENTIONS.md, section 4.5), so the body starts after the first "{".
 TEST_RE = re.compile(r"^\s*(?:TEST|TEST_F|TEST_P|TYPED_TEST|TYPED_TEST_P)\(\s*(\w+)\s*,\s*(\w+)\s*\)")
+# A fuzz target (tests/fuzz/<Name>Fuzz.cpp) runs in every test run as the
+# test FuzzRegressionTest.<Name> and carries the same rationale block.
+FUZZ_RE = re.compile(r"^\s*NGUI_FUZZ_TARGET\(\s*(\w+)\s*\)")
+FUZZ_SUITE = "FuzzRegressionTest"
 # CTest names a test like GoogleTest does: "Suite.Name", with an instance
 # prefix and a parameter suffix for parameterized and typed tests
 # ("Prefix/Suite.Name/0", "Suite/0.Name"). The rationale is keyed by the bare
@@ -73,13 +77,18 @@ def extract_rationales() -> tuple[dict, dict]:
     rationales = {}
     files = {}
     problems = []
-    for source in sorted(TESTS_DIR.rglob("*Test.cpp")):
+    sources = sorted(set(TESTS_DIR.rglob("*Test.cpp")) | set(TESTS_DIR.rglob("*Fuzz.cpp")))
+    for source in sources:
         lines = source.read_text(encoding="utf-8").splitlines()
         for i, line in enumerate(lines):
             m = TEST_RE.match(line)
-            if not m:
+            fuzz = FUZZ_RE.match(line)
+            if m:
+                suite, name = m.group(1), m.group(2)
+            elif fuzz:
+                suite, name = FUZZ_SUITE, fuzz.group(1)
+            else:
                 continue
-            suite, name = m.group(1), m.group(2)
             files.setdefault(suite, source)
             where = f"{source}:{i + 1}: {suite}.{name}"
             start = i

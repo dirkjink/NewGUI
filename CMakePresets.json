@@ -53,6 +53,16 @@
         "NGUI_BUILD_API_DOCS": "ON",
         "NGUI_WARNINGS_AS_ERRORS": "ON"
       }
+    },
+    {
+      "name": "fuzz",
+      "displayName": "Fuzz (libFuzzer, ASan, UBSan; requires CC=clang CXX=clang++)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "NGUI_FUZZING": "ON",
+        "NGUI_WARNINGS_AS_ERRORS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -78,6 +88,10 @@
       "targets": [
         "ngui_api_docs"
       ]
+    },
+    {
+      "name": "fuzz",
+      "configurePreset": "fuzz"
     }
   ],
   "testPresets": [
@@ -114,6 +128,11 @@
         "outputOnFailure": true,
         "outputJUnitFile": "test-results.xml"
       }
+    },
+    {
+      "name": "fuzz",
+      "inherits": "base",
+      "configurePreset": "fuzz"
     }
   ],
   "workflowPresets": [
@@ -152,6 +171,23 @@
         {
           "type": "build",
           "name": "docs-api"
+        }
+      ]
+    },
+    {
+      "name": "fuzz",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "fuzz"
+        },
+        {
+          "type": "build",
+          "name": "fuzz"
+        },
+        {
+          "type": "test",
+          "name": "fuzz"
         }
       ]
     }

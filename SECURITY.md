@@ -30,4 +30,4 @@ Bereits umgesetzte Maßnahmen:
 
 - **Release-Assets tragen eine SLSA-Provenance.** Der Release-Workflow baut Quellarchiv und SBOM aus dem Release-Tag, hängt sie an das GitHub-Release und ergänzt eine mit Sigstore signierte SLSA-Provenance (`*.intoto.jsonl`), prüfbar mit [slsa-verifier](https://github.com/slsa-framework/slsa-verifier). Das Quellarchiv ist reproduzierbar, die Provenance gilt also für jede nachgebaute Kopie (`CONVENTIONS.md`, Abschnitt 8.4).
 
-Fuzzing folgt und wird hier ergänzt, sobald es eingerichtet ist.
+- **Grenzflächen werden gefuzzt.** Code, der Daten von außen verarbeitet, bekommt ein libFuzzer-Ziel mit seinen Invarianten (`CONVENTIONS.md`, Abschnitt 8.3). Der Workflow Fuzz untersucht es jede Nacht mit AddressSanitizer und UndefinedBehaviorSanitizer, jeder Testlauf spielt die eingecheckten Funde erneut ab. Noch gibt es kein Ziel: Das Grundgerüst enthält keinen Parser, das erste kommt mit der Region (M2). Die Scorecard-Prüfung „Fuzzing“ sucht libFuzzer-Ziele nur, wenn C++ einen großen Anteil am Repository hat. Ihr Wert folgt also dem Sprachanteil, nicht dem tatsächlichen Fuzzing. Maßgeblich ist der Verlauf des Workflows Fuzz.

@@ -1,0 +1,112 @@
+# Copyright 2026, The NewGUI Authors. All rights reserved.
+# Distributed under the terms of the MIT License.
+# SPDX-License-Identifier: MIT
+
+# Nightly time-boxed fuzzing of the fuzz targets (tests/fuzz/<Name>Fuzz.cpp,
+# CONVENTIONS.md 8.3) with libFuzzer, AddressSanitizer and
+# UndefinedBehaviorSanitizer - on the project's own toolchain, no OSS-Fuzz
+# containers. In every regular test run the same targets run in cheap
+# regression mode (the empty input plus the checked-in corpus); here they
+# explore.
+
+name: Fuzz
+
+on:
+  schedule:
+    - cron: "47 2 * * *"
+  # Manual runs for trying out new fuzz targets.
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Fuzzing time per target in seconds
+        required: false
+        default: "600"
+
+permissions:
+  contents: read
+
+jobs:
+  targets:
+    name: List targets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The file name is the convention (tests/CMakeLists.txt finds the
+      # targets the same way), so there is no list to keep in sync.
+      - name: List the fuzz targets
+        id: list
+        run: |
+          targets=$(python3 -c 'import json, pathlib; print(json.dumps(sorted(p.name.removesuffix("Fuzz.cpp") for p in pathlib.Path("tests/fuzz").glob("*Fuzz.cpp"))))')
+          echo "targets: $targets"
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+
+  fuzz:
+    name: Fuzz (${{ matrix.target }})
+    needs: targets
+    if: needs.targets.outputs.targets != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.targets.outputs.targets) }}
+    env:
+      CC: clang-18
+      CXX: clang++-18
+      TARGET: ${{ matrix.target }}
+      SECONDS_PER_TARGET: ${{ inputs.seconds || '600' }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          cache-key: fuzz
+
+      - name: Build the fuzz target
+        run: |
+          cmake --preset fuzz
+          cmake --build --preset fuzz --target "ngui_fuzz_$TARGET"
+
+      # The working corpus comes first: libFuzzer adds new inputs to the
+      # first directory only, so the checked-in corpus stays untouched.
+      - name: Fuzz ${{ matrix.target }}
+        run: |
+          mkdir -p fuzz-work/corpus fuzz-work/findings
+          seeds=()
+          if [ -d "tests/fuzz/corpus/$TARGET" ]; then seeds+=("tests/fuzz/corpus/$TARGET"); fi
+          "build/fuzz/tests/ngui_fuzz_$TARGET" \
+            -max_total_time="$SECONDS_PER_TARGET" -timeout=25 -rss_limit_mb=2048 \
+            -artifact_prefix=fuzz-work/findings/ \
+            fuzz-work/corpus "${seeds[@]}"
+
+      # A finding is the input that crashed or broke an invariant. Committed
+      # to tests/fuzz/corpus/<Name>/, it becomes a permanent regression
+      # input of the normal test run; then fix the code.
+      - name: Upload finding (reproducing input)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-finding-${{ matrix.target }}
+          path: fuzz-work/findings/
+          if-no-files-found: warn
+
+      # The grown corpus, for seeding the checked-in one by hand.
+      - name: Upload corpus
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-corpus-${{ matrix.target }}
+          path: fuzz-work/corpus/
+          retention-days: 7
+          if-no-files-found: ignore
