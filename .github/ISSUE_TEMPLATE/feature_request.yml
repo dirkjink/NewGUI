@@ -1,0 +1,24 @@
+name: Vorschlag
+description: Eine Verbesserung oder neue Fähigkeit vorschlagen
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Welches Problem würde das lösen?
+      description: Beschreibe den Anwendungsfall, nicht nur die vorgeschlagene Lösung.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Vorgeschlagene Lösung
+      description: Wie soll es funktionieren? Eine Skizze der API hilft. Gibt es ein Vorbild in Haiku?
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Erwogene Alternativen
+    validations:
+      required: false

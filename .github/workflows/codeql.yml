@@ -1,0 +1,82 @@
+# Copyright 2026, The NewGUI Authors. All rights reserved.
+# Distributed under the terms of the MIT License.
+# SPDX-License-Identifier: MIT
+
+# Static analysis of this project's own code. Kept apart from build.yml
+# because it needs security-events: write to upload results, which build.yml
+# deliberately does not grant, and because a CodeQL run takes minutes.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Weekly: the query packs improve over time, so unchanged code is worth
+  # re-analysing.
+  schedule:
+    - cron: "23 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      # Upload the SARIF results to the repository's Security tab.
+      security-events: write
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The library. CodeQL extracts C++ by tracing the compiler, so a
+          # real build gives the most precise database.
+          - language: c-cpp
+            build-mode: manual
+          # The workflows themselves (token permissions, script injection,
+          # untrusted checkout patterns). No build needed.
+          - language: actions
+            build-mode: none
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up vcpkg
+        if: matrix.build-mode == 'manual'
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          cache-key: codeql
+
+      # Overlay databases (incremental PR analysis) need build-mode none.
+      # For C++ the manual build stays: it is more precise, and a build-less
+      # extraction would miss the headers vcpkg installs. Without this, init
+      # warns and falls back to a full database anyway. Drop it once overlay
+      # analysis supports build-mode manual.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        env:
+          CODEQL_OVERLAY_DATABASE_MODE: ${{ matrix.build-mode == 'manual' && 'none' || '' }}
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      # Library only: the tests do not ship, and skipping them keeps the
+      # database to the code a user of the toolkit actually runs.
+      - name: Build (CodeQL extraction)
+        if: matrix.build-mode == 'manual'
+        run: |
+          cmake --preset release -DNGUI_BUILD_TESTS=OFF -DVCPKG_MANIFEST_FEATURES=
+          cmake --build --preset release
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        with:
+          category: "/language:${{ matrix.language }}"
