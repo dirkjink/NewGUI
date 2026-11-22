@@ -28,4 +28,6 @@ Bereits umgesetzte Maßnahmen:
 - **Der Build ist reproduzierbar.** Gleicher Commit und gleicher Compiler ergeben byte-identische Artefakte. Der Build-Workflow prüft das bei jeder Änderung.
 - **Die Aufstellung des Repositorys wird öffentlich bewertet.** Das OpenSSF-Scorecard-Badge im README verweist auf die aktuelle Bewertung je Prüfung. Sie ist ein Hinweis auf die Aufstellung, keine Note: Einige Prüfungen setzen ein Projekt mit mehreren Maintainern und Pflicht-Reviews voraus und fallen bei einem einzelnen Maintainer zwangsläufig niedrig aus. Bewusst in Kauf genommene Abzüge sind an der Stelle der Entscheidung begründet, siehe den Kommentar zu `repo_token` in `.github/workflows/scorecard.yml`.
 
-Fuzzing und Build-Provenance (SLSA) für Releases folgen und werden hier ergänzt, sobald sie eingerichtet sind.
+- **Release-Assets tragen eine SLSA-Provenance.** Der Release-Workflow baut Quellarchiv und SBOM aus dem Release-Tag, hängt sie an das GitHub-Release und ergänzt eine mit Sigstore signierte SLSA-Provenance (`*.intoto.jsonl`), prüfbar mit [slsa-verifier](https://github.com/slsa-framework/slsa-verifier). Das Quellarchiv ist reproduzierbar, die Provenance gilt also für jede nachgebaute Kopie (`CONVENTIONS.md`, Abschnitt 8.4).
+
+Fuzzing folgt und wird hier ergänzt, sobald es eingerichtet ist.

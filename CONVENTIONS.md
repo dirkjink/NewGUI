@@ -217,3 +217,22 @@ Grobe Größenordnung: Tage bis zwei Wochen, solange die Regeln aus Abschnitt 3 
 
 - Aus den Blöcken und dem Testlauf erzeugt `.github/scripts/generate-test-catalog.py` die Seite **Test-Nachweis** der Doku-Site. Der Build-Workflow prüft die Form der Blöcke bei jedem PR (`--check`). Die erzeugten Seiten (`docs/tests/`, `docs/project/`) werden **nicht** eingecheckt und nicht von Hand bearbeitet.
 - **API-Dokumentation:** Jedes Element der öffentlichen Header bekommt einen Doxygen-Kommentar `/*! */` (bei Aufzählungen und Feldern auch nachgestellt als `/*!< */`). Doxygen bricht bei einem undokumentierten Element ab. Namensräume und die Hauptseite der Referenz sind in `docs/api/*.dox` dokumentiert.
+
+### 8.4 Release
+
+1. **Versions-Commit** (per PR): die Version in `CMakeLists.txt` (`project(... VERSION x.y.z)`) und in `vcpkg.json` (`version-semver`) setzen. Der Release-Workflow bricht ab, wenn beide nicht zur Version des Tags passen. Ein Pre-Release-Tag `vX.Y.Z-rc.N` gibt die Version `X.Y.Z` frei.
+2. **Release** auf GitHub mit dem Tag `vX.Y.Z` auf dem gemergten Commit in `main` veröffentlichen. Der Workflow `release.yml` baut aus dem Tag das Quellarchiv `newgui-X.Y.Z.tar.gz` und die SBOM `newgui-X.Y.Z.spdx.json`, hängt beide an das Release und ergänzt eine signierte SLSA-Provenance (`newgui-X.Y.Z.intoto.jsonl`).
+3. **Reproduzierbarkeit:** Alle Zeitstempel kommen aus dem getaggten Commit (`SOURCE_DATE_EPOCH`), ein manuell gepflegter Zeitstempel ist nicht nötig. Jede Kopie des Quellarchivs lässt sich nachbauen und gegen das Release-Asset prüfen:
+
+   ```sh
+   git archive --format=tar --prefix=newgui-X.Y.Z/ vX.Y.Z | gzip -9n | sha256sum
+   gh release download vX.Y.Z --pattern '*.tar.gz' --output - | sha256sum
+   ```
+
+4. **Herkunft prüfen** mit [slsa-verifier](https://github.com/slsa-framework/slsa-verifier):
+
+   ```sh
+   slsa-verifier verify-artifact newgui-X.Y.Z.tar.gz \
+   	--provenance-path newgui-X.Y.Z.intoto.jsonl \
+   	--source-uri github.com/dirkjink/NewGUI --source-tag vX.Y.Z
+   ```
