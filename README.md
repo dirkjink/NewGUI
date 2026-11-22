@@ -1,5 +1,7 @@
 # NewGUI
 
+[![Build](https://github.com/dirkjink/NewGUI/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/dirkjink/NewGUI/actions/workflows/build.yml)
+
 Ein plattformübergreifendes UI-Toolkit in C++23. Seine Architektur orientiert sich am Interface Kit von [Haiku](https://www.haiku-os.org/): ein Looper pro Fenster, Nachrichten, ein dauerhaft bestehender View-Baum, Constraint-Layout und austauschbare Looks. Gezeichnet wird über eine austauschbare Canvas-Schicht, Ziel-Renderer ist Skia.
 
 **Status:** frühe Entwurfs- und Port-Phase. Es gibt noch keine stabile API.
@@ -39,6 +41,8 @@ cmake --workflow --preset ci
 | `debug` | Debug | für die Entwicklung |
 | `release` | Release | optimiert |
 | `ci` | RelWithDebInfo | Warnungen als Fehler |
+
+Die CI (`.github/workflows/build.yml`) führt den Workflow `ci` mit GCC 13 und 14, Clang 17 und 18 unter Linux sowie MSVC 2022 unter Windows aus. vcpkg wird dort genau auf dem Commit der `builtin-baseline` ausgecheckt. Der Job `Build` fasst die Ergebnisse zusammen und ist Pflicht-Check für `main`.
 
 ## Lizenz
 
