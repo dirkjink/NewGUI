@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # vcpkg: Dependabot moves the builtin-baseline of vcpkg.json forward as a
+  # whole. A baseline update is its own, traceable change (CONVENTIONS.md 8.2).
+  - package-ecosystem: vcpkg
+    directory: /
+    schedule:
+      interval: weekly
+  # The workflows and the composite action under .github/actions.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    # One PR for every github/codeql-action step: CodeQL refuses a workflow
+    # whose init, analyze and upload-sarif steps run different versions
+    # ("Loaded a configuration file for version X, but running version Y"),
+    # so single-step bumps fail on their own.
+    groups:
+      codeql-action:
+        patterns:
+          - github/codeql-action*

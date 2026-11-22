@@ -5,6 +5,10 @@
 # Configure, build and test with warnings as errors (preset "ci") on all
 # supported compilers. The job "Build" summarizes the matrix and is the
 # required status check for the branch "main".
+#
+# All actions are pinned to commit SHAs, not mutable tags: a moved tag would
+# otherwise run foreign code with this workflow's token. Dependabot keeps the
+# pins current.
 
 name: Build
 
@@ -20,10 +24,6 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
-env:
-  VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite
-  VCPKG_DISABLE_METRICS: "1"
 
 jobs:
   linux:
@@ -41,37 +41,16 @@ jobs:
     env:
       CC: ${{ matrix.compiler.cc }}
       CXX: ${{ matrix.compiler.cxx }}
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Read vcpkg baseline
-        id: baseline
-        run: echo "sha=$(jq -r '."builtin-baseline"' vcpkg.json)" >> "$GITHUB_OUTPUT"
-
-      - name: Check out vcpkg at the baseline
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
         with:
-          repository: microsoft/vcpkg
-          ref: ${{ steps.baseline.outputs.sha }}
-          path: vcpkg
-          persist-credentials: false
-
-      - name: Bootstrap vcpkg
-        run: ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
-
-      - name: Install Ninja
-        run: command -v ninja || (sudo apt-get update && sudo apt-get install -y ninja-build)
-
-      - name: Cache vcpkg packages
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .vcpkg-cache
-          key: vcpkg-linux-${{ matrix.compiler.name }}-${{ hashFiles('vcpkg.json') }}
-          restore-keys: vcpkg-linux-${{ matrix.compiler.name }}-
+          cache-key: ${{ matrix.compiler.name }}
 
       - name: Configure, build and test
         run: cmake --workflow --preset ci
@@ -86,33 +65,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Read vcpkg baseline
-        id: baseline
-        shell: bash
-        run: echo "sha=$(jq -r '."builtin-baseline"' vcpkg.json)" >> "$GITHUB_OUTPUT"
-
-      - name: Check out vcpkg at the baseline
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
         with:
-          repository: microsoft/vcpkg
-          ref: ${{ steps.baseline.outputs.sha }}
-          path: vcpkg
-          persist-credentials: false
-
-      - name: Bootstrap vcpkg
-        shell: cmd
-        run: vcpkg\bootstrap-vcpkg.bat -disableMetrics
-
-      - name: Cache vcpkg packages
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .vcpkg-cache
-          key: vcpkg-windows-msvc-2022-${{ hashFiles('vcpkg.json') }}
-          restore-keys: vcpkg-windows-msvc-2022-
+          cache-key: msvc-2022
 
       # The developer environment provides cl, CMake and Ninja. It may set
       # VCPKG_ROOT to the copy bundled with Visual Studio, so it is set
-      # afterwards.
+      # again afterwards.
       - name: Configure, build and test
         shell: cmd
         run: |

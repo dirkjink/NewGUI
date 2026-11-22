@@ -1,0 +1,60 @@
+# Copyright 2026, The NewGUI Authors. All rights reserved.
+# Distributed under the terms of the MIT License.
+# SPDX-License-Identifier: MIT
+
+# Check out vcpkg at exactly the builtin-baseline of vcpkg.json, bootstrap it
+# and restore the binary cache; on Linux also make sure Ninja is present.
+# Sets VCPKG_ROOT and VCPKG_BINARY_SOURCES for the following steps. The
+# repository itself must already be checked out.
+
+name: Set up vcpkg
+description: vcpkg at the manifest baseline, with a binary cache
+
+inputs:
+  cache-key:
+    description: Distinguishes the binary caches (vcpkg's ABI hash includes the compiler)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Read vcpkg baseline
+      id: baseline
+      shell: bash
+      run: |
+        echo "sha=$(jq -r '."builtin-baseline"' vcpkg.json)" >> "$GITHUB_OUTPUT"
+        mkdir -p .vcpkg-cache
+        echo "VCPKG_ROOT=$GITHUB_WORKSPACE/vcpkg" >> "$GITHUB_ENV"
+        echo "VCPKG_BINARY_SOURCES=clear;files,$GITHUB_WORKSPACE/.vcpkg-cache,readwrite" >> "$GITHUB_ENV"
+        echo "VCPKG_DISABLE_METRICS=1" >> "$GITHUB_ENV"
+
+    - name: Check out vcpkg at the baseline
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: microsoft/vcpkg
+        ref: ${{ steps.baseline.outputs.sha }}
+        path: vcpkg
+        persist-credentials: false
+
+    - name: Bootstrap vcpkg (Linux)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+    # Preinstalled on the GitHub runners; vcpkg and the presets need it.
+    - name: Ensure Ninja (Linux)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: command -v ninja || (sudo apt-get update && sudo apt-get install -y ninja-build)
+
+    - name: Bootstrap vcpkg (Windows)
+      if: runner.os == 'Windows'
+      shell: cmd
+      run: vcpkg\bootstrap-vcpkg.bat -disableMetrics
+
+    - name: Cache vcpkg packages
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .vcpkg-cache
+        key: vcpkg-${{ runner.os }}-${{ inputs.cache-key }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: vcpkg-${{ runner.os }}-${{ inputs.cache-key }}-
