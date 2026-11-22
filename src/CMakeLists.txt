@@ -10,7 +10,9 @@ configure_file(
 add_library(ngui
     Error.cpp
     Version.cpp
-    gfx/RRect.cpp)
+    gfx/RRect.cpp
+    gfx/Region.cpp
+    gfx/RegionSupport.cpp)
 add_library(ngui::ngui ALIAS ngui)
 
 target_include_directories(ngui

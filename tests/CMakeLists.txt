@@ -17,10 +17,12 @@ add_executable(ngui_tests
     SupportDefsTest.cpp
     VersionTest.cpp
     gfx/ColorTest.cpp
+    gfx/IntRectTest.cpp
     gfx/LineTest.cpp
     gfx/PointTest.cpp
     gfx/RectTest.cpp
     gfx/RRectTest.cpp
+    gfx/RegionTest.cpp
     gfx/SizeTest.cpp
     fuzz/FuzzRegressionTest.cpp
     ${fuzzTargetSources})
