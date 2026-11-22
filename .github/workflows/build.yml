@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 # Configure, build and test with warnings as errors (preset "ci") on all
-# supported compilers, and check the rationale blocks of the tests. The job
-# "Build" summarizes all jobs and is the required status check for "main".
+# supported compilers, check that the build is reproducible and that the
+# rationale blocks of the tests are well-formed. The job "Build" summarizes
+# these jobs and is the required status check for "main". The dependency
+# scan runs alongside, on purpose outside the required check.
 #
 # All actions are pinned to commit SHAs, not mutable tags: a moved tag would
 # otherwise run foreign code with this workflow's token. Dependabot keeps the
@@ -16,6 +18,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Weekly, so a newly published advisory surfaces even when nothing was
+  # committed - a scan that only runs on changes cannot see the world
+  # changing around unchanged code.
+  schedule:
+    - cron: "17 4 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -81,6 +88,89 @@ jobs:
           set "VCPKG_ROOT=%GITHUB_WORKSPACE%\vcpkg"
           cmake --workflow --preset ci
 
+  # The library is built twice from copies of the source at different paths;
+  # both builds must give the same bytes. This guards -ffile-prefix-map and
+  # -Wdate-time (cmake/NguiCompilerOptions.cmake): a build that embeds its
+  # path or time fails here.
+  reproducible:
+    name: Reproducible (${{ matrix.compiler.name }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - { name: gcc-13, cc: gcc-13, cxx: g++-13 }
+          - { name: clang-18, cc: clang-18, cxx: clang++-18 }
+    env:
+      CC: ${{ matrix.compiler.cc }}
+      CXX: ${{ matrix.compiler.cxx }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          cache-key: reproducible-${{ matrix.compiler.name }}
+
+      - name: Build twice at different paths and compare
+        run: |
+          for dir in "$RUNNER_TEMP/a/NewGUI" "$RUNNER_TEMP/b/other/place/NewGUI"; do
+            mkdir -p "$dir"
+            git archive HEAD | tar -x -C "$dir"
+            (cd "$dir" \
+              && cmake --preset release -DNGUI_BUILD_TESTS=OFF -DVCPKG_MANIFEST_FEATURES= \
+              && cmake --build --preset release)
+          done
+          sha256sum "$RUNNER_TEMP"/a/NewGUI/build/release/src/libngui.a \
+            "$RUNNER_TEMP"/b/other/place/NewGUI/build/release/src/libngui.a | tee hashes.txt
+          test "$(cut -d' ' -f1 hashes.txt | sort -u | wc -l)" -eq 1
+
+  # Published advisories in the dependencies that ship (CONVENTIONS.md 8.2).
+  # Deliberately not part of the required check "Build": a newly published
+  # advisory must be visible at once, but it must not block unrelated pull
+  # requests. vcpkg installs the manifest without the "tests" feature, so
+  # the SBOM holds exactly the shipped ports.
+  dependency-scan:
+    name: Dependency vulnerability scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          cache-key: sbom
+
+      - name: Install the shipped dependencies
+        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-install-root=build/sbom/vcpkg_installed'
+
+      - name: Generate the SPDX SBOM of the shipped dependencies
+        run: python3 .github/scripts/vcpkg-sbom.py build/sbom/vcpkg_installed/x64-linux build/sbom/newgui.spdx.json
+
+      # Fails the job when a dependency is affected by a known advisory.
+      # Exceptions go into osv-scanner.toml with reason and expiry date, see
+      # the script.
+      - name: Scan the SBOM against the OSV database
+        run: python3 .github/scripts/osv-scan.py build/sbom/newgui.spdx.json
+
+      # Kept regardless of the scan result, so a red run leaves behind the
+      # exact dependency set it judged.
+      - name: Upload SBOM
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-spdx
+          path: build/sbom/newgui.spdx.json
+          if-no-files-found: error
+
   # The rationale blocks of the tests feed the test-evidence page of the docs
   # site (CONVENTIONS.md, section 8.3); a malformed one fails here, before it
   # can reach the page. Reads the sources only, no build needed.
@@ -100,7 +190,7 @@ jobs:
   build:
     name: Build
     if: always()
-    needs: [linux, windows, test-rationale]
+    needs: [linux, windows, reproducible, test-rationale]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -108,7 +198,9 @@ jobs:
         env:
           LINUX: ${{ needs.linux.result }}
           WINDOWS: ${{ needs.windows.result }}
+          REPRODUCIBLE: ${{ needs.reproducible.result }}
           RATIONALE: ${{ needs.test-rationale.result }}
         run: |
-          echo "linux: $LINUX, windows: $WINDOWS, test rationale: $RATIONALE"
-          test "$LINUX" = success && test "$WINDOWS" = success && test "$RATIONALE" = success
+          echo "linux: $LINUX, windows: $WINDOWS, reproducible: $REPRODUCIBLE, test rationale: $RATIONALE"
+          test "$LINUX" = success && test "$WINDOWS" = success \
+            && test "$REPRODUCIBLE" = success && test "$RATIONALE" = success

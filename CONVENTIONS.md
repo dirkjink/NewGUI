@@ -195,6 +195,8 @@ Grobe Größenordnung: Tage bis zwei Wochen, solange die Regeln aus Abschnitt 3 
 - **Jedes Ziel** bekommt seine Einstellungen über `ngui_configure_target()` (`cmake/NguiCompilerOptions.cmake`): C++23 ohne Compiler-Erweiterungen, Warnungsstufe, optional Warnungen als Fehler (`NGUI_WARNINGS_AS_ERRORS`, im Preset `ci` aktiv) und `-ffile-prefix-map` für reproduzierbare Builds.
 - **Tests** mit GoogleTest. Sie werden über `gtest_discover_tests` bei CTest registriert. Das Preset `ci` bricht ab, wenn keine Tests gefunden werden.
 - **Prüfung vor jedem Commit:** `cmake --workflow --preset ci` (konfigurieren, bauen, testen mit Warnungen als Fehler).
+- **Reproduzierbare Builds:** Gleicher Commit und gleicher Compiler ergeben byte-identische Artefakte, unabhängig vom Ablageort. Dafür sorgen `-ffile-prefix-map` und `-Wdate-time` (kein `__DATE__`/`__TIME__`). Der Build-Workflow baut die Bibliothek an zwei Orten und vergleicht die Prüfsummen (Job `reproducible`, Teil des Pflicht-Checks).
+- **SBOM und Schwachstellen-Scan:** Die SBOM (SPDX 2.3) fasst die SPDX-Dokumente zusammen, die vcpkg je Port erzeugt, ohne das Feature `tests` und ohne vcpkgs Hilfsports (`.github/scripts/vcpkg-sbom.py`). `.github/scripts/osv-scan.py` prüft die Upstream-Quellen gegen OSV, bei jedem PR, auf `main` und wöchentlich. Eine Ausnahme kommt nur mit Begründung und Ablaufdatum in `osv-scanner.toml`, das Gate wird nicht entfernt.
 - **Preset `docs`** (`cmake --workflow --preset docs`, GCC oder Clang): instrumentierter Build (`NGUI_COVERAGE`), Testlauf mit JUnit-Ausgabe (`build/docs/test-results.xml`) und API-Referenz mit Doxygen (`NGUI_BUILD_API_DOCS`, Ziel `ngui_api_docs`). Der Docs-Workflow erzeugt daraus die Doku-Site (Abschnitt 8.3).
 
 ### 8.3 Tests, Nachweis und API-Dokumentation

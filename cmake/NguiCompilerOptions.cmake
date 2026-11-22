@@ -29,8 +29,10 @@ function(ngui_configure_target target)
             target_compile_options(${target} PRIVATE /WX)
         endif()
     else()
+        # -Wdate-time: __DATE__ and __TIME__ would make the objects differ
+        # from build to build (reproducible builds, CONVENTIONS.md 8.2).
         target_compile_options(${target} PRIVATE
-            -Wall -Wextra -Wpedantic)
+            -Wall -Wextra -Wpedantic -Wdate-time)
         if(NGUI_WARNINGS_AS_ERRORS)
             target_compile_options(${target} PRIVATE -Werror)
         endif()

@@ -24,7 +24,8 @@ NewGUI verarbeitet Daten, die nicht von der Anwendung selbst stammen: Eingaben v
 Bereits umgesetzte Maßnahmen:
 
 - **Der Code wird statisch analysiert.** Der Workflow CodeQL untersucht die Bibliothek (C++) und die Workflow-Definitionen bei jeder Änderung und wöchentlich. Die Ergebnisse stehen unter Security → Code scanning.
-- **Abhängigkeiten werden aktuell gehalten.** Dependabot schlägt Aktualisierungen der vcpkg-Baseline und der per SHA gepinnten Actions vor.
+- **Abhängigkeiten werden laufend geprüft.** Der Build-Workflow erzeugt eine SBOM (SPDX 2.3) der ausgelieferten vcpkg-Abhängigkeiten und schlägt fehl, wenn eine davon von einer in [OSV](https://osv.dev/) bekannten Schwachstelle betroffen ist, bei jeder Änderung und wöchentlich. Die SBOM liegt jedem Lauf als Artefakt bei. Dependabot schlägt Aktualisierungen der vcpkg-Baseline und der per SHA gepinnten Actions vor.
+- **Der Build ist reproduzierbar.** Gleicher Commit und gleicher Compiler ergeben byte-identische Artefakte. Der Build-Workflow prüft das bei jeder Änderung.
 - **Die Aufstellung des Repositorys wird öffentlich bewertet.** Das OpenSSF-Scorecard-Badge im README verweist auf die aktuelle Bewertung je Prüfung. Sie ist ein Hinweis auf die Aufstellung, keine Note: Einige Prüfungen setzen ein Projekt mit mehreren Maintainern und Pflicht-Reviews voraus und fallen bei einem einzelnen Maintainer zwangsläufig niedrig aus. Bewusst in Kauf genommene Abzüge sind an der Stelle der Entscheidung begründet, siehe den Kommentar zu `repo_token` in `.github/workflows/scorecard.yml`.
 
-Fuzzing, ein Schwachstellen-Scan über eine SBOM und Build-Provenance (SLSA) für Releases folgen und werden hier ergänzt, sobald sie eingerichtet sind.
+Fuzzing und Build-Provenance (SLSA) für Releases folgen und werden hier ergänzt, sobald sie eingerichtet sind.
