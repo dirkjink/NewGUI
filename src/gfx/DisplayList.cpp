@@ -15,6 +15,8 @@
 #include <optional>
 #include <utility>
 
+#include <ngui/gfx/ImageRegistry.h>
+
 
 namespace ngui::gfx {
 
@@ -431,6 +433,26 @@ DisplayList::Iterator::operator++(int)
 // #pragma mark - DisplayList
 
 
+DisplayList::~DisplayList()
+{
+	for (ImageHandle image : fRetainedImages)
+		ImageRegistry::Default().Release(image);
+}
+
+
+void
+DisplayList::_RetainImages()
+{
+	// Only the images the registry knows: a deserialized list may name
+	// handles of another process, which this process may hand out later for
+	// other images.
+	for (ImageHandle image : fImages) {
+		if (ImageRegistry::Default().Retain(image))
+			fRetainedImages.push_back(image);
+	}
+}
+
+
 Rect
 DisplayList::Bounds() const
 {
@@ -668,6 +690,7 @@ DisplayList::_Deserialize(std::span<const std::byte> data, int depth)
 
 	if (!rest.empty())
 		return _Bad("trailing bytes after the display list");
+	list->_RetainImages();
 	return DisplayListRef(std::move(list));
 }
 

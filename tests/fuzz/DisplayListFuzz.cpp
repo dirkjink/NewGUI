@@ -24,34 +24,41 @@ using ngui::gfx::Op;
 using ngui::gfx::OpCode;
 
 
-// Reads every array of every operation, so that the sanitizers see any
-// access the backends would make; returns a value that depends on all of
-// it, so that nothing is optimized away.
-std::uint64_t
+// Where the values read by Touch() go, so that the reads are not optimized
+// away.
+volatile std::uint64_t sSink = 0;
+
+
+// Reads every array of every operation, of this list and of its children,
+// so that the sanitizers see any access a backend would make; returns the
+// number of operations of this list the iterator yielded.
+std::uint32_t
 Touch(const DisplayList& list)
 {
-	std::uint64_t sum = list.OpCount();
+	std::uint64_t sum = 0;
 	for (std::uint32_t i = 0; i < list.ClipCount(); i++) {
 		for (const auto& rect : list.Clip(i))
-			sum += static_cast<std::uint64_t>(rect.x0 ^ rect.y1);
+			sum += static_cast<std::uint32_t>(rect.x0) ^ static_cast<std::uint32_t>(rect.y1);
 	}
+	std::uint32_t count = 0;
 	for (const Op& op : list.Ops()) {
+		count++;
 		sum += op.ClipIndex() + op.Payload().size();
 		switch (op.Code()) {
 			case OpCode::FillConvexPolygon:
 			case OpCode::StrokePolyline:
 				for (const auto& point : op.Points())
-					sum += static_cast<std::uint64_t>(point.x != point.y);
+					sum += point.x != point.y ? 1 : 0;
 				break;
 			case OpCode::DrawLines:
 				for (const auto& line : op.Lines())
-					sum += static_cast<std::uint64_t>(line.color.a > 0.5f);
+					sum += line.color.a > 0.5f ? 1 : 0;
 				break;
 			case OpCode::DrawGlyphRun:
 				for (std::uint32_t glyph : op.Glyphs())
 					sum += glyph;
 				for (const auto& position : op.Positions())
-					sum += static_cast<std::uint64_t>(position.x > 0);
+					sum += position.x > 0 ? 1 : 0;
 				for (std::uint32_t cluster : op.Clusters())
 					sum += cluster;
 				for (char8_t c : op.Text())
@@ -62,8 +69,9 @@ Touch(const DisplayList& list)
 		}
 	}
 	for (const auto& child : list.Children())
-		sum += Touch(*child);
-	return sum;
+		Touch(*child);
+	sSink = sSink + sum;
+	return count;
 }
 
 
@@ -91,5 +99,5 @@ NGUI_FUZZ_TARGET(DisplayList)
 	const std::vector<std::byte> again = (*list)->Serialize();
 	NGUI_FUZZ_CHECK(again.size() == data.size()
 		&& std::equal(again.begin(), again.end(), std::as_bytes(data).begin()));
-	NGUI_FUZZ_CHECK(Touch(**list) >= (*list)->OpCount());
+	NGUI_FUZZ_CHECK(Touch(**list) == (*list)->OpCount());
 }
