@@ -8,7 +8,9 @@ configure_file(
     @ONLY)
 
 add_library(ngui
-    Version.cpp)
+    Error.cpp
+    Version.cpp
+    gfx/RRect.cpp)
 add_library(ngui::ngui ALIAS ngui)
 
 target_include_directories(ngui

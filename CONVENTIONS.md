@@ -221,7 +221,7 @@ Grobe Größenordnung: Tage bis zwei Wochen, solange die Regeln aus Abschnitt 3 
   - **Fuzzing, nachts** im Workflow `fuzz.yml`: libFuzzer mit AddressSanitizer und UndefinedBehaviorSanitizer (Preset `fuzz`, nur Clang, `CC=clang CXX=clang++`), je Ziel ein eigener Job. Lokal: `cmake --preset fuzz && cmake --build --preset fuzz`, dann `build/fuzz/tests/ngui_fuzz_<Name> <Arbeitsverzeichnis>`.
 
   Ein Fund (Artefakt `fuzz-finding-<Name>`) kommt nach `tests/fuzz/corpus/<Name>/` und ist damit dauerhaft eine Regressionseingabe. Danach wird der Code korrigiert. Die Ziele werden über den Dateinamen gefunden, eine Liste der Ziele gibt es nicht.
-- **API-Dokumentation:** Jedes Element der öffentlichen Header bekommt einen Doxygen-Kommentar `/*! */` (bei Aufzählungen und Feldern auch nachgestellt als `/*!< */`). Doxygen bricht bei einem undokumentierten Element ab. Namensräume und die Hauptseite der Referenz sind in `docs/api/*.dox` dokumentiert.
+- **API-Dokumentation:** Jedes Element der öffentlichen Header bekommt einen Doxygen-Kommentar `/*! */`. Bei Feldern, Aufzählungswerten und Methoden mit kurzer Beschreibung steht er nachgestellt als `/*!< */`: bei Feldern in derselben Zeile, bei Methoden in der Zeile darunter, eingerückt bis zur Namensspalte plus ein Tab. So bleibt die tabellarische Klassendeklaration (Abschnitt 4.5) lesbar. Doxygen bricht bei einem undokumentierten Element ab. Namensräume und die Hauptseite der Referenz sind in `docs/api/*.dox` dokumentiert.
 
 ### 8.4 Release
 
