@@ -10,6 +10,7 @@ configure_file(
 add_library(ngui
     Error.cpp
     Version.cpp
+    gfx/LinearGradient.cpp
     gfx/RRect.cpp
     gfx/Region.cpp
     gfx/RegionSupport.cpp)
