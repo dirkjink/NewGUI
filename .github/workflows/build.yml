@@ -1,0 +1,137 @@
+# Copyright 2026, The NewGUI Authors. All rights reserved.
+# Distributed under the terms of the MIT License.
+# SPDX-License-Identifier: MIT
+
+# Configure, build and test with warnings as errors (preset "ci") on all
+# supported compilers. The job "Build" summarizes the matrix and is the
+# required status check for the branch "main".
+
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite
+  VCPKG_DISABLE_METRICS: "1"
+
+jobs:
+  linux:
+    name: Linux (${{ matrix.compiler.name }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - { name: gcc-13, cc: gcc-13, cxx: g++-13 }
+          - { name: gcc-14, cc: gcc-14, cxx: g++-14 }
+          - { name: clang-17, cc: clang-17, cxx: clang++-17 }
+          - { name: clang-18, cc: clang-18, cxx: clang++-18 }
+    env:
+      CC: ${{ matrix.compiler.cc }}
+      CXX: ${{ matrix.compiler.cxx }}
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read vcpkg baseline
+        id: baseline
+        run: echo "sha=$(jq -r '."builtin-baseline"' vcpkg.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out vcpkg at the baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: microsoft/vcpkg
+          ref: ${{ steps.baseline.outputs.sha }}
+          path: vcpkg
+          persist-credentials: false
+
+      - name: Bootstrap vcpkg
+        run: ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+      - name: Install Ninja
+        run: command -v ninja || (sudo apt-get update && sudo apt-get install -y ninja-build)
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .vcpkg-cache
+          key: vcpkg-linux-${{ matrix.compiler.name }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-linux-${{ matrix.compiler.name }}-
+
+      - name: Configure, build and test
+        run: cmake --workflow --preset ci
+
+  windows:
+    name: Windows (msvc-2022)
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read vcpkg baseline
+        id: baseline
+        shell: bash
+        run: echo "sha=$(jq -r '."builtin-baseline"' vcpkg.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out vcpkg at the baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: microsoft/vcpkg
+          ref: ${{ steps.baseline.outputs.sha }}
+          path: vcpkg
+          persist-credentials: false
+
+      - name: Bootstrap vcpkg
+        shell: cmd
+        run: vcpkg\bootstrap-vcpkg.bat -disableMetrics
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .vcpkg-cache
+          key: vcpkg-windows-msvc-2022-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-windows-msvc-2022-
+
+      # The developer environment provides cl, CMake and Ninja. It may set
+      # VCPKG_ROOT to the copy bundled with Visual Studio, so it is set
+      # afterwards.
+      - name: Configure, build and test
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set "VSINSTALL=%%i"
+          call "%VSINSTALL%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          set "VCPKG_ROOT=%GITHUB_WORKSPACE%\vcpkg"
+          cmake --workflow --preset ci
+
+  build:
+    name: Build
+    if: always()
+    needs: [linux, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check results
+        env:
+          LINUX: ${{ needs.linux.result }}
+          WINDOWS: ${{ needs.windows.result }}
+        run: |
+          echo "linux: $LINUX, windows: $WINDOWS"
+          test "$LINUX" = success && test "$WINDOWS" = success
