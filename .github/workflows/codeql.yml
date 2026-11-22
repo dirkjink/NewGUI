@@ -55,8 +55,15 @@ jobs:
         with:
           cache-key: codeql
 
+      # Overlay databases (incremental PR analysis) need build-mode none.
+      # For C++ the manual build stays: it is more precise, and a build-less
+      # extraction would miss the headers vcpkg installs. Without this, init
+      # warns and falls back to a full database anyway. Drop it once overlay
+      # analysis supports build-mode manual.
       - name: Initialize CodeQL
         uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        env:
+          CODEQL_OVERLAY_DATABASE_MODE: ${{ matrix.build-mode == 'manual' && 'none' || '' }}
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
