@@ -29,7 +29,7 @@ Die Doku-Site **<https://dirkjink.github.io/NewGUI/>** enthält diese Dokumente,
 **Voraussetzungen:**
 
 - CMake 3.25 oder neuer und Ninja
-- ein C++23-Compiler: GCC 13+, Clang 17+ oder MSVC 2022
+- ein C++23-Compiler: GCC 13+, Clang 19+ oder MSVC 2022
 - [vcpkg](https://github.com/microsoft/vcpkg), die Umgebungsvariable `VCPKG_ROOT` zeigt auf das vcpkg-Verzeichnis
 
 Die Abhängigkeiten stehen in `vcpkg.json` (Manifest-Modus mit festgeschriebener Baseline). vcpkg installiert sie beim Konfigurieren automatisch.
@@ -54,7 +54,7 @@ cmake --workflow --preset ci
 | `docs` | Debug | Coverage, JUnit-Ausgabe der Tests, API-Referenz (braucht GCC oder Clang, Doxygen 1.9.8+) |
 | `fuzz` | RelWithDebInfo | libFuzzer-Programme mit ASan und UBSan (braucht Clang: `CC=clang CXX=clang++`) |
 
-Die CI (`.github/workflows/build.yml`) führt den Workflow `ci` mit GCC 13 und 14, Clang 17 und 18 unter Linux sowie MSVC 2022 unter Windows aus. vcpkg wird dort genau auf dem Commit der `builtin-baseline` ausgecheckt. Der Job `Build` fasst die Ergebnisse zusammen und ist Pflicht-Check für `main`.
+Die CI (`.github/workflows/build.yml`) führt den Workflow `ci` mit GCC 13 und 14, Clang 19 und 20 unter Linux sowie MSVC 2022 unter Windows aus. vcpkg wird dort genau auf dem Commit der `builtin-baseline` ausgecheckt. Der Job `Build` fasst die Ergebnisse zusammen und ist Pflicht-Check für `main`.
 
 Der Build-Workflow prüft außerdem, dass der Build reproduzierbar ist (die Bibliothek wird an zwei Orten gebaut, die Prüfsummen müssen übereinstimmen). Daneben erzeugt er eine SBOM (SPDX 2.3) der ausgelieferten vcpkg-Abhängigkeiten und prüft sie gegen die [OSV-Datenbank](https://osv.dev/), auch wöchentlich ohne neuen Commit. Einzelheiten stehen in [`CONVENTIONS.md`](CONVENTIONS.md), Abschnitt 8.2.
 

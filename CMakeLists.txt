@@ -16,6 +16,16 @@ option(NGUI_COVERAGE "Instrument for coverage measurement (GCC and Clang)" OFF)
 option(NGUI_BUILD_API_DOCS "Add the target ngui_api_docs (requires Doxygen)" OFF)
 option(NGUI_FUZZING "Build the libFuzzer executables with sanitizers (Clang)" OFF)
 
+# Minimum compilers (CONVENTIONS.md, section 1). Clang 17 and 18 do get
+# C++23, but not std::expected from libstdc++, so they fail later with less
+# helpful errors.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13)
+    message(FATAL_ERROR "NewGUI requires GCC 13 or newer")
+endif()
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19)
+    message(FATAL_ERROR "NewGUI requires Clang 19 or newer")
+endif()
+
 if(NGUI_COVERAGE AND MSVC)
     message(FATAL_ERROR "NGUI_COVERAGE requires GCC or Clang")
 endif()
