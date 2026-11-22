@@ -10,6 +10,8 @@ configure_file(
 add_library(ngui
     Error.cpp
     Version.cpp
+    gfx/DisplayList.cpp
+    gfx/DisplayListBuilder.cpp
     gfx/LinearGradient.cpp
     gfx/RRect.cpp
     gfx/Region.cpp
