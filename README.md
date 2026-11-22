@@ -2,6 +2,8 @@
 
 [![Build](https://github.com/dirkjink/NewGUI/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/dirkjink/NewGUI/actions/workflows/build.yml)
 [![CodeQL](https://github.com/dirkjink/NewGUI/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/dirkjink/NewGUI/actions/workflows/codeql.yml)
+[![Docs](https://github.com/dirkjink/NewGUI/actions/workflows/docs.yml/badge.svg?branch=main)](https://dirkjink.github.io/NewGUI/)
+[![Coverage](https://dirkjink.github.io/NewGUI/coverage/badge.svg)](https://dirkjink.github.io/NewGUI/coverage/)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/dirkjink/NewGUI/badge)](https://scorecard.dev/viewer/?uri=github.com/dirkjink/NewGUI)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![C++](https://img.shields.io/badge/C%2B%2B-23-00599C?logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/23)
@@ -13,6 +15,8 @@ Ein plattformübergreifendes UI-Toolkit in C++23. Seine Architektur orientiert s
 **Status:** frühe Entwurfs- und Port-Phase. Es gibt noch keine stabile API.
 
 ## Dokumente
+
+Die Doku-Site **<https://dirkjink.github.io/NewGUI/>** enthält diese Dokumente, den Test-Nachweis (jeder Test des letzten Laufs auf `main` mit Begründung), den Coverage-Bericht und die API-Referenz. Alles außer den Dokumenten selbst wird bei jedem Lauf neu erzeugt.
 
 | Dokument | Inhalt |
 |---|---|
@@ -47,10 +51,11 @@ cmake --workflow --preset ci
 | `debug` | Debug | für die Entwicklung |
 | `release` | Release | optimiert |
 | `ci` | RelWithDebInfo | Warnungen als Fehler |
+| `docs` | Debug | Coverage, JUnit-Ausgabe der Tests, API-Referenz (braucht GCC oder Clang, Doxygen 1.9.8+) |
 
 Die CI (`.github/workflows/build.yml`) führt den Workflow `ci` mit GCC 13 und 14, Clang 17 und 18 unter Linux sowie MSVC 2022 unter Windows aus. vcpkg wird dort genau auf dem Commit der `builtin-baseline` ausgecheckt. Der Job `Build` fasst die Ergebnisse zusammen und ist Pflicht-Check für `main`.
 
-Weitere Workflows: `codeql.yml` (statische Analyse von C++ und den Workflows), `scorecard.yml` (OpenSSF Scorecard). Dependabot hält die vcpkg-Baseline und die gepinnten Actions aktuell.
+Weitere Workflows: `docs.yml` (Doku-Site nach GitHub Pages, bei PRs nur gebaut), `codeql.yml` (statische Analyse von C++ und den Workflows), `scorecard.yml` (OpenSSF Scorecard). Dependabot hält die vcpkg-Baseline und die gepinnten Actions aktuell.
 
 ## Lizenz
 

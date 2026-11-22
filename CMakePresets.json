@@ -42,6 +42,17 @@
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "NGUI_WARNINGS_AS_ERRORS": "ON"
       }
+    },
+    {
+      "name": "docs",
+      "displayName": "Docs (coverage, test results, API reference)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "NGUI_COVERAGE": "ON",
+        "NGUI_BUILD_API_DOCS": "ON",
+        "NGUI_WARNINGS_AS_ERRORS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -56,6 +67,17 @@
     {
       "name": "ci",
       "configurePreset": "ci"
+    },
+    {
+      "name": "docs",
+      "configurePreset": "docs"
+    },
+    {
+      "name": "docs-api",
+      "configurePreset": "docs",
+      "targets": [
+        "ngui_api_docs"
+      ]
     }
   ],
   "testPresets": [
@@ -83,6 +105,15 @@
       "name": "ci",
       "inherits": "base",
       "configurePreset": "ci"
+    },
+    {
+      "name": "docs",
+      "inherits": "base",
+      "configurePreset": "docs",
+      "output": {
+        "outputOnFailure": true,
+        "outputJUnitFile": "test-results.xml"
+      }
     }
   ],
   "workflowPresets": [
@@ -100,6 +131,27 @@
         {
           "type": "test",
           "name": "ci"
+        }
+      ]
+    },
+    {
+      "name": "docs",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "docs"
+        },
+        {
+          "type": "build",
+          "name": "docs"
+        },
+        {
+          "type": "test",
+          "name": "docs"
+        },
+        {
+          "type": "build",
+          "name": "docs-api"
         }
       ]
     }

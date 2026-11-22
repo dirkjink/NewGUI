@@ -1,0 +1,152 @@
+# Copyright 2026, The NewGUI Authors. All rights reserved.
+# Distributed under the terms of the MIT License.
+# SPDX-License-Identifier: MIT
+
+# Builds the docs site and publishes it to GitHub Pages: the project
+# documents, the test-evidence page, the coverage report with its badge and
+# the API reference. Everything on the site is generated from the commit
+# being deployed - the site never shows numbers a human typed.
+#
+# Pull requests build the site without deploying it, so a change that breaks
+# the docs (a failing --strict build, a Doxygen warning) shows up before the
+# merge rather than as a stale site afterwards.
+
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - docs/**
+      - mkdocs.yml
+      - "*.md"
+      # The test evidence, the coverage and the API reference are generated
+      # from the sources and the tests.
+      - include/**
+      - src/**
+      - tests/**
+      - cmake/**
+      - CMakeLists.txt
+      - CMakePresets.json
+      - vcpkg.json
+      - .github/workflows/docs.yml
+      - .github/scripts/**
+      - .github/actions/**
+      - .github/docs-requirements.txt
+  pull_request:
+    paths: *paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # The coverage notes must be read by the gcov of the same compiler.
+      CC: gcc-13
+      CXX: g++-13
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          cache-key: docs
+
+      # From the signed Ubuntu archive; the version is fixed per Ubuntu
+      # release (1.9.8 on 24.04, the minimum cmake/NguiApiDocs.cmake asks for).
+      - name: Install Doxygen
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends doxygen
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      # Installed from a fully resolved, hash-pinned requirements file: a
+      # compromised or yanked release cannot silently enter the docs build.
+      # Regenerate after changing the doc toolchain with:
+      #   pip-compile --generate-hashes --strip-extras \
+      #     --output-file=.github/docs-requirements.txt <(printf 'mkdocs-material\ngcovr\n')
+      # Dependabot keeps the pins current (pip ecosystem, /.github).
+      - name: Install MkDocs Material and gcovr
+        run: pip install --require-hashes -r .github/docs-requirements.txt
+
+      # Instrumented build, test run with JUnit output and API reference
+      # (Doxygen warnings are errors). A red suite blocks the deploy on
+      # purpose: stale docs beat docs that certify a broken build.
+      - name: Build, test and generate the API reference
+        run: cmake --workflow --preset docs
+
+      # Library code only: the tests and the generated headers in the build
+      # directory are not what the coverage is about.
+      - name: Coverage report
+        run: |
+          mkdir -p build/docs/coverage
+          gcovr --root . --filter 'src/' --filter 'include/' \
+            --gcov-executable gcov-13 \
+            --html-details build/docs/coverage/index.html --html-title "NewGUI – Coverage" \
+            --json-summary build/docs/coverage-summary.json \
+            --print-summary \
+            build/docs
+
+      - name: Generate the test-evidence page
+        run: python3 .github/scripts/generate-test-catalog.py
+
+      - name: Generate the project document pages
+        run: python3 .github/scripts/generate-doc-pages.py
+
+      - name: Build site
+        run: mkdocs build --strict
+
+      # --strict does not fail when a nav entry points at an excluded file -
+      # MkDocs only logs an INFO line and drops the page. The generated pages
+      # are asserted by path.
+      - name: Assert the generated pages made it into the site
+        run: |
+          for page in tests/test-evidence project/CONVENTIONS project/canvas-core-profil-spezifikation project/toolkit-gesamtumfang project/SECURITY; do
+            test -f "site/$page/index.html" || { echo "::error::missing page: $page"; exit 1; }
+          done
+
+      - name: Add API reference, coverage report and badge to site
+        run: |
+          cp -r build/docs/api/html site/api
+          cp -r build/docs/coverage site/coverage
+          python3 .github/scripts/generate-coverage-badge.py site/coverage/badge.svg build/docs/coverage-summary.json
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    name: Deploy
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    # One deployment at a time, and a running one is never cancelled.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

@@ -21,6 +21,13 @@ constexpr bool kIsAlias = std::is_same_v<Alias, Expected>;
 
 TEST(SupportDefsTest, AliasesMatchFixedWidthTypes)
 {
+	// What is tested: The integer aliases for ported Haiku code (int8 ...
+	// uint64) against the fixed-width types of <cstdint>.
+	// Success criteria: Every alias is the same type as its std:: counterpart
+	// (checked at compile time), and two samples have the expected size.
+	// Why it matters: Ported code relies on the exact widths, and the switch
+	// to the target conventions (CONVENTIONS.md 7) replaces the aliases by the
+	// std:: types one to one, which is only safe if they are identical.
 	static_assert(kIsAlias<ngui::int8, std::int8_t>);
 	static_assert(kIsAlias<ngui::uint8, std::uint8_t>);
 	static_assert(kIsAlias<ngui::int16, std::int16_t>);

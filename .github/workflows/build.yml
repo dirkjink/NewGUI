@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 # Configure, build and test with warnings as errors (preset "ci") on all
-# supported compilers. The job "Build" summarizes the matrix and is the
-# required status check for the branch "main".
+# supported compilers, and check the rationale blocks of the tests. The job
+# "Build" summarizes all jobs and is the required status check for "main".
 #
 # All actions are pinned to commit SHAs, not mutable tags: a moved tag would
 # otherwise run foreign code with this workflow's token. Dependabot keeps the
@@ -81,10 +81,26 @@ jobs:
           set "VCPKG_ROOT=%GITHUB_WORKSPACE%\vcpkg"
           cmake --workflow --preset ci
 
+  # The rationale blocks of the tests feed the test-evidence page of the docs
+  # site (CONVENTIONS.md, section 8.3); a malformed one fails here, before it
+  # can reach the page. Reads the sources only, no build needed.
+  test-rationale:
+    name: Test rationale
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the rationale blocks
+        run: python3 .github/scripts/generate-test-catalog.py --check
+
   build:
     name: Build
     if: always()
-    needs: [linux, windows]
+    needs: [linux, windows, test-rationale]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -92,6 +108,7 @@ jobs:
         env:
           LINUX: ${{ needs.linux.result }}
           WINDOWS: ${{ needs.windows.result }}
+          RATIONALE: ${{ needs.test-rationale.result }}
         run: |
-          echo "linux: $LINUX, windows: $WINDOWS"
-          test "$LINUX" = success && test "$WINDOWS" = success
+          echo "linux: $LINUX, windows: $WINDOWS, test rationale: $RATIONALE"
+          test "$LINUX" = success && test "$WINDOWS" = success && test "$RATIONALE" = success

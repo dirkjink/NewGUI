@@ -21,3 +21,9 @@ updates:
       codeql-action:
         patterns:
           - github/codeql-action*
+  # The hash-pinned documentation toolchain (MkDocs Material, gcovr): pinning
+  # keeps a compromised release out, Dependabot keeps the pin from going stale.
+  - package-ecosystem: pip
+    directory: /.github
+    schedule:
+      interval: weekly

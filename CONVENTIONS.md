@@ -195,3 +195,23 @@ Grobe Größenordnung: Tage bis zwei Wochen, solange die Regeln aus Abschnitt 3 
 - **Jedes Ziel** bekommt seine Einstellungen über `ngui_configure_target()` (`cmake/NguiCompilerOptions.cmake`): C++23 ohne Compiler-Erweiterungen, Warnungsstufe, optional Warnungen als Fehler (`NGUI_WARNINGS_AS_ERRORS`, im Preset `ci` aktiv) und `-ffile-prefix-map` für reproduzierbare Builds.
 - **Tests** mit GoogleTest. Sie werden über `gtest_discover_tests` bei CTest registriert. Das Preset `ci` bricht ab, wenn keine Tests gefunden werden.
 - **Prüfung vor jedem Commit:** `cmake --workflow --preset ci` (konfigurieren, bauen, testen mit Warnungen als Fehler).
+- **Preset `docs`** (`cmake --workflow --preset docs`, GCC oder Clang): instrumentierter Build (`NGUI_COVERAGE`), Testlauf mit JUnit-Ausgabe (`build/docs/test-results.xml`) und API-Referenz mit Doxygen (`NGUI_BUILD_API_DOCS`, Ziel `ngui_api_docs`). Der Docs-Workflow erzeugt daraus die Doku-Site (Abschnitt 8.3).
+
+### 8.3 Tests, Nachweis und API-Dokumentation
+
+- **Begründungsblock:** Ein Test beginnt mit drei Kommentaren in genau dieser Reihenfolge: `What is tested:`, `Success criteria:`, `Why it matters:`. Ein Label darf über mehrere Zeilen gehen, ein viertes Label gibt es nicht. Folgen Given/When/Then-Kommentare, steht davor eine Zeile, die nur `//` enthält. Für einen Test ohne getrennte Phasen genügt `// Given / When / Then` bzw. `// When / Then`, die Phasen-Kommentare sind optional.
+
+  ```cpp
+  TEST(RectTest, IntersectionIsHalfOpen)
+  {
+  	// What is tested: ...
+  	// Success criteria: ...
+  	// Why it matters: ...
+  	//
+  	// Given
+  	...
+  }
+  ```
+
+- Aus den Blöcken und dem Testlauf erzeugt `.github/scripts/generate-test-catalog.py` die Seite **Test-Nachweis** der Doku-Site. Der Build-Workflow prüft die Form der Blöcke bei jedem PR (`--check`). Die erzeugten Seiten (`docs/tests/`, `docs/project/`) werden **nicht** eingecheckt und nicht von Hand bearbeitet.
+- **API-Dokumentation:** Jedes Element der öffentlichen Header bekommt einen Doxygen-Kommentar `/*! */` (bei Aufzählungen und Feldern auch nachgestellt als `/*!< */`). Doxygen bricht bei einem undokumentierten Element ab. Namensräume und die Hauptseite der Referenz sind in `docs/api/*.dox` dokumentiert.
