@@ -16,6 +16,7 @@ add_executable(ngui_tests
     FlagsTest.cpp
     SupportDefsTest.cpp
     VersionTest.cpp
+    gfx/CanvasTest.cpp
     gfx/ColorTest.cpp
     gfx/DisplayListTest.cpp
     gfx/IntRectTest.cpp
