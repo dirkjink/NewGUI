@@ -17,6 +17,7 @@ add_executable(ngui_tests
     SupportDefsTest.cpp
     VersionTest.cpp
     gfx/ColorTest.cpp
+    gfx/DisplayListTest.cpp
     gfx/IntRectTest.cpp
     gfx/LinearGradientTest.cpp
     gfx/LineTest.cpp
@@ -28,6 +29,10 @@ add_executable(ngui_tests
     gfx/SizeTest.cpp
     fuzz/FuzzRegressionTest.cpp
     ${fuzzTargetSources})
+
+# The tests of internal classes (DisplayListBuilder ...) include their
+# private headers from src/.
+target_include_directories(ngui_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
 target_compile_definitions(ngui_tests
     PRIVATE
