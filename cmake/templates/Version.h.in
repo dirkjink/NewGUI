@@ -12,9 +12,13 @@
 namespace ngui {
 
 
+/*! Major version of the headers. */
 inline constexpr int kVersionMajor = @PROJECT_VERSION_MAJOR@;
+/*! Minor version of the headers. */
 inline constexpr int kVersionMinor = @PROJECT_VERSION_MINOR@;
+/*! Patch version of the headers. */
 inline constexpr int kVersionPatch = @PROJECT_VERSION_PATCH@;
+/*! Version of the headers as "major.minor.patch". */
 inline constexpr const char* kVersionString = "@PROJECT_VERSION@";
 
 

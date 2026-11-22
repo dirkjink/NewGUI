@@ -13,3 +13,8 @@ compile_commands.json
 /.idea/
 /.vscode/
 /.cache/
+
+# Docs site: generated pages and output (.github/scripts/, mkdocs build)
+/docs/project/
+/docs/tests/
+/site/

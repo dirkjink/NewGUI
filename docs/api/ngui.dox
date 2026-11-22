@@ -1,0 +1,24 @@
+/*
+ * Copyright 2026, The NewGUI Authors. All rights reserved.
+ * Distributed under the terms of the MIT License.
+ * SPDX-License-Identifier: MIT
+ */
+
+
+/*!
+	\mainpage NewGUI API Reference
+
+	NewGUI is a cross-platform UI toolkit in C++23 whose architecture follows
+	the Interface Kit of Haiku: one looper per window, messages, a persistent
+	view tree, constraint layout and exchangeable looks.
+
+	The project is in its early port phase; there is no stable API yet. The
+	specification, the conventions and the test evidence are on the
+	<a href="../">documentation site</a>.
+*/
+
+
+/*!
+	\namespace ngui
+	\brief All of NewGUI. Submodules are nested namespaces (ngui::gfx ...).
+*/

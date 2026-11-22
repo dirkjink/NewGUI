@@ -12,11 +12,21 @@ project(NewGUI
 
 option(NGUI_BUILD_TESTS "Build the unit tests" ${PROJECT_IS_TOP_LEVEL})
 option(NGUI_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+option(NGUI_COVERAGE "Instrument for coverage measurement (GCC and Clang)" OFF)
+option(NGUI_BUILD_API_DOCS "Add the target ngui_api_docs (requires Doxygen)" OFF)
+
+if(NGUI_COVERAGE AND MSVC)
+    message(FATAL_ERROR "NGUI_COVERAGE requires GCC or Clang")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 include(NguiCompilerOptions)
 
 add_subdirectory(src)
+
+if(NGUI_BUILD_API_DOCS)
+    include(NguiApiDocs)
+endif()
 
 if(NGUI_BUILD_TESTS)
     enable_testing()
