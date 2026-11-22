@@ -18,7 +18,9 @@ add_executable(ngui_tests
     VersionTest.cpp
     gfx/ColorTest.cpp
     gfx/IntRectTest.cpp
+    gfx/LinearGradientTest.cpp
     gfx/LineTest.cpp
+    gfx/PaintTest.cpp
     gfx/PointTest.cpp
     gfx/RectTest.cpp
     gfx/RRectTest.cpp
