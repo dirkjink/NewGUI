@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Entwurf 0.1 |
 | **Datum** | 2026-11-22 |
-| **Bezug** | [`canvas-core-profil-spezifikation.md`](canvas-core-profil-spezifikation.md) (Entwurf 0.6). Die dort spezifizierten Teile (Canvas, Backends, Looks, Export, Test-Kit) werden hier nur in der Gesamtsumme aufgeführt. |
+| **Bezug** | [`canvas-core-profil-spezifikation.md`](canvas-core-profil-spezifikation.md) (Entwurf 0.7). Die dort spezifizierten Teile (Canvas, Backends, Looks, Export, Test-Kit) werden hier nur in der Gesamtsumme aufgeführt. |
 | **Grundlage** | Messung des Haiku-Quellstands (Commit `b1d497bb69`) mit `tokei`, reine Codezeilen ohne Leer- und Kommentarzeilen |
 | **Herkunft** | Mit KI-Unterstützung erstellt. Nicht als Beitrag zum Haiku-Projekt geeignet. |
 

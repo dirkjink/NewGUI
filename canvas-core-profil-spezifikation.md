@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Entwurf 0.6 (0.2: BeOS-Look als erster Port; 0.3: Austauschbarkeit der Looks; 0.4: Skia statt ImGui als erstes Backend, Blend2D als zweites; 0.5: Export, Screenshots und Test-Kit; 0.6: keine BeAPI-Kompatibilität, Kompatibilitätsschicht nur intern) |
+| **Status** | Entwurf 0.7 (0.2: BeOS-Look als erster Port; 0.3: Austauschbarkeit der Looks; 0.4: Skia statt ImGui als erstes Backend, Blend2D als zweites; 0.5: Export, Screenshots und Test-Kit; 0.6: keine BeAPI-Kompatibilität, Kompatibilitätsschicht nur intern; 0.7: Namensraum `ngui`, C++23, MIT, Port-Phase nach CONVENTIONS.md) |
 | **Datum** | 2026-11-22 |
 | **Grundlage** | Analyse des Haiku-Quellstands (Commit `b1d497bb69`): `src/kits/interface/HaikuControlLook.cpp`, `src/add-ons/control_look/FlatControlLook`, `src/add-ons/control_look/BeControlLook` sowie Stichproben aus dem übrigen Interface Kit |
 | **Herkunft** | Mit KI-Unterstützung erstellt. Nicht als Beitrag zum Haiku-Projekt geeignet (siehe `AGENTS.md` im Haiku-Repository). |
@@ -58,12 +58,15 @@ Das **Core-Profil** ist die Menge an Operationen, die *jedes* Backend vollständ
 
 Die Phasen und Konformitätsstufen sind in den Abschnitten 21.4 und 23.3 beschrieben.
 
-**Grundsatz K1: Keine Kompatibilität zu BeAPI oder Haiku.** Weder Quell- noch Binärkompatibilität ist ein Ziel. Die öffentliche API ist eine moderne C++-API: halboffene Rechtecke, ein eigener Namensraum ohne `B`-Präfix, typsichere Aufzählungen, `std::expected` statt `status_t`, klarer Besitz über Smart Pointer, keine Archivierung, keine `_Reserved`-Slots oder `Perform`-Hooks. Über Fenstergrenzen hinweg wird ausschließlich mit Nachrichten gearbeitet.
+**Grundsatz K1: Keine Kompatibilität zu BeAPI oder Haiku.** Weder Quell- noch Binärkompatibilität ist ein Ziel. Die öffentliche API ist eine moderne C++-API in **C++23** (ohne Module) unter **MIT-Lizenz**: halboffene Rechtecke, der Namensraum `ngui` (endgültig ohne `B`-Präfix, siehe K4), typsichere Aufzählungen, `std::expected` statt `status_t`, klarer Besitz über Smart Pointer, keine Archivierung, keine `_Reserved`-Slots oder `Perform`-Hooks. Über Fenstergrenzen hinweg wird ausschließlich mit Nachrichten gearbeitet.
 
 - **Konzeptionelle Nähe:** Aufteilung der Klassen, Hooks (`AttachedToWindow`, `Draw`, `MouseDown`, `FrameResized` …), gut gewählte Methodennamen (`Frame()`, `Bounds()`, `Invalidate()`) und Algorithmen orientieren sich an Haiku. So lässt sich Haiku-Code Methode für Methode übertragen, ohne dass eine Kompatibilität zugesagt wird.
 - **Kompatibilität nur intern und gezielt:** dort, wo sie Pixeltreue gegenüber Referenzen aus Haiku sichert, und zwar über die interne Kompatibilitätsschicht (Abschnitt 17).
 - **Herkunft:** Wörtlich übernommener Haiku-Code (z. B. Layout-Engine, Region, ControlLooks) behält seine MIT-Copyright-Hinweise.
 - **Stabilität:** Ab Version 1.0 gilt Semantic Versioning für die Quell-API. Eine stabile ABI wird nicht zugesagt (vgl. 18.6).
+- **K4: Port-Phase.** Bis zur ersten öffentlichen Freigabe gelten für Namen und Formatierung die Coding Guidelines von Haiku, einschließlich des `B`-Präfixes für portierte Klassen. Der Code liegt dabei bereits im Namensraum `ngui` (z. B. `ngui::BWindow`). Regeln zu Semantik und API-Gestalt (halboffene Rechtecke, `std::expected`, Besitzregeln, Nachrichten statt Locking von außen, `enum class`) gelten von Anfang an. Vor der Freigabe werden Namen und Konventionen mechanisch auf die Zielform umgestellt. Einzelheiten stehen in [`CONVENTIONS.md`](CONVENTIONS.md).
+- **K5: Gleicher Name nur bei gleicher Bedeutung.** Ein Haiku-Name wird nur für ein Element verwendet, dessen Verhalten dem Original entspricht. Bei geänderter Semantik gibt es einen neuen Namen, z. B. `ngui::gfx::Rect` statt `BRect` oder `ngui::ControlLook` statt `BControlLook`.
+- **Namen in den Codebeispielen** dieser Spezifikation folgen der Port-Phase: portierte Klassen mit `B`-Präfix (`BWindow`, `BView` …), neue Klassen ohne (`Canvas`, `ControlLook`, `DrawContext` …).
 
 **Nicht Gegenstand** dieser Spezifikation:
 - das Text-Subsystem (Font-Verwaltung, Shaping, Metriken, Umbruch). Spezifiziert wird hier nur die Schnittstelle `GlyphRun`, Abschnitt 10.
@@ -150,7 +153,7 @@ Hintergrund: Die Bevel-Rahmen der Haiku-Looks bestehen aus 1 px breiten Linien i
 ## 5. Datentypen
 
 ```cpp
-namespace ui::gfx {
+namespace ngui::gfx {
 
 struct Point { float x, y; };
 struct Size  { float w, h; };
@@ -165,7 +168,7 @@ struct Line  { Point p0, p1; Color color; };        // für DrawLines
 using ImageHandle = uint32_t;                       // 0 = ungültig
 using FontId      = uint32_t;
 
-} // namespace ui::gfx
+} // namespace ngui::gfx
 ```
 
 - `RRect`: Ist die Summe zweier benachbarter Radien größer als die betreffende Kantenlänge, werden alle Radien proportional verkleinert (wie in CSS bzw. Skia).
@@ -429,7 +432,7 @@ Das Skia-Backend ist das **Ziel-Backend** und wird als erstes implementiert, zun
 
 - Skia wird als **vorgebautes Paket** bezogen: der vcpkg-Port `skia`, die vorgebauten Bibliotheken von JetBrains (`skia-pack`) oder die Builds von Aseprite. Ein eigener Build mit `gn`/`ninja` ist nur nötig, wenn keines dieser Pakete passt.
 - Der **Milestone** (`m1xx`) wird festgeschrieben. Aktualisiert wird nur bewusst und nur mit einem vollständigen Lauf der Golden-Image-Tests.
-- Skia-Header erscheinen ausschließlich in Quelldateien des Backends (R1), das ein eigenes Bibliotheksziel bekommt (z. B. `ui-gfx-skia`).
+- Skia-Header erscheinen ausschließlich in Quelldateien des Backends (R1), das ein eigenes Bibliotheksziel bekommt (z. B. `ngui-gfx-skia`).
 - Compiler-Einstellungen (C++-Standard, RTTI, Exceptions, Defines wie `SK_GL`/`SK_VULKAN`) MÜSSEN zur Konfiguration des Pakets passen.
 - Die Binärgröße liegt bei mehreren MB. Wo das Paket es erlaubt, werden nicht benötigte Module weggelassen (z. B. PDF, SVG, Skottie).
 
@@ -577,7 +580,7 @@ Die Spalte Blend2D gilt nur, solange das Backend erhalten bleibt (Abschnitt 24, 
 ### 18.3 Schnittstelle
 
 ```cpp
-namespace ui {
+namespace ngui {
 
 struct DrawContext {
     gfx::Canvas&      canvas;     // Core-Profil (Abschnitt 6)
@@ -615,7 +618,7 @@ public:
     virtual Insets    FrameInsets(FrameType, ControlStateFlags flags) const = 0;
     virtual Insets    BackgroundInsets(BackgroundType, ControlStateFlags flags) const = 0;
     virtual float     ScrollBarWidth(Orientation) const = 0;
-    virtual ControlStateFlags Flags(const Control&) const = 0;
+    virtual ControlStateFlags Flags(const BControl&) const = 0;
 
     // Zeichnen: wirkt nur auf die DisplayList
     virtual void DrawButtonFrame(DrawContext&, gfx::Rect& rect, Color base,
@@ -627,7 +630,7 @@ public:
     // … die übrigen Draw-Methoden aus Haikus BControlLook in derselben Form
 };
 
-} // namespace ui
+} // namespace ngui
 ```
 
 **Verbindliche Regeln:**
@@ -654,7 +657,7 @@ public:
 };
 ```
 
-- Beim Start wird der Look aus der Einstellung `ui.controlLook` gewählt (Voreinstellung: `be`).
+- Beim Start wird der Look aus der Einstellung `ngui.controlLook` gewählt (Voreinstellung: `be`).
 - **L9: Prüfung der Kompatibilität.** Bevor ein Look aktiviert wird, MUSS die Registry `LookInfo::requires` und `extendedCaps` gegen die `Caps` des aktiven Backends prüfen. Bei Unverträglichkeit wird `SetCurrent` abgelehnt. Beim Start wird stattdessen der Rückfall-Look `be` (Stufe C1, auf jedem Backend lauffähig) gewählt und eine Warnung protokolliert.
 - Ein Look mit Stufe `Extended` DARF alternativ selbst über `ctx.caps` auf Core-Operationen ausweichen. Er meldet dann `requires = C2` (bzw. C1) und gilt als kompatibel.
 
@@ -668,7 +671,7 @@ Haiku kann den Look zur Laufzeit nicht wechseln. Der Grund steht als Kommentar i
 4. **L11:** Bei `LOOK_CHANGED` MUSS ein Fenster `InvalidateLayout(true)` aufrufen (wegen der Metriken, 18.2) und alle Views invalidieren. Die DisplayLists der Views werden dann mit dem neuen Look neu aufgezeichnet.
 5. Das alte Objekt wird automatisch zerstört, sobald der letzte Zyklus seinen Verweis freigibt.
 
-**Look pro Fenster:** Ein Fenster KANN einen eigenen Look setzen (`Window::SetControlLook(id)`), der den globalen überdeckt. `LOOK_CHANGED` betrifft dann nur Fenster ohne eigenen Look. Anwendungsfall: eine Live-Vorschau in einem Einstellungsdialog.
+**Look pro Fenster:** Ein Fenster KANN einen eigenen Look setzen (`BWindow::SetControlLook(id)`), der den globalen überdeckt. `LOOK_CHANGED` betrifft dann nur Fenster ohne eigenen Look. Anwendungsfall: eine Live-Vorschau in einem Einstellungsdialog.
 
 **Erlaubte Nebenwirkung:** Ändern sich die Mindestgrößen, darf sich ein Fenster nach dem Wechsel in der Größe anpassen. Dabei gelten dieselben Regeln wie bei jeder anderen Änderung des Layouts.
 
@@ -679,8 +682,8 @@ Haiku kann den Look zur Laufzeit nicht wechseln. Der Grund steht als Kommentar i
 **Looks als Plugins** (optional, Phase 4c): eine Shared Library mit einer C-Fabrikfunktion, analog zu Haikus `instantiate_control_look`:
 
 ```cpp
-extern "C" ui::ControlLook* ui_create_control_look(uint32_t interfaceVersion);
-extern "C" void             ui_destroy_control_look(ui::ControlLook*);
+extern "C" ngui::ControlLook* ngui_create_control_look(uint32_t interfaceVersion);
+extern "C" void               ngui_destroy_control_look(ngui::ControlLook*);
 ```
 
 - Die Plugins werden aus konfigurierten Verzeichnissen geladen (`dlopen` bzw. `LoadLibrary`).
@@ -721,9 +724,9 @@ struct SnapshotOptions {
     bool                includePopups = false; // Menüs und Tooltips des Fensters einblenden
 };
 
-std::future<Image> Window::Snapshot(const SnapshotOptions& = {});   // aus jedem Thread
-Image              View::Snapshot(const SnapshotOptions& = {});     // nur im Looper-Thread des Fensters
-std::future<Image> Window::CaptureFrame();                          // Ebene b
+std::future<Image> BWindow::Snapshot(const SnapshotOptions& = {});  // aus jedem Thread
+Image              BView::Snapshot(const SnapshotOptions& = {});    // nur im Looper-Thread des Fensters
+std::future<Image> BWindow::CaptureFrame();                         // Ebene b
 Status             EncodePng(const Image&, OutputStream&);
 ```
 
@@ -798,7 +801,7 @@ Das Test-Kit macht Anwendungen, die mit dem Toolkit gebaut sind, automatisiert t
 
 - Eine Implementierung von `NativeWindow` ohne Fenstersystem. Fenster rendern in Offscreen-CPU-Surfaces. Ein virtueller Bildschirm hat konfigurierbare Größe und Skalierung.
 - Eine **virtuelle Zwischenablage** und ein virtuelles Drag & Drop innerhalb des Prozesses
-- Auswahl über die API (`Application::UsePlatform("headless")`) oder die Umgebungsvariable `UI_PLATFORM=headless`
+- Auswahl über die API (`BApplication::UsePlatform("headless")`) oder die Umgebungsvariable `NGUI_PLATFORM=headless`
 
 ### 20.3 Determinismus
 
@@ -809,13 +812,13 @@ Das Test-Kit macht Anwendungen, die mit dem Toolkit gebaut sind, automatisiert t
 ### 20.4 Test-Treiber
 
 ```cpp
-ui::test::Driver d(app);
+ngui::test::Driver d(app);
 auto& w = d.Window("Einstellungen");
-d.Click(w.Find<Button>("ok"));
-d.Type(w.Find<TextControl>("name"), "Beispiel");
+d.Click(w.Find<BButton>("ok"));
+d.Type(w.Find<BTextControl>("name"), "Beispiel");
 d.Key(Key::Tab);
 d.WaitForIdle();
-EXPECT_EQ(w.Find<CheckBox>("autosave").Value(), B_CONTROL_ON);
+EXPECT_EQ(w.Find<BCheckBox>("autosave").Value(), BControlValue::On);
 EXPECT_IMAGE_SNAPSHOT(w, "settings_after_input");
 ```
 
@@ -837,10 +840,10 @@ EXPECT_IMAGE_SNAPSHOT(w, "settings_after_input");
 | **Layout** | Baum der Views mit Name, Typ, Frame, Sichtbarkeit, als Text | `EXPECT_LAYOUT_SNAPSHOT` |
 | **DisplayList** | Ausgabe des Dump-Backends (Abschnitt 15) | `EXPECT_LIST_SNAPSHOT` |
 | **SVG** | Ausgabe des SVG-Export-Backends (19.3) | `EXPECT_SVG_SNAPSHOT` |
-| **Bild** | PNG über `Window::Snapshot` (19.1) mit den Toleranzen aus 21.2 | `EXPECT_IMAGE_SNAPSHOT` |
+| **Bild** | PNG über `BWindow::Snapshot` (19.1) mit den Toleranzen aus 21.2 | `EXPECT_IMAGE_SNAPSHOT` |
 
 - Referenzdateien werden nach dem Muster `<testname>.<look>.<backend>.<scale>.<ext>` abgelegt.
-- `--update-snapshots` (oder `UI_UPDATE_SNAPSHOTS=1`) übernimmt die aktuellen Ergebnisse als neue Referenzen.
+- `--update-snapshots` (oder `NGUI_UPDATE_SNAPSHOTS=1`) übernimmt die aktuellen Ergebnisse als neue Referenzen.
 - Schlägt ein Vergleich fehl, entsteht ein HTML-Bericht mit Referenz, Ergebnis und Differenzbild bzw. Text-Diff.
 
 ### 20.6 Layout-Lint
@@ -994,7 +997,7 @@ Weitere Befunde:
 | M17a | **Look-Registry, Auswahl beim Start** | Registry, Einstellung, Prüfung nach L9, Rückfall | — | 150 – 250 |
 | M17b | **Wechsel zur Laufzeit, Look pro Fenster** | atomarer Austausch, Snapshot pro Zyklus, `LOOK_CHANGED`, Relayout, Overlay pro Fenster | — | 200 – 350 |
 | M17c | **Plugin-Lader** (optional) | `dlopen`/`LoadLibrary`, Versionsprüfung, Deleter mit Bindung an die Bibliothek | — | 150 – 300 |
-| M19 | **Screenshot-API** | `Window::Snapshot`, `View::Snapshot`, `CaptureFrame`, Popups einblenden, PNG-Kodierung | Haiku: serverseitig (`AS_READ_BITMAP`) | 200 – 400 |
+| M19 | **Screenshot-API** | `BWindow::Snapshot`, `BView::Snapshot`, `CaptureFrame`, Popups einblenden, PNG-Kodierung | Haiku: serverseitig (`AS_READ_BITMAP`) | 200 – 400 |
 | M20 | **SVG-Export-Backend** | `ExportBackend`, Abbildung nach 19.3, deterministische Ausgabe, Text als Pfade oder als Text | — | 600 – 1.000 |
 | M21 | **Erweiterung von GlyphRun** | `text`, `clusters`, Aufzeichnung in der DisplayList, `GlyphOutline` im Text-Subsystem | — | 50 – 100 |
 | M22 | **Headless-Plattform** | virtuelle Fenster und Bildschirm, virtuelle Zwischenablage, `Clock` mit Steuerung durch den Test | — | 300 – 600 |
