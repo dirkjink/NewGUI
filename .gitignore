@@ -1,0 +1,15 @@
+# Build directories
+/build/
+/out/
+
+# vcpkg (manifest mode)
+/vcpkg_installed/
+
+# CMake: local presets and generated files
+/CMakeUserPresets.json
+compile_commands.json
+
+# IDEs and tools
+/.idea/
+/.vscode/
+/.cache/
