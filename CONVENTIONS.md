@@ -15,7 +15,7 @@ Die Schlüsselwörter **MUSS**, **DARF NICHT**, **SOLL** und **KANN** sind im Si
 | Thema | Festlegung |
 |---|---|
 | Sprache | **C++23**, ohne Module |
-| Compiler | GCC 13 oder neuer, Clang 17 oder neuer, MSVC 2022 (17.x) |
+| Compiler | GCC 13 oder neuer, Clang 19 oder neuer, MSVC 2022 (17.x). Clang 17 und 18 fallen aus, weil sie mit der GNU-Standardbibliothek kein `std::expected` bekommen (sie melden `__cpp_concepts` als `201907L`, die Bibliothek verlangt `202002L`). |
 | Lizenz | **MIT** |
 | Namensraum | **`ngui`**, Untermodule als verschachtelte Namensräume (`ngui::gfx`, `ngui::test` …) |
 | Header-Schutz | `#pragma once` |

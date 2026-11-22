@@ -58,8 +58,8 @@ jobs:
       matrix:
         target: ${{ fromJSON(needs.targets.outputs.targets) }}
     env:
-      CC: clang-18
-      CXX: clang++-18
+      CC: clang-20
+      CXX: clang++-20
       TARGET: ${{ matrix.target }}
       SECONDS_PER_TARGET: ${{ inputs.seconds || '600' }}
     steps:
@@ -67,6 +67,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # The newest Clang of the Ubuntu archive, with the runtimes of
+      # libFuzzer and the sanitizers.
+      - name: Install the compiler
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-20 libclang-rt-20-dev
 
       - name: Set up vcpkg
         uses: ./.github/actions/setup-vcpkg
