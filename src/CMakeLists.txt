@@ -13,6 +13,7 @@ add_library(ngui
     gfx/Canvas.cpp
     gfx/DisplayList.cpp
     gfx/DisplayListBuilder.cpp
+    gfx/Dump.cpp
     gfx/LinearGradient.cpp
     gfx/RRect.cpp
     gfx/Region.cpp
