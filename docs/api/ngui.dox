@@ -22,3 +22,9 @@
 	\namespace ngui
 	\brief All of NewGUI. Submodules are nested namespaces (ngui::gfx ...).
 */
+
+
+/*!
+	\namespace ngui::gfx
+	\brief Geometry and color types of the Canvas layer (specification 4 and 5).
+*/
