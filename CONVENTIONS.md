@@ -174,3 +174,24 @@ Bis zum ersten `#include` folgen, wie in Haiku, zwei Leerzeilen.
 | 6. Nachweis | vollständiger Testlauf mit allen Snapshot-Arten (Spezifikation 20.5). Layout-, DisplayList- und SVG-Snapshots MÜSSEN unverändert bleiben, abgesehen von Namen im Layout-Snapshot. |
 
 Grobe Größenordnung: Tage bis zwei Wochen, solange die Regeln aus Abschnitt 3 von Anfang an eingehalten wurden.
+
+## 8. Verzeichnisstruktur und Build
+
+### 8.1 Verzeichnisse
+
+| Verzeichnis | Inhalt |
+|---|---|
+| `include/ngui/` | öffentliche Header, ein Unterverzeichnis je Modul (`include/ngui/gfx/` …). Eingebunden wird immer als `<ngui/…>`. |
+| `src/` | Implementierung mit derselben Unterstruktur. Private Header liegen neben den Quelldateien. |
+| `tests/` | Tests mit derselben Unterstruktur, eine Datei `<Klasse>Test.cpp` je getesteter Klasse |
+| `cmake/` | CMake-Module (`Ngui*.cmake`) und Vorlagen (`cmake/templates/`) |
+
+**Dateinamen** folgen wie in Haiku der wichtigsten Klasse der Datei, in UpperCamelCase und ohne `B`-Präfix: `Rect.h`/`Rect.cpp`, `Button.h`/`Button.cpp` für `BButton`. So bleiben die Dateinamen bei der Umstellung in Abschnitt 7 unverändert. Generierte Header (z. B. `ngui/Version.h`) entstehen im Build-Verzeichnis und werden nicht eingecheckt.
+
+### 8.2 Build
+
+- **CMake** 3.25 oder neuer mit **Presets** (`CMakePresets.json`), Generator **Ninja**. Lokale Abweichungen gehören in `CMakeUserPresets.json`, das nicht eingecheckt wird.
+- **Abhängigkeiten** ausschließlich über das **vcpkg-Manifest** (`vcpkg.json`) mit festgeschriebener `builtin-baseline`. Eine Aktualisierung der Baseline ist eine eigene, nachvollziehbare Änderung. Abhängigkeiten, die nur für Tests nötig sind, stehen im Feature `tests`.
+- **Jedes Ziel** bekommt seine Einstellungen über `ngui_configure_target()` (`cmake/NguiCompilerOptions.cmake`): C++23 ohne Compiler-Erweiterungen, Warnungsstufe, optional Warnungen als Fehler (`NGUI_WARNINGS_AS_ERRORS`, im Preset `ci` aktiv) und `-ffile-prefix-map` für reproduzierbare Builds.
+- **Tests** mit GoogleTest. Sie werden über `gtest_discover_tests` bei CTest registriert. Das Preset `ci` bricht ab, wenn keine Tests gefunden werden.
+- **Prüfung vor jedem Commit:** `cmake --workflow --preset ci` (konfigurieren, bauen, testen mit Warnungen als Fehler).
