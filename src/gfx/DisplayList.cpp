@@ -45,8 +45,8 @@ template<typename T>
 void
 _Append(std::vector<std::byte>& out, const T& value)
 {
-	const auto* bytes = reinterpret_cast<const std::byte*>(&value);
-	out.insert(out.end(), bytes, bytes + sizeof(T));
+	const std::span<const std::byte> bytes = std::as_bytes(std::span(&value, 1));
+	out.insert(out.end(), bytes.begin(), bytes.end());
 }
 
 
@@ -54,6 +54,17 @@ void
 _AppendBytes(std::vector<std::byte>& out, std::span<const std::byte> bytes)
 {
 	out.insert(out.end(), bytes.begin(), bytes.end());
+}
+
+
+// The array that follows the record of an operation whose header is at
+// \a header.
+template<typename T, typename Record>
+const T*
+_Trailing(const std::byte* header)
+{
+	constexpr std::size_t kOffset = kOpHeaderSize + sizeof(Record);
+	return reinterpret_cast<const T*>(header + kOffset);
 }
 
 
@@ -336,27 +347,22 @@ Op::Payload() const
 std::span<const Point>
 Op::Points() const
 {
-	const auto* points = reinterpret_cast<const Point*>(fHeader + kOpHeaderSize
-		+ sizeof(PointsRecord));
-	return {points, As<PointsRecord>().count};
+	return {_Trailing<Point, PointsRecord>(fHeader), As<PointsRecord>().count};
 }
 
 
 std::span<const Line>
 Op::Lines() const
 {
-	const auto* lines = reinterpret_cast<const Line*>(fHeader + kOpHeaderSize
-		+ sizeof(LinesRecord));
-	return {lines, As<LinesRecord>().count};
+	return {_Trailing<Line, LinesRecord>(fHeader), As<LinesRecord>().count};
 }
 
 
 std::span<const std::uint32_t>
 Op::Glyphs() const
 {
-	const auto* glyphs = reinterpret_cast<const std::uint32_t*>(fHeader + kOpHeaderSize
-		+ sizeof(GlyphRunRecord));
-	return {glyphs, As<GlyphRunRecord>().glyphCount};
+	return {_Trailing<std::uint32_t, GlyphRunRecord>(fHeader),
+		As<GlyphRunRecord>().glyphCount};
 }
 
 
