@@ -405,11 +405,11 @@ BScrollView::SetBorder(BBorderStyle border)
 	float change = 0;
 	if (border == BBorderStyle::None || fBorder == BBorderStyle::None) {
 		if (fHorizontalScrollBar != nullptr)
-			verticalGap = border != BBorderStyle::None ? 1 : -1;
+			verticalGap = border != BBorderStyle::None ? 1.0f : -1.0f;
 		if (fVerticalScrollBar != nullptr)
-			horizontalGap = border != BBorderStyle::None ? 1 : -1;
+			horizontalGap = border != BBorderStyle::None ? 1.0f : -1.0f;
 
-		change = border != BBorderStyle::None ? -1 : 1;
+		change = border != BBorderStyle::None ? -1.0f : 1.0f;
 		if (fHorizontalScrollBar == nullptr || fVerticalScrollBar == nullptr)
 			change *= 2;
 	}
