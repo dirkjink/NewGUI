@@ -276,7 +276,7 @@ BTab::DrawFocusMark(DrawContext& context, gfx::Rect halfOpen)
 	compat::CompatView owner(context);
 	owner.SetHighColor(owner.UiColor(compat::B_KEYBOARD_NAVIGATION_COLOR));
 
-	float offset = IsSelected() ? 3 : 2;
+	float offset = IsSelected() ? 3.0f : 2.0f;
 	switch (fTabView->TabSide()) {
 		case BTabSide::Top:
 			owner.StrokeLine(BPoint((frame.left + frame.right - width) / 2.0f,
