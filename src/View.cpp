@@ -241,6 +241,9 @@ BView::MoveBy(float dx, float dy)
 	_Damage(fFrame);
 	fFrame = {fFrame.x0 + dx, fFrame.y0 + dy, fFrame.x1 + dx, fFrame.y1 + dy};
 	_Damage(fFrame);
+	// A popup's root moves its popup.
+	if (_IsSurfaceRoot())
+		fWindow->_RootFrameChanged(this);
 	if (fFlags.Has(BViewFlag::FrameEvents))
 		FrameMoved({fFrame.x0, fFrame.y0});
 }
@@ -260,6 +263,9 @@ BView::ResizeBy(float dw, float dh)
 		return;
 	_Damage(fFrame);
 	fFrame = {fFrame.x0, fFrame.y0, fFrame.x1 + dw, fFrame.y1 + dh};
+	// A popup's root resizes its popup.
+	if (_IsSurfaceRoot())
+		fWindow->_RootFrameChanged(this);
 	// The list covers the whole view; a new size needs a new one.
 	Invalidate();
 	// layout the children (Haiku's _ResizeBy(): a view that supports layout
@@ -468,9 +474,13 @@ BView::ConvertFromParent(const gfx::Rect& rect) const
 gfx::Point
 BView::ConvertToWindow(gfx::Point point) const
 {
-	// Up to the root view, whose frame is the content area at (0, 0).
-	for (const BView* view = this; view != nullptr; view = view->fParent)
+	// Up to the root view of its surface: the window's content area, whose
+	// root is at (0, 0), or a popup, whose root's frame is on the screen.
+	for (const BView* view = this; view != nullptr; view = view->fParent) {
 		point = view->ConvertToParent(point);
+		if (view->_IsSurfaceRoot())
+			point = {point.x - view->fFrame.x0, point.y - view->fFrame.y0};
+	}
 	return point;
 }
 
@@ -480,6 +490,8 @@ BView::ConvertFromWindow(gfx::Point point) const
 {
 	if (fParent != nullptr)
 		point = fParent->ConvertFromWindow(point);
+	else if (_IsSurfaceRoot())
+		point = {point.x + fFrame.x0, point.y + fFrame.y0};
 	return ConvertFromParent(point);
 }
 
@@ -499,8 +511,8 @@ BView::ConvertToScreen(gfx::Point point) const
 	const gfx::Point inWindow = ConvertToWindow(point);
 	if (fWindow == nullptr)
 		return inWindow;
-	const gfx::Rect frame = fWindow->Frame();
-	return {inWindow.x + frame.x0, inWindow.y + frame.y0};
+	const gfx::Point origin = fWindow->_SurfaceOrigin(_Root());
+	return {inWindow.x + origin.x, inWindow.y + origin.y};
 }
 
 
@@ -508,8 +520,8 @@ gfx::Point
 BView::ConvertFromScreen(gfx::Point point) const
 {
 	if (fWindow != nullptr) {
-		const gfx::Rect frame = fWindow->Frame();
-		point = {point.x - frame.x0, point.y - frame.y0};
+		const gfx::Point origin = fWindow->_SurfaceOrigin(_Root());
+		point = {point.x - origin.x, point.y - origin.y};
 	}
 	return ConvertFromWindow(point);
 }
@@ -645,10 +657,34 @@ void
 BView::_Damage(const gfx::Rect& rect)
 {
 	// \a rect is in the parent's coordinates; the window collects the
-	// areas of the next frame in its own.
+	// areas of the next frame in those of the view's surface.
 	if (fWindow == nullptr)
 		return;
-	fWindow->_AddDirty(fParent != nullptr ? fParent->ConvertToWindow(rect) : rect);
+	if (fParent != nullptr) {
+		fWindow->_AddDirty(_Root(), fParent->ConvertToWindow(rect));
+	} else {
+		// the root: its frame is the surface, from its origin
+		fWindow->_AddDirty(this, {rect.x0 - fFrame.x0, rect.y0 - fFrame.y0,
+			rect.x1 - fFrame.x0, rect.y1 - fFrame.y0});
+	}
+}
+
+
+const BView*
+BView::_Root() const
+{
+	const BView* view = this;
+	while (view->fParent != nullptr)
+		view = view->fParent;
+	return view;
+}
+
+
+bool
+BView::_IsSurfaceRoot() const
+{
+	// The root of the window's content area or of one of its popups.
+	return fParent == nullptr && fWindow != nullptr;
 }
 
 

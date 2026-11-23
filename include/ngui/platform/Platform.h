@@ -34,6 +34,9 @@ struct DisplayInfo {
 };
 
 
+class PlatformWindow;
+
+
 /*!	What a new window looks like (module P1). Look and feel of BWindow
 	map onto it (G9). */
 struct WindowSpec {
@@ -44,6 +47,14 @@ struct WindowSpec {
 															system. */
 			bool				resizable = true;		/*!< The user may resize it. */
 			BMessenger			target;					/*!< Where its events go. */
+			PlatformWindow*		parent = nullptr;		/*!< For a popup: the window it
+															belongs to, which must
+															outlive it. */
+			bool				popup = false;			/*!< A popup (a menu, a tooltip)
+															of \a parent: without frame,
+															above it, without the
+															keyboard focus; #frame is
+															still on the desktop. */
 };
 
 

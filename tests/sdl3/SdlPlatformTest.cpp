@@ -215,4 +215,70 @@ TEST(SdlPlatformTest, WindowsShowWhatIsPresented)
 }
 
 
+TEST(SdlPlatformTest, PopupsArePlacedRelativeToTheirParent)
+{
+	// What is tested: A window at (10, 20, 40, 30) and a popup of it at
+	// (25, 35, 45, 45) on the desktop, created from another thread; the
+	// popup moved to (30, 40).
+	// Success criteria: SDL makes the popup a popup menu window whose
+	// parent is the window, 15 pixels right of and below the window's
+	// content area (SDL places popups relative to their parent); its frame
+	// is reported on the desktop. Moved, it is at (20, 20) relative to the
+	// window and at (30, 40, 50, 50) on the desktop.
+	// Why it matters: Menus are popups of their window (W3b), also under
+	// Wayland, where only relative placement exists.
+	//
+	// Given
+	RunningApp app;
+	ASSERT_NE(app.Platform(), nullptr);
+	WindowSpec spec;
+	spec.title = "test";
+	spec.frame = {10, 20, 40, 30};
+	std::unique_ptr<PlatformWindow> window = *app.Platform()->CreateWindow(spec);
+	WindowSpec popupSpec;
+	popupSpec.frame = {25, 35, 45, 45};
+	popupSpec.parent = window.get();
+	popupSpec.popup = true;
+	popupSpec.decorated = false;
+	popupSpec.resizable = false;
+
+	// When
+	auto created = app.Platform()->CreateWindow(popupSpec);
+	if (!created.has_value())
+		GTEST_SKIP() << "the video driver has no popups: " << created.error().message;
+	std::unique_ptr<PlatformWindow> popup = std::move(*created);
+	const gfx::Rect frame = popup->Frame();
+	const auto sdlState = [&] {
+		return app.OnMain([] {
+			int count = 0;
+			SDL_Window** windows = SDL_GetWindows(&count);
+			SDL_Window* found = nullptr;
+			for (int i = 0; i < count; i++) {
+				if ((SDL_GetWindowFlags(windows[i]) & SDL_WINDOW_POPUP_MENU) != 0)
+					found = windows[i];
+			}
+			SDL_free(windows);
+			std::array<int, 3> state{-1, -1, 0};
+			if (found != nullptr) {
+				SDL_GetWindowPosition(found, &state[0], &state[1]);
+				state[2] = SDL_GetWindowParent(found) != nullptr ? 1 : 0;
+			}
+			return state;
+		});
+	};
+	const std::array<int, 3> before = sdlState();
+	popup->MoveTo({30, 40});
+	const std::array<int, 3> after = sdlState();
+	const gfx::Rect movedFrame = popup->Frame();
+	popup.reset();
+	window.reset();
+
+	// Then
+	EXPECT_EQ(frame, (gfx::Rect{25, 35, 45, 45}));
+	EXPECT_EQ(before, (std::array<int, 3>{15, 15, 1}));
+	EXPECT_EQ(after, (std::array<int, 3>{20, 20, 1}));
+	EXPECT_EQ(movedFrame, (gfx::Rect{30, 40, 50, 50}));
+}
+
+
 } // namespace

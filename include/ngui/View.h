@@ -247,7 +247,8 @@ public:
 									/*!< From the parent's coordinates to its own. */
 			gfx::Point			ConvertToWindow(gfx::Point point) const;
 									/*!< From its coordinates to the window's content area,
-										the coordinates of the window's root view. */
+										the coordinates of the window's root view; in a
+										popup (BWindow::OpenPopup()) to the popup's. */
 			gfx::Point			ConvertFromWindow(gfx::Point point) const;
 									/*!< From the window's content area to its coordinates. */
 			gfx::Rect			ConvertToWindow(const gfx::Rect& rect) const;
@@ -456,6 +457,8 @@ private:
 	friend class BViewLayoutItem;
 
 			BView*				_AddChild(std::unique_ptr<BView> child, BView* before);
+			const BView*		_Root() const;
+			bool				_IsSurfaceRoot() const;
 			void				_RemoveLayoutItemsFromLayout();
 			void				_RegisterLayoutItem(BLayoutItem* item);
 			void				_DeregisterLayoutItem(BLayoutItem* item);

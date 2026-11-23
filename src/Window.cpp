@@ -57,6 +57,26 @@ ViewAt(BView* view, gfx::Point point)
 }
 
 
+// Shows the \a dirty areas of \a surface in \a window, in device pixels
+// rounded outwards.
+void
+Present(platform::PlatformWindow& window, gfx::Surface& surface,
+	const std::vector<gfx::Rect>& dirty, float scale)
+{
+	const std::optional<gfx::CpuPixels> pixels = surface.Pixels();
+	if (!pixels.has_value())
+		return;
+	std::vector<gfx::IntRect> areas;
+	for (const gfx::Rect& rect : dirty) {
+		areas.push_back({static_cast<std::int32_t>(std::floor(rect.x0 * scale)),
+			static_cast<std::int32_t>(std::floor(rect.y0 * scale)),
+			static_cast<std::int32_t>(std::ceil(rect.x1 * scale)),
+			static_cast<std::int32_t>(std::ceil(rect.y1 * scale))});
+	}
+	(void)window.Present(*pixels, areas);
+}
+
+
 // The views of a subtree, depth first.
 template<typename Visit>
 void
@@ -69,6 +89,34 @@ ForEachView(BView* view, Visit visit)
 
 
 } // namespace
+
+
+// A popup of the window (NewGUI): a root view whose frame is on the
+// screen, the platform popup it is shown in and what is drawn there. It is
+// a handler of the window, so that the popup's events arrive in the
+// window's thread.
+class BWindow::PopupSurface : public BHandler {
+public:
+	explicit PopupSurface(BWindow* window)
+		:
+		BHandler("popup"),
+		fWindow(window)
+	{
+	}
+
+	void MessageReceived(BMessage* message) override
+	{
+		fWindow->_PopupEvent(this, message);
+	}
+
+	BWindow*			fWindow;
+	std::unique_ptr<BView> root;
+	std::unique_ptr<platform::PlatformWindow> platformWindow;
+	gfx::SurfaceRef		surface;
+	float				scale = 1;
+	std::vector<gfx::Rect> dirty;
+	gfx::DisplayListRef	lastFrame;
+};
 
 
 BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWindowFlags flags)
@@ -111,6 +159,8 @@ BWindow::~BWindow()
 		std::scoped_lock lock(sWindowsLock);
 		std::erase(sWindows, self);
 	}
+	while (!fPopups.empty())
+		(void)ClosePopup(fPopups.back()->root.get());
 	fRoot->_Detach();
 	fRoot.reset();
 	fSurface.reset();
@@ -356,10 +406,8 @@ void
 BWindow::_LayoutInvalidated()
 {
 	// Haiku posts B_LAYOUT_WINDOW; NewGUI lays out before the next frame.
-	if (fUpdatePending)
-		return;
-	fUpdatePending = true;
-	(void)PostMessage(BMessage(kUpdate), this);
+	fMainUpdateWanted = true;
+	_ScheduleUpdate();
 }
 
 
@@ -514,7 +562,7 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kMouseDown:
 		case kMouseUp:
 		case kMouseMoved:
-			_MouseEvent(message);
+			_MouseEvent(message, fRoot.get());
 			return;
 		case kKeyDown:
 		case kKeyUp:
@@ -579,10 +627,189 @@ BWindow::_AddDirty(const gfx::Rect& rect)
 		std::erase_if(fDirty, [&](const gfx::Rect& noted) { return contains(clipped, noted); });
 		fDirty.push_back(clipped);
 	}
+	fMainUpdateWanted = true;
+	_ScheduleUpdate();
+}
+
+
+void
+BWindow::_AddDirty(const BView* root, const gfx::Rect& rect)
+{
+	if (root == fRoot.get()) {
+		_AddDirty(rect);
+		return;
+	}
+	PopupSurface* popup = _PopupOf(root);
+	if (popup == nullptr)
+		return;
+	const gfx::Rect bounds = {0, 0, root->Frame().Width(), root->Frame().Height()};
+	const gfx::Rect clipped = {std::max(rect.x0, bounds.x0), std::max(rect.y0, bounds.y0),
+		std::min(rect.x1, bounds.x1), std::min(rect.y1, bounds.y1)};
+	if (clipped.x1 <= clipped.x0 || clipped.y1 <= clipped.y0)
+		return;
+	popup->dirty.push_back(clipped);
+	_ScheduleUpdate();
+}
+
+
+void
+BWindow::_ScheduleUpdate()
+{
 	if (fUpdatePending)
 		return;
 	fUpdatePending = true;
 	(void)PostMessage(BMessage(kUpdate), this);
+}
+
+
+gfx::Point
+BWindow::_SurfaceOrigin(const BView* root) const
+{
+	// The content area's origin on the screen, or the popup's.
+	if (root == fRoot.get() || root == nullptr)
+		return {fFrame.x0, fFrame.y0};
+	const gfx::Rect frame = root->Frame();
+	return {frame.x0, frame.y0};
+}
+
+
+BWindow::PopupSurface*
+BWindow::_PopupOf(const BView* root) const
+{
+	for (const std::unique_ptr<PopupSurface>& popup : fPopups) {
+		if (popup->root.get() == root)
+			return popup.get();
+	}
+	return nullptr;
+}
+
+
+void
+BWindow::_RootFrameChanged(BView* root)
+{
+	PopupSurface* popup = _PopupOf(root);
+	if (popup == nullptr)
+		return;
+	const gfx::Rect frame = root->Frame();
+	if (popup->platformWindow != nullptr) {
+		const gfx::Rect current = popup->platformWindow->Frame();
+		if (current.x0 != frame.x0 || current.y0 != frame.y0)
+			popup->platformWindow->MoveTo({frame.x0, frame.y0});
+		if (current.Width() != frame.Width() || current.Height() != frame.Height())
+			popup->platformWindow->ResizeTo({frame.Width(), frame.Height()});
+	}
+	// A new size needs a new surface.
+	popup->surface.reset();
+	popup->dirty.clear();
+	popup->dirty.push_back({0, 0, frame.Width(), frame.Height()});
+	_ScheduleUpdate();
+}
+
+
+BView*
+BWindow::OpenPopup(std::unique_ptr<BView> view)
+{
+	if (view == nullptr || view->Parent() != nullptr || view->Window() != nullptr)
+		return nullptr;
+
+	auto popup = std::make_unique<PopupSurface>(this);
+	AddHandler(popup.get());
+	const gfx::Rect frame = view->Frame();
+	if (fPlatformWindow != nullptr) {
+		if (platform::Platform* platform = platform::Current()) {
+			platform::WindowSpec spec;
+			spec.title = fTitle;
+			spec.frame = frame;
+			spec.decorated = false;
+			spec.resizable = false;
+			spec.target = BMessenger(popup.get(), this);
+			spec.parent = fPlatformWindow.get();
+			spec.popup = true;
+			auto window = platform->CreateWindow(spec);
+			if (window.has_value()) {
+				popup->platformWindow = std::move(*window);
+				popup->scale = popup->platformWindow->Scale();
+				popup->platformWindow->Show();
+			}
+		}
+	}
+	popup->root = std::move(view);
+	BView* root = popup->root.get();
+	popup->dirty.push_back({0, 0, frame.Width(), frame.Height()});
+	fPopups.push_back(std::move(popup));
+	root->_Attach(this);
+	_ScheduleUpdate();
+	return root;
+}
+
+
+std::unique_ptr<BView>
+BWindow::ClosePopup(BView* view)
+{
+	const auto found = std::find_if(fPopups.begin(), fPopups.end(),
+		[view](const std::unique_ptr<PopupSurface>& popup) { return popup->root.get() == view; });
+	if (found == fPopups.end())
+		return nullptr;
+	std::unique_ptr<PopupSurface> popup = std::move(*found);
+	fPopups.erase(found);
+	popup->root->_Detach();
+	(void)RemoveHandler(popup.get());
+	popup->surface.reset();
+	popup->platformWindow.reset();
+	return std::move(popup->root);
+}
+
+
+std::int32_t
+BWindow::CountPopups() const
+{
+	return static_cast<std::int32_t>(fPopups.size());
+}
+
+
+BView*
+BWindow::PopupAt(std::int32_t index) const
+{
+	if (index < 0 || index >= CountPopups())
+		return nullptr;
+	return fPopups[static_cast<std::size_t>(index)]->root.get();
+}
+
+
+void
+BWindow::_PopupEvent(PopupSurface* popup, BMessage* message)
+{
+	switch (message->what) {
+		case kMouseDown:
+		case kMouseUp:
+		case kMouseMoved:
+			_MouseEvent(message, popup->root.get());
+			return;
+		case kMouseWheelChanged:
+			if (fMouseView != nullptr)
+				fMouseView->MessageReceived(message);
+			return;
+		case kKeyDown:
+		case kKeyUp:
+			// Popups get no keyboard focus; should a key arrive, it goes
+			// where the window's keys go.
+			_KeyEvent(message);
+			return;
+		case kWindowResized:
+		{
+			const float scale = message->GetFloat("be:scale", popup->scale);
+			if (scale != popup->scale) {
+				popup->scale = scale > 0 ? scale : 1;
+				popup->surface.reset();
+				ForEachView(popup->root.get(), [](BView* view) { view->Invalidate(); });
+			}
+			return;
+		}
+		default:
+			// The opener decides when a popup closes (a close request of
+			// the window system, a move ...).
+			return;
+	}
 }
 
 
@@ -626,11 +853,15 @@ BWindow::_SetMouseCapture(BView* view)
 
 
 void
-BWindow::_MouseEvent(BMessage* message)
+BWindow::_MouseEvent(BMessage* message, BView* root)
 {
+	// NewGUI: the position on the screen, so that a view of another surface
+	// (the window, a popup) gets it in its own coordinates.
 	const gfx::Point where = message->GetPoint("where", {-1, -1});
+	const gfx::Point origin = _SurfaceOrigin(root);
+	const gfx::Point screen = {where.x + origin.x, where.y + origin.y};
 	const bool exited = message->GetBool("be:exited", false);
-	BView* under = exited ? nullptr : FindView(where);
+	BView* under = exited ? nullptr : ViewAt(root, root->ConvertFromWindow(where));
 
 	switch (message->what) {
 		case kMouseDown:
@@ -638,7 +869,7 @@ BWindow::_MouseEvent(BMessage* message)
 			fButtons = static_cast<std::uint32_t>(message->GetInt32("buttons", 1));
 			BView* target = fCapture != nullptr ? fCapture : under;
 			if (target != nullptr)
-				target->MouseDown(target->ConvertFromWindow(where));
+				target->MouseDown(target->ConvertFromScreen(screen));
 			break;
 		}
 		case kMouseUp:
@@ -648,29 +879,29 @@ BWindow::_MouseEvent(BMessage* message)
 			if (fButtons == 0)
 				fCapture = nullptr;
 			if (target != nullptr)
-				target->MouseUp(target->ConvertFromWindow(where));
+				target->MouseUp(target->ConvertFromScreen(screen));
 			break;
 		}
 		case kMouseMoved:
 		{
 			if (fCapture != nullptr) {
-				const gfx::Point local = fCapture->ConvertFromWindow(where);
+				const gfx::Point local = fCapture->ConvertFromScreen(screen);
 				fCapture->MouseMoved(local, fCapture->Bounds().Contains(local) && !exited
 					? BMouseTransit::Inside : BMouseTransit::Outside, nullptr);
 				break;
 			}
 			if (under != fMouseView) {
 				if (fMouseView != nullptr) {
-					fMouseView->MouseMoved(fMouseView->ConvertFromWindow(where),
+					fMouseView->MouseMoved(fMouseView->ConvertFromScreen(screen),
 						BMouseTransit::Exited, nullptr);
 				}
 				fMouseView = under;
 				if (under != nullptr) {
-					under->MouseMoved(under->ConvertFromWindow(where), BMouseTransit::Entered,
+					under->MouseMoved(under->ConvertFromScreen(screen), BMouseTransit::Entered,
 						nullptr);
 				}
 			} else if (under != nullptr) {
-				under->MouseMoved(under->ConvertFromWindow(where), BMouseTransit::Inside,
+				under->MouseMoved(under->ConvertFromScreen(screen), BMouseTransit::Inside,
 					nullptr);
 			}
 			break;
@@ -843,7 +1074,15 @@ BWindow::_Update()
 	// their areas to this frame instead of asking for another one.
 	if (!fRoot->IsLayoutValid())
 		Layout(false);
+	for (const std::unique_ptr<PopupSurface>& popup : fPopups) {
+		if (!popup->root->IsLayoutValid())
+			popup->root->Layout(false);
+	}
 	fUpdatePending = false;
+	// NewGUI: a frame of the content area only if it needs one (not when
+	// only a popup changed).
+	const bool drawMain = fMainUpdateWanted || fSurface == nullptr;
+	fMainUpdateWanted = false;
 	if (fPlatformWindow != nullptr && IsHidden())
 		return;
 	if (fBackend == nullptr) {
@@ -860,43 +1099,69 @@ BWindow::_Update()
 			(void)fBackend->AddFont(font.id, font.data);
 		fFontsOf = &text;
 	}
-	if (fSurface == nullptr) {
-		gfx::NativeWindow native;
-		if (fPlatformWindow != nullptr)
-			native = fPlatformWindow->Native();
-		native.size = {fFrame.Width(), fFrame.Height()};
-		native.scale = fScale;
-		fSurface = fBackend->CreateWindowSurface(native, gfx::SurfaceKind::CpuRaster);
-		if (fSurface == nullptr)
-			return;
-		// Not `fDirty = {Bounds()}`: GCC warns wrongly about the bounds of
-		// the initializer list (-Warray-bounds) in optimized builds.
-		fDirty.clear();
-		fDirty.push_back(Bounds());
-	}
-
 	const gfx::Caps caps = fBackend->Capabilities();
-	const DrawEnvironment environment{caps, Palette::Default(), text, fScale};
-	fLastFrame = fRoot->RecordTree(environment);
-	fFrameCount++;
-	fBackend->BeginFrame(*fSurface, Palette::Default().Get(BColorWhich::PanelBackground));
-	fBackend->Render(*fLastFrame, {0, 0});
-	fBackend->EndFrame(*fSurface);
 
-	if (fPlatformWindow != nullptr) {
-		if (const std::optional<gfx::CpuPixels> pixels = fSurface->Pixels()) {
-			// The changed areas in device pixels, rounded outwards.
-			std::vector<gfx::IntRect> dirty;
-			for (const gfx::Rect& rect : fDirty) {
-				dirty.push_back({static_cast<std::int32_t>(std::floor(rect.x0 * fScale)),
-					static_cast<std::int32_t>(std::floor(rect.y0 * fScale)),
-					static_cast<std::int32_t>(std::ceil(rect.x1 * fScale)),
-					static_cast<std::int32_t>(std::ceil(rect.y1 * fScale))});
-			}
-			(void)fPlatformWindow->Present(*pixels, dirty);
+	if (drawMain) {
+		if (fSurface == nullptr) {
+			gfx::NativeWindow native;
+			if (fPlatformWindow != nullptr)
+				native = fPlatformWindow->Native();
+			native.size = {fFrame.Width(), fFrame.Height()};
+			native.scale = fScale;
+			fSurface = fBackend->CreateWindowSurface(native, gfx::SurfaceKind::CpuRaster);
+			if (fSurface == nullptr)
+				return;
+			// Not `fDirty = {Bounds()}`: GCC warns wrongly about the bounds
+			// of the initializer list (-Warray-bounds) in optimized builds.
+			fDirty.clear();
+			fDirty.push_back(Bounds());
 		}
+
+		const DrawEnvironment environment{caps, Palette::Default(), text, fScale};
+		fLastFrame = fRoot->RecordTree(environment);
+		fFrameCount++;
+		fBackend->BeginFrame(*fSurface, Palette::Default().Get(BColorWhich::PanelBackground));
+		fBackend->Render(*fLastFrame, {0, 0});
+		fBackend->EndFrame(*fSurface);
+
+		if (fPlatformWindow != nullptr)
+			Present(*fPlatformWindow, *fSurface, fDirty, fScale);
+		fDirty.clear();
 	}
-	fDirty.clear();
+
+	for (const std::unique_ptr<PopupSurface>& popup : fPopups)
+		_UpdatePopup(*popup, caps, text);
+}
+
+
+void
+BWindow::_UpdatePopup(PopupSurface& popup, const gfx::Caps& caps, const TextSystem& text)
+{
+	if (popup.dirty.empty() && popup.surface != nullptr)
+		return;
+	const gfx::Rect frame = popup.root->Frame();
+	if (popup.surface == nullptr) {
+		gfx::NativeWindow native;
+		if (popup.platformWindow != nullptr)
+			native = popup.platformWindow->Native();
+		native.size = {frame.Width(), frame.Height()};
+		native.scale = popup.scale;
+		popup.surface = fBackend->CreateWindowSurface(native, gfx::SurfaceKind::CpuRaster);
+		if (popup.surface == nullptr)
+			return;
+		popup.dirty.clear();
+		popup.dirty.push_back({0, 0, frame.Width(), frame.Height()});
+	}
+
+	const DrawEnvironment environment{caps, Palette::Default(), text, popup.scale};
+	popup.lastFrame = popup.root->RecordTree(environment);
+	fBackend->BeginFrame(*popup.surface, Palette::Default().Get(BColorWhich::MenuBackground));
+	fBackend->Render(*popup.lastFrame, {0, 0});
+	fBackend->EndFrame(*popup.surface);
+
+	if (popup.platformWindow != nullptr)
+		Present(*popup.platformWindow, *popup.surface, popup.dirty, popup.scale);
+	popup.dirty.clear();
 }
 
 
