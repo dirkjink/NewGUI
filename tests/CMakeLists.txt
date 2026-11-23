@@ -134,6 +134,11 @@ if(NGUI_WITH_SKIA)
             ngui::testkit
             ngui::testkit_main
             unofficial::skia::skia)
+    # Text drawn with the bundled fonts (vcpkg feature text).
+    if(NGUI_WITH_TEXT)
+        target_sources(ngui_skia_tests PRIVATE skia/TextSkiaTest.cpp)
+        target_link_libraries(ngui_skia_tests PRIVATE ngui::text)
+    endif()
     target_include_directories(ngui_skia_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_skia_tests)
     gtest_discover_tests(ngui_skia_tests

@@ -6,7 +6,9 @@
 #pragma once
 
 
+#include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -40,6 +42,18 @@ enum class TruncationMode : std::uint8_t {
 	End,		/*!< B_TRUNCATE_END: "Long te…" */
 	Beginning,	/*!< B_TRUNCATE_BEGINNING: "…ong text" */
 	Middle		/*!< B_TRUNCATE_MIDDLE: "Lon…ext" */
+};
+
+
+/*!	A font file of a text system, for the backends that draw its glyph runs:
+	a backend makes its own font from the same file (specification 13.4,
+	Backend::AddFont()). BWindow hands the fonts of TextSystem::Default() to
+	its backend before the first frame. */
+struct FontFile {
+			gfx::FontId			id;		/*!< The font of the glyph runs. */
+			FontRole			role;	/*!< The role it serves. */
+			std::span<const std::byte> data;
+									/*!< The font file; valid as long as the text system. */
 };
 
 
@@ -90,6 +104,10 @@ public:
 	virtual	ShapedText			Shape(std::string_view text, FontRole role) const = 0;
 									/*!< \a text shaped into glyphs, positions relative to the
 										start of the baseline. */
+	virtual	std::span<const FontFile> Fonts() const;
+									/*!< The font files of the glyph runs of Shape(), for the
+										backends; none by default, for text systems whose
+										runs are not drawn (the placeholder, test doubles). */
 
 	static	const TextSystem&	Default();
 									/*!< The text system of the process: the one given to

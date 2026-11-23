@@ -11,7 +11,8 @@
 // platform's events as messages to the window, distributed to views; the
 // look drawing into a view's Canvas; the window putting the DisplayLists
 // together, Skia rendering them, the presenter copying the changed area
-// into the window. There is no label yet: text needs the text subsystem.
+// into the window; the label shaped by the text subsystem with the bundled
+// Noto Sans, drawn by Skia with the same font file.
 
 
 #include <cstdio>
@@ -25,6 +26,7 @@
 #include <ngui/gfx/BackendRegistry.h>
 #include <ngui/gfx/SkiaBackend.h>
 #include <ngui/platform/SdlPlatform.h>
+#include <ngui/text/FontTextSystem.h>
 
 
 namespace {
@@ -33,7 +35,7 @@ namespace {
 using namespace ngui;
 
 
-// A button without a label, drawn by the BeOS look.
+// A labeled button, drawn by the BeOS look as Haiku's BButton::Draw().
 class ButtonView : public BView {
 public:
 	explicit ButtonView(gfx::Rect frame)
@@ -47,11 +49,15 @@ public:
 
 	void Draw(DrawContext& context) override
 	{
-		const gfx::Color panel = context.palette.Get(BColorWhich::PanelBackground);
+		const gfx::Color base = context.palette.Get(BColorWhich::ControlBackground);
+		const gfx::Color background = context.palette.Get(BColorWhich::PanelBackground);
+		const gfx::Color text = context.palette.Get(BColorWhich::ControlText);
 		gfx::Rect rect = Bounds();
 		const ControlStateFlags flags = fPressed ? ControlState::Activated : ControlStateFlags();
-		fLook->DrawButtonFrame(context, rect, panel, panel, flags);
-		fLook->DrawButtonBackground(context, rect, panel, flags);
+		fLook->DrawButtonFrame(context, rect, base, background, flags);
+		fLook->DrawButtonBackground(context, rect, base, flags);
+		fLook->DrawLabel(context, "Click me", 0, rect, base, flags,
+			BAlignment{BHorizontalAlignment::Center, BVerticalAlignment::Middle}, &text);
 	}
 
 	void MouseDown(gfx::Point) override
@@ -115,6 +121,13 @@ int
 main(int argc, char** argv)
 {
 	gfx::SkiaBackend::Register(gfx::BackendRegistry::Default());
+	// The text system of all windows; it lives until the end of main().
+	auto fonts = text::FontTextSystem::CreateBundled();
+	if (!fonts.has_value()) {
+		std::fprintf(stderr, "%s\n", fonts.error().message.c_str());
+		return 1;
+	}
+	TextSystem::SetDefault(fonts->get());
 	auto platform = platform::SdlPlatform::Create();
 	if (!platform.has_value()) {
 		std::fprintf(stderr, "%s\n", platform.error().message.c_str());
@@ -123,5 +136,7 @@ main(int argc, char** argv)
 	ButtonApp app(argc, argv);
 	if (!app.UsePlatform(std::move(*platform)).has_value())
 		return 1;
-	return app.Run();
+	const int result = app.Run();
+	TextSystem::SetDefault(nullptr);
+	return result;
 }

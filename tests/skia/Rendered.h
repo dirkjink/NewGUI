@@ -13,7 +13,9 @@
 #include <cstddef>
 #include <cstdlib>
 #include <ostream>
+#include <span>
 
+#include <ngui/TextSystem.h>
 #include <ngui/gfx/DisplayList.h>
 #include <ngui/gfx/SkiaBackend.h>
 
@@ -53,11 +55,12 @@ inline constexpr Rgba kBlue = {0, 0, 255, 255};
 
 
 // Renders a list into a fresh offscreen surface on white and keeps it for
-// reading pixels.
+// reading pixels; \a fonts are added to the backend first.
 class Rendered {
 public:
 								Rendered(const DisplayListRef& list, Size device,
-									float scale = 1, Point offset = {0, 0});
+									float scale = 1, Point offset = {0, 0},
+									std::span<const FontFile> fonts = {});
 
 			Rgba				At(int x, int y) const;
 
@@ -68,10 +71,13 @@ private:
 
 
 inline
-Rendered::Rendered(const DisplayListRef& list, Size device, float scale, Point offset)
+Rendered::Rendered(const DisplayListRef& list, Size device, float scale, Point offset,
+	std::span<const FontFile> fonts)
 	:
 	fSurface(fBackend.CreateOffscreenSurface(device, scale))
 {
+	for (const FontFile& font : fonts)
+		(void)fBackend.AddFont(font.id, font.data);
 	fBackend.BeginFrame(*fSurface, {1, 1, 1, 1});
 	fBackend.Render(*list, offset);
 	fBackend.EndFrame(*fSurface);

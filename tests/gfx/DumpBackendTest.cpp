@@ -8,6 +8,7 @@
 #include <ngui/gfx/DumpBackend.h>
 
 #include <algorithm>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -72,10 +73,11 @@ TEST(DumpBackendTest, FramesBecomeText)
 TEST(DumpBackendTest, CoreProfileOnly)
 {
 	// What is tested: Capabilities(), window surfaces, invalid offscreen
-	// sizes and image creation of the dump backend.
+	// sizes, image creation and AddFont() of the dump backend.
 	// Success criteria: Only the core profile; no window surfaces; empty or
 	// non-finite sizes and non-positive scales give no surface; images get
-	// distinct non-zero handles.
+	// distinct non-zero handles; AddFont() is Backend's default, false: the
+	// dump writes glyph runs as numbers and reads no font files.
 	// Why it matters: The dump backend is the fallback that runs everywhere
 	// (specification 15); it must report honestly what it does not do.
 	//
@@ -92,6 +94,7 @@ TEST(DumpBackendTest, CoreProfileOnly)
 	EXPECT_NE(a, 0u);
 	EXPECT_NE(a, b);
 	EXPECT_EQ(backend.CreateImage({0, 1, 4, pixel}), 0u);
+	EXPECT_FALSE(backend.AddFont(1, std::as_bytes(std::span(pixel))));
 }
 
 

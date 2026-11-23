@@ -6,7 +6,6 @@
 #pragma once
 
 
-#include <cstddef>
 #include <expected>
 #include <memory>
 #include <span>
@@ -20,16 +19,6 @@
 
 
 namespace ngui::text {
-
-
-/*!	A font file of a text system, for the backends that draw its glyph runs
-	(specification 13.4: SkiaBackend::AddFont()). */
-struct FontFile {
-			gfx::FontId			id;		/*!< The font of the glyph runs. */
-			FontRole			role;	/*!< The role it serves. */
-			std::span<const std::byte> data;
-									/*!< The font file; valid as long as the text system. */
-};
 
 
 /*!	The text subsystem (modules X1, X2, X5; library ngui_text): fonts,
@@ -76,8 +65,8 @@ public:
 									/*!< Glyphs, positions and clusters (byte offsets in
 										\a text) of \a text, in left-to-right order. */
 
-			std::span<const FontFile> Fonts() const;
-									/*!< The font files, for the backends. */
+			std::span<const FontFile> Fonts() const override;
+									/*!< The three bundled fonts, ids 1 to 3. */
 
 private:
 			struct Font;

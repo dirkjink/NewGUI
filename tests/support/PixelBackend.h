@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstddef>
 #include <memory>
+#include <span>
 #include <vector>
 
 #include <ngui/gfx/Backend.h>
@@ -21,7 +22,8 @@ namespace ngui::test {
 
 // A backend whose surfaces have pixel buffers but which draws nothing, so
 // that a window's frames reach its platform window's presenter without
-// Skia. Counts the lists it renders.
+// Skia. Counts the lists it renders and records the fonts added to it in
+// #addedFonts, if set (read it once the window has quit).
 class PixelBackend : public gfx::Backend {
 public:
 	class PixelSurface : public gfx::Surface {
@@ -108,7 +110,15 @@ public:
 	{
 	}
 
+	bool AddFont(gfx::FontId font, std::span<const std::byte>) override
+	{
+		if (addedFonts != nullptr)
+			addedFonts->push_back(font);
+		return true;
+	}
+
 	std::atomic<int> renders = 0;
+	std::shared_ptr<std::vector<gfx::FontId>> addedFonts;
 };
 
 
