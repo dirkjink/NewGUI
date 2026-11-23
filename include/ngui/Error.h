@@ -27,7 +27,9 @@ enum class ErrorCode : std::uint8_t {
 							B_ENTRY_NOT_FOUND). */
 	OutOfMemory,		/*!< An allocation failed (B_NO_MEMORY). */
 	BadData,			/*!< Input data is malformed (B_BAD_DATA). */
-	IoError				/*!< Reading or writing failed (B_IO_ERROR). */
+	IoError,			/*!< Reading or writing failed (B_IO_ERROR). */
+	TimedOut			/*!< A wait ended before it succeeded (B_TIMED_OUT,
+							B_WOULD_BLOCK). */
 };
 
 

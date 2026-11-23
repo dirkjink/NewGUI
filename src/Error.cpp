@@ -29,6 +29,8 @@ ErrorCodeName(ErrorCode code)
 			return "BadData";
 		case ErrorCode::IoError:
 			return "IoError";
+		case ErrorCode::TimedOut:
+			return "TimedOut";
 	}
 	return "Unknown";
 }

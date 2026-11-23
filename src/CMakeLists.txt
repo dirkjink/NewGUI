@@ -9,6 +9,7 @@ configure_file(
 
 add_library(ngui
     ControlLook.cpp
+    Locker.cpp
     LookRegistry.cpp
     compat/CompatView.cpp
     compat/Point.cpp
