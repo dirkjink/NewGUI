@@ -104,7 +104,8 @@ BRegion::RectAt(int32 index) const
 	if (index < 0 || index >= fRegion.CountRects())
 		return BRect();
 	const gfx::IntRect rect = fRegion.RectAt(index);
-	return BRect(rect.x0, rect.y0, rect.x1 - 1, rect.y1 - 1);
+	return BRect(static_cast<float>(rect.x0), static_cast<float>(rect.y0),
+		static_cast<float>(rect.x1 - 1), static_cast<float>(rect.y1 - 1));
 }
 
 
@@ -114,7 +115,8 @@ BRegion::Frame() const
 	if (fRegion.IsEmpty())
 		return BRect();
 	const gfx::IntRect frame = fRegion.Frame();
-	return BRect(frame.x0, frame.y0, frame.x1 - 1, frame.y1 - 1);
+	return BRect(static_cast<float>(frame.x0), static_cast<float>(frame.y0),
+		static_cast<float>(frame.x1 - 1), static_cast<float>(frame.y1 - 1));
 }
 
 

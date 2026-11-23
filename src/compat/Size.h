@@ -90,24 +90,25 @@ BSize::Height() const
 
 
 inline void
-BSize::Set(float width, float height)
+BSize::Set(float newWidth, float newHeight)
 {
-	this->width = width;
-	this->height = height;
+	// Parameters renamed: MSVC warns that they hide the members (C4458).
+	width = newWidth;
+	height = newHeight;
 }
 
 
 inline void
-BSize::SetWidth(float width)
+BSize::SetWidth(float newWidth)
 {
-	this->width = width;
+	width = newWidth;
 }
 
 
 inline void
-BSize::SetHeight(float height)
+BSize::SetHeight(float newHeight)
 {
-	this->height = height;
+	height = newHeight;
 }
 
 

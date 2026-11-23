@@ -214,12 +214,13 @@ BRect::operator=(const BRect& other)
 
 
 inline void
-BRect::Set(float left, float top, float right, float bottom)
+BRect::Set(float newLeft, float newTop, float newRight, float newBottom)
 {
-	this->left = left;
-	this->top = top;
-	this->right = right;
-	this->bottom = bottom;
+	// Parameters renamed: MSVC warns that they hide the members (C4458).
+	left = newLeft;
+	top = newTop;
+	right = newRight;
+	bottom = newBottom;
 }
 
 

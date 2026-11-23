@@ -87,10 +87,11 @@ BPoint::operator=(const BPoint& other)
 
 
 inline void
-BPoint::Set(float x, float y)
+BPoint::Set(float newX, float newY)
 {
-	this->x = x;
-	this->y = y;
+	// Parameters renamed: MSVC warns that they hide the members (C4458).
+	x = newX;
+	y = newY;
 }
 
 
