@@ -7,6 +7,7 @@
 
 #include "FuzzTarget.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <expected>
 #include <span>
@@ -36,7 +37,7 @@ NGUI_FUZZ_TARGET(Message)
 	// Then
 	const std::expected<std::vector<std::byte>, ngui::Error> flattened = message->Flatten();
 	NGUI_FUZZ_CHECK(flattened.has_value());
-	NGUI_FUZZ_CHECK(std::vector<std::byte>(bytes.begin(), bytes.end()) == *flattened);
+	NGUI_FUZZ_CHECK(std::ranges::equal(bytes, *flattened));
 	const std::expected<ngui::BMessage, ngui::Error> again
 		= ngui::BMessage::FromFlattened(*flattened);
 	NGUI_FUZZ_CHECK(again.has_value() && *again == *message);
