@@ -71,7 +71,7 @@ jobs:
       # The newest Clang of the Ubuntu archive, with the runtimes of
       # libFuzzer and the sanitizers.
       - name: Install the compiler
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-20 libclang-rt-20-dev
+        run: .github/scripts/apt-install.sh clang-20 libclang-rt-20-dev
 
       - name: Set up vcpkg
         uses: ./.github/actions/setup-vcpkg

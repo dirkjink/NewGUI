@@ -58,7 +58,7 @@ jobs:
       # The runner image ships Clang 16 to 18 only; 19 and 20 come from the
       # Ubuntu archive (CONVENTIONS.md, section 1: Clang 19 or newer).
       - name: Install the compiler
-        run: command -v "$CXX" || (sudo apt-get update && sudo apt-get install -y --no-install-recommends "$CC")
+        run: command -v "$CXX" || .github/scripts/apt-install.sh "$CC"
 
       - name: Set up vcpkg
         uses: ./.github/actions/setup-vcpkg
@@ -136,7 +136,7 @@ jobs:
           persist-credentials: false
 
       - name: Install the compiler
-        run: command -v "$CXX" || (sudo apt-get update && sudo apt-get install -y --no-install-recommends "$CC")
+        run: command -v "$CXX" || .github/scripts/apt-install.sh "$CC"
 
       - name: Set up vcpkg
         uses: ./.github/actions/setup-vcpkg
@@ -180,7 +180,7 @@ jobs:
       # SDL3 builds its X11 and Wayland support against the system's
       # development headers (vcpkg port sdl3, features x11 and wayland).
       - name: Install the window system headers
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
+        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
 
       - name: Configure, build and test with Skia and SDL3
         run: cmake --workflow --preset skia
@@ -255,7 +255,7 @@ jobs:
           cache-key: skia-gcc-13
 
       - name: Install the window system headers
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
+        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
 
       # Everything that ships: the default dependencies, Skia and SDL3,
       # without the test-only "tests" feature.

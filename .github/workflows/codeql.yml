@@ -25,7 +25,13 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Skia comes from the binary cache of the build job "skia"; a cold cache
+    # builds it from source.
+    timeout-minutes: 120
+    env:
+      # The compiler of the build job "skia", so that its vcpkg cache fits.
+      CC: gcc-13
+      CXX: g++-13
     permissions:
       # Upload the SARIF results to the repository's Security tab.
       security-events: write
@@ -49,11 +55,23 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install the window system headers
+        if: matrix.build-mode == 'manual'
+        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
+
       - name: Set up vcpkg
         if: matrix.build-mode == 'manual'
         uses: ./.github/actions/setup-vcpkg
         with:
-          cache-key: codeql
+          cache-key: skia-gcc-13
+
+      # Configured before CodeQL starts tracing: vcpkg builds or restores
+      # Skia and SDL3 here, and their code is not ours to analyse.
+      - name: Configure (dependencies, not analysed)
+        if: matrix.build-mode == 'manual'
+        run: >-
+          cmake --preset skia -DNGUI_BUILD_TESTS=OFF -DNGUI_BUILD_EXAMPLES=OFF
+          -DVCPKG_MANIFEST_FEATURES="skia;sdl3"
 
       # Overlay databases (incremental PR analysis) need build-mode none.
       # For C++ the manual build stays: it is more precise, and a build-less
@@ -68,13 +86,12 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
-      # Library only: the tests do not ship, and skipping them keeps the
-      # database to the code a user of the toolkit actually runs.
+      # The libraries only (core, Skia backend, SDL3 platform): the tests
+      # do not ship, and skipping them keeps the database to the code a user
+      # of the toolkit actually runs.
       - name: Build (CodeQL extraction)
         if: matrix.build-mode == 'manual'
-        run: |
-          cmake --preset release -DNGUI_BUILD_TESTS=OFF -DVCPKG_MANIFEST_FEATURES=
-          cmake --build --preset release
+        run: cmake --build --preset skia
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
