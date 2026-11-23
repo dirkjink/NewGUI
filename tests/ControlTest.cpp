@@ -17,8 +17,10 @@
 
 #include <ngui/AppDefs.h>
 #include <ngui/Button.h>
+#include <ngui/CheckBox.h>
 #include <ngui/LookRegistry.h>
 #include <ngui/Message.h>
+#include <ngui/RadioButton.h>
 #include <ngui/StringView.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
@@ -421,6 +423,144 @@ TEST(StringViewTest, LinesAreDrawnWhereHaikuDrawsThem)
 	EXPECT_NE(narrowDump.find("origin=(0 16)"), std::string::npos) << narrowDump;
 	EXPECT_NE(narrowDump.find("glyphs=72@(0 0),101@(7 0),108@(14 0),108@(21 0)\n"),
 		std::string::npos) << narrowDump;
+}
+
+
+TEST(CheckBoxTest, PreferredSizeFollowsHaikusFormula)
+{
+	// What is tested: The sizes of check boxes with the placeholder font
+	// (7.2 px per character, ascent 9, descent 3) and the BeOS look (label
+	// spacing 6): "Check", no label, the minimum height of the frame
+	// constructor, the layout alignment.
+	// Success criteria: Haiku's box frame (0, 2, 12, 14) inclusive is
+	// (0, 2, 13, 15) half-open; the preferred width 12 + 0 + 6 + ceil(36)
+	// = 54, the height max(14 + 2, ceil(6 + 9 + 3)) = 18, as pixel counts
+	// 55 × 19; without a label 13 × 17; a check box made 10 high is raised
+	// to 19; aligned left and vertically centered.
+	// Why it matters: Forms with check boxes must lay out as in Haiku.
+	//
+	// Given
+	BCheckBox check("Check");
+	BCheckBox bare("");
+	BCheckBox framed({0, 0, 80, 10}, "framed", "Framed", nullptr);
+
+	// When / Then
+	EXPECT_EQ(check.PreferredSize(), (gfx::Size{55, 19}));
+	EXPECT_EQ(check.MaxSize(), (gfx::Size{55, 19}));
+	EXPECT_EQ(bare.PreferredSize(), (gfx::Size{13, 17}));
+	EXPECT_EQ(framed.Frame(), (gfx::Rect{0, 0, 80, 19}));
+	EXPECT_EQ(check.LayoutAlignment(),
+		(BAlignment{BHorizontalAlignment::Left, BVerticalAlignment::Middle}));
+}
+
+
+TEST(CheckBoxTest, ClicksAndKeysCycleTheStates)
+{
+	// What is tested: A check box clicked (pressed and released inside),
+	// pressed and dragged out, toggled with space and Enter, set partially
+	// on and clicked, set partially on with partial-to-off and clicked, and
+	// set to an unknown value.
+	// Success criteria: Clicks and keys go off -> on -> off -> on and send
+	// each new value; a click dragged out changes nothing; partially on
+	// goes to on, with partial-to-off to off; an unknown value is on.
+	// Why it matters: Haiku's _NextState() rules, and that the user can
+	// cancel a click by dragging away.
+	//
+	// Given
+	Target target;
+	BWindow window({0, 0, 200, 100}, "check");
+	auto* check = static_cast<BCheckBox*>(window.AddChild(std::make_unique<BCheckBox>(
+		gfx::Rect{10, 10, 100, 30}, "check", "Check", Pressed())));
+	check->SetTarget(target.Messenger());
+
+	// When
+	check->MouseDown({5, 5});
+	check->MouseUp({5, 5});
+	check->MouseDown({5, 5});
+	check->MouseMoved({150, 5}, BMouseTransit::Exited, nullptr);
+	check->MouseUp({150, 5});
+	const int32 afterCancel = check->Value();
+	check->KeyDown(" ");
+	check->KeyDown("\n");
+	check->SetValue(kControlPartiallyOn);
+	check->MouseDown({5, 5});
+	check->MouseUp({5, 5});
+	const int32 partialToOn = check->Value();
+	check->SetValue(kControlPartiallyOn);
+	check->SetPartialStateToOff(true);
+	check->MouseDown({5, 5});
+	check->MouseUp({5, 5});
+	const int32 partialToOff = check->Value();
+	check->SetValue(5);
+
+	// Then
+	EXPECT_EQ(afterCancel, kControlOn);
+	EXPECT_EQ(partialToOn, kControlOn);
+	EXPECT_EQ(partialToOff, kControlOff);
+	EXPECT_EQ(check->Value(), kControlOn);
+	EXPECT_TRUE(check->IsPartialStateToOff());
+	EXPECT_EQ(target.Values(5), (std::vector<std::int32_t>{1, 0, 1, 1, 0}));
+}
+
+
+TEST(RadioButtonTest, OnlyOneSiblingIsOn)
+{
+	// What is tested: Three radio buttons and a check box in one parent: b
+	// clicked, then c set on, then c clicked again; a turned on with space;
+	// Enter on a, which is on; a click on b dragged out.
+	// Success criteria: Turning one on turns the other radio buttons off,
+	// not the check box; a click sends 1; a click on a button that is on
+	// sends nothing; space turns a on and sends; Enter on an on button does
+	// nothing (it cannot be turned off); a click dragged out changes
+	// nothing.
+	// Why it matters: Radio buttons are a choice of one (Haiku's
+	// BRadioButton::SetValue() walks the siblings).
+	//
+	// Given
+	Target target;
+	BWindow window({0, 0, 300, 100}, "radios");
+	BView* parent = window.AddChild(std::make_unique<BView>(gfx::Rect{0, 0, 300, 100},
+		"group"));
+	std::vector<BRadioButton*> radios;
+	for (int i = 0; i < 3; i++) {
+		radios.push_back(static_cast<BRadioButton*>(parent->AddChild(
+			std::make_unique<BRadioButton>(gfx::Rect{10.0f + 90.0f * float(i), 10,
+				90.0f + 90.0f * float(i), 30}, "radio", "Radio", Pressed()))));
+		radios.back()->SetTarget(target.Messenger());
+	}
+	auto* check = static_cast<BCheckBox*>(parent->AddChild(std::make_unique<BCheckBox>(
+		gfx::Rect{10, 50, 90, 70}, "check", "Check", nullptr)));
+	check->SetValue(kControlOn);
+	BRadioButton* a = radios[0];
+	BRadioButton* b = radios[1];
+	BRadioButton* c = radios[2];
+
+	// When
+	b->MouseDown({5, 5});
+	b->MouseUp({5, 5});
+	const bool bOn = b->Value() == kControlOn;
+	c->SetValue(kControlOn);
+	const bool bOffAfterC = b->Value() == kControlOff;
+	c->MouseDown({5, 5});
+	c->MouseUp({5, 5});
+	a->KeyDown(" ");
+	a->KeyDown("\n");
+	b->MouseDown({5, 5});
+	b->MouseMoved({200, 5}, BMouseTransit::Exited, nullptr);
+	b->MouseUp({200, 5});
+
+	// Then
+	EXPECT_TRUE(bOn);
+	EXPECT_TRUE(bOffAfterC);
+	EXPECT_EQ(a->Value(), kControlOn);
+	EXPECT_EQ(b->Value(), kControlOff);
+	EXPECT_EQ(c->Value(), kControlOff);
+	EXPECT_EQ(check->Value(), kControlOn);
+	EXPECT_EQ(target.Values(2), (std::vector<std::int32_t>{1, 1}));
+	EXPECT_EQ(target.Received().size(), 2u);
+	EXPECT_EQ(b->PreferredSize(), (gfx::Size{55, 19}));
+	EXPECT_EQ(b->LayoutAlignment(),
+		(BAlignment{BHorizontalAlignment::Left, BVerticalAlignment::Middle}));
 }
 
 

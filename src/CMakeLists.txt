@@ -13,6 +13,7 @@ add_library(ngui
     Application.cpp
     Button.cpp
     CardLayout.cpp
+    CheckBox.cpp
     Clock.cpp
     Control.cpp
     ControlLook.cpp
@@ -38,6 +39,7 @@ add_library(ngui
     LayoutItem.cpp
     LayoutUtils.cpp
     Palette.cpp
+    RadioButton.cpp
     SpaceLayoutItem.cpp
     StringView.cpp
     TextSystem.cpp
