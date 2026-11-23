@@ -12,6 +12,7 @@
 #include <string_view>
 
 #include <ngui/AppDefs.h>
+#include <ngui/InterfaceDefs.h>
 #include <ngui/platform/SdlPlatform.h>
 
 
@@ -19,6 +20,54 @@ namespace ngui::platform::sdl3 {
 
 
 namespace {
+
+
+// The byte of a key that types no text, as Haiku's B_ENTER ...; empty for
+// the others. By scancode, since these keys do not depend on the layout.
+std::string_view
+ControlBytes(SDL_Scancode scancode)
+{
+	static constexpr char kBytes[] = {keys::kEnter, keys::kTab, keys::kBackspace,
+		keys::kEscape, keys::kLeftArrow, keys::kRightArrow, keys::kUpArrow,
+		keys::kDownArrow, keys::kInsert, keys::kDelete, keys::kHome, keys::kEnd,
+		keys::kPageUp, keys::kPageDown, keys::kFunctionKey};
+	const auto byte = [](int index) { return std::string_view(&kBytes[index], 1); };
+	switch (scancode) {
+		case SDL_SCANCODE_RETURN:
+		case SDL_SCANCODE_KP_ENTER:
+			return byte(0);
+		case SDL_SCANCODE_TAB:
+			return byte(1);
+		case SDL_SCANCODE_BACKSPACE:
+			return byte(2);
+		case SDL_SCANCODE_ESCAPE:
+			return byte(3);
+		case SDL_SCANCODE_LEFT:
+			return byte(4);
+		case SDL_SCANCODE_RIGHT:
+			return byte(5);
+		case SDL_SCANCODE_UP:
+			return byte(6);
+		case SDL_SCANCODE_DOWN:
+			return byte(7);
+		case SDL_SCANCODE_INSERT:
+			return byte(8);
+		case SDL_SCANCODE_DELETE:
+			return byte(9);
+		case SDL_SCANCODE_HOME:
+			return byte(10);
+		case SDL_SCANCODE_END:
+			return byte(11);
+		case SDL_SCANCODE_PAGEUP:
+			return byte(12);
+		case SDL_SCANCODE_PAGEDOWN:
+			return byte(13);
+		default:
+			if (scancode >= SDL_SCANCODE_F1 && scancode <= SDL_SCANCODE_F12)
+				return byte(14);
+			return {};
+	}
+}
 
 
 BMessage
@@ -154,6 +203,10 @@ Translate(std::span<const SDL_Event> events, const TranslationContext& context)
 					bytes = events[i + 1].text.text;
 					i++;
 				}
+				// Keys that type no text carry Haiku's bytes, on key up as
+				// well.
+				if (bytes.empty())
+					bytes = ControlBytes(key.scancode);
 				(void)message.AddString("bytes", bytes);
 				if (key.down)
 					(void)message.AddInt32("be:key_repeat", key.repeat ? 1 : 0);

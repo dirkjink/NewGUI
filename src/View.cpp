@@ -13,6 +13,7 @@
 #include <utility>
 
 #include <ngui/LayoutContext.h>
+#include <ngui/LookRegistry.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/Paint.h>
@@ -594,12 +595,37 @@ BView::RecordTree(const DrawEnvironment& environment)
 void
 BView::MakeFocus(bool focus)
 {
+	// As Haiku's BView::MakeFocus().
 	if (fWindow == nullptr)
 		return;
-	if (focus)
+
+	BView* focusView = fWindow->CurrentFocus();
+	if (focus) {
+		// Unfocus a previous focus view
+		if (focusView != nullptr && focusView != this)
+			focusView->MakeFocus(false);
+
+		// if we want to make this view the current focus view
 		fWindow->_SetFocus(this);
-	else if (IsFocus())
-		fWindow->_SetFocus(nullptr);
+	} else {
+		// we want to unfocus this view, but only if it actually has focus
+		if (focusView == this)
+			fWindow->_SetFocus(nullptr);
+	}
+}
+
+
+const ControlLook&
+BView::Look() const
+{
+	if (fWindow != nullptr)
+		return fWindow->Look();
+
+	// Outside a window the reference stays valid until the next call on this
+	// thread, even if the current look is replaced meanwhile.
+	thread_local std::shared_ptr<const ControlLook> current;
+	current = LookRegistry::DefaultLook();
+	return *current;
 }
 
 

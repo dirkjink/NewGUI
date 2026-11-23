@@ -5,25 +5,28 @@
  */
 
 
-// A window with one button in the BeOS look: pressed while the mouse
-// button is down over it, as Haiku's BButton tracks a click. Closing the
-// window quits the application. It shows the toolkit end to end: the
-// platform's events as messages to the window, distributed to views; the
-// look drawing into a view's Canvas; the window putting the DisplayLists
-// together, Skia rendering them, the presenter copying the changed area
-// into the window; the label shaped by the text subsystem with the bundled
-// Noto Sans, drawn by Skia with the same font file; the layout keeping the
-// button centered when the window is resized (BLayoutBuilder).
+// A window with a button and a label in the BeOS look: a BButton tracks
+// the click as Haiku's does and sends its message to the window, which
+// counts the clicks in a BStringView; Enter clicks it too, as it is the
+// default button. Closing the window quits the application. It shows the
+// toolkit end to end: the platform's events as messages to the window,
+// distributed to views; the controls drawing through the look into their
+// Canvas; the window putting the DisplayLists together, Skia rendering
+// them, the presenter copying the changed area into the window; text
+// shaped by the text subsystem with the bundled Noto Sans, drawn by Skia
+// with the same font file; the layout keeping both centered when the
+// window is resized (BLayoutBuilder).
 
 
 #include <cstdio>
 #include <memory>
+#include <string>
 
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
-#include <ngui/BeLook.h>
+#include <ngui/Button.h>
 #include <ngui/LayoutBuilder.h>
-#include <ngui/View.h>
+#include <ngui/StringView.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/BackendRegistry.h>
 #include <ngui/gfx/SkiaBackend.h>
@@ -37,63 +40,57 @@ namespace {
 using namespace ngui;
 
 
-// A labeled button, drawn by the BeOS look as Haiku's BButton::Draw().
-class ButtonView : public BView {
+constexpr std::uint32_t kClicked = FourCharCode("CLCK");
+
+
+// The window: counts the clicks of its button in its label.
+class CounterWindow : public BWindow {
 public:
-	ButtonView()
+	CounterWindow()
 		:
-		BView("button"),
-		fLook(CreateBeLook())
+		BWindow(gfx::Rect{100, 100, 420, 260}, "NewGUI", BWindowLook::Titled,
+			BWindowFlag::QuitOnWindowClose | BWindowFlag::AutoUpdateSizeLimits)
 	{
-		SetViewColor(std::nullopt);
-		SetExplicitSize({120, 32});
+		auto label = std::make_unique<BStringView>("label", "Not clicked yet");
+		fLabel = label.get();
+		auto button = std::make_unique<BButton>("Click me",
+			std::make_unique<BMessage>(kClicked));
+		BButton* clickMe = button.get();
+
+		// Both stay centered; the window cannot become smaller than they
+		// and the window insets.
+		BLayoutBuilder::Group<>(this, BOrientation::Vertical)
+			.SetInsets(kUseWindowInsets)
+			.AddGlue()
+			.AddGroup(BOrientation::Horizontal)
+				.AddGlue()
+				.Add(std::move(label))
+				.AddGlue()
+			.End()
+			.AddGroup(BOrientation::Horizontal)
+				.AddGlue()
+				.Add(std::move(button))
+				.AddGlue()
+			.End()
+			.AddGlue();
+
+		clickMe->MakeDefault(true);
 	}
 
-	void Draw(DrawContext& context) override
+	void MessageReceived(BMessage* message) override
 	{
-		const gfx::Color base = context.palette.Get(BColorWhich::ControlBackground);
-		const gfx::Color background = context.palette.Get(BColorWhich::PanelBackground);
-		const gfx::Color text = context.palette.Get(BColorWhich::ControlText);
-		gfx::Rect rect = Bounds();
-		const ControlStateFlags flags = fPressed ? ControlState::Activated : ControlStateFlags();
-		fLook->DrawButtonFrame(context, rect, base, background, flags);
-		fLook->DrawButtonBackground(context, rect, base, flags);
-		fLook->DrawLabel(context, "Click me", 0, rect, base, flags,
-			BAlignment{BHorizontalAlignment::Center, BVerticalAlignment::Middle}, &text);
-	}
-
-	void MouseDown(gfx::Point) override
-	{
-		// As BButton: follow the mouse until the button is released.
-		SetMouseEventMask(BEventMask::Pointer);
-		_SetPressed(true);
-	}
-
-	void MouseMoved(gfx::Point where, BMouseTransit, const BMessage*) override
-	{
-		if (fTracking)
-			_SetPressed(Bounds().Contains(where));
-	}
-
-	void MouseUp(gfx::Point) override
-	{
-		fTracking = false;
-		_SetPressed(false);
+		if (message->what != kClicked) {
+			BWindow::MessageReceived(message);
+			return;
+		}
+		fClicks++;
+		fLabel->SetText(fClicks == 1 ? "Clicked once"
+			: "Clicked " + std::to_string(fClicks) + " times");
 	}
 
 private:
-	void _SetPressed(bool pressed)
-	{
-		fTracking = fTracking || pressed;
-		if (pressed == fPressed)
-			return;
-		fPressed = pressed;
-		Invalidate();
-	}
-
-	std::shared_ptr<const ControlLook> fLook;
-	bool fPressed = false;
-	bool fTracking = false;
+	BStringView* fLabel = nullptr;
+	int fClicks = 0;
 };
 
 
@@ -107,20 +104,7 @@ public:
 
 	void ReadyToRun() override
 	{
-		auto window = std::make_unique<BWindow>(gfx::Rect{100, 100, 420, 260}, "NewGUI",
-			BWindowLook::Titled,
-			BWindowFlag::QuitOnWindowClose | BWindowFlag::AutoUpdateSizeLimits);
-		// The button stays centered; the window cannot become smaller than
-		// the button and the window insets.
-		BLayoutBuilder::Group<>(window.get(), BOrientation::Vertical)
-			.SetInsets(kUseWindowInsets)
-			.AddGlue()
-			.AddGroup(BOrientation::Horizontal)
-				.AddGlue()
-				.Add(std::make_unique<ButtonView>())
-				.AddGlue()
-			.End()
-			.AddGlue();
+		auto window = std::make_unique<CounterWindow>();
 		window->Show();
 		(void)BLooper::Run(std::move(window));
 	}

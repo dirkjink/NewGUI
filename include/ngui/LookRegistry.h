@@ -95,6 +95,10 @@ public:
 			std::shared_ptr<const ControlLook> Current() const;
 									/*!< The current look, atomically; nullptr until one is
 										selected. */
+	static	std::shared_ptr<const ControlLook> DefaultLook();
+									/*!< The current look of Default(), the BeOS look if none
+										is selected: what windows take at the start of each
+										layout and drawing cycle (L10). */
 			std::expected<void, Error> SetCurrent(std::string_view id);
 									/*!< Makes \a id current: NotFound if it is not
 										registered, NotSupported if it is incompatible with

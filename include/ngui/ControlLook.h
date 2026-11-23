@@ -24,6 +24,9 @@
 namespace ngui {
 
 
+class BControl;
+
+
 // The vocabulary shared by all looks (specification 18.3, L5): the meaning
 // of Haiku's BControlLook constants, with names of their own.
 
@@ -172,8 +175,8 @@ struct DrawContext {
 	  get the TextSystem or the Palette as a parameter.
 	- Icons are ImageHandles, labels UTF-8 strings drawn with the
 	  TextSystem.
-	- Flags(const BControl&) comes with the controls (module W2), as a
-	  method with a default implementation (L8).
+	- Flags(const BControl&) came with the controls (module W2), as a
+	  method with a default implementation (L8, interface version 2).
 
 	Methods added later go to the end of the class with a default
 	implementation, and kInterfaceVersion grows (L8, 18.6).
@@ -181,7 +184,7 @@ struct DrawContext {
 class ControlLook {
 public:
 	/*!	Version of this interface, checked by look plugins (L12). */
-	static constexpr std::uint32_t kInterfaceVersion = 1;
+	static constexpr std::uint32_t kInterfaceVersion = 2;
 
 	virtual						~ControlLook() = default;
 
@@ -512,6 +515,15 @@ public:
 									BOrientation orientation) const = 0;
 									/*!< Width of a vertical or height of a horizontal scroll
 										bar; it grows with the font, as Haiku's. */
+
+	// Added in interface version 2 (L8)
+
+	virtual	ControlStateFlags	Flags(const BControl& control) const;
+									/*!< The state flags \a control is drawn with: IsControl;
+										Disabled; Focused if it has the focus of an active
+										window; Activated or PartiallyActivated by its
+										value; BlendFrame if its parent draws on its
+										children. As Haiku's BeControlLook::Flags(). */
 };
 
 

@@ -181,6 +181,39 @@ TEST(SdlEventsTest, KeysCarryTheTextTheyType)
 }
 
 
+TEST(SdlEventsTest, KeysWithoutTextCarryHaikusBytes)
+{
+	// What is tested: Return, Tab, Escape, the left arrow, F5, a key up of
+	// Return, and a letter key without text.
+	// Success criteria: The bytes are Haiku's: 0x0a, 0x09, 0x1b, 0x1c,
+	// 0x10 (B_FUNCTION_KEY); the key up of Return carries 0x0a as well; a
+	// letter without text has none.
+	// Why it matters: SDL sends text only for keys that type some; buttons
+	// react to B_ENTER and keyboard navigation to B_TAB, which must also
+	// work with a real keyboard.
+	//
+	// Given
+	const std::vector<SDL_Event> events = {Key(true, SDL_SCANCODE_RETURN, SDL_KMOD_NONE),
+		Key(true, SDL_SCANCODE_TAB, SDL_KMOD_NONE), Key(true, SDL_SCANCODE_ESCAPE, SDL_KMOD_NONE),
+		Key(true, SDL_SCANCODE_LEFT, SDL_KMOD_NONE), Key(true, SDL_SCANCODE_F5, SDL_KMOD_NONE),
+		Key(false, SDL_SCANCODE_RETURN, SDL_KMOD_NONE), Key(true, SDL_SCANCODE_Q, SDL_KMOD_NONE)};
+
+	// When
+	const std::vector<TranslatedEvent> messages = Translate(events, Context());
+
+	// Then
+	ASSERT_EQ(messages.size(), 7u);
+	EXPECT_EQ(messages[0].message.GetString("bytes", "?"), "\n");
+	EXPECT_EQ(messages[1].message.GetString("bytes", "?"), "\t");
+	EXPECT_EQ(messages[2].message.GetString("bytes", "?"), "\x1b");
+	EXPECT_EQ(messages[3].message.GetString("bytes", "?"), "\x1c");
+	EXPECT_EQ(messages[4].message.GetString("bytes", "?"), "\x10");
+	EXPECT_EQ(messages[5].message.what, kKeyUp);
+	EXPECT_EQ(messages[5].message.GetString("bytes", "?"), "\n");
+	EXPECT_EQ(messages[6].message.GetString("bytes", "?"), "");
+}
+
+
 TEST(SdlEventsTest, WindowEventsAndModifiers)
 {
 	// What is tested: A resize to 640 × 480, a move, focus gained and lost,

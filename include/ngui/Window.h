@@ -27,6 +27,9 @@
 namespace ngui {
 
 
+class BButton;
+
+
 /*!	How a window looks (Haiku's window_look, as far as the platform can
 	show it). */
 enum class BWindowLook : std::uint8_t {
@@ -115,6 +118,20 @@ public:
 									/*!< The view with the focus, nullptr if none. */
 			BView*				RootView() const;
 									/*!< The view that covers the content area. */
+
+	// Look and default button (module W2)
+
+			const ControlLook&	Look() const;
+									/*!< The look of this cycle: taken at the start of each
+										layout and drawing cycle (rule L10) from
+										LookRegistry::DefaultLook(), and kept until the next
+										one. */
+			BButton*			DefaultButton() const;
+									/*!< The button Enter invokes, or nullptr. */
+			void				SetDefaultButton(BButton* button);
+									/*!< Makes \a button (a view of this window) the default
+										button, the old one an ordinary one; nullptr for
+										none. */
 
 	// Layout (module G10)
 
@@ -210,6 +227,7 @@ private:
 	static	std::vector<BMessenger> _Windows();
 			void				_Resized(float width, float height, float scale);
 			void				_LayoutInvalidated();
+			void				_TakeLook();
 
 			std::string			fTitle;
 			BWindowFlags		fFlags;
@@ -230,6 +248,8 @@ private:
 			std::uint32_t		fButtons = 0;
 			int					fHideLevel = 1;
 			bool				fUpdatePending = false;
+			std::shared_ptr<const ControlLook> fLook;
+			BButton*			fDefaultButton = nullptr;
 			gfx::Size			fMinSize = {0, 0};
 			gfx::Size			fMaxSize = {kSizeUnlimited, kSizeUnlimited};
 			bool				fActive = false;
