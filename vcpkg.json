@@ -5,7 +5,7 @@
   "description": "Cross-platform C++ UI toolkit inspired by the Haiku Interface Kit",
   "homepage": "https://github.com/dirkjink/NewGUI",
   "license": "MIT",
-  "builtin-baseline": "9eec002df1cd109f8f104cd966a763daf9751489",
+  "builtin-baseline": "277978ad2eddc3b05ecf288dcd33071968cd2f79",
   "dependencies": [],
   "features": {
     "tests": {
