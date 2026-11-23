@@ -9,6 +9,9 @@ configure_file(
 
 add_library(ngui
     ControlLook.cpp
+    compat/CompatView.cpp
+    compat/Point.cpp
+    compat/Rect.cpp
     Error.cpp
     Palette.cpp
     TextSystem.cpp
