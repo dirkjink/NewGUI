@@ -8,6 +8,7 @@
 #include <ngui/Box.h>
 
 #include <chrono>
+#include <cmath>
 #include <memory>
 
 #include <gtest/gtest.h>
@@ -24,6 +25,7 @@
 #include <ngui/ScrollBar.h>
 #include <ngui/ScrollView.h>
 #include <ngui/SplitView.h>
+#include <ngui/TabView.h>
 #include <ngui/View.h>
 #include <ngui/Window.h>
 
@@ -693,6 +695,175 @@ TEST(SplitViewTest, TheBuilderNestsSplitViews)
 	float left = 0;
 	split->GetInsets(&left, nullptr, nullptr, nullptr);
 	EXPECT_FLOAT_EQ(left, 5);
+}
+
+
+// Whether \a actual is \a expected up to float rounding.
+::testing::AssertionResult
+RectNear(const gfx::Rect& actual, const gfx::Rect& expected)
+{
+	const auto near = [](float a, float b) { return std::abs(a - b) < 1e-3f; };
+	if (near(actual.x0, expected.x0) && near(actual.y0, expected.y0)
+		&& near(actual.x1, expected.x1) && near(actual.y1, expected.y1)) {
+		return ::testing::AssertionSuccess();
+	}
+	return ::testing::AssertionFailure() << "(" << actual.x0 << ", " << actual.y0 << ", "
+		<< actual.x1 << ", " << actual.y1 << ")";
+}
+
+
+// A page for tab views named \a name: minimum \a min, preferred 50 more
+// in both directions, unlimited maximum.
+std::unique_ptr<BView>
+Page(std::string_view name, gfx::Size min)
+{
+	auto page = std::make_unique<BView>(name);
+	page->SetExplicitMinSize(min);
+	page->SetExplicitPreferredSize({min.w + 50, min.h + 30});
+	page->SetExplicitMaxSize({kSizeUnlimited, kSizeUnlimited});
+	return page;
+}
+
+
+TEST(TabViewTest, GeometryIsHaikus)
+{
+	// What is tested: A tab view for a layout in a window with the pages
+	// "General" (minimum 100 × 50) and "Advanced" (80 × 60), tabs as wide
+	// as the widest label, with the placeholder font; laid out at
+	// 300 × 200.
+	// Success criteria: The tabs are ceil(12 + 1.3 · 6) = 20 high (Haiku's
+	// measure: 21 rows). Padding ceil(6 · 3.3) = 20, so each tab is
+	// 57.6 + 20 = 77.6 wide, starting at the window spacing 11; Haiku's
+	// inclusive frames share a pixel: (11, 0, 89.6, 21) and (88.6, 0,
+	// 167.2, 21). The layout insets are 3 and 3 + 20 - 1 = 22 at the top:
+	// minimum 106 × 85, preferred 156 × 115; the container fills (3, 22,
+	// 297, 197). In the window the first tab is selected at once.
+	// Why it matters: Preference windows are tab views; their tabs must be
+	// where Haiku draws them and where clicks hit them.
+	//
+	// Given
+	BWindow window({0, 0, 400, 300}, "tabs");
+	auto* tabs = static_cast<BTabView*>(window.AddChild(std::make_unique<BTabView>("tabs")));
+
+	// When
+	tabs->AddTab(Page("General", {100, 50}));
+	tabs->AddTab(Page("Advanced", {80, 60}));
+	tabs->ResizeTo(300, 200);
+	tabs->Layout(true);
+
+	// Then
+	EXPECT_FLOAT_EQ(tabs->TabHeight(), 20);
+	EXPECT_TRUE(RectNear(tabs->TabFrame(0), {11, 0, 89.6f, 21}));
+	EXPECT_TRUE(RectNear(tabs->TabFrame(1), {88.6f, 0, 167.2f, 21}));
+	EXPECT_EQ(tabs->TabFrame(2), gfx::Rect{});
+	EXPECT_EQ(tabs->MinSize(), (gfx::Size{106, 85}));
+	EXPECT_EQ(tabs->PreferredSize(), (gfx::Size{156, 115}));
+	EXPECT_EQ(tabs->ContainerView()->Frame(), (gfx::Rect{3, 22, 297, 197}));
+	EXPECT_EQ(tabs->Selection(), 0);
+	EXPECT_EQ(tabs->TabAt(1)->Label(), "Advanced");
+}
+
+
+TEST(TabViewTest, ClicksAndKeysSelectPages)
+{
+	// What is tested: The tab view of the previous test: Select(1), a
+	// click on the first tab, the right arrow, Enter, the left arrow and
+	// Space; then the second tab's view replaced by SetView().
+	// Success criteria: Only the selected page is shown (the other one is
+	// a hidden card). The click selects the first tab; the arrow moves the
+	// focus tab to the second (wrapping), Enter selects it; the left arrow
+	// and Space go back to the first. The new view takes the second card,
+	// is shown once the tab is selected, and is laid out like the others
+	// (Haiku left it out of the card layout).
+	// Why it matters: Tabs are switched with the mouse and the keyboard.
+	//
+	// Given
+	BWindow window({0, 0, 400, 300}, "tabs");
+	auto* tabs = static_cast<BTabView*>(window.AddChild(std::make_unique<BTabView>("tabs")));
+	tabs->AddTab(Page("General", {100, 50}));
+	tabs->AddTab(Page("Advanced", {80, 60}));
+	BView* first = tabs->ViewForTab(0);
+	BView* second = tabs->ViewForTab(1);
+	tabs->ResizeTo(300, 200);
+	tabs->Layout(true);
+
+	// When / Then
+	tabs->Select(1);
+	EXPECT_TRUE(first->IsHidden());
+	EXPECT_FALSE(second->IsHidden());
+	EXPECT_EQ(tabs->FocusTab(), 1);
+	tabs->MouseDown({20, 10});
+	EXPECT_EQ(tabs->Selection(), 0);
+	EXPECT_FALSE(first->IsHidden());
+	tabs->KeyDown(std::string(1, keys::kRightArrow));
+	EXPECT_EQ(tabs->FocusTab(), 1);
+	EXPECT_EQ(tabs->Selection(), 0);
+	tabs->KeyDown(std::string(1, keys::kEnter));
+	EXPECT_EQ(tabs->Selection(), 1);
+	tabs->KeyDown(std::string(1, keys::kLeftArrow));
+	tabs->KeyDown(" ");
+	EXPECT_EQ(tabs->Selection(), 0);
+
+	tabs->TabAt(1)->SetView(Page("Expert", {80, 60}));
+	BView* expert = tabs->ViewForTab(1);
+	EXPECT_EQ(tabs->TabAt(1)->Label(), "Expert");
+	EXPECT_EQ(expert->Parent(), tabs->ContainerView());
+	tabs->Select(1);
+	tabs->Layout(true);
+	EXPECT_FALSE(expert->IsHidden());
+	EXPECT_EQ(expert->Frame(), (gfx::Rect{0, 0, 294, 175}));
+}
+
+
+TEST(TabViewTest, AtAFrameTheTabOwnsItsHiddenPage)
+{
+	// What is tested: A tab view at (0, 0, 300, 200) outside a window with
+	// two pages; Select(0), Select(1); RemoveTab() of both tabs; another
+	// tab added and selected.
+	// Success criteria: Without a window nothing is selected at first.
+	// The container is Haiku's (3, 23, 297, 197). The selected page is the
+	// container's only child; the other page belongs to its tab. RemoveTab()
+	// gives the tab back with its view; after the last one there is no
+	// selection, so a new tab can be selected again (Haiku kept the old
+	// selection and refused).
+	// Why it matters: Programs without layout use tab views at frames;
+	// the pages must not leak or be destroyed twice.
+	//
+	// Given
+	BTabView tabs({0, 0, 300, 200}, "tabs");
+	tabs.AddTab(std::make_unique<BView>(gfx::Rect{0, 0, 50, 50}, "One", kFollowLeftTop,
+		BViewFlag::WillDraw));
+	tabs.AddTab(std::make_unique<BView>(gfx::Rect{0, 0, 50, 50}, "Two", kFollowLeftTop,
+		BViewFlag::WillDraw));
+	BView* one = tabs.ViewForTab(0);
+	BView* two = tabs.ViewForTab(1);
+
+	// When / Then
+	EXPECT_EQ(tabs.Selection(), -1);
+	EXPECT_EQ(tabs.ContainerView()->Frame(), (gfx::Rect{3, 23, 297, 197}));
+	EXPECT_EQ(tabs.TabFrame(0), (gfx::Rect{11, 0, 112, 21}));
+	tabs.Select(0);
+	EXPECT_EQ(one->Parent(), tabs.ContainerView());
+	EXPECT_EQ(two->Parent(), nullptr);
+	tabs.Select(1);
+	EXPECT_EQ(one->Parent(), nullptr);
+	EXPECT_EQ(two->Parent(), tabs.ContainerView());
+	EXPECT_EQ(tabs.ContainerView()->CountChildren(), 1);
+
+	std::unique_ptr<BTab> removed = tabs.RemoveTab(1);
+	ASSERT_NE(removed, nullptr);
+	EXPECT_EQ(removed->View(), two);
+	EXPECT_EQ(two->Parent(), nullptr);
+	EXPECT_EQ(tabs.Selection(), 0);
+	EXPECT_EQ(one->Parent(), tabs.ContainerView());
+	(void)tabs.RemoveTab(0);
+	EXPECT_EQ(tabs.Selection(), -1);
+	EXPECT_EQ(tabs.CountTabs(), 0);
+	tabs.AddTab(std::make_unique<BView>(gfx::Rect{0, 0, 50, 50}, "Three", kFollowLeftTop,
+		BViewFlag::WillDraw));
+	tabs.Select(0);
+	EXPECT_EQ(tabs.Selection(), 0);
+	EXPECT_EQ(tabs.ViewForTab(0)->Parent(), tabs.ContainerView());
 }
 
 

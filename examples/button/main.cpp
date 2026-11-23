@@ -18,7 +18,8 @@
 // window is resized (BLayoutBuilder). Below them, in a BBox, a BSlider
 // drives a BStatusBar while its thumb moves (its modification message);
 // a BScrollView shows a list of check boxes that is longer than its room;
-// a BSplitView puts both side by side with a splitter to drag.
+// a BSplitView puts both side by side with a splitter to drag, on the
+// first page of a BTabView whose second page says what this is.
 
 
 #include <cstdint>
@@ -37,6 +38,7 @@
 #include <ngui/Slider.h>
 #include <ngui/StatusBar.h>
 #include <ngui/StringView.h>
+#include <ngui/TabView.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/BackendRegistry.h>
 #include <ngui/gfx/SkiaBackend.h>
@@ -60,7 +62,7 @@ class CounterWindow : public BWindow {
 public:
 	CounterWindow()
 		:
-		BWindow(gfx::Rect{100, 100, 620, 400}, "NewGUI", BWindowLook::Titled,
+		BWindow(gfx::Rect{100, 100, 620, 440}, "NewGUI", BWindowLook::Titled,
 			BWindowFlag::QuitOnWindowClose | BWindowFlag::AutoUpdateSizeLimits)
 	{
 		auto label = std::make_unique<BStringView>("label", "Not clicked yet");
@@ -103,9 +105,20 @@ public:
 		scrollView->SetExplicitMinSize({kSizeUnset, 60});
 		scrollView->SetExplicitPreferredSize({kSizeUnset, 110});
 
-		// The label and the button stay centered, the split view with the
-		// box and the list takes the width; the window cannot become smaller
-		// than they and the window insets.
+		// The box and the list side by side, on the first of two pages.
+		auto split = std::make_unique<BSplitView>(BOrientation::Horizontal);
+		BLayoutBuilder::Split<>(split.get())
+			.Add(std::move(box), 2.0f)
+			.Add(std::move(scrollView), 1.0f);
+		auto tabs = std::make_unique<BTabView>("tabs");
+		tabs->AddTab(std::move(split));
+		tabs->TabAt(0)->SetLabel("Panels");
+		tabs->AddTab(std::make_unique<BStringView>("About",
+			"NewGUI: Haiku's Interface Kit on SDL3 and Skia"));
+
+		// The label and the button stay centered, the tab view takes the
+		// width; the window cannot become smaller than they and the window
+		// insets.
 		BLayoutBuilder::Group<>(this, BOrientation::Vertical)
 			.SetInsets(kUseWindowInsets)
 			.AddGlue()
@@ -120,10 +133,7 @@ public:
 				.AddGlue()
 			.End()
 			.AddGlue()
-			.AddSplit(BOrientation::Horizontal)
-				.Add(std::move(box), 2.0f)
-				.Add(std::move(scrollView), 1.0f)
-			.End();
+			.Add(std::move(tabs));
 
 		clickMe->MakeDefault(true);
 	}

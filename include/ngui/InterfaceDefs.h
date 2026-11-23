@@ -87,6 +87,14 @@ struct BAlignment {
 };
 
 
+/*!	How wide the tabs of a tab view are (Haiku's button_width). */
+enum class BButtonWidth : std::uint8_t {
+	AsUsual,	/*!< B_WIDTH_AS_USUAL: a fixed width. */
+	FromWidest,	/*!< B_WIDTH_FROM_WIDEST: all as wide as the widest label. */
+	FromLabel	/*!< B_WIDTH_FROM_LABEL: each as wide as its label. */
+};
+
+
 /*!	Where a slider draws its hash marks (Haiku's hash_mark_location). */
 enum class BHashMarkLocation : std::uint8_t {
 	None = 0,			/*!< B_HASH_MARKS_NONE */
