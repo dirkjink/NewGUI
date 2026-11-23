@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 #include <utility>
 
 #include <ngui/AppDefs.h>
@@ -16,6 +17,8 @@
 #include <ngui/Palette.h>
 #include <ngui/TextSystem.h>
 #include <ngui/gfx/BackendRegistry.h>
+
+#include "LooperPort.h"
 
 
 namespace ngui {
@@ -27,6 +30,12 @@ namespace {
 // Draw a frame: the window posts it to itself once per batch of changes
 // (Haiku's _UPDATE_).
 constexpr std::uint32_t kUpdate = FourCharCode("_UPD");
+
+
+// The windows of the process, in the order they were made, for the
+// application (Haiku's looper list).
+std::mutex sWindowsLock;
+std::vector<BMessenger> sWindows;
 
 
 // The deepest visible view at \a point, given in \a view's coordinates.
@@ -67,6 +76,10 @@ BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWin
 	fFlags(flags),
 	fFrame(frame)
 {
+	{
+		std::scoped_lock lock(sWindowsLock);
+		sWindows.push_back(BMessenger(this));
+	}
 	fRoot = std::make_unique<BView>(Bounds(), "root", kFollowAll, BViewFlags());
 	fRoot->SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
 	fRoot->_Attach(this);
@@ -90,6 +103,11 @@ BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWin
 
 BWindow::~BWindow()
 {
+	{
+		const BMessenger self(this);
+		std::scoped_lock lock(sWindowsLock);
+		std::erase(sWindows, self);
+	}
 	fRoot->_Detach();
 	fRoot.reset();
 	fSurface.reset();
@@ -478,13 +496,122 @@ BWindow::_MouseEvent(BMessage* message)
 void
 BWindow::_KeyEvent(BMessage* message)
 {
-	if (fFocus == nullptr)
-		return;
 	const std::string_view bytes = message->GetString("bytes", "");
+	const auto modifiers = BModifierFlags::FromRaw(
+		static_cast<std::uint32_t>(message->GetInt32("modifiers", 0)));
+	if (message->what == kKeyDown && bytes == "\t" && modifiers.Has(BModifier::Option)) {
+		// Option+Tab navigates even out of views that use Tab themselves.
+		_KeyboardNavigation();
+		return;
+	}
+	if (fFocus == nullptr) {
+		// Without a focus the window navigates, as Haiku's MessageReceived().
+		if (message->what == kKeyDown)
+			_KeyboardNavigation();
+		return;
+	}
 	if (message->what == kKeyDown)
 		fFocus->KeyDown(bytes);
 	else
 		fFocus->KeyUp(bytes);
+}
+
+
+void
+BWindow::_KeyboardNavigation()
+{
+	// Ported from Haiku: src/kits/interface/Window.cpp (commit b1d497bb69).
+	const BMessage* message = CurrentMessage();
+	if (message == nullptr || message->GetString("bytes", "") != "\t")
+		return;
+	const auto modifiers = BModifierFlags::FromRaw(
+		static_cast<std::uint32_t>(message->GetInt32("modifiers", 0)));
+	const BViewFlags jumpGroups = modifiers.Has(BModifier::Option)
+		? BViewFlags(BViewFlag::NavigableJump) : BViewFlags(BViewFlag::Navigable);
+	BView* nextFocus = modifiers.Has(BModifier::Shift)
+		? _FindPreviousNavigable(fFocus, jumpGroups) : _FindNextNavigable(fFocus, jumpGroups);
+	if (nextFocus != nullptr && nextFocus != fFocus)
+		nextFocus->MakeFocus(true);
+}
+
+
+BView*
+BWindow::_FindNextNavigable(BView* focus, BViewFlags flags) const
+{
+	// Ported from Haiku: the next view in depth-first order, wrapping
+	// around at the root view.
+	BView* const top = fRoot.get();
+	if (focus == nullptr)
+		focus = top;
+	BView* nextFocus = focus;
+	while (true) {
+		if (nextFocus->ChildAt(0) != nullptr) {
+			nextFocus = nextFocus->ChildAt(0);
+		} else if (nextFocus->NextSibling() != nullptr) {
+			nextFocus = nextFocus->NextSibling();
+		} else {
+			// go to the nearest parent with a next sibling
+			while (nextFocus->NextSibling() == nullptr && nextFocus->Parent() != nullptr)
+				nextFocus = nextFocus->Parent();
+			if (nextFocus == top) {
+				// if we started with the top view, we traversed the whole
+				// tree already
+				if (nextFocus == focus)
+					return nullptr;
+				nextFocus = nextFocus->ChildAt(0);
+			} else {
+				nextFocus = nextFocus->NextSibling();
+			}
+		}
+		if (nextFocus == focus || nextFocus == nullptr)
+			return nullptr;
+		if (!nextFocus->IsHidden() && nextFocus->Flags().HasAny(flags))
+			return nextFocus;
+	}
+}
+
+
+BView*
+BWindow::_FindPreviousNavigable(BView* focus, BViewFlags flags) const
+{
+	BView* const top = fRoot.get();
+	if (focus == nullptr)
+		focus = top;
+	BView* previousFocus = focus;
+	while (true) {
+		if (previousFocus->PreviousSibling() != nullptr) {
+			// find the last child in the previous sibling
+			previousFocus = _LastViewChild(previousFocus->PreviousSibling());
+		} else {
+			previousFocus = previousFocus->Parent();
+			if (previousFocus == top || previousFocus == nullptr)
+				previousFocus = _LastViewChild(top);
+		}
+		if (previousFocus == focus || previousFocus == nullptr)
+			return nullptr;
+		if (!previousFocus->IsHidden() && previousFocus->Flags().HasAny(flags))
+			return previousFocus;
+	}
+}
+
+
+BView*
+BWindow::_LastViewChild(BView* parent) const
+{
+	while (true) {
+		const std::int32_t count = parent->CountChildren();
+		if (count == 0)
+			return parent;
+		parent = parent->ChildAt(count - 1);
+	}
+}
+
+
+std::vector<BMessenger>
+BWindow::_Windows()
+{
+	std::scoped_lock lock(sWindowsLock);
+	return sWindows;
 }
 
 

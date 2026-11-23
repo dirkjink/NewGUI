@@ -51,6 +51,8 @@ LooperPort::Push(std::unique_ptr<BMessage> message)
 			fQueue.push_back(std::move(message));
 			fAvailable.notify_one();
 			waker = fWaker;
+			if (waker)
+				fWakersRunning++;
 			queued = true;
 		}
 	}
@@ -59,8 +61,14 @@ LooperPort::Push(std::unique_ptr<BMessage> message)
 		// its sender with kNoReply.
 		return Failure(ErrorCode::NotFound, "the looper has quit");
 	}
-	if (waker)
+	if (waker) {
 		waker();
+		{
+			std::scoped_lock lock(fLock);
+			fWakersRunning--;
+		}
+		fWakersDone.notify_all();
+	}
 	return {};
 }
 
@@ -93,8 +101,10 @@ LooperPort::TryPop()
 void
 LooperPort::SetWaker(std::function<void()> waker)
 {
-	std::scoped_lock lock(fLock);
+	std::unique_lock lock(fLock);
 	fWaker = std::move(waker);
+	// A Push() may still be calling the old waker outside the lock.
+	fWakersDone.wait(lock, [this] { return fWakersRunning == 0; });
 }
 
 

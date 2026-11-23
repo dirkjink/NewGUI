@@ -31,6 +31,11 @@
 namespace ngui {
 
 
+// Quits a looper without asking QuitRequested() (Haiku's _QUIT_); the
+// application sends it to the windows left when it ends.
+inline constexpr std::uint32_t kQuitNow = FourCharCode("_QIT");
+
+
 // The queue of a looper. Push() from any thread, Pop() only on the looper
 // thread. Closed when the loop ends: further messages are refused, queued
 // ones are destroyed, which answers waiting senders with kNoReply.
@@ -41,7 +46,9 @@ public:
 	// The next message, or nullptr at once if there is none.
 	std::unique_ptr<BMessage> TryPop();
 	// Called after each Push(), outside the lock, e.g. to wake a platform
-	// event loop that waits for its own events (BApplication).
+	// event loop that waits for its own events (BApplication). Returns only
+	// when no call of the previous waker is running any more, so that what
+	// it refers to may go away afterwards.
 	void SetWaker(std::function<void()> waker);
 	void Close();
 	bool IsOpen() const;
@@ -59,6 +66,8 @@ private:
 	std::deque<std::unique_ptr<BMessage>> fQueue;
 	std::thread::id fThread;
 	std::function<void()> fWaker;
+	std::condition_variable fWakersDone;
+	int fWakersRunning = 0;
 	bool fClosed = false;
 	bool fDone = false;
 };

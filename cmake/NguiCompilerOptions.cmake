@@ -51,8 +51,11 @@ function(ngui_configure_target target)
             # never shipped, so the prefix map below is left out: it also
             # rewrites the paths in the coverage notes, and gcovr could no
             # longer find the sources.
-            target_compile_options(${target} PRIVATE --coverage)
-            target_link_options(${target} PRIVATE --coverage)
+            # -fprofile-update=atomic: loopers and windows count on several
+            # threads at once; without atomic updates the counters race and
+            # gcov reports negative hits, which gcovr rejects.
+            target_compile_options(${target} PRIVATE --coverage -fprofile-update=atomic)
+            target_link_options(${target} PRIVATE --coverage -fprofile-update=atomic)
         else()
             # Reproducible builds: no absolute source paths in the objects
             # (e.g. in __FILE__ or debug information).

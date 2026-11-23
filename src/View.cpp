@@ -625,6 +625,9 @@ BView::MouseMoved(gfx::Point, BMouseTransit, const BMessage*)
 void
 BView::KeyDown(std::string_view)
 {
+	// As Haiku's: a view that does not use the key lets Tab move the focus.
+	if (fWindow != nullptr)
+		fWindow->_KeyboardNavigation();
 }
 
 

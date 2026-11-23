@@ -248,6 +248,10 @@ BLooper::QuitRequested()
 void
 BLooper::DispatchMessage(BMessage* message, BHandler* handler)
 {
+	if (message->what == kQuitNow && handler == this) {
+		Quit();
+		return;
+	}
 	if (message->what == kQuitRequested && handler == this) {
 		const bool quit = QuitRequested();
 		if (message->IsSourceWaiting()) {

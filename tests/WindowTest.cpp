@@ -156,6 +156,7 @@ public:
 		UpdateIfNeeded();
 		BMessage reply(kReply);
 		(void)reply.AddInt64("frames", static_cast<std::int64_t>(FrameCount()));
+		(void)reply.AddString("focus", CurrentFocus() != nullptr ? CurrentFocus()->Name() : "");
 		(void)reply.AddRect("bounds", Bounds());
 		if (DisplayList() != nullptr)
 			(void)reply.AddString("dump", gfx::DumpText(*DisplayList()));
@@ -355,6 +356,83 @@ TEST(WindowTest, ChangedAreasReachThePresenter)
 	(void)lockedWindow.WaitForLooperQuit(5s);
 	(void)AppMessenger().SendMessage(kQuitRequested);
 	runner.join();
+}
+
+
+// A view that may get the focus, with or without its own use of keys.
+class FocusView : public BView {
+public:
+	FocusView(std::string_view name, BViewFlags flags, bool usesKeys = false)
+		:
+		BView(gfx::Rect{0, 0, 10, 10}, name, kFollowLeftTop, flags),
+		fUsesKeys(usesKeys)
+	{
+	}
+
+	void KeyDown(std::string_view bytes) override
+	{
+		if (!fUsesKeys)
+			BView::KeyDown(bytes);
+	}
+
+private:
+	bool fUsesKeys;
+};
+
+
+BMessage
+Tab(BModifierFlags modifiers = {})
+{
+	BMessage key(kKeyDown);
+	(void)key.AddString("bytes", "\t");
+	(void)key.AddInt32("modifiers", static_cast<std::int32_t>(modifiers.Raw()));
+	return key;
+}
+
+
+TEST(WindowTest, TabMovesTheFocus)
+{
+	// What is tested: Tab, Shift+Tab and Option+Tab in a window with the
+	// navigable views A, C (inside the plain view B) and a hidden D, a jump
+	// group E, and a navigable view F that uses Tab itself.
+	// Success criteria: Without a focus, Tab focuses A; Tab goes on to C,
+	// skipping B and the hidden D, then to F; at F the Tab stays, since F
+	// uses it; Option+Tab moves to the jump group E even from F, and stays
+	// there, as it is the only one; Shift+Tab goes back from E to C (past
+	// the hidden D) and A, then wraps around to F.
+	// Why it matters: Haiku's keyboard navigation (_KeyboardNavigation(),
+	// _FindNextNavigable()), on which every dialog relies.
+	//
+	// Given
+	auto owned = std::make_unique<TestWindow>(gfx::Rect{0, 0, 100, 100});
+	owned->AddChild(std::make_unique<FocusView>("A", BViewFlag::Navigable));
+	BView* b = owned->AddChild(std::make_unique<FocusView>("B", BViewFlags()));
+	b->AddChild(std::make_unique<FocusView>("C", BViewFlag::Navigable));
+	owned->AddChild(std::make_unique<FocusView>("D", BViewFlag::Navigable))->Hide();
+	owned->AddChild(std::make_unique<FocusView>("E", BViewFlag::NavigableJump));
+	owned->AddChild(std::make_unique<FocusView>("F", BViewFlag::Navigable, true));
+	const BMessenger window = *BLooper::Run(std::move(owned));
+	std::vector<std::string> focus;
+	const auto press = [&](BModifierFlags modifiers) {
+		ASSERT_TRUE(window.SendMessage(Tab(modifiers)).has_value());
+		focus.emplace_back(Ask(window).GetString("focus", "?"));
+	};
+
+	// When
+	press({});
+	press({});
+	press({});
+	press({});
+	press(BModifier::Option);
+	press(BModifier::Option);
+	press(BModifier::Shift);
+	press(BModifier::Shift);
+	press(BModifier::Shift);
+	ASSERT_TRUE(window.SendMessage(kQuitRequested).has_value());
+	ASSERT_TRUE(window.WaitForLooperQuit(5s).has_value());
+
+	// Then
+	EXPECT_EQ(focus, (std::vector<std::string>{"A", "C", "F", "F", "E", "E", "C", "A", "F"}));
 }
 
 

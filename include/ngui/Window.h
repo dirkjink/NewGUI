@@ -68,8 +68,14 @@ using BWindowFlags = Flags<BWindowFlag>;
 	Events, as in Haiku: mouse events go to the view under the mouse,
 	unless a view asked for them with SetMouseEventMask() in MouseDown(),
 	which then gets them until the buttons are up (controls track a click
-	this way). Key events go to the focus view. The close button asks
+	this way). Key events go to the focus view; Tab moves the focus through
+	the views with BViewFlag::Navigable (a view's default KeyDown() does
+	that, so views that use Tab themselves override it), Option+Tab through
+	those with NavigableJump, Shift goes backwards. The close button asks
 	QuitRequested().
+
+	The application knows its windows: BApplication::QuitRequested() asks
+	them, and windows left when the application ends are quit.
 */
 class BWindow : public BLooper {
 public:
@@ -154,6 +160,7 @@ public:
 										BLooper's. */
 
 private:
+	friend class BApplication;
 	friend class BView;
 
 			void				_AddDirty(const gfx::Rect& rect);
@@ -163,6 +170,12 @@ private:
 			void				_Update();
 			void				_MouseEvent(BMessage* message);
 			void				_KeyEvent(BMessage* message);
+			void				_KeyboardNavigation();
+			BView*				_FindNextNavigable(BView* focus, BViewFlags flags) const;
+			BView*				_FindPreviousNavigable(BView* focus, BViewFlags flags) const;
+			BView*				_LastViewChild(BView* parent) const;
+
+	static	std::vector<BMessenger> _Windows();
 			void				_Resized(float width, float height, float scale);
 
 			std::string			fTitle;
