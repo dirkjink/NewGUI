@@ -19,6 +19,8 @@
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
 #include <ngui/RadioButton.h>
+#include <ngui/ScrollBar.h>
+#include <ngui/ScrollView.h>
 #include <ngui/Slider.h>
 #include <ngui/StatusBar.h>
 #include <ngui/gfx/Canvas.h>
@@ -489,6 +491,74 @@ TEST(TextSkiaTest, BoxesMatchTheirSnapshots)
 			// Then
 			ASSERT_TRUE(image.has_value()) << image.error().message;
 			EXPECT_IMAGE_SNAPSHOT(*image, std::string("Box") + kind, {.look = "be",
+				.backend = "skia", .scale = scale, .tolerance = Tolerance::Text()});
+		}
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+// \a view and its children as the window records them: the view color,
+// Draw(), then each child at its frame.
+DisplayListRef
+RecordTree(BView& view, const TextSystem& text)
+{
+	const gfx::Rect bounds = view.Bounds();
+	const gfx::Caps caps;
+	Canvas canvas({0, 0, bounds.Width(), bounds.Height()});
+	if (view.ViewColor().has_value()) {
+		canvas.FillRect({0, 0, bounds.Width(), bounds.Height()},
+			gfx::Paint{.color = *view.ViewColor()});
+	}
+	DrawContext context{canvas, caps, Palette::Default(), text, 1};
+	view.Draw(context);
+	for (std::int32_t i = 0; i < view.CountChildren(); i++) {
+		BView* child = view.ChildAt(i);
+		canvas.DrawList(RecordTree(*child, text), {child->Frame().x0, child->Frame().y0});
+	}
+	return canvas.Finish();
+}
+
+
+TEST(TextSkiaTest, ScrollViewsMatchTheirSnapshots)
+{
+	// What is tested: A scroll view with both bars and a fancy border
+	// around a target of 120 × 80, the vertical bar at 300 of 0 .. 1000 with
+	// a proportion of 0.3 ("ScrollView"); and one with a plain border and
+	// only a horizontal bar at 0 ("ScrollViewPlain"); recorded with their
+	// children, rendered by Skia at scale 1 and 2.
+	// Success criteria: Within the text tolerance of 21.2: the BeOS frame
+	// around target and bars, arrows at both ends of each bar, the thumbs
+	// where the values put them, the corner between the bars.
+	// Why it matters: The scroll bar draws itself from Haiku's geometry
+	// with the look's pieces; both must fit (21.3).
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+
+	for (const char* kind : {"", "Plain"}) {
+		const bool plain = std::string_view(kind) == "Plain";
+		BScrollView scrollView("scroll", std::make_unique<BView>(gfx::Rect{0, 0, 120, 80},
+				"target", kFollowLeftTop, BViewFlag::WillDraw), kFollowLeftTop, {}, true,
+			!plain, plain ? BBorderStyle::Plain : BBorderStyle::Fancy);
+		scrollView.Target()->SetViewColor(gfx::Color::FromRgba8(255, 255, 255));
+		if (!plain) {
+			BScrollBar* vertical = scrollView.ScrollBar(BOrientation::Vertical);
+			vertical->SetProportion(0.3f);
+			vertical->SetValue(300);
+		}
+		scrollView.MoveTo({0, 0});
+		const DisplayListRef list = RecordTree(scrollView, *text);
+
+		for (const float scale : {1.0f, 2.0f}) {
+			// When
+			SkiaBackend backend;
+			const auto image = RenderToImage(backend, *list, scale);
+
+			// Then
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, std::string("ScrollView") + kind, {.look = "be",
 				.backend = "skia", .scale = scale, .tolerance = Tolerance::Text()});
 		}
 	}

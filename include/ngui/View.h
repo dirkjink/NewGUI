@@ -33,6 +33,8 @@ namespace ngui {
 class BAbstractLayout;
 class BLayoutContext;
 class BMessage;
+class BScrollBar;
+class BScrollView;
 class BViewLayoutItem;
 class BWindow;
 
@@ -51,8 +53,10 @@ enum class BViewFlag : std::uint32_t {
 	SupportsLayout = 1u << 8,		/*!< B_SUPPORTS_LAYOUT: a new size lays out its
 										children instead of moving them by their
 										resizing modes. */
-	InvalidateAfterLayout = 1u << 9	/*!< B_INVALIDATE_AFTER_LAYOUT: invalidated after
+	InvalidateAfterLayout = 1u << 9,	/*!< B_INVALIDATE_AFTER_LAYOUT: invalidated after
 										each layout. */
+	ScrollViewAware = 1u << 10		/*!< B_SCROLL_VIEW_AWARE: sets up the scroll bars of
+										its BScrollView itself. */
 };
 NGUI_FLAG_ENUM(BViewFlag)
 
@@ -223,7 +227,15 @@ public:
 			void				ScrollBy(float dx, float dy);
 									/*!< Moves the content: Bounds() moves, Frame() stays. */
 			void				ScrollTo(gfx::Point where);
-									/*!< Sets the left top corner of Bounds(). */
+									/*!< Sets the left top corner of Bounds(), rounded to
+										whole pixels and kept within the ranges of its
+										scroll bars; they follow. */
+			BScrollBar*			ScrollBar(BOrientation direction) const;
+									/*!< The scroll bar that scrolls it in \a direction, or
+										nullptr. */
+	virtual	void				TargetedByScrollView(BScrollView* scrollView);
+									/*!< Hook: it became the target of \a scrollView
+										(nullptr: no longer). */
 
 			gfx::Point			ConvertToParent(gfx::Point point) const;
 									/*!< From its coordinates to the parent's. */
@@ -415,8 +427,17 @@ public:
 									/*!< A key went up. */
 	virtual	void				WindowActivated(bool active);
 									/*!< Its window became active or inactive. */
+			void				MessageReceived(BMessage* message) override;
+									/*!< The mouse wheel (kMouseWheelChanged) scrolls it with
+										its scroll bars; without any, the message goes on
+										to the next handler, its parent. */
 
 protected:
+			bool				ScrollWithMouseWheelDelta(BScrollBar* scrollBar,
+									float delta);
+									/*!< Moves \a scrollBar by \a delta wheel steps: three
+										small steps each, a large one with Shift. False for
+										no bar or no delta. */
 	virtual	void				LayoutInvalidated(bool descendants);
 									/*!< Hook: InvalidateLayout() was called. */
 	virtual	void				DoLayout();
@@ -427,6 +448,7 @@ protected:
 
 private:
 	friend class BBox;
+	friend class BScrollBar;
 	friend class BWindow;
 	friend class BLayout;
 	friend class BLayoutItem;
@@ -452,6 +474,8 @@ private:
 
 			gfx::Rect			fFrame;
 			gfx::Point			fScroll = {0, 0};
+			BScrollBar*			fVerScroller = nullptr;
+			BScrollBar*			fHorScroller = nullptr;
 			BResizingMode		fResizingMode;
 			BViewFlags			fFlags;
 			std::optional<gfx::Color> fViewColor;

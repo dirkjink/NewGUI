@@ -520,6 +520,12 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kKeyUp:
 			_KeyEvent(message);
 			return;
+		case kMouseWheelChanged:
+			// To the view under the mouse, as Haiku's _DetermineTarget();
+			// it passes the wheel on to its parents if it cannot scroll.
+			if (fMouseView != nullptr)
+				fMouseView->MessageReceived(message);
+			return;
 		case kWindowResized:
 			_Resized(message->GetFloat("width", fFrame.Width()),
 				message->GetFloat("height", fFrame.Height()),

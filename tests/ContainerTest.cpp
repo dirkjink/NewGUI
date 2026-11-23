@@ -7,14 +7,21 @@
 
 #include <ngui/Box.h>
 
+#include <chrono>
 #include <memory>
 
 #include <gtest/gtest.h>
 
+#include <ngui/AppDefs.h>
 #include <ngui/CheckBox.h>
+#include <ngui/Clock.h>
 #include <ngui/GroupLayout.h>
+#include <ngui/InterfaceDefs.h>
 #include <ngui/LayoutUtils.h>
 #include <ngui/Message.h>
+#include <ngui/Messenger.h>
+#include <ngui/ScrollBar.h>
+#include <ngui/ScrollView.h>
 #include <ngui/View.h>
 #include <ngui/Window.h>
 
@@ -23,6 +30,7 @@ namespace {
 
 
 using namespace ngui;
+using namespace std::chrono_literals;
 
 
 // A view for a layout with explicit sizes: minimum 50 × 20, preferred
@@ -150,6 +158,375 @@ TEST(BoxTest, TheLabelViewStaysOutOfTheLayout)
 	box.SetLabel("Text");
 	EXPECT_EQ(box.LabelView(), nullptr);
 	EXPECT_EQ(box.CountChildren(), 1);
+}
+
+
+// What the scroll tests ask a running window: the value of the scroll bar
+// "bar" and the top left corner of the bounds of the view "target".
+constexpr std::uint32_t kAsk = FourCharCode("ASK ");
+
+
+class ScrollWindow : public BWindow {
+public:
+	ScrollWindow()
+		:
+		BWindow({0, 0, 300, 200}, "scrolling")
+	{
+	}
+
+	void MessageReceived(BMessage* message) override
+	{
+		if (message->what != kAsk) {
+			BWindow::MessageReceived(message);
+			return;
+		}
+		BMessage reply(kAsk);
+		auto* bar = static_cast<BScrollBar*>(FindView("bar"));
+		(void)reply.AddFloat("value", bar->Value());
+		(void)reply.AddPoint("scroll", {FindView("target")->Bounds().x0,
+			FindView("target")->Bounds().y0});
+		(void)message->SendReply(reply);
+	}
+};
+
+
+BMessage
+Event(std::uint32_t what, gfx::Point where, std::int32_t buttons = 0,
+	BModifierFlags modifiers = {})
+{
+	BMessage message(what);
+	(void)message.AddPoint("where", where);
+	(void)message.AddInt32("buttons", buttons);
+	(void)message.AddInt32("modifiers", static_cast<std::int32_t>(modifiers.Raw()));
+	return message;
+}
+
+
+BMessage
+Wheel(float deltaY, BModifierFlags modifiers = {})
+{
+	BMessage message(kMouseWheelChanged);
+	(void)message.AddFloat("be:wheel_delta_x", 0);
+	(void)message.AddFloat("be:wheel_delta_y", deltaY);
+	(void)message.AddInt32("modifiers", static_cast<std::int32_t>(modifiers.Raw()));
+	return message;
+}
+
+
+float
+AskValue(const BMessenger& window)
+{
+	BMessage reply;
+	EXPECT_TRUE(window.SendMessage(BMessage(kAsk), &reply).has_value());
+	return reply.GetFloat("value", -1);
+}
+
+
+TEST(ScrollBarTest, SizesFollowHaikusFormula)
+{
+	// What is tested: The sizes of a vertical and a horizontal scroll bar
+	// with Haiku's default settings and the placeholder font (size 12).
+	// Success criteria: Across, the look's scroll bar width 14 plus 1 = 15
+	// pixels; along, two arrows of 14 and two minimal thumbs of 15 plus 1 =
+	// 59 at least, unlimited at most.
+	// Why it matters: Scroll views and layouts place scroll bars by these
+	// sizes.
+	//
+	// Given
+	BScrollBar vertical("vertical", nullptr, 0, 100, BOrientation::Vertical);
+	BScrollBar horizontal("horizontal", nullptr, 0, 100, BOrientation::Horizontal);
+
+	// When / Then
+	EXPECT_EQ(GetScrollBarInfo(), BScrollBarInfo{});
+	EXPECT_EQ(vertical.MinSize(), (gfx::Size{15, 59}));
+	EXPECT_EQ(vertical.PreferredSize(), (gfx::Size{15, 59}));
+	EXPECT_EQ(vertical.MaxSize(), (gfx::Size{15, kSizeUnlimited}));
+	EXPECT_EQ(horizontal.MinSize(), (gfx::Size{59, 15}));
+	EXPECT_EQ(horizontal.MaxSize(), (gfx::Size{kSizeUnlimited, 15}));
+	EXPECT_FALSE(SetScrollBarInfo({.minKnobSize = 8}).has_value());
+}
+
+
+TEST(ScrollBarTest, ValueAndTargetFollowEachOther)
+{
+	// What is tested: A vertical scroll bar from 0 to 1000 with a target
+	// view: SetValue() beyond the range and fractional; the target scrolled
+	// itself beyond the range; SetRange() below the value; SetSteps().
+	// Success criteria: The value is kept within the range and rounded:
+	// 2000 is 1000, -5 is 0, 10.4 is 10; the target's bounds follow every
+	// value. ScrollTo(0, 2000) on the target stops at 1000 and moves the
+	// bar too. A range 0 .. 300 pulls value and target back to 300. Steps
+	// are rounded. Without a target, the view's own scroll bar is nullptr.
+	// Why it matters: The bar and its target are one piece of state; Haiku
+	// keeps them in sync from both sides.
+	//
+	// Given
+	BView target({0, 0, 100, 100}, "target", kFollowLeftTop, BViewFlag::WillDraw);
+	BScrollBar bar({0, 0, 15, 100}, "bar", &target, 0, 1000, BOrientation::Vertical);
+
+	// When / Then
+	EXPECT_EQ(target.ScrollBar(BOrientation::Vertical), &bar);
+	EXPECT_EQ(target.ScrollBar(BOrientation::Horizontal), nullptr);
+	bar.SetValue(2000);
+	EXPECT_FLOAT_EQ(bar.Value(), 1000);
+	EXPECT_FLOAT_EQ(target.Bounds().y0, 1000);
+	bar.SetValue(-5);
+	EXPECT_FLOAT_EQ(bar.Value(), 0);
+	bar.SetValue(10.4f);
+	EXPECT_FLOAT_EQ(bar.Value(), 10);
+	EXPECT_FLOAT_EQ(target.Bounds().y0, 10);
+	target.ScrollTo({0, 2000});
+	EXPECT_FLOAT_EQ(target.Bounds().y0, 1000);
+	EXPECT_FLOAT_EQ(bar.Value(), 1000);
+	bar.SetRange(0, 300);
+	EXPECT_FLOAT_EQ(bar.Value(), 300);
+	EXPECT_FLOAT_EQ(target.Bounds().y0, 300);
+	bar.SetSteps(2.4f, 20.6f);
+	float small = 0;
+	float large = 0;
+	bar.GetSteps(&small, &large);
+	EXPECT_FLOAT_EQ(small, 2);
+	EXPECT_FLOAT_EQ(large, 21);
+	bar.SetTarget(static_cast<BView*>(nullptr));
+	EXPECT_EQ(target.ScrollBar(BOrientation::Vertical), nullptr);
+}
+
+
+TEST(ScrollBarTest, ClicksAndDragsChangeTheValue)
+{
+	// What is tested: A vertical scroll bar 15 × 100 from 0 to 1000 in a
+	// running window: a click on the down arrow, on it with Shift, below
+	// the thumb, three on the up arrow with Shift, a drag of the thumb by
+	// 14 pixels, a click with the secondary button.
+	// Success criteria: Haiku's geometry: inside the border the buttons are
+	// 13 high; the thumb is 15 high (the minimal knob) at y 15 for 0. An
+	// arrow adds the small step 1, with Shift the large step 10, the empty
+	// area the large step; the up arrow goes back down to 0, not below.
+	// Dragging the thumb from 20 to 34 puts its top at
+	// 29: (29 - 12) / 56 · 1001 = 304. The secondary button at y 26 centers
+	// the thumb there: (26 - 7 - 12) / 56 · 1001 = 125.
+	// Why it matters: This is how users scroll; the numbers are Haiku's.
+	//
+	// Given
+	auto owned = std::make_unique<ScrollWindow>();
+	BView* target = owned->AddChild(std::make_unique<BView>(gfx::Rect{20, 0, 120, 100},
+		"target", kFollowLeftTop, BViewFlag::WillDraw));
+	owned->AddChild(std::make_unique<BScrollBar>(gfx::Rect{0, 0, 15, 100}, "bar", target,
+		0.0f, 1000.0f, BOrientation::Vertical));
+	const BMessenger window = *BLooper::Run(std::move(owned));
+	const auto send = [&](const BMessage& message) {
+		EXPECT_TRUE(window.SendMessage(message).has_value());
+	};
+
+	// When / Then
+	send(Event(kMouseDown, {7, 92}, 1));
+	send(Event(kMouseUp, {7, 92}));
+	EXPECT_FLOAT_EQ(AskValue(window), 1);
+	send(Event(kMouseDown, {7, 92}, 1, BModifier::Shift));
+	send(Event(kMouseUp, {7, 92}));
+	EXPECT_FLOAT_EQ(AskValue(window), 11);
+	send(Event(kMouseDown, {7, 60}, 1));
+	send(Event(kMouseUp, {7, 60}));
+	EXPECT_FLOAT_EQ(AskValue(window), 21);
+	for (int i = 0; i < 3; i++) {
+		send(Event(kMouseDown, {7, 5}, 1, BModifier::Shift));
+		send(Event(kMouseUp, {7, 5}));
+	}
+	EXPECT_FLOAT_EQ(AskValue(window), 0);
+	send(Event(kMouseDown, {7, 20}, 1));
+	send(Event(kMouseMoved, {7, 34}, 1));
+	send(Event(kMouseUp, {7, 34}));
+	EXPECT_FLOAT_EQ(AskValue(window), 304);
+	send(Event(kMouseDown, {7, 26}, 2));
+	send(Event(kMouseUp, {7, 26}));
+	EXPECT_FLOAT_EQ(AskValue(window), 125);
+	ASSERT_TRUE(window.SendMessage(kQuitRequested).has_value());
+	ASSERT_TRUE(window.WaitForLooperQuit(5s).has_value());
+}
+
+
+TEST(ScrollBarTest, AHeldArrowRepeatsAfterTheDelay)
+{
+	// What is tested: The down arrow of a scroll bar in a running window
+	// held with a ManualClock as the default clock, the time advanced by
+	// 299 ms, then to 400 ms, then released and advanced again.
+	// Success criteria: The press steps once (1). Until 300 ms nothing more
+	// happens; from 300 ms on every 25 ms one step: at 400 ms 1 + 5 = 6.
+	// After the release the value stays.
+	// Why it matters: Holding an arrow scrolls on, after Haiku's delay of
+	// 300 ms and at its pace; the clock makes it testable (M22).
+	//
+	// Given
+	ManualClock clock;
+	Clock::SetDefault(&clock);
+	auto owned = std::make_unique<ScrollWindow>();
+	BView* target = owned->AddChild(std::make_unique<BView>(gfx::Rect{20, 0, 120, 100},
+		"target", kFollowLeftTop, BViewFlag::WillDraw));
+	owned->AddChild(std::make_unique<BScrollBar>(gfx::Rect{0, 0, 15, 100}, "bar", target,
+		0.0f, 1000.0f, BOrientation::Vertical));
+	const BMessenger window = *BLooper::Run(std::move(owned));
+
+	// When
+	ASSERT_TRUE(window.SendMessage(Event(kMouseDown, {7, 92}, 1)).has_value());
+	const float pressed = AskValue(window);
+	clock.Advance(299ms);
+	const float beforeDelay = AskValue(window);
+	clock.Advance(101ms);
+	const float held = AskValue(window);
+	ASSERT_TRUE(window.SendMessage(Event(kMouseUp, {7, 92})).has_value());
+	(void)AskValue(window);
+	clock.Advance(100ms);
+	const float released = AskValue(window);
+	ASSERT_TRUE(window.SendMessage(kQuitRequested).has_value());
+	ASSERT_TRUE(window.WaitForLooperQuit(5s).has_value());
+	Clock::SetDefault(nullptr);
+
+	// Then
+	EXPECT_FLOAT_EQ(pressed, 1);
+	EXPECT_FLOAT_EQ(beforeDelay, 1);
+	EXPECT_FLOAT_EQ(held, 6);
+	EXPECT_FLOAT_EQ(released, 6);
+}
+
+
+TEST(ScrollBarTest, TheWheelScrollsTheViewUnderTheMouse)
+{
+	// What is tested: The mouse wheel in a running window over a target
+	// with a vertical scroll bar (small step 1, large step 10), with and
+	// without Shift; over a child of the target that has no scroll bar;
+	// over the scroll bar itself.
+	// Success criteria: Two wheel steps scroll by 2 · 3 small steps = 6,
+	// with Shift by 2 large steps = 20. The child passes the wheel on to
+	// its parent, the target: another 6. The bar itself scrolls by 6 once
+	// (Haiku passed it on to the parents as well).
+	// Why it matters: The wheel is the most common way to scroll.
+	//
+	// Given
+	auto owned = std::make_unique<ScrollWindow>();
+	BView* target = owned->AddChild(std::make_unique<BView>(gfx::Rect{20, 0, 120, 100},
+		"target", kFollowLeftTop, BViewFlag::WillDraw));
+	target->AddChild(std::make_unique<BView>(gfx::Rect{50, 50, 90, 90}, "child",
+		kFollowLeftTop, BViewFlag::WillDraw));
+	owned->AddChild(std::make_unique<BScrollBar>(gfx::Rect{0, 0, 15, 100}, "bar", target,
+		0.0f, 1000.0f, BOrientation::Vertical));
+	const BMessenger window = *BLooper::Run(std::move(owned));
+	const auto send = [&](const BMessage& message) {
+		EXPECT_TRUE(window.SendMessage(message).has_value());
+	};
+
+	// When / Then
+	send(Event(kMouseMoved, {30, 10}));
+	send(Wheel(2));
+	EXPECT_FLOAT_EQ(AskValue(window), 6);
+	send(Wheel(2, BModifier::Shift));
+	EXPECT_FLOAT_EQ(AskValue(window), 26);
+	send(Event(kMouseMoved, {80, 60}));
+	send(Wheel(2));
+	EXPECT_FLOAT_EQ(AskValue(window), 32);
+	send(Event(kMouseMoved, {7, 50}));
+	send(Wheel(2));
+	BMessage reply;
+	ASSERT_TRUE(window.SendMessage(BMessage(kAsk), &reply).has_value());
+	EXPECT_FLOAT_EQ(reply.GetFloat("value", -1), 38);
+	EXPECT_EQ(reply.GetPoint("scroll", {}), (gfx::Point{0, 38}));
+	ASSERT_TRUE(window.SendMessage(kQuitRequested).has_value());
+	ASSERT_TRUE(window.WaitForLooperQuit(5s).has_value());
+}
+
+
+TEST(ScrollViewTest, AtAFrameItSurroundsTheTarget)
+{
+	// What is tested: A scroll view with both bars and a fancy border
+	// around a target at (0, 0, 200, 100).
+	// Success criteria: Haiku's frame: the target plus the bars (14 each)
+	// plus 2 of border on each side: (-2, -2, 216, 116); the target is
+	// moved inside the border to (2, 2, 202, 102); the horizontal bar runs
+	// below it from x 1 to 203, overlapping the frame on the left and the
+	// vertical bar by a pixel, (1, 102, 203, 117); the vertical bar
+	// (202, 1, 217, 103). Both bars scroll the target.
+	// Why it matters: Programs without layout place scroll views from the
+	// frames of their targets.
+	//
+	// Given
+	auto owned = std::make_unique<BView>(gfx::Rect{0, 0, 200, 100}, "target",
+		kFollowLeftTop, BViewFlag::WillDraw);
+	BView* target = owned.get();
+
+	// When
+	BScrollView scrollView("scroll", std::move(owned), kFollowLeftTop, {}, true, true);
+
+	// Then
+	EXPECT_EQ(scrollView.Frame(), (gfx::Rect{-2, -2, 216, 116}));
+	EXPECT_EQ(scrollView.Target(), target);
+	EXPECT_EQ(target->Frame(), (gfx::Rect{2, 2, 202, 102}));
+	BScrollBar* horizontal = scrollView.ScrollBar(BOrientation::Horizontal);
+	BScrollBar* vertical = scrollView.ScrollBar(BOrientation::Vertical);
+	ASSERT_NE(horizontal, nullptr);
+	ASSERT_NE(vertical, nullptr);
+	EXPECT_EQ(horizontal->Frame(), (gfx::Rect{1, 102, 203, 117}));
+	EXPECT_EQ(vertical->Frame(), (gfx::Rect{202, 1, 217, 103}));
+	EXPECT_EQ(horizontal->Target(), target);
+	EXPECT_EQ(target->ScrollBar(BOrientation::Vertical), vertical);
+}
+
+
+TEST(ScrollViewTest, InALayoutItSetsUpItsBars)
+{
+	// What is tested: A scroll view for a layout with both bars around a
+	// target of minimum 50 × 20 and preferred 400 × 300, resized to
+	// 200 × 100 and laid out; then given a new target.
+	// Success criteria: Minimum: the target's plus the bars, but at least
+	// the vertical bar's 59, plus the border: 68 × 63. Laid out, the target
+	// fills (2, 2, 184, 84), the bars run along it. The bars get ranges
+	// from the target's preferred size: 399 - 199 = 200 wide and 299 - 99 =
+	// 200 high, proportions 199 / 399 and 99 / 299, small steps 12 · 1.33 =
+	// 16, large steps a page (199, 99). The new target takes the old one's
+	// place and gives it back.
+	// Why it matters: Text views and lists in layouts rely on the scroll
+	// view to size them and to set up their bars.
+	//
+	// Given
+	BWindow window({0, 0, 300, 200}, "scrolling");
+	auto target = SizedChild();
+	target->SetExplicitPreferredSize({400, 300});
+	target->SetExplicitMaxSize({kSizeUnlimited, kSizeUnlimited});
+	BView* first = target.get();
+	auto* scrollView = static_cast<BScrollView*>(window.AddChild(
+		std::make_unique<BScrollView>("scroll", std::move(target), BViewFlags{}, true,
+			true)));
+
+	// When
+	const gfx::Size min = scrollView->MinSize();
+	scrollView->ResizeTo(200, 100);
+	scrollView->Layout(true);
+
+	// Then
+	EXPECT_EQ(min, (gfx::Size{68, 63}));
+	EXPECT_EQ(first->Frame(), (gfx::Rect{2, 2, 184, 84}));
+	BScrollBar* horizontal = scrollView->ScrollBar(BOrientation::Horizontal);
+	BScrollBar* vertical = scrollView->ScrollBar(BOrientation::Vertical);
+	EXPECT_EQ(horizontal->Frame(), (gfx::Rect{1, 84, 185, 99}));
+	EXPECT_EQ(vertical->Frame(), (gfx::Rect{184, 1, 199, 85}));
+	float min0 = -1;
+	float max0 = -1;
+	horizontal->GetRange(&min0, &max0);
+	EXPECT_FLOAT_EQ(max0, 200);
+	vertical->GetRange(&min0, &max0);
+	EXPECT_FLOAT_EQ(max0, 200);
+	EXPECT_FLOAT_EQ(horizontal->Proportion(), 199.0f / 399.0f);
+	EXPECT_FLOAT_EQ(vertical->Proportion(), 99.0f / 299.0f);
+	float small = 0;
+	float large = 0;
+	vertical->GetSteps(&small, &large);
+	EXPECT_FLOAT_EQ(small, 16);
+	EXPECT_FLOAT_EQ(large, 99);
+
+	std::unique_ptr<BView> old = scrollView->SetTarget(SizedChild());
+	EXPECT_EQ(old.get(), first);
+	EXPECT_EQ(scrollView->ChildAt(0), scrollView->Target());
+	EXPECT_EQ(scrollView->Target()->Frame(), (gfx::Rect{2, 2, 184, 84}));
+	EXPECT_EQ(vertical->Target(), scrollView->Target());
+	EXPECT_EQ(old->ScrollBar(BOrientation::Vertical), nullptr);
 }
 
 
