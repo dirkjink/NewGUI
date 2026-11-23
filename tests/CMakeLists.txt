@@ -124,3 +124,25 @@ if(NGUI_WITH_SKIA)
         DISCOVERY_MODE PRE_TEST
         EXTRA_ARGS ${snapshotArguments})
 endif()
+
+# SDL3 (vcpkg feature sdl3): the platform, with SDL's offscreen video driver,
+# so that it runs without a display.
+if(NGUI_WITH_SDL3)
+    find_package(SDL3 CONFIG REQUIRED)
+    add_executable(ngui_sdl3_tests
+        sdl3/SdlEventsTest.cpp
+        sdl3/SdlPlatformTest.cpp)
+    target_link_libraries(ngui_sdl3_tests
+        PRIVATE
+            ngui::sdl3
+            ngui::testkit_main
+            SDL3::SDL3)
+    target_include_directories(ngui_sdl3_tests
+        PRIVATE
+            "${PROJECT_SOURCE_DIR}/src"
+            "${CMAKE_CURRENT_SOURCE_DIR}")
+    ngui_configure_target(ngui_sdl3_tests)
+    gtest_discover_tests(ngui_sdl3_tests
+        DISCOVERY_MODE PRE_TEST
+        PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=offscreen")
+endif()

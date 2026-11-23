@@ -16,6 +16,8 @@ option(NGUI_COVERAGE "Instrument for coverage measurement (GCC and Clang)" OFF)
 option(NGUI_BUILD_API_DOCS "Add the target ngui_api_docs (requires Doxygen)" OFF)
 option(NGUI_FUZZING "Build the libFuzzer executables with sanitizers (Clang)" OFF)
 option(NGUI_WITH_SKIA "Build with Skia (vcpkg feature skia)" OFF)
+option(NGUI_WITH_SDL3 "Build the SDL3 platform (vcpkg feature sdl3)" OFF)
+option(NGUI_BUILD_EXAMPLES "Build the examples (needs Skia and SDL3)" OFF)
 
 # Minimum compilers (CONVENTIONS.md, section 1). Clang 17 and 18 do get
 # C++23, but not std::expected from libstdc++, so they fail later with less
@@ -46,4 +48,11 @@ endif()
 if(NGUI_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(NGUI_BUILD_EXAMPLES)
+    if(NOT NGUI_WITH_SKIA OR NOT NGUI_WITH_SDL3)
+        message(FATAL_ERROR "NGUI_BUILD_EXAMPLES needs NGUI_WITH_SKIA and NGUI_WITH_SDL3")
+    endif()
+    add_subdirectory(examples)
 endif()

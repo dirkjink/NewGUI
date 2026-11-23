@@ -177,7 +177,12 @@ jobs:
         with:
           cache-key: skia-gcc-13
 
-      - name: Configure, build and test with Skia
+      # SDL3 builds its X11 and Wayland support against the system's
+      # development headers (vcpkg port sdl3, features x11 and wayland).
+      - name: Install the window system headers
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
+
+      - name: Configure, build and test with Skia and SDL3
         run: cmake --workflow --preset skia
 
       # The HTML reports of failed snapshots (specification 20.5, 20.9).
@@ -249,10 +254,13 @@ jobs:
         with:
           cache-key: skia-gcc-13
 
-      # Everything that ships: the default dependencies and Skia, without
-      # the test-only "tests" feature.
+      - name: Install the window system headers
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
+
+      # Everything that ships: the default dependencies, Skia and SDL3,
+      # without the test-only "tests" feature.
       - name: Install the shipped dependencies
-        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=skia --x-install-root=build/sbom/vcpkg_installed'
+        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=skia --x-feature=sdl3 --x-install-root=build/sbom/vcpkg_installed'
 
       - name: Generate the SPDX SBOM of the shipped dependencies
         run: python3 .github/scripts/vcpkg-sbom.py build/sbom/vcpkg_installed/x64-linux build/sbom/newgui.spdx.json

@@ -70,6 +70,22 @@ if(NGUI_WITH_SKIA)
     ngui_configure_target(ngui_skia)
 endif()
 
+# The SDL3 platform (module P2), its own library: SDL headers appear in its
+# sources only.
+if(NGUI_WITH_SDL3)
+    find_package(SDL3 CONFIG REQUIRED)
+    add_library(ngui_sdl3
+        platform/sdl3/SdlEvents.cpp
+        platform/sdl3/SdlPlatform.cpp)
+    add_library(ngui::sdl3 ALIAS ngui_sdl3)
+    target_link_libraries(ngui_sdl3
+        PUBLIC
+            ngui::ngui
+        PRIVATE
+            SDL3::SDL3)
+    ngui_configure_target(ngui_sdl3)
+endif()
+
 # The test kit (specification 20.5, 21; module M14): offscreen rendering,
 # image comparison, snapshots and their reports, for the tests of NewGUI and
 # later of applications. Built with the tests, whose vcpkg feature brings
