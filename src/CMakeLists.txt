@@ -27,6 +27,7 @@ add_library(ngui
     Invoker.cpp
     Palette.cpp
     TextSystem.cpp
+    View.cpp
     Version.cpp
     gfx/Backend.cpp
     gfx/BackendRegistry.cpp
