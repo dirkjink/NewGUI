@@ -229,8 +229,8 @@ TEST(CardLayoutTest, SizesCoverAllPages)
 	// Given
 	BView view({0, 0, 100, 100}, "pages");
 	auto* cards = static_cast<BCardLayout*>(view.SetLayout(std::make_unique<BCardLayout>()));
-	BLayoutItem* firstPage = cards->AddItem(std::make_unique<WrapItem>(2));
-	(void)cards->AddItem(std::make_unique<WrapItem>(3));
+	BLayoutItem* firstPage = cards->AddItem(std::make_unique<WrapItem>(2.0f));
+	(void)cards->AddItem(std::make_unique<WrapItem>(3.0f));
 	WrapItem foreign(1);
 	float min = 0;
 	float preferred = 0;
