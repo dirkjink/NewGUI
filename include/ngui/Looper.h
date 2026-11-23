@@ -101,6 +101,14 @@ public:
 			void				SetPreferredHandler(BHandler* handler);
 									/*!< Sets it; \a handler must be in this looper. */
 
+			BMessageFilter*		AddCommonFilter(std::unique_ptr<BMessageFilter> filter);
+									/*!< Adds a filter for every message of this looper; it
+										runs before the filters of the target handler. */
+			std::unique_ptr<BMessageFilter> RemoveCommonFilter(BMessageFilter* filter);
+									/*!< Takes \a filter back; nullptr if it is not here. */
+			std::vector<BMessageFilter*> CommonFilterList() const;
+									/*!< The common filters, in order. */
+
 			BMessage*			CurrentMessage() const;
 									/*!< The message being dispatched, nullptr between them. */
 			std::unique_ptr<BMessage> DetachCurrentMessage();
@@ -121,11 +129,16 @@ private:
 
 			bool				_OnOwnThread() const;
 			BHandler*			_Target(const BMessage& message) const;
+			BHandler*			_ApplyFilters(
+									const std::vector<std::unique_ptr<BMessageFilter>>& filters,
+									BMessage* message, BHandler* target);
+			BHandler*			_FilteredTarget(BMessage* message, BHandler* target);
 			void				_Loop();
 
 			std::shared_ptr<LooperPort> fPort;
 			BLocker				fLock;
 			std::vector<BHandler*> fHandlers;
+			std::vector<std::unique_ptr<BMessageFilter>> fCommonFilters;
 			BHandler*			fPreferred = nullptr;
 			std::unique_ptr<BMessage> fCurrent;
 			std::thread::id		fThread;

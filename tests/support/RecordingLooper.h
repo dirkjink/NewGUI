@@ -6,6 +6,7 @@
 #pragma once
 
 
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -49,6 +50,16 @@ struct LooperRecord {
 		std::unique_lock guard(lock);
 		return changed.wait_for(guard, std::chrono::seconds(5),
 			[&] { return received.size() >= count; });
+	}
+
+	// Waits until \a entry has been received \a times times; false after 5 s.
+	bool WaitForEntry(const std::string& entry, std::size_t times)
+	{
+		std::unique_lock guard(lock);
+		return changed.wait_for(guard, std::chrono::seconds(5), [&] {
+			return static_cast<std::size_t>(std::count(received.begin(), received.end(), entry))
+				>= times;
+		});
 	}
 
 	std::vector<std::string> Received()
