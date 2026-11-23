@@ -17,11 +17,13 @@
 #include <ngui/Clock.h>
 #include <ngui/GroupLayout.h>
 #include <ngui/InterfaceDefs.h>
+#include <ngui/LayoutBuilder.h>
 #include <ngui/LayoutUtils.h>
 #include <ngui/Message.h>
 #include <ngui/Messenger.h>
 #include <ngui/ScrollBar.h>
 #include <ngui/ScrollView.h>
+#include <ngui/SplitView.h>
 #include <ngui/View.h>
 #include <ngui/Window.h>
 
@@ -527,6 +529,170 @@ TEST(ScrollViewTest, InALayoutItSetsUpItsBars)
 	EXPECT_EQ(scrollView->Target()->Frame(), (gfx::Rect{2, 2, 184, 84}));
 	EXPECT_EQ(vertical->Target(), scrollView->Target());
 	EXPECT_EQ(old->ScrollBar(BOrientation::Vertical), nullptr);
+}
+
+
+// A pane for split views: minimum \a minWidth × 20, preferred
+// (\a minWidth + 50) × 30, unlimited maximum.
+std::unique_ptr<BView>
+Pane(std::string_view name, float minWidth)
+{
+	auto pane = std::make_unique<BView>(name);
+	pane->SetExplicitMinSize({minWidth, 20});
+	pane->SetExplicitPreferredSize({minWidth + 50, 30});
+	pane->SetExplicitMaxSize({kSizeUnlimited, kSizeUnlimited});
+	return pane;
+}
+
+
+TEST(SplitViewTest, ItemsShareTheRoomByWeight)
+{
+	// What is tested: A horizontal split view with panes of minimum width
+	// 50 and 30 (default spacing 11, splitter 6), its sizes and its layout
+	// at 300 × 100; a vertical one with the same panes.
+	// Success criteria: Between the panes are the splitter and a spacing on
+	// both sides: 28. Minimum 50 + 30 + 28 = 108 × 20; preferred as wide as
+	// the minimum, as in Haiku (its SimpleLayouter ignores the preferred
+	// sizes), 30 high; unlimited maximum. With weights 1 : 1 the 272 pixels
+	// left are halved: (0, 0, 136, 100) and (164, 0, 300, 100). The vertical
+	// one adds the heights: 50 × 68.
+	// Why it matters: Split views divide windows like Haiku's Debugger and
+	// Tracker's panels.
+	//
+	// Given
+	BWindow window({0, 0, 400, 200}, "split");
+	auto* split = static_cast<BSplitView*>(window.AddChild(
+		std::make_unique<BSplitView>(BOrientation::Horizontal)));
+	BLayoutItem* first = split->AddChild(Pane("a", 50), 1.0f);
+	BLayoutItem* second = split->AddChild(Pane("b", 30), 1.0f);
+	BSplitView vertical(BOrientation::Vertical);
+	vertical.AddChild(Pane("a", 50), 1.0f);
+	vertical.AddChild(Pane("b", 30), 1.0f);
+
+	// When
+	split->ResizeTo(300, 100);
+	split->Layout(true);
+
+	// Then
+	EXPECT_FLOAT_EQ(split->Spacing(), 11);
+	EXPECT_EQ(split->CountItems(), 2);
+	EXPECT_EQ(split->MinSize(), (gfx::Size{108, 20}));
+	EXPECT_EQ(split->PreferredSize(), (gfx::Size{108, 30}));
+	EXPECT_EQ(split->MaxSize(), (gfx::Size{kSizeUnlimited, kSizeUnlimited}));
+	EXPECT_EQ(first->View()->Frame(), (gfx::Rect{0, 0, 136, 100}));
+	EXPECT_EQ(second->View()->Frame(), (gfx::Rect{164, 0, 300, 100}));
+	EXPECT_EQ(vertical.MinSize(), (gfx::Size{50, 68}));
+	EXPECT_EQ(split->SetLayout(std::make_unique<BGroupLayout>(BOrientation::Vertical)),
+		nullptr);
+}
+
+
+TEST(SplitViewTest, DraggingMovesAndCollapses)
+{
+	// What is tested: The splitter of the split view of the previous test
+	// (at x 147 .. 153) dragged by 30 to the right and released; then
+	// dragged far to the left, once with the first pane collapsible, once
+	// not.
+	// Success criteria: The first pane grows to 166, the second shrinks to
+	// 106 (from 194); on release the weights become the widths and a new
+	// layout keeps the sizes. Dragged far left, the collapsible first pane
+	// collapses (smaller than half its minimum): it is hidden, the second
+	// pane starts after splitter and one spacing at 17 and is 283 wide. Not
+	// collapsible, the first pane keeps its minimum 50 and the second gets
+	// the rest from 78; then collapsible again, the splitter at 61 .. 67
+	// dragged left collapses it.
+	// Why it matters: Dragging and collapsing are what split views are for;
+	// Haiku's rules decide where the panes end up.
+	//
+	// Given
+	BWindow window({0, 0, 400, 200}, "split");
+	auto* split = static_cast<BSplitView*>(window.AddChild(
+		std::make_unique<BSplitView>(BOrientation::Horizontal)));
+	BView* a = split->AddChild(Pane("a", 50), 1.0f)->View();
+	BView* b = split->AddChild(Pane("b", 30), 1.0f)->View();
+	split->ResizeTo(300, 100);
+	split->Layout(true);
+
+	// When
+	split->MouseDown({150, 50});
+	split->MouseMoved({180, 50}, BMouseTransit::Inside, nullptr);
+	split->MouseUp({180, 50});
+	split->Layout(true);
+	const gfx::Rect aDragged = a->Frame();
+	const gfx::Rect bDragged = b->Frame();
+	const float weight0 = split->ItemWeight(0);
+	const float weight1 = split->ItemWeight(1);
+	split->SetCollapsible(0, false);
+	split->MouseDown({180, 50});
+	split->MouseMoved({10, 50}, BMouseTransit::Inside, nullptr);
+	split->MouseUp({10, 50});
+	split->Layout(true);
+	const gfx::Rect aRigid = a->Frame();
+	const gfx::Rect bRigid = b->Frame();
+	split->SetCollapsible(0, true);
+	split->MouseDown({64, 50});
+	split->MouseMoved({10, 50}, BMouseTransit::Inside, nullptr);
+	split->MouseUp({10, 50});
+	split->Layout(true);
+
+	// Then
+	EXPECT_EQ(aDragged, (gfx::Rect{0, 0, 166, 100}));
+	EXPECT_EQ(bDragged, (gfx::Rect{194, 0, 300, 100}));
+	EXPECT_FLOAT_EQ(weight0, 166);
+	EXPECT_FLOAT_EQ(weight1, 106);
+	EXPECT_EQ(aRigid, (gfx::Rect{0, 0, 50, 100}));
+	EXPECT_EQ(bRigid, (gfx::Rect{78, 0, 300, 100}));
+	EXPECT_TRUE(split->IsItemCollapsed(0));
+	EXPECT_TRUE(a->IsHidden());
+	EXPECT_EQ(b->Frame(), (gfx::Rect{17, 0, 300, 100}));
+}
+
+
+TEST(SplitViewTest, TheBuilderNestsSplitViews)
+{
+	// What is tested: BLayoutBuilder::Group with AddSplit(), into which a
+	// view, a nested group with a view and a nested split view are added,
+	// the first not collapsible, insets 5.
+	// Success criteria: The window's group has the split view as its only
+	// item; the split view has three items, the second a group layout with
+	// one view, the third a split view with one item; item 0 is not
+	// collapsible, item 1 is; the insets are 5.
+	// Why it matters: Haiku's applications build split views with the
+	// builder (Split, AddSplit()).
+	//
+	// Given
+	BWindow window({0, 0, 400, 200}, "split");
+	BSplitView* split = nullptr;
+	BSplitView* inner = nullptr;
+
+	// When
+	BLayoutBuilder::Group<>(&window, BOrientation::Vertical)
+		.AddSplit(BOrientation::Horizontal)
+			.GetSplitView(&split)
+			.Add(Pane("list", 50))
+			.AddGroup(BOrientation::Vertical)
+				.Add(Pane("details", 30))
+			.End()
+			.AddSplit(BOrientation::Vertical, 0.0f)
+				.GetSplitView(&inner)
+				.Add(Pane("preview", 20))
+			.End()
+			.SetCollapsible(0, false)
+			.SetInsets(5)
+		.End();
+
+	// Then
+	ASSERT_NE(split, nullptr);
+	EXPECT_EQ(window.GetLayout()->CountItems(), 1);
+	EXPECT_EQ(split->CountItems(), 3);
+	EXPECT_EQ(split->Parent(), window.ChildAt(0)->Parent());
+	EXPECT_EQ(inner->CountItems(), 1);
+	EXPECT_EQ(inner->Parent(), split);
+	EXPECT_FALSE(split->IsCollapsible(0));
+	EXPECT_TRUE(split->IsCollapsible(1));
+	float left = 0;
+	split->GetInsets(&left, nullptr, nullptr, nullptr);
+	EXPECT_FLOAT_EQ(left, 5);
 }
 
 

@@ -46,6 +46,8 @@ add_library(ngui
     Slider.cpp
     StatusBar.cpp
     SpaceLayoutItem.cpp
+    SplitLayout.cpp
+    SplitView.cpp
     StringView.cpp
     TextSystem.cpp
     TruncateString.cpp

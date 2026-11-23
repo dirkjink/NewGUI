@@ -22,7 +22,9 @@
 #include <ngui/ScrollBar.h>
 #include <ngui/ScrollView.h>
 #include <ngui/Slider.h>
+#include <ngui/SplitView.h>
 #include <ngui/StatusBar.h>
+#include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/SkiaBackend.h>
 #include <ngui/test/GTest.h>
@@ -559,6 +561,53 @@ TEST(TextSkiaTest, ScrollViewsMatchTheirSnapshots)
 			// Then
 			ASSERT_TRUE(image.has_value()) << image.error().message;
 			EXPECT_IMAGE_SNAPSHOT(*image, std::string("ScrollView") + kind, {.look = "be",
+				.backend = "skia", .scale = scale, .tolerance = Tolerance::Text()});
+		}
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, SplitViewsMatchTheirSnapshots)
+{
+	// What is tested: A horizontal split view 160 × 60 with two white panes
+	// ("SplitView") and a vertical one 80 × 100 whose splitter is being
+	// dragged ("SplitViewVertical"), laid out and recorded with their
+	// children, rendered by Skia at scale 1 and 2.
+	// Success criteria: Within the text tolerance of 21.2: the BeOS splitter
+	// with its grip between the panes, pressed while dragged; the spacing
+	// on both sides in the view color.
+	// Why it matters: The splitter is drawn by the look in the frame the
+	// split layout gives it; both must fit.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+
+	for (const char* kind : {"", "Vertical"}) {
+		const bool vertical = std::string_view(kind) == "Vertical";
+		BWindow window({0, 0, 300, 200}, "split");
+		auto* split = static_cast<BSplitView*>(window.AddChild(std::make_unique<BSplitView>(
+			vertical ? BOrientation::Vertical : BOrientation::Horizontal)));
+		for (const char* name : {"first", "second"}) {
+			auto pane = std::make_unique<BView>(name);
+			pane->SetViewColor(gfx::Color::FromRgba8(255, 255, 255));
+			split->AddChild(std::move(pane), 1.0f);
+		}
+		split->ResizeTo(vertical ? 80.0f : 160.0f, vertical ? 100.0f : 60.0f);
+		split->Layout(true);
+		if (vertical)
+			split->MouseDown({40, 50});
+		const DisplayListRef list = RecordTree(*split, *text);
+
+		for (const float scale : {1.0f, 2.0f}) {
+			// When
+			SkiaBackend backend;
+			const auto image = RenderToImage(backend, *list, scale);
+
+			// Then
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, std::string("SplitView") + kind, {.look = "be",
 				.backend = "skia", .scale = scale, .tolerance = Tolerance::Text()});
 		}
 	}
