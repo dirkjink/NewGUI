@@ -63,6 +63,17 @@
         "NGUI_FUZZING": "ON",
         "NGUI_WARNINGS_AS_ERRORS": "ON"
       }
+    },
+    {
+      "name": "skia",
+      "displayName": "Skia (vcpkg feature skia, warnings as errors)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "VCPKG_MANIFEST_FEATURES": "tests;skia",
+        "NGUI_WITH_SKIA": "ON",
+        "NGUI_WARNINGS_AS_ERRORS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -92,6 +103,10 @@
     {
       "name": "fuzz",
       "configurePreset": "fuzz"
+    },
+    {
+      "name": "skia",
+      "configurePreset": "skia"
     }
   ],
   "testPresets": [
@@ -133,6 +148,11 @@
       "name": "fuzz",
       "inherits": "base",
       "configurePreset": "fuzz"
+    },
+    {
+      "name": "skia",
+      "inherits": "base",
+      "configurePreset": "skia"
     }
   ],
   "workflowPresets": [
@@ -188,6 +208,23 @@
         {
           "type": "test",
           "name": "fuzz"
+        }
+      ]
+    },
+    {
+      "name": "skia",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "skia"
+        },
+        {
+          "type": "build",
+          "name": "skia"
+        },
+        {
+          "type": "test",
+          "name": "skia"
         }
       ]
     }

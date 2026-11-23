@@ -70,3 +70,18 @@ if(NGUI_FUZZING)
     list(JOIN fuzzTargetNames "\n" fuzzTargetList)
     file(WRITE "${PROJECT_BINARY_DIR}/fuzz-targets.txt" "${fuzzTargetList}")
 endif()
+
+# Skia (vcpkg feature skia): a smoke test of the port until the Skia
+# backend (M9) brings its own tests. Its own executable, so that the main
+# test run does not depend on Skia.
+if(NGUI_WITH_SKIA)
+    find_package(unofficial-skia CONFIG REQUIRED)
+    add_executable(ngui_skia_tests skia/SkiaSmokeTest.cpp)
+    target_link_libraries(ngui_skia_tests
+        PRIVATE
+            unofficial::skia::skia
+            GTest::gtest
+            GTest::gtest_main)
+    ngui_configure_target(ngui_skia_tests)
+    gtest_discover_tests(ngui_skia_tests DISCOVERY_MODE PRE_TEST)
+endif()

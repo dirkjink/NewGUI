@@ -12,9 +12,11 @@ This script folds them into a single SPDX 2.3 document whose root package is
 NewGUI, depending on every port - the SBOM of what ships.
 
 Only the ports of a vcpkg install WITHOUT the "tests" feature belong in it:
-test-only dependencies such as GoogleTest reach no consumer. The helper ports
-vcpkg-cmake, vcpkg-cmake-config ... are build tools, not shipped either, and
-are left out by their name prefix.
+test-only dependencies such as GoogleTest reach no consumer. Build tools are
+not shipped either and are left out: vcpkg's helper ports (vcpkg-cmake,
+vcpkg-gn ... by their name prefix) and the host tools in BUILD_TOOL_PORTS.
+They land in the same installed tree because the host triplet equals the
+target triplet.
 
 The output is deterministic: sorted packages, and the creation time is
 SOURCE_DATE_EPOCH (the commit time if unset), so the same commit gives the
@@ -33,6 +35,8 @@ from pathlib import Path
 
 REPO_URL = "https://github.com/dirkjink/NewGUI"
 BUILD_TOOL_PREFIX = "vcpkg-"
+# Host-only dependencies of ports, used while building, not linked.
+BUILD_TOOL_PORTS = {"pkgconf"}
 
 
 def creation_time() -> str:
@@ -78,7 +82,7 @@ def main() -> None:
     ports = sorted(triplet_dir.glob("share/*/vcpkg.spdx.json")) if triplet_dir.is_dir() else []
     for spdx in ports:
         port = spdx.parent.name
-        if port.startswith(BUILD_TOOL_PREFIX):
+        if port.startswith(BUILD_TOOL_PREFIX) or port in BUILD_TOOL_PORTS:
             continue
         doc = json.loads(spdx.read_text(encoding="utf-8"))
         # The IDs are unique per document only; prefixed with the port they
