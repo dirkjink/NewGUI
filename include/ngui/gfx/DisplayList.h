@@ -263,6 +263,9 @@ public:
 	/*!	Nesting depth Deserialize() accepts for DrawList. */
 	static constexpr int kMaxDepth = 64;
 
+								~DisplayList();
+									/*!< Gives back the image references the list holds. */
+
 			Rect				Bounds() const;
 									/*!< Bounds of the recording View. */
 			std::uint32_t		OpCount() const;
@@ -276,7 +279,9 @@ public:
 									/*!< The canonical rectangles of clip region \a index. */
 
 			std::span<const ImageHandle> Images() const;
-									/*!< All images the operations use, in order of first use. */
+									/*!< All images the operations use, in order of first use.
+										The list holds a reference to each of them in
+										ImageRegistry::Default(), as far as it knows them. */
 			std::span<const FontId> Fonts() const;
 									/*!< All fonts the operations use, in order of first use. */
 			std::span<const DisplayListRef> Children() const;
@@ -297,6 +302,7 @@ private:
 
 	static	std::expected<DisplayListRef, Error> _Deserialize(std::span<const std::byte> data,
 									int depth);
+			void				_RetainImages();
 
 			Rect				fBounds = {0, 0, 0, 0};
 			std::uint32_t		fOpCount = 0;
@@ -304,6 +310,7 @@ private:
 			std::vector<std::uint32_t> fClipStarts;
 			std::vector<IntRect> fClipRects;
 			std::vector<ImageHandle> fImages;
+			std::vector<ImageHandle> fRetainedImages;
 			std::vector<FontId> fFonts;
 			std::vector<DisplayListRef> fChildren;
 };

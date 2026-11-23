@@ -244,6 +244,7 @@ DisplayListBuilder::DrawList(std::uint32_t clip, const DisplayListRef& child, Po
 DisplayListRef
 DisplayListBuilder::Finish()
 {
+	fList->_RetainImages();
 	DisplayListRef result(std::move(fList));
 	fList.reset(new DisplayList());
 	fList->fClipStarts.push_back(0);

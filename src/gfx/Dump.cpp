@@ -14,6 +14,8 @@
 #include <string_view>
 #include <utility>
 
+#include "DumpNumber.h"
+
 
 namespace ngui::gfx {
 
@@ -21,28 +23,10 @@ namespace ngui::gfx {
 namespace {
 
 
-// A number rounded to three decimals, trailing zeros removed, "-0" as "0".
-// std::format is locale-independent and rounds exactly on every platform.
-std::string
-_Number(float value)
-{
-	if (!std::isfinite(value))
-		return std::isnan(value) ? "nan" : (value > 0 ? "inf" : "-inf");
-	std::string text = std::format("{:.3f}", value);
-	while (text.back() == '0')
-		text.pop_back();
-	if (text.back() == '.')
-		text.pop_back();
-	if (text == "-0")
-		text = "0";
-	return text;
-}
-
-
 std::string
 _JsonNumber(float value)
 {
-	return std::isfinite(value) ? _Number(value) : "null";
+	return std::isfinite(value) ? DumpNumber(value) : "null";
 }
 
 
@@ -240,31 +224,31 @@ TextWriter::_Line(int depth, std::string_view text)
 std::string
 TextWriter::_Rect(const Rect& rect)
 {
-	return std::format("[{} {} {} {}]", _Number(rect.x0), _Number(rect.y0), _Number(rect.x1),
-		_Number(rect.y1));
+	return std::format("[{} {} {} {}]", DumpNumber(rect.x0), DumpNumber(rect.y0),
+		DumpNumber(rect.x1), DumpNumber(rect.y1));
 }
 
 
 std::string
 TextWriter::_RRect(const RRect& rrect)
 {
-	return std::format("{} radii=({} {} {} {})", _Rect(rrect.rect), _Number(rrect.radii.tl),
-		_Number(rrect.radii.tr), _Number(rrect.radii.br), _Number(rrect.radii.bl));
+	return std::format("{} radii=({} {} {} {})", _Rect(rrect.rect), DumpNumber(rrect.radii.tl),
+		DumpNumber(rrect.radii.tr), DumpNumber(rrect.radii.br), DumpNumber(rrect.radii.bl));
 }
 
 
 std::string
 TextWriter::_Point(Point point)
 {
-	return std::format("({} {})", _Number(point.x), _Number(point.y));
+	return std::format("({} {})", DumpNumber(point.x), DumpNumber(point.y));
 }
 
 
 std::string
 TextWriter::_Color(const Color& color)
 {
-	return std::format("({} {} {} {})", _Number(color.r), _Number(color.g), _Number(color.b),
-		_Number(color.a));
+	return std::format("({} {} {} {})", DumpNumber(color.r), DumpNumber(color.g),
+		DumpNumber(color.b), DumpNumber(color.a));
 }
 
 
@@ -272,13 +256,13 @@ std::string
 TextWriter::_Paint(const PaintRecord& paint)
 {
 	std::string text = std::format("color={} width={} cap={} join={} aa={}",
-		_Color(paint.color), _Number(paint.strokeWidth), _CapName(paint.cap),
+		_Color(paint.color), DumpNumber(paint.strokeWidth), _CapName(paint.cap),
 		_JoinName(paint.join), paint.antialias);
 	if (paint.hasGradient != 0) {
 		const GradientRecord& gradient = paint.gradient;
 		text += std::format(" gradient={}->{}", _Point(gradient.p0), _Point(gradient.p1));
 		for (std::uint32_t i = 0; i < gradient.count && i < 4; i++) {
-			text += std::format(" stop={}:{}", _Number(gradient.stops[i].offset),
+			text += std::format(" stop={}:{}", DumpNumber(gradient.stops[i].offset),
 				_Color(gradient.stops[i].color));
 		}
 	}
@@ -335,13 +319,13 @@ TextWriter::_Op(const Op& op)
 		{
 			const ArcRecord& record = op.As<ArcRecord>();
 			text += std::format(" oval={} start={} sweep={} {}", _Rect(record.oval),
-				_Number(record.startDeg), _Number(record.sweepDeg), _Paint(record.paint));
+				DumpNumber(record.startDeg), DumpNumber(record.sweepDeg), _Paint(record.paint));
 			break;
 		}
 		case OpCode::DrawLines:
 		{
 			const LinesRecord& record = op.As<LinesRecord>();
-			text += std::format(" width={} cap={}", _Number(record.width), _CapName(record.cap));
+			text += std::format(" width={} cap={}", DumpNumber(record.width), _CapName(record.cap));
 			for (const Line& line : op.Lines()) {
 				text += std::format(" line={}->{}:{}", _Point(line.p0), _Point(line.p1),
 					_Color(line.color));
@@ -352,14 +336,14 @@ TextWriter::_Op(const Op& op)
 		{
 			const ImageRecord& record = op.As<ImageRecord>();
 			text += std::format(" image={} src={} dst={} alpha={}", record.image,
-				_Rect(record.src), _Rect(record.dst), _Number(record.alpha));
+				_Rect(record.src), _Rect(record.dst), DumpNumber(record.alpha));
 			break;
 		}
 		case OpCode::DrawGlyphRun:
 		{
 			const GlyphRunRecord& record = op.As<GlyphRunRecord>();
 			text += std::format(" font={} size={} origin={} color={} glyphs=", record.font,
-				_Number(record.sizePx), _Point(record.origin), _Color(record.color));
+				DumpNumber(record.sizePx), _Point(record.origin), _Color(record.color));
 			const std::span<const std::uint32_t> glyphs = op.Glyphs();
 			const std::span<const Point> positions = op.Positions();
 			for (std::size_t i = 0; i < glyphs.size(); i++)

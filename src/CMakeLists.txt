@@ -10,10 +10,14 @@ configure_file(
 add_library(ngui
     Error.cpp
     Version.cpp
+    gfx/Backend.cpp
+    gfx/BackendRegistry.cpp
     gfx/Canvas.cpp
     gfx/DisplayList.cpp
     gfx/DisplayListBuilder.cpp
     gfx/Dump.cpp
+    gfx/DumpBackend.cpp
+    gfx/ImageRegistry.cpp
     gfx/LinearGradient.cpp
     gfx/RRect.cpp
     gfx/Region.cpp
