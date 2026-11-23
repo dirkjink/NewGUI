@@ -71,7 +71,7 @@ jobs:
         if: matrix.build-mode == 'manual'
         run: >-
           cmake --preset skia -DNGUI_BUILD_TESTS=OFF -DNGUI_BUILD_EXAMPLES=OFF
-          -DVCPKG_MANIFEST_FEATURES="skia;sdl3"
+          -DVCPKG_MANIFEST_FEATURES="text;skia;sdl3"
 
       # Overlay databases (incremental PR analysis) need build-mode none.
       # For C++ the manual build stays: it is more precise, and a build-less
@@ -86,7 +86,7 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
-      # The libraries only (core, Skia backend, SDL3 platform): the tests
+      # The libraries only (core, text, Skia backend, SDL3 platform): the tests
       # do not ship, and skipping them keeps the database to the code a user
       # of the toolkit actually runs.
       - name: Build (CodeQL extraction)

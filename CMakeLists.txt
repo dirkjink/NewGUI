@@ -17,6 +17,7 @@ option(NGUI_BUILD_API_DOCS "Add the target ngui_api_docs (requires Doxygen)" OFF
 option(NGUI_FUZZING "Build the libFuzzer executables with sanitizers (Clang)" OFF)
 option(NGUI_WITH_SKIA "Build with Skia (vcpkg feature skia)" OFF)
 option(NGUI_WITH_SDL3 "Build the SDL3 platform (vcpkg feature sdl3)" OFF)
+option(NGUI_WITH_TEXT "Build the text subsystem (vcpkg feature text)" OFF)
 option(NGUI_BUILD_EXAMPLES "Build the examples (needs Skia and SDL3)" OFF)
 
 # Minimum compilers (CONVENTIONS.md, section 1). Clang 17 and 18 do get

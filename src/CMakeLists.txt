@@ -27,6 +27,7 @@ add_library(ngui
     Invoker.cpp
     Palette.cpp
     TextSystem.cpp
+    TruncateString.cpp
     View.cpp
     Window.cpp
     Version.cpp
@@ -70,6 +71,42 @@ if(NGUI_WITH_SKIA)
         PRIVATE
             unofficial::skia::skia)
     ngui_configure_target(ngui_skia)
+endif()
+
+# The text subsystem (modules X1, X2, X5), its own library: HarfBuzz, and the
+# bundled fonts embedded as generated sources (data/fonts/).
+if(NGUI_WITH_TEXT)
+    find_package(harfbuzz CONFIG REQUIRED)
+    set(embeddedFonts)
+    foreach(font IN ITEMS
+            "NotoSans-Regular|kNotoSansRegular"
+            "NotoSans-Bold|kNotoSansBold"
+            "NotoSansMono-Regular|kNotoSansMonoRegular")
+        string(REPLACE "|" ";" parts "${font}")
+        list(GET parts 0 file)
+        list(GET parts 1 symbol)
+        set(input "${PROJECT_SOURCE_DIR}/data/fonts/${file}.ttf")
+        set(output "${CMAKE_CURRENT_BINARY_DIR}/fonts/${file}.cpp")
+        add_custom_command(
+            OUTPUT "${output}"
+            COMMAND "${CMAKE_COMMAND}" "-DINPUT=${input}" "-DOUTPUT=${output}"
+                "-DSYMBOL=${symbol}" -P "${PROJECT_SOURCE_DIR}/cmake/NguiEmbedFile.cmake"
+            DEPENDS "${input}" "${PROJECT_SOURCE_DIR}/cmake/NguiEmbedFile.cmake"
+            COMMENT "Embedding ${file}.ttf"
+            VERBATIM)
+        list(APPEND embeddedFonts "${output}")
+    endforeach()
+    add_library(ngui_text
+        text/FontTextSystem.cpp
+        ${embeddedFonts})
+    add_library(ngui::text ALIAS ngui_text)
+    target_link_libraries(ngui_text
+        PUBLIC
+            ngui::ngui
+        PRIVATE
+            harfbuzz::harfbuzz)
+    target_include_directories(ngui_text PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    ngui_configure_target(ngui_text)
 endif()
 
 # The SDL3 platform (module P2), its own library: SDL headers appear in its

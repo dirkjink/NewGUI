@@ -11,6 +11,8 @@
 #include <atomic>
 #include <string>
 
+#include "TruncateString.h"
+
 
 namespace ngui {
 
@@ -61,34 +63,11 @@ public:
 	}
 
 	std::string Truncate(std::string_view text, float width, TruncationMode mode,
-		FontRole role) const override
+		FontRole) const override
 	{
-		if (StringWidth(text, role) <= width)
-			return std::string(text);
-		const std::vector<std::size_t> starts = CodePointStarts(text);
-		// Room for the characters besides the ellipsis.
-		const auto room = static_cast<std::size_t>(std::max(0.0f, width / kAdvance - 1));
-		const std::string ellipsis = "\u2026";
-		if (room == 0)
-			return width >= kAdvance ? ellipsis : std::string();
-		const auto cut = [&](std::size_t first, std::size_t count) {
-			const std::size_t from = starts[first];
-			const std::size_t to = first + count < starts.size() ? starts[first + count]
-				: text.size();
-			return std::string(text.substr(from, to - from));
-		};
-		switch (mode) {
-			case TruncationMode::Beginning:
-				return ellipsis + cut(starts.size() - room, room);
-			case TruncationMode::Middle:
-			{
-				const std::size_t head = (room + 1) / 2;
-				return cut(0, head) + ellipsis + cut(starts.size() - (room - head), room - head);
-			}
-			case TruncationMode::End:
-				break;
-		}
-		return cut(0, room) + ellipsis;
+		// Haiku's algorithm with the same advance for every character.
+		const std::vector<float> escapements(CodePointStarts(text).size(), 0.6f);
+		return TruncateString(text, mode, width, escapements, kSize, kAdvance);
 	}
 
 	ShapedText Shape(std::string_view, FontRole) const override
