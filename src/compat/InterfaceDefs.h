@@ -12,6 +12,7 @@
 // vocabulary of NewGUI.
 
 
+#include <cmath>
 #include <cstdint>
 
 #include <ngui/InterfaceDefs.h>
@@ -40,6 +41,28 @@ struct rgb_color {
 	}
 
 	bool operator==(const rgb_color& other) const = default;
+
+	// Ported from Haiku: src/kits/interface/GraphicsDefs.cpp and
+	// headers/os/interface/GraphicsDefs.h (commit b1d497bb69).
+	int32 Brightness() const
+	{
+		// From http://alienryderflex.com/hsp.html
+		// Useful in particular to decide if the color is "light" or "dark"
+		// by checking if the perceptual brightness is > 127.
+
+		return (uint8)roundf(sqrtf(
+			0.299f * red * red + 0.587f * green * green + 0.114f * blue * blue));
+	}
+
+	bool IsDark() const
+	{
+		return Brightness() <= 127;
+	}
+
+	bool IsLight() const
+	{
+		return Brightness() > 127;
+	}
 };
 
 
@@ -74,6 +97,31 @@ inline rgb_color
 tint_color(rgb_color color, float tint)
 {
 	return ToRgbColor(TintColor(ToColor(color), tint));
+}
+
+
+// Ported from Haiku: src/kits/interface/GraphicsDefs.cpp (commit
+// b1d497bb69). Mix two colors without respect for their alpha values.
+inline rgb_color
+mix_color(rgb_color color1, rgb_color color2, uint8 amount)
+{
+	color1.red = (uint8)(((int16(color2.red) - int16(color1.red)) * amount)
+		/ 255 + color1.red);
+	color1.green = (uint8)(((int16(color2.green) - int16(color1.green))
+		* amount) / 255 + color1.green);
+	color1.blue = (uint8)(((int16(color2.blue) - int16(color1.blue)) * amount)
+		/ 255 + color1.blue );
+	color1.alpha = (uint8)(((int16(color2.alpha) - int16(color1.alpha))
+		* amount) / 255 + color1.alpha );
+
+	return color1;
+}
+
+
+inline rgb_color
+disable_color(rgb_color color, rgb_color background)
+{
+	return mix_color(color, background, 185);
 }
 
 
@@ -172,6 +220,21 @@ enum join_mode {
 
 
 // Orientation, border style and alignment, as the ported code spells them.
+using orientation = BOrientation;
+using border_style = BBorderStyle;
+
+enum hash_mark_location {
+	B_HASH_MARKS_NONE = 0,
+	B_HASH_MARKS_TOP = 1,
+	B_HASH_MARKS_LEFT = 1,
+	B_HASH_MARKS_BOTTOM = 2,
+	B_HASH_MARKS_RIGHT = 2,
+	B_HASH_MARKS_BOTH = 3
+};
+
+// View flags: only B_SUBPIXEL_PRECISE has an effect (CompatView::SetFlags()).
+inline constexpr uint32 B_SUBPIXEL_PRECISE = 0x01000000UL;
+
 inline constexpr BOrientation B_HORIZONTAL = BOrientation::Horizontal;
 inline constexpr BOrientation B_VERTICAL = BOrientation::Vertical;
 inline constexpr BBorderStyle B_PLAIN_BORDER = BBorderStyle::Plain;

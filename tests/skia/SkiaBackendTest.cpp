@@ -18,80 +18,14 @@
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/ImageRegistry.h>
 
+#include "Rendered.h"
+
 
 namespace {
 
 
 using namespace ngui::gfx;
-
-
-struct Rgba {
-			int					r;
-			int					g;
-			int					b;
-			int					a;
-
-			bool				operator==(const Rgba& other) const = default;
-};
-
-
-void
-PrintTo(const Rgba& c, std::ostream* out)
-{
-	*out << "(" << c.r << " " << c.g << " " << c.b << " " << c.a << ")";
-}
-
-
-constexpr Rgba kWhite = {255, 255, 255, 255};
-constexpr Rgba kRed = {255, 0, 0, 255};
-constexpr Rgba kBlue = {0, 0, 255, 255};
-
-
-// Renders a list into a fresh offscreen surface on white and keeps it for
-// reading pixels.
-class Rendered {
-public:
-								Rendered(const DisplayListRef& list, Size device,
-									float scale = 1, Point offset = {0, 0});
-
-			Rgba				At(int x, int y) const;
-
-private:
-			SkiaBackend			fBackend;
-			SurfaceRef			fSurface;
-};
-
-
-Rendered::Rendered(const DisplayListRef& list, Size device, float scale, Point offset)
-	:
-	fSurface(fBackend.CreateOffscreenSurface(device, scale))
-{
-	fBackend.BeginFrame(*fSurface, {1, 1, 1, 1});
-	fBackend.Render(*list, offset);
-	fBackend.EndFrame(*fSurface);
-}
-
-
-Rgba
-Rendered::At(int x, int y) const
-{
-	const CpuPixels pixels = *fSurface->Pixels();
-	const std::byte* p = pixels.bytes.data() + static_cast<std::size_t>(y) * pixels.stride
-		+ static_cast<std::size_t>(x) * 4;
-	const auto byte = [&](int i) { return static_cast<int>(p[i]); };
-	return pixels.format == PixelFormat::Bgra8Premul ? Rgba{byte(2), byte(1), byte(0), byte(3)}
-		: Rgba{byte(0), byte(1), byte(2), byte(3)};
-}
-
-
-bool
-Near(const Rgba& actual, const Rgba& expected, int tolerance)
-{
-	return std::abs(actual.r - expected.r) <= tolerance
-		&& std::abs(actual.g - expected.g) <= tolerance
-		&& std::abs(actual.b - expected.b) <= tolerance
-		&& std::abs(actual.a - expected.a) <= tolerance;
-}
+using namespace ngui::test;
 
 
 const Paint kRedPaint = {.color = {1, 0, 0, 1}};

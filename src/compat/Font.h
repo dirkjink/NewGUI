@@ -39,6 +39,9 @@ enum {
 
 class BFont {
 public:
+								BFont();
+									// Without metrics until GetFont() fills it, as in
+									// `BFont font; view->GetFont(&font);`.
 								BFont(const TextSystem& text, FontRole role = FontRole::Plain);
 
 			float				Size() const;
@@ -55,10 +58,56 @@ public:
 			float				Scale() const;
 
 private:
+	static	const TextSystem&	_NoText();
+
 			const TextSystem*	fText;
 			FontRole			fRole;
 			float				fSize;
 };
+
+
+inline const TextSystem&
+BFont::_NoText()
+{
+	class NoText : public TextSystem {
+	public:
+		float FontSize(FontRole) const override
+		{
+			return 0;
+		}
+
+		FontHeight Height(FontRole) const override
+		{
+			return {0, 0, 0};
+		}
+
+		float StringWidth(std::string_view, FontRole) const override
+		{
+			return 0;
+		}
+
+		std::string Truncate(std::string_view text, float, TruncationMode,
+			FontRole) const override
+		{
+			return std::string(text);
+		}
+
+		ShapedText Shape(std::string_view, FontRole) const override
+		{
+			return {};
+		}
+	};
+	static const NoText kNoText;
+	return kNoText;
+}
+
+
+inline
+BFont::BFont()
+	:
+	BFont(_NoText())
+{
+}
 
 
 inline

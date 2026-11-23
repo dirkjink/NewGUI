@@ -14,52 +14,15 @@
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/Dump.h>
 
+#include "support/FixedTextSystem.h"
+
 
 namespace {
 
 
 using namespace ngui;
 using namespace ngui::compat;
-
-
-// Fixed metrics: 7 pixels per byte at size 12, ascent 9, descent 3.
-class FixedTextSystem : public TextSystem {
-public:
-	float FontSize(FontRole) const override
-	{
-		return 12;
-	}
-
-	FontHeight Height(FontRole) const override
-	{
-		return {9, 3, 1};
-	}
-
-	float StringWidth(std::string_view text, FontRole) const override
-	{
-		return 7.0f * static_cast<float>(text.size());
-	}
-
-	std::string Truncate(std::string_view text, float width, TruncationMode,
-		FontRole) const override
-	{
-		const auto fits = static_cast<std::size_t>(width / 7.0f);
-		return std::string(text.substr(0, fits));
-	}
-
-	ShapedText Shape(std::string_view text, FontRole) const override
-	{
-		ShapedText shaped;
-		shaped.font = 1;
-		shaped.sizePx = 12;
-		for (std::size_t i = 0; i < text.size(); i++) {
-			shaped.glyphs.push_back(static_cast<std::uint32_t>(text[i]));
-			shaped.positions.push_back({7.0f * static_cast<float>(i), 0});
-		}
-		shaped.advance = 7.0f * static_cast<float>(text.size());
-		return shaped;
-	}
-};
+using ngui::test::FixedTextSystem;
 
 
 // The dump of what \a draw records through a CompatView on a 20 × 20 Canvas.
@@ -207,6 +170,41 @@ TEST(CompatViewTest, TextGoesThroughTheTextSystem)
 	EXPECT_EQ(truncated, "Lab");
 	EXPECT_NE(dump.find("DrawGlyphRun font=1 size=24 origin=(2 15) color=(0 0 0 1)"
 		" glyphs=79@(0 0),75@(14 0)"), std::string::npos) << dump;
+}
+
+
+TEST(CompatViewTest, CoordinatesAreRoundedLikeHaikus)
+{
+	// What is tested: FillRect() and FillTriangle() with fractional
+	// coordinates, without and with B_SUBPIXEL_PRECISE.
+	// Success criteria: Without the flag, the coordinates are rounded down
+	// to whole pixels first: BRect(0.6, 0.6, 9.4, 9.4) fills [0, 10) and a
+	// triangle point (2.5, 0.5) goes through the center of pixel (2, 0); with
+	// the flag they are taken as they are.
+	// Why it matters: Haiku's app_server rounds this way unless a view asks
+	// for subpixel precision (Painter::_Align()); the BeOS look relies on
+	// both, e.g. for the pop-up marker.
+	//
+	// When
+	const std::string dump = Recorded([](CompatView& view) {
+		view.FillRect(BRect(0.6f, 0.6f, 9.4f, 9.4f));
+		view.FillTriangle(BPoint(2.5f, 0.5f), BPoint(4, 0), BPoint(3, 2));
+		view.SetFlags(B_SUBPIXEL_PRECISE);
+		view.FillRect(BRect(0.5f, 0.5f, 9.5f, 9.5f));
+		view.FillTriangle(BPoint(2.5f, 0.5f), BPoint(4, 0), BPoint(3, 2));
+	});
+
+	// Then
+	EXPECT_EQ(dump,
+		"DisplayList bounds=[0 0 20 20] ops=4\n"
+		"clip [0 0 20 20]\n"
+		"FillRect rect=[0 0 10 10] color=(0 0 0 1) width=1 cap=Butt join=Miter aa=1\n"
+		"FillConvexPolygon points=(2.5 0.5)(4.5 0.5)(3.5 2.5) color=(0 0 0 1) width=1"
+		" cap=Butt join=Miter aa=1\n"
+		"FillRect rect=[0.5 0.5 10.5 10.5] color=(0 0 0 1) width=1 cap=Butt join=Miter"
+		" aa=1\n"
+		"FillConvexPolygon points=(3 1)(4.5 0.5)(3.5 2.5) color=(0 0 0 1) width=1"
+		" cap=Butt join=Miter aa=1\n");
 }
 
 
