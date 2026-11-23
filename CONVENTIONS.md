@@ -35,7 +35,9 @@ Die Umstellung (Abschnitt 7) MUSS **vor der ersten öffentlichen Freigabe** abge
 
 Diese Regeln betreffen Bedeutung und Signaturen. Sie lassen sich später nicht mechanisch ändern und gelten deshalb **von Anfang an**, auch für portierten Code:
 
-1. **Geometrie und Farbe** kommen aus `ngui::gfx`: `Point`, `Size`, `Rect` (halboffen, Spezifikation 4.1), `Color`. Haikus `BPoint`, `BSize`, `BRect` und `rgb_color` werden **nicht** portiert. Portierter Code wird an den betreffenden Stellen umgestellt, und jede Rechnung mit inklusiven Grenzen (`right - left + 1`, `right--` …) ist dabei ausdrücklich zu prüfen.
+1. **Geometrie und Farbe** kommen aus `ngui::gfx`: `Point`, `Size`, `Rect` (halboffen, Spezifikation 4.1), `Color`. Haikus `BPoint`, `BSize`, `BRect` und `rgb_color` werden für die öffentliche API und für neuen Code **nicht** portiert. Portierter Code wird an den betreffenden Stellen umgestellt, und jede Rechnung mit inklusiven Grenzen (`right - left + 1`, `right--` …) ist dabei ausdrücklich zu prüfen.
+
+   **Ausnahme: die interne Kompatibilitätsschicht** (`src/compat/`, Spezifikation 17, K2 und K3). Für die 1:1-Ports der ControlLooks enthält sie `BPoint`, `BSize` und `BRect` mit Haikus Semantik (inklusiv), `rgb_color` sowie Haikus `B_`-Konstanten, alles im Namensraum `ngui::compat`. Die `CompatView` rechnet erst beim Zeichnen mit `FromBRect` und `PixelCenter` um (17.1). So bleibt der Look-Code nahe am Original. Diese Typen erscheinen nie in öffentlichen Headern, und ihre Header werden nicht installiert.
 2. **Fehlerbehandlung** mit `std::expected<T, ngui::Error>` statt `status_t`. Über die API-Grenze werden keine Exceptions geworfen.
 3. **Besitz** ist ausdrücklich geregelt: `std::unique_ptr` für exklusiven Besitz, `std::shared_ptr` nur bei echt geteiltem Besitz (z. B. Look-Objekte, Spezifikation L4/L10). Übergibt eine Funktion Besitz, ist das in der Signatur sichtbar.
 4. **Nebenläufigkeit:** Über Fenstergrenzen hinweg wird ausschließlich mit Nachrichten gearbeitet. Kein Zugriff auf Views fremder Fenster, kein Locking von außen.
