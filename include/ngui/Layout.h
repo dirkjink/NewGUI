@@ -122,6 +122,14 @@ public:
 									/*!< The layout pass running, or nullptr. */
 
 protected:
+	static	std::unique_ptr<BLayoutItem> ItemForView(std::unique_ptr<BView> view);
+									/*!< The item AddView() makes for a new view: added
+										with AddItem(), the view becomes a child of the
+										target; destroyed unadded, it destroys the view. */
+	static	std::unique_ptr<BLayoutItem> ItemForView(BView* view);
+									/*!< The item AddView() makes for a child of the
+										target. */
+
 	// BLayout hook methods
 	virtual	bool				ItemAdded(BLayoutItem* item, int32 atIndex);
 									/*!< \a item was added at \a atIndex; false refuses it. */

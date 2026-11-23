@@ -300,7 +300,7 @@ public:
 
 	// Layout (module G10)
 
-			BLayout*			SetLayout(std::unique_ptr<BLayout> layout);
+	virtual	BLayout*			SetLayout(std::unique_ptr<BLayout> layout);
 									/*!< Gives the view \a layout, which places its
 										children (all of them are added to it); the old
 										layout is destroyed. Returns the layout. */

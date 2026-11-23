@@ -18,9 +18,9 @@ namespace ngui {
 /*!	Empty space in a layout (Haiku's BSpaceLayoutItem): glue that grows,
 	struts of a fixed width or height, or any sizes.
 
-	NewGUI: sizes are pixel counts; the spacing constants of Haiku's
-	BControlLook::ComposeSpacing() (B_USE_DEFAULT_SPACING ...) come with the
-	group and grid layouts. */
+	NewGUI: sizes are pixel counts; spacing constants (kUseDefaultSpacing
+	...) are resolved by BLayoutUtils::ComposeSpacing() whenever the sizes
+	are asked for. */
 class BSpaceLayoutItem : public BLayoutItem {
 public:
 								BSpaceLayoutItem(gfx::Size minSize, gfx::Size maxSize,
@@ -32,9 +32,11 @@ public:
 	static	std::unique_ptr<BSpaceLayoutItem> CreateGlue();
 									/*!< Space from 0 to unlimited in both directions. */
 	static	std::unique_ptr<BSpaceLayoutItem> CreateHorizontalStrut(float width);
-									/*!< Exactly \a width wide, any height. */
+									/*!< Exactly \a width wide (or a spacing constant),
+										any height. */
 	static	std::unique_ptr<BSpaceLayoutItem> CreateVerticalStrut(float height);
-									/*!< Exactly \a height high, any width. */
+									/*!< Exactly \a height high (or a spacing constant),
+										any width. */
 
 			gfx::Size			MinSize() override;
 									/*!< The minimum given. */

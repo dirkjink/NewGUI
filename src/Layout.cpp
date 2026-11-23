@@ -103,14 +103,9 @@ BLayout::AddView(int32 index, std::unique_ptr<BView> child)
 	if (!fTarget || !child)
 		return nullptr;
 
-	BView* view = fTarget->_AddChild(std::move(child), nullptr);
-	BLayoutItem* item = AddView(index, view);
-	if (item == nullptr) {
-		// In case of errors, we don't want to leave this view added where it
-		// shouldn't be.
-		(void)view->RemoveSelf();
-	}
-	return item;
+	// The item holds the view until AddItem() makes it a child of the
+	// target; if that fails, the view goes with the item.
+	return AddItem(index, ItemForView(std::move(child)));
 }
 
 
@@ -126,7 +121,27 @@ BLayout::AddView(int32 index, BView* child)
 {
 	if (child == nullptr)
 		return nullptr;
-	return AddItem(index, std::make_unique<BViewLayoutItem>(child));
+	return AddItem(index, ItemForView(child));
+}
+
+
+std::unique_ptr<BLayoutItem>
+BLayout::ItemForView(std::unique_ptr<BView> view)
+{
+	BView* raw = view.get();
+	std::unique_ptr<BLayoutItem> item = ItemForView(raw);
+	if (item != nullptr)
+		item->fRemovedView = std::move(view);
+	return item;
+}
+
+
+std::unique_ptr<BLayoutItem>
+BLayout::ItemForView(BView* view)
+{
+	if (view == nullptr)
+		return nullptr;
+	return std::make_unique<BViewLayoutItem>(view);
 }
 
 
