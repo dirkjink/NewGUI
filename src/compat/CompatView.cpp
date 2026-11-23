@@ -8,6 +8,7 @@
 #include "CompatView.h"
 
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <optional>
 
@@ -184,6 +185,41 @@ CompatView::GetFont(BFont* font) const
 }
 
 
+uint32
+CompatView::Flags() const
+{
+	return fFlags;
+}
+
+
+void
+CompatView::SetFlags(uint32 flags)
+{
+	fFlags = flags;
+}
+
+
+BPoint
+CompatView::_Align(BPoint point) const
+{
+	// Haiku truncates in screen coordinates, (int) of positive values; with
+	// a translation by whole pixels that is floor() in view coordinates.
+	if ((fFlags & B_SUBPIXEL_PRECISE) != 0)
+		return point;
+	return BPoint(std::floor(point.x), std::floor(point.y));
+}
+
+
+BRect
+CompatView::_Align(BRect rect) const
+{
+	if ((fFlags & B_SUBPIXEL_PRECISE) != 0)
+		return rect;
+	return BRect(std::floor(rect.left), std::floor(rect.top), std::floor(rect.right),
+		std::floor(rect.bottom));
+}
+
+
 void
 CompatView::ClipToRect(BRect rect)
 {
@@ -213,14 +249,14 @@ CompatView::_Paint(pattern_kind pattern) const
 void
 CompatView::FillRect(BRect rect, pattern_kind pattern)
 {
-	fContext.canvas.FillRect(FromBRect(rect), _Paint(pattern));
+	fContext.canvas.FillRect(FromBRect(_Align(rect)), _Paint(pattern));
 }
 
 
 void
 CompatView::StrokeRect(BRect rect, pattern_kind pattern)
 {
-	fContext.canvas.StrokeRect(FromBRect(rect), _Paint(pattern));
+	fContext.canvas.StrokeRect(FromBRect(_Align(rect)), _Paint(pattern));
 }
 
 
@@ -230,8 +266,8 @@ CompatView::StrokeLine(BPoint start, BPoint end, pattern_kind pattern)
 	// A line through the pixel centers with square caps covers the end
 	// pixels as Haiku does (specification 17.2, rule A3).
 	const gfx::Paint paint = _Paint(pattern);
-	const std::array<gfx::Line, 1> line = {{{PixelCenter(start), PixelCenter(end),
-		paint.color}}};
+	const std::array<gfx::Line, 1> line = {{{PixelCenter(_Align(start)),
+		PixelCenter(_Align(end)), paint.color}}};
 	fContext.canvas.DrawLines(line, fState.penSize, gfx::Paint::Cap::Square);
 	fState.pen = end;
 }
@@ -259,7 +295,8 @@ CompatView::AddLine(BPoint start, BPoint end, rgb_color color)
 {
 	if (!fInLineArray)
 		return;
-	fLineArray.push_back({PixelCenter(start), PixelCenter(end), ToColor(color)});
+	fLineArray.push_back({PixelCenter(_Align(start)), PixelCenter(_Align(end)),
+		ToColor(color)});
 }
 
 
@@ -278,8 +315,8 @@ CompatView::EndLineArray()
 void
 CompatView::FillTriangle(BPoint p1, BPoint p2, BPoint p3, pattern_kind pattern)
 {
-	const std::array<gfx::Point, 3> points = {PixelCenter(p1), PixelCenter(p2),
-		PixelCenter(p3)};
+	const std::array<gfx::Point, 3> points = {PixelCenter(_Align(p1)),
+		PixelCenter(_Align(p2)), PixelCenter(_Align(p3))};
 	fContext.canvas.FillConvexPolygon(points, _Paint(pattern));
 }
 
@@ -287,8 +324,8 @@ CompatView::FillTriangle(BPoint p1, BPoint p2, BPoint p3, pattern_kind pattern)
 void
 CompatView::StrokeTriangle(BPoint p1, BPoint p2, BPoint p3, pattern_kind pattern)
 {
-	const std::array<gfx::Point, 3> points = {PixelCenter(p1), PixelCenter(p2),
-		PixelCenter(p3)};
+	const std::array<gfx::Point, 3> points = {PixelCenter(_Align(p1)),
+		PixelCenter(_Align(p2)), PixelCenter(_Align(p3))};
 	fContext.canvas.StrokePolyline(points, true, _Paint(pattern));
 }
 
@@ -363,6 +400,14 @@ CompatView::DrawBitmap(gfx::ImageHandle bitmap, BPoint where)
 		return;
 	fContext.canvas.DrawImage(bitmap, {0, 0, size->w, size->h},
 		{where.x, where.y, where.x + size->w, where.y + size->h});
+}
+
+
+void
+CompatView::DrawBitmap(const BBitmap* bitmap, BPoint where)
+{
+	if (bitmap != nullptr)
+		DrawBitmap(bitmap->Handle(), where);
 }
 
 

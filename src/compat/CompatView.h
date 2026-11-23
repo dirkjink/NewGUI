@@ -16,6 +16,11 @@
 // converted when drawing, as table 17.2 says:
 //   FromBRect(r)    = {r.left, r.top, r.right + 1, r.bottom + 1}
 //   PixelCenter(p)  = {p.x + 0.5, p.y + 0.5}   for lines and polygons
+//
+// Without B_SUBPIXEL_PRECISE (SetFlags()), Haiku's app_server rounds the
+// coordinates of rectangles, lines and polygons down to whole pixels before
+// it draws them (Painter::_Align()); the layer does the same, so that ported
+// code with fractional coordinates hits the same pixels.
 
 
 #include <string>
@@ -27,6 +32,7 @@
 #include <ngui/gfx/Line.h>
 #include <ngui/gfx/Paint.h>
 
+#include "Bitmap.h"
 #include "Font.h"
 #include "InterfaceDefs.h"
 #include "Point.h"
@@ -84,6 +90,8 @@ public:
 			BPoint				PenLocation() const;
 			void				SetFont(const BFont* font);
 			void				GetFont(BFont* font) const;
+			uint32				Flags() const;
+			void				SetFlags(uint32 flags);
 
 	// Clipping
 
@@ -113,6 +121,7 @@ public:
 			void				DrawString(const char* string, BPoint where);
 			float				StringWidth(const char* string) const;
 			void				DrawBitmap(gfx::ImageHandle bitmap, BPoint where);
+			void				DrawBitmap(const BBitmap* bitmap, BPoint where);
 
 private:
 			struct State {
@@ -127,12 +136,15 @@ private:
 			};
 
 			gfx::Paint			_Paint(pattern_kind pattern) const;
+			BPoint				_Align(BPoint point) const;
+			BRect				_Align(BRect rect) const;
 
 			DrawContext&		fContext;
 			State				fState;
 			std::vector<State>	fStack;
 			std::vector<gfx::Line> fLineArray;
 			bool				fInLineArray = false;
+			uint32				fFlags = 0;
 			int					fCanvasSaves = 0;
 };
 

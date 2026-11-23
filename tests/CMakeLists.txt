@@ -34,12 +34,16 @@ add_executable(ngui_tests
     gfx/RegionTest.cpp
     gfx/SizeTest.cpp
     look/ControlLookTest.cpp
+    look/be/BeLookTest.cpp
     fuzz/FuzzRegressionTest.cpp
     ${fuzzTargetSources})
 
 # The tests of internal classes (DisplayListBuilder ...) include their
-# private headers from src/.
-target_include_directories(ngui_tests PRIVATE "${PROJECT_SOURCE_DIR}/src")
+# private headers from src/; shared test helpers come from tests/support/.
+target_include_directories(ngui_tests
+    PRIVATE
+        "${PROJECT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_compile_definitions(ngui_tests
     PRIVATE
@@ -79,6 +83,7 @@ if(NGUI_WITH_SKIA)
     # only; the smoke test uses Skia directly.
     find_package(unofficial-skia CONFIG REQUIRED)
     add_executable(ngui_skia_tests
+        skia/BeLookSkiaTest.cpp
         skia/SkiaBackendTest.cpp
         skia/SkiaSmokeTest.cpp)
     target_link_libraries(ngui_skia_tests
@@ -87,6 +92,7 @@ if(NGUI_WITH_SKIA)
             unofficial::skia::skia
             GTest::gtest
             GTest::gtest_main)
+    target_include_directories(ngui_skia_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_skia_tests)
     gtest_discover_tests(ngui_skia_tests DISCOVERY_MODE PRE_TEST)
 endif()

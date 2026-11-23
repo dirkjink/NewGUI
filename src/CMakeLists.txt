@@ -27,13 +27,18 @@ add_library(ngui
     gfx/LinearGradient.cpp
     gfx/RRect.cpp
     gfx/Region.cpp
-    gfx/RegionSupport.cpp)
+    gfx/RegionSupport.cpp
+    looks/be/BeControlLook.cpp
+    looks/be/BeLook.cpp)
 add_library(ngui::ngui ALIAS ngui)
 
 target_include_directories(ngui
     PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>"
+    PRIVATE
+        # Internal headers: the compatibility layer and the ported looks.
+        "${CMAKE_CURRENT_SOURCE_DIR}")
 
 ngui_configure_target(ngui)
 
