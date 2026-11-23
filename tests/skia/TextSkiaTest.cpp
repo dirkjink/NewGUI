@@ -18,6 +18,9 @@
 #include <ngui/Box.h>
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
+#include <ngui/Menu.h>
+#include <ngui/MenuItem.h>
+#include <ngui/Message.h>
 #include <ngui/RadioButton.h>
 #include <ngui/ScrollBar.h>
 #include <ngui/ScrollView.h>
@@ -659,6 +662,72 @@ TEST(TextSkiaTest, TabViewsMatchTheirSnapshots)
 			// Then
 			ASSERT_TRUE(image.has_value()) << image.error().message;
 			EXPECT_IMAGE_SNAPSHOT(*image, std::string("TabView") + kind, {.look = "be",
+				.backend = "skia", .scale = scale, .tolerance = Tolerance::Text()});
+		}
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, MenusMatchTheirSnapshots)
+{
+	// What is tested: A column menu with "New" (Command+N), "Save as"
+	// (Command+Shift+S), "Autosave" marked, "Revert" disabled, a separator,
+	// a submenu "Recent" and "Quit" (Command+Q) ("MenuColumn"); and a row
+	// with "File", "Edit" and "Help" with the triggers shown ("MenuRow");
+	// with the bundled font, laid out and drawn, rendered by Skia at
+	// scale 1 and 2.
+	// Success criteria: Within the text tolerance of 21.2: the BeOS menu
+	// background, the labels after the left margin, Haiku's check mark,
+	// the disabled label lighter, the shortcut characters right aligned
+	// with Haiku's "Alt" and "Shift" key symbols, the etched separator, the
+	// submenu arrow; in the row the first letters underlined.
+	// Why it matters: Menus draw most of their content themselves, from
+	// Haiku's geometry and symbols.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	const auto item = [](std::string_view label, uint32 shortcut = 0,
+			BModifierFlags modifiers = {}) {
+		return std::make_unique<BMenuItem>(label, std::make_unique<BMessage>(1), shortcut,
+			modifiers);
+	};
+
+	for (const char* kind : {"Column", "Row"}) {
+		const bool row = std::string_view(kind) == "Row";
+		BMenu menu("menu", row ? BMenuLayout::InRow : BMenuLayout::InColumn);
+		if (row) {
+			menu.AddItem(item("File"));
+			menu.AddItem(item("Edit"));
+			menu.AddItem(item("Help"));
+			menu.SetTriggersEnabled(true);
+		} else {
+			menu.AddItem(item("New", 'N', BModifier::Command));
+			menu.AddItem(item("Save as", 'S', BModifier::Command | BModifier::Shift));
+			menu.AddItem(item("Autosave"));
+			menu.ItemAt(2)->SetMarked(true);
+			menu.AddItem(item("Revert"));
+			menu.ItemAt(3)->SetEnabled(false);
+			menu.AddSeparatorItem();
+			auto recent = std::make_unique<BMenu>("Recent");
+			recent->AddItem(item("a.txt"));
+			menu.AddItem(std::move(recent));
+			menu.AddItem(item("Quit", 'Q', BModifier::Command));
+		}
+		menu.Layout(true);
+		const DisplayListRef list = RecordTree(menu, *text);
+
+		for (const float scale : {1.0f, 2.0f}) {
+			// When
+			SkiaBackend backend;
+			for (const FontFile& font : text->Fonts())
+				ASSERT_TRUE(backend.AddFont(font.id, font.data));
+			const auto image = RenderToImage(backend, *list, scale);
+
+			// Then
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, std::string("Menu") + kind, {.look = "be",
 				.backend = "skia", .scale = scale, .tolerance = Tolerance::Text()});
 		}
 	}
