@@ -58,3 +58,33 @@
 	fonts (vcpkg feature text, NGUI_WITH_TEXT).
 */
 
+
+
+/*!
+	\namespace ngui::BLayoutBuilder
+	\brief Builders that put layouts together in one expression (module G10), as
+	Haiku's BLayoutBuilder:
+
+	\code
+	BLayoutBuilder::Group<>(window, BOrientation::Vertical)
+		.SetInsets(kUseWindowInsets)
+		.Add(std::move(label))
+		.AddGroup(BOrientation::Horizontal)
+			.AddGlue()
+			.Add(std::move(cancel))
+			.Add(std::move(ok))
+		.End();
+	\endcode
+
+	Each Add…() returns the builder again; AddGroup(), AddGrid() and
+	AddCards() return a builder for the new layout, whose End() returns
+	to the builder it came from.
+
+	NewGUI: views, items and layouts are added as std::unique_ptr and owned
+	by the layouts and views they are added to. A builder starts at a
+	window, a view or a layout that belongs to a view; Haiku's builders that
+	make a free group view (Group<>(B_VERTICAL)) are not ported, since
+	nobody would own that view. The Split builder comes with BSplitView
+	(W1), the menu builders and AddMenuField() / AddTextControl() with the
+	menus and controls (W2, W3).
+*/

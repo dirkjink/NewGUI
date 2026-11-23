@@ -11,6 +11,7 @@ add_library(ngui
     AbstractLayout.cpp
     AbstractLayoutItem.cpp
     Application.cpp
+    CardLayout.cpp
     Clock.cpp
     ControlLook.cpp
     Locker.cpp
@@ -27,7 +28,7 @@ add_library(ngui
     Error.cpp
     GridLayout.cpp
     GroupLayout.cpp
-    GroupView.cpp
+    LayoutViews.cpp
     Handler.cpp
     Invoker.cpp
     Layout.cpp
