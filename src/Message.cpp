@@ -16,6 +16,10 @@
 #include <type_traits>
 #include <utility>
 
+#include <ngui/AppDefs.h>
+
+#include "LooperPort.h"
+
 
 namespace ngui {
 
@@ -429,10 +433,106 @@ private:
 };
 
 
+BMessage::BMessage() = default;
+
+
 BMessage::BMessage(std::uint32_t command)
 	:
 	what(command)
 {
+}
+
+
+BMessage::BMessage(const BMessage& other)
+	:
+	what(other.what),
+	fFields(other.fFields)
+{
+}
+
+
+BMessage::BMessage(BMessage&& other) noexcept = default;
+
+
+BMessage::~BMessage() = default;
+
+
+BMessage&
+BMessage::operator=(const BMessage& other)
+{
+	if (this != &other) {
+		what = other.what;
+		fFields = other.fFields;
+		fDelivery.reset();
+	}
+	return *this;
+}
+
+
+BMessage&
+BMessage::operator=(BMessage&& other) noexcept = default;
+
+
+bool
+BMessage::WasDelivered() const
+{
+	return fDelivery != nullptr && fDelivery->delivered;
+}
+
+
+bool
+BMessage::IsSourceWaiting() const
+{
+	return fDelivery != nullptr && fDelivery->reply != nullptr
+		&& fDelivery->reply->IsWaiting();
+}
+
+
+bool
+BMessage::IsReply() const
+{
+	return fDelivery != nullptr && fDelivery->isReply;
+}
+
+
+BMessenger
+BMessage::ReturnAddress() const
+{
+	if (fDelivery == nullptr || fDelivery->reply == nullptr)
+		return BMessenger();
+	return fDelivery->reply->replyTo;
+}
+
+
+std::expected<void, Error>
+BMessage::SendReply(const BMessage& reply)
+{
+	ReplyToken* token = fDelivery != nullptr ? fDelivery->reply.get() : nullptr;
+	const bool waiting = token != nullptr && token->IsWaiting();
+	if (token == nullptr || (!waiting && !token->replyTo.IsValid()))
+		return Failure(ErrorCode::NotFound, "nobody to reply to");
+	if (!token->Answer())
+		return Failure(ErrorCode::InvalidArgument, "the message was answered already");
+
+	auto answer = std::make_unique<BMessage>(reply);
+	answer->fDelivery = std::make_unique<MessageDelivery>();
+	answer->fDelivery->isReply = true;
+	if (waiting) {
+		const std::shared_ptr<ReplyWaiter> waiter = token->waiter.lock();
+		if (waiter == nullptr)
+			return Failure(ErrorCode::NotFound, "the sender stopped waiting");
+		waiter->Deliver(std::move(*answer));
+		return {};
+	}
+	answer->fDelivery->handlerToken = token->replyTo.fToken;
+	return token->replyTo._Send(std::move(answer));
+}
+
+
+std::expected<void, Error>
+BMessage::SendReply(std::uint32_t command)
+{
+	return SendReply(BMessage(command));
 }
 
 
