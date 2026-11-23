@@ -50,6 +50,7 @@ add_executable(ngui_tests
     gfx/RRectTest.cpp
     gfx/RegionTest.cpp
     gfx/SizeTest.cpp
+    layout/LayouterTest.cpp
     look/ControlLookTest.cpp
     look/be/BeLookTest.cpp
     platform/CpuPresenterTest.cpp
@@ -107,6 +108,8 @@ if(NGUI_FUZZING)
         string(REGEX REPLACE "Fuzz$" "" name "${name}")
         add_executable(ngui_fuzz_${name} "${source}" fuzz/LibFuzzerMain.cpp)
         target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::ngui ngui::testkit)
+        # Targets of internal classes (the layouters) include from src/.
+        target_include_directories(ngui_fuzz_${name} PRIVATE "${PROJECT_SOURCE_DIR}/src")
         if(NGUI_WITH_TEXT)
             target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::text)
         endif()

@@ -25,12 +25,19 @@ add_library(ngui
     Error.cpp
     Handler.cpp
     Invoker.cpp
+    LayoutUtils.cpp
     Palette.cpp
     TextSystem.cpp
     TruncateString.cpp
     View.cpp
     Window.cpp
     Version.cpp
+    layout/CollapsingLayouter.cpp
+    layout/ComplexLayouter.cpp
+    layout/LayoutOptimizer.cpp
+    layout/Layouter.cpp
+    layout/OneElementLayouter.cpp
+    layout/SimpleLayouter.cpp
     gfx/Backend.cpp
     gfx/BackendRegistry.cpp
     gfx/Canvas.cpp
