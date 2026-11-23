@@ -28,6 +28,7 @@
 namespace ngui {
 
 
+class BMessage;
 class BWindow;
 
 
@@ -87,6 +88,28 @@ inline constexpr BResizingMode kFollowAll
 	= {BHorizontalFollow::LeftRight, BVerticalFollow::TopBottom};
 
 
+/*!	Where the mouse is relative to a view in MouseMoved() (Haiku's
+	B_ENTERED_VIEW ...). */
+enum class BMouseTransit : std::uint8_t {
+	Entered,	/*!< B_ENTERED_VIEW: it just came in. */
+	Inside,		/*!< B_INSIDE_VIEW: it moved inside. */
+	Exited,		/*!< B_EXITED_VIEW: it just left. */
+	Outside		/*!< B_OUTSIDE_VIEW: it moved outside, while the view tracks it. */
+};
+
+
+/*!	Events a view asks for beyond those over it (Haiku's B_POINTER_EVENTS,
+	B_KEYBOARD_EVENTS). */
+enum class BEventMask : std::uint32_t {
+	Pointer = 1u << 0,	/*!< All mouse events until the buttons are up. */
+	Keyboard = 1u << 1	/*!< All key events, also without the focus. */
+};
+NGUI_FLAG_ENUM(BEventMask)
+
+/*!	A set of BEventMask. */
+using BEventMaskFlags = Flags<BEventMask>;
+
+
 /*!	What views draw with besides their Canvas, given by the window for one
 	frame (specification 18.3, L1). */
 struct DrawEnvironment {
@@ -116,7 +139,10 @@ struct DrawEnvironment {
 	  its Canvas; there is no BView drawing state (high color, pen ...).
 	- FrameMoved() and FrameResized() are called when the frame changes,
 	  not later through messages.
-	- The event hooks come with BWindow (G9), the layout with G10.
+	- Positions are given to the mouse hooks; buttons, modifiers and clicks
+	  are in Window()->CurrentMessage() as in Haiku. KeyDown() gets the
+	  typed text as std::string_view.
+	- The layout comes with G10.
 */
 class BView : public BHandler {
 public:
@@ -187,6 +213,17 @@ public:
 									/*!< From its coordinates to the parent's. */
 			gfx::Rect			ConvertFromParent(const gfx::Rect& rect) const;
 									/*!< From the parent's coordinates to its own. */
+			gfx::Point			ConvertToWindow(gfx::Point point) const;
+									/*!< From its coordinates to the window's content area,
+										the coordinates of the window's root view. */
+			gfx::Point			ConvertFromWindow(gfx::Point point) const;
+									/*!< From the window's content area to its coordinates. */
+			gfx::Rect			ConvertToWindow(const gfx::Rect& rect) const;
+									/*!< From its coordinates to the window's content area. */
+			gfx::Point			ConvertToScreen(gfx::Point point) const;
+									/*!< From its coordinates to the desktop's. */
+			gfx::Point			ConvertFromScreen(gfx::Point point) const;
+									/*!< From the desktop's coordinates to its own. */
 
 			BResizingMode		ResizingMode() const;
 									/*!< How it follows its parent's size. */
@@ -230,18 +267,56 @@ public:
 										was invalidated) with the children's placed in. Used
 										by the window for every frame. */
 
+	// Events
+
+			void				MakeFocus(bool focus = true);
+									/*!< Takes (or gives up) the keyboard focus of its
+										window. */
+			bool				IsFocus() const;
+									/*!< It has the focus. */
+			void				SetMouseEventMask(BEventMaskFlags mask);
+									/*!< In MouseDown(): \a mask (Pointer) sends it all mouse
+										events until the buttons are up, as Haiku's. */
+
 	// Hooks
 
+	virtual	void				AttachedToWindow();
+									/*!< It came into a window; before its children. */
+	virtual	void				AllAttached();
+									/*!< It and its subtree came into a window; after its
+										children. */
+	virtual	void				DetachedFromWindow();
+									/*!< It leaves a window; before its children. */
+	virtual	void				AllDetached();
+									/*!< It and its subtree left the window. */
 	virtual	void				FrameMoved(gfx::Point newPosition);
 									/*!< With FrameEvents: the frame moved. */
 	virtual	void				FrameResized(float newWidth, float newHeight);
 									/*!< With FrameEvents: the frame changed its size. */
+	virtual	void				MouseDown(gfx::Point where);
+									/*!< A button went down over it, \a where in its
+										coordinates. */
+	virtual	void				MouseUp(gfx::Point where);
+									/*!< A button went up. */
+	virtual	void				MouseMoved(gfx::Point where, BMouseTransit transit,
+									const BMessage* dragMessage);
+									/*!< The mouse moved; \a dragMessage is nullptr until
+										drag and drop exists. */
+	virtual	void				KeyDown(std::string_view bytes);
+									/*!< A key went down while it had the focus; \a bytes is
+										the text it types, possibly empty. */
+	virtual	void				KeyUp(std::string_view bytes);
+									/*!< A key went up. */
+	virtual	void				WindowActivated(bool active);
+									/*!< Its window became active or inactive. */
 
 private:
 	friend class BWindow;
 
 			void				_ParentResized(float dw, float dh);
-			void				_SetWindow(BWindow* window);
+			void				_Attach(BWindow* window);
+			void				_Detach();
+			void				_Damage(const gfx::Rect& rect);
 			gfx::DisplayListRef	_RecordOwn(const DrawEnvironment& environment);
 			gfx::DisplayListRef	_RecordChildrenOver(const DrawEnvironment& environment);
 

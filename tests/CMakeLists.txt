@@ -28,6 +28,7 @@ add_executable(ngui_tests
     SupportDefsTest.cpp
     VersionTest.cpp
     ViewTest.cpp
+    WindowTest.cpp
     compat/CompatViewTest.cpp
     gfx/CanvasTest.cpp
     gfx/ColorTest.cpp

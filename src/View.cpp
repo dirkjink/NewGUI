@@ -12,6 +12,7 @@
 #include <cmath>
 #include <utility>
 
+#include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/Paint.h>
 
@@ -78,7 +79,10 @@ BView::AddChild(std::unique_ptr<BView> child, BView* before)
 	BView* added = child.get();
 	added->fParent = this;
 	fChildren.insert(position, std::move(child));
-	added->_SetWindow(fWindow);
+	if (fWindow != nullptr) {
+		added->_Attach(fWindow);
+		_Damage(ConvertToParent(added->Frame()));
+	}
 	return added;
 }
 
@@ -91,9 +95,12 @@ BView::RemoveChild(BView* child)
 	if (found == fChildren.end())
 		return nullptr;
 	std::unique_ptr<BView> removed = std::move(*found);
+	if (fWindow != nullptr) {
+		_Damage(ConvertToParent(removed->Frame()));
+		removed->_Detach();
+	}
 	fChildren.erase(found);
 	removed->fParent = nullptr;
-	removed->_SetWindow(nullptr);
 	return removed;
 }
 
@@ -195,7 +202,9 @@ BView::MoveBy(float dx, float dy)
 {
 	if (dx == 0 && dy == 0)
 		return;
+	_Damage(fFrame);
 	fFrame = {fFrame.x0 + dx, fFrame.y0 + dy, fFrame.x1 + dx, fFrame.y1 + dy};
+	_Damage(fFrame);
 	if (fFlags.Has(BViewFlag::FrameEvents))
 		FrameMoved({fFrame.x0, fFrame.y0});
 }
@@ -213,6 +222,7 @@ BView::ResizeBy(float dw, float dh)
 {
 	if (dw == 0 && dh == 0)
 		return;
+	_Damage(fFrame);
 	fFrame = {fFrame.x0, fFrame.y0, fFrame.x1 + dw, fFrame.y1 + dh};
 	// The list covers the whole view; a new size needs a new one.
 	Invalidate();
@@ -276,6 +286,56 @@ BView::ConvertFromParent(const gfx::Rect& rect) const
 	const gfx::Point a = ConvertFromParent(gfx::Point{rect.x0, rect.y0});
 	const gfx::Point b = ConvertFromParent(gfx::Point{rect.x1, rect.y1});
 	return {a.x, a.y, b.x, b.y};
+}
+
+
+gfx::Point
+BView::ConvertToWindow(gfx::Point point) const
+{
+	// Up to the root view, whose frame is the content area at (0, 0).
+	for (const BView* view = this; view != nullptr; view = view->fParent)
+		point = view->ConvertToParent(point);
+	return point;
+}
+
+
+gfx::Point
+BView::ConvertFromWindow(gfx::Point point) const
+{
+	if (fParent != nullptr)
+		point = fParent->ConvertFromWindow(point);
+	return ConvertFromParent(point);
+}
+
+
+gfx::Rect
+BView::ConvertToWindow(const gfx::Rect& rect) const
+{
+	const gfx::Point a = ConvertToWindow(gfx::Point{rect.x0, rect.y0});
+	const gfx::Point b = ConvertToWindow(gfx::Point{rect.x1, rect.y1});
+	return {a.x, a.y, b.x, b.y};
+}
+
+
+gfx::Point
+BView::ConvertToScreen(gfx::Point point) const
+{
+	const gfx::Point inWindow = ConvertToWindow(point);
+	if (fWindow == nullptr)
+		return inWindow;
+	const gfx::Rect frame = fWindow->Frame();
+	return {inWindow.x + frame.x0, inWindow.y + frame.y0};
+}
+
+
+gfx::Point
+BView::ConvertFromScreen(gfx::Point point) const
+{
+	if (fWindow != nullptr) {
+		const gfx::Rect frame = fWindow->Frame();
+		point = {point.x - frame.x0, point.y - frame.y0};
+	}
+	return ConvertFromWindow(point);
 }
 
 
@@ -354,8 +414,10 @@ BView::_ParentResized(float dw, float dh)
 void
 BView::Show()
 {
-	if (fHideLevel > 0)
+	if (fHideLevel > 0) {
 		fHideLevel--;
+		_Damage(fFrame);
+	}
 }
 
 
@@ -363,6 +425,7 @@ void
 BView::Hide()
 {
 	fHideLevel++;
+	_Damage(fFrame);
 }
 
 
@@ -394,6 +457,18 @@ BView::Invalidate()
 {
 	fList.reset();
 	fListAfterChildren.reset();
+	_Damage(fFrame);
+}
+
+
+void
+BView::_Damage(const gfx::Rect& rect)
+{
+	// \a rect is in the parent's coordinates; the window collects the
+	// areas of the next frame in its own.
+	if (fWindow == nullptr)
+		return;
+	fWindow->_AddDirty(fParent != nullptr ? fParent->ConvertToWindow(rect) : rect);
 }
 
 
@@ -479,6 +554,93 @@ BView::RecordTree(const DrawEnvironment& environment)
 
 
 void
+BView::MakeFocus(bool focus)
+{
+	if (fWindow == nullptr)
+		return;
+	if (focus)
+		fWindow->_SetFocus(this);
+	else if (IsFocus())
+		fWindow->_SetFocus(nullptr);
+}
+
+
+bool
+BView::IsFocus() const
+{
+	return fWindow != nullptr && fWindow->CurrentFocus() == this;
+}
+
+
+void
+BView::SetMouseEventMask(BEventMaskFlags mask)
+{
+	if (fWindow != nullptr && mask.Has(BEventMask::Pointer))
+		fWindow->_SetMouseCapture(this);
+}
+
+
+void
+BView::AttachedToWindow()
+{
+}
+
+
+void
+BView::AllAttached()
+{
+}
+
+
+void
+BView::DetachedFromWindow()
+{
+}
+
+
+void
+BView::AllDetached()
+{
+}
+
+
+void
+BView::MouseDown(gfx::Point)
+{
+}
+
+
+void
+BView::MouseUp(gfx::Point)
+{
+}
+
+
+void
+BView::MouseMoved(gfx::Point, BMouseTransit, const BMessage*)
+{
+}
+
+
+void
+BView::KeyDown(std::string_view)
+{
+}
+
+
+void
+BView::KeyUp(std::string_view)
+{
+}
+
+
+void
+BView::WindowActivated(bool)
+{
+}
+
+
+void
 BView::FrameMoved(gfx::Point)
 {
 }
@@ -491,11 +653,29 @@ BView::FrameResized(float, float)
 
 
 void
-BView::_SetWindow(BWindow* window)
+BView::_Attach(BWindow* window)
 {
+	// As Haiku: AttachedToWindow() before the children, AllAttached()
+	// after them.
 	fWindow = window;
+	window->AddHandler(this);
+	AttachedToWindow();
 	for (std::unique_ptr<BView>& child : fChildren)
-		child->_SetWindow(window);
+		child->_Attach(window);
+	AllAttached();
+}
+
+
+void
+BView::_Detach()
+{
+	DetachedFromWindow();
+	for (std::unique_ptr<BView>& child : fChildren)
+		child->_Detach();
+	AllDetached();
+	fWindow->_ViewDetached(this);
+	fWindow->RemoveHandler(this);
+	fWindow = nullptr;
 }
 
 

@@ -28,6 +28,7 @@ add_library(ngui
     Palette.cpp
     TextSystem.cpp
     View.cpp
+    Window.cpp
     Version.cpp
     gfx/Backend.cpp
     gfx/BackendRegistry.cpp
