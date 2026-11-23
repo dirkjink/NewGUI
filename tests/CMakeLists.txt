@@ -35,6 +35,9 @@ add_executable(ngui_tests
     gfx/SizeTest.cpp
     look/ControlLookTest.cpp
     look/be/BeLookTest.cpp
+    test/ImageCompareTest.cpp
+    test/ImageTest.cpp
+    test/SnapshotTest.cpp
     fuzz/FuzzRegressionTest.cpp
     ${fuzzTargetSources})
 
@@ -52,12 +55,23 @@ target_compile_definitions(ngui_tests
 target_link_libraries(ngui_tests
     PRIVATE
         ngui::ngui
-        GTest::gtest
-        GTest::gtest_main)
+        ngui::testkit
+        ngui::testkit_main)
 
 ngui_configure_target(ngui_tests)
 
-gtest_discover_tests(ngui_tests DISCOVERY_MODE PRE_TEST)
+# Snapshots (specification 20.5): the references are checked in under
+# tests/snapshots/, failed comparisons leave their HTML reports in the build
+# directory (a CI artifact). As arguments to the tests rather than in the
+# environment: gtest_discover_tests keeps only the first variable of a list.
+# NGUI_UPDATE_SNAPSHOTS=1 passes through.
+set(snapshotArguments
+    "--snapshot-dir=${CMAKE_CURRENT_SOURCE_DIR}/snapshots"
+    "--snapshot-report-dir=${PROJECT_BINARY_DIR}/snapshot-report")
+
+gtest_discover_tests(ngui_tests
+    DISCOVERY_MODE PRE_TEST
+    EXTRA_ARGS ${snapshotArguments})
 
 # libFuzzer executables, one per target: ngui_fuzz_<Name>. The list goes to
 # fuzz-targets.txt in the build directory.
@@ -67,7 +81,7 @@ if(NGUI_FUZZING)
         get_filename_component(name "${source}" NAME_WE)
         string(REGEX REPLACE "Fuzz$" "" name "${name}")
         add_executable(ngui_fuzz_${name} "${source}" fuzz/LibFuzzerMain.cpp)
-        target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::ngui)
+        target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::ngui ngui::testkit)
         ngui_configure_target(ngui_fuzz_${name})
         target_link_options(ngui_fuzz_${name} PRIVATE -fsanitize=fuzzer)
         list(APPEND fuzzTargetNames ${name})
@@ -89,10 +103,12 @@ if(NGUI_WITH_SKIA)
     target_link_libraries(ngui_skia_tests
         PRIVATE
             ngui::skia
-            unofficial::skia::skia
-            GTest::gtest
-            GTest::gtest_main)
+            ngui::testkit
+            ngui::testkit_main
+            unofficial::skia::skia)
     target_include_directories(ngui_skia_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_skia_tests)
-    gtest_discover_tests(ngui_skia_tests DISCOVERY_MODE PRE_TEST)
+    gtest_discover_tests(ngui_skia_tests
+        DISCOVERY_MODE PRE_TEST
+        EXTRA_ARGS ${snapshotArguments})
 endif()

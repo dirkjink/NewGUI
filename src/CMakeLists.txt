@@ -56,3 +56,35 @@ if(NGUI_WITH_SKIA)
             unofficial::skia::skia)
     ngui_configure_target(ngui_skia)
 endif()
+
+# The test kit (specification 20.5, 21; module M14): offscreen rendering,
+# image comparison, snapshots and their reports, for the tests of NewGUI and
+# later of applications. Built with the tests, whose vcpkg feature brings
+# libpng and GoogleTest.
+if(NGUI_BUILD_TESTS)
+    find_package(PNG REQUIRED)
+    add_library(ngui_testkit
+        test/Image.cpp
+        test/ImageCompare.cpp
+        test/Render.cpp
+        test/Report.cpp
+        test/Snapshot.cpp)
+    add_library(ngui::testkit ALIAS ngui_testkit)
+    target_link_libraries(ngui_testkit
+        PUBLIC
+            ngui::ngui
+        PRIVATE
+            PNG::PNG)
+    ngui_configure_target(ngui_testkit)
+
+    # GoogleTest's main plus --update-snapshots.
+    find_package(GTest CONFIG REQUIRED)
+    add_library(ngui_testkit_main
+        test/GTestMain.cpp)
+    add_library(ngui::testkit_main ALIAS ngui_testkit_main)
+    target_link_libraries(ngui_testkit_main
+        PUBLIC
+            ngui::testkit
+            GTest::gtest)
+    ngui_configure_target(ngui_testkit_main)
+endif()

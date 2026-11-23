@@ -10,6 +10,9 @@
 #include <gtest/gtest.h>
 
 #include <ngui/gfx/Canvas.h>
+#include <ngui/gfx/SkiaBackend.h>
+#include <ngui/test/GTest.h>
+#include <ngui/test/Render.h>
 
 #include "Rendered.h"
 #include "support/FixedTextSystem.h"
@@ -96,6 +99,36 @@ TEST(BeLookSkiaTest, PressedButtonIsDarkened)
 	EXPECT_TRUE(Near(rendered.At(2, 10), Gray(192), 1)) << ::testing::PrintToString(
 		rendered.At(2, 10));
 	EXPECT_EQ(rendered.At(1, 10), Gray(96));
+}
+
+
+TEST(BeLookSkiaTest, PressedButtonMatchesItsSnapshot)
+{
+	// What is tested: The pressed BeOS button rendered by Skia at scale 1 and
+	// 2, through RenderToImage(), against the image snapshots
+	// BeLookSkiaTest_PressedButton.be.skia.{1,2}x.png.
+	// Success criteria: Pixel-identical to the references: the button is
+	// made of axis-parallel rectangles and lines only (A1/A3), so no
+	// tolerance applies (specification 21.2).
+	// Why it matters: The pressed state replaces Haiku's inversion
+	// (specification 16), so it has no Haiku screenshot; 21.3 gives it a
+	// reference of its own, generated here. It also runs the test kit end to
+	// end: rendering, PNG and comparison.
+	//
+	// Given
+	const DisplayListRef list = Button(ControlState::Activated);
+
+	for (const float scale : {1.0f, 2.0f}) {
+		// When
+		SkiaBackend backend;
+		const auto image = RenderToImage(backend, *list, scale);
+
+		// Then
+		ASSERT_TRUE(image.has_value()) << image.error().message;
+		EXPECT_EQ(image->Width(), static_cast<int>(100 * scale));
+		EXPECT_IMAGE_SNAPSHOT(*image, "PressedButton",
+			{.look = "be", .backend = "skia", .scale = scale});
+	}
 }
 
 

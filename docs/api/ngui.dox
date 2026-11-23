@@ -28,3 +28,11 @@
 	\namespace ngui::gfx
 	\brief Geometry and color types of the Canvas layer (specification 4 and 5).
 */
+
+
+/*!
+	\namespace ngui::test
+	\brief The test kit (specification 20 and 21): offscreen rendering, image
+	comparison with the tolerances of 21.2, and snapshots with their reports.
+	Library ngui_testkit; GoogleTest macros in ngui/test/GTest.h.
+*/

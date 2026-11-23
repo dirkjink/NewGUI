@@ -9,9 +9,10 @@
   "dependencies": [],
   "features": {
     "tests": {
-      "description": "Unit tests",
+      "description": "Unit tests and the test kit (ngui_testkit): GoogleTest, and libpng for the PNG files of image snapshots",
       "dependencies": [
-        "gtest"
+        "gtest",
+        "libpng"
       ]
     },
     "skia": {

@@ -68,6 +68,15 @@ jobs:
       - name: Configure, build and test
         run: cmake --workflow --preset ci
 
+      # The HTML reports of failed snapshots (specification 20.5, 20.9).
+      - name: Keep the snapshot report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapshot-report-${{ matrix.compiler.name }}
+          path: build/ci/snapshot-report
+          if-no-files-found: ignore
+
   windows:
     name: Windows (msvc-2022)
     runs-on: windows-2022
@@ -93,6 +102,15 @@ jobs:
           call "%VSINSTALL%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
           set "VCPKG_ROOT=%GITHUB_WORKSPACE%\vcpkg"
           cmake --workflow --preset ci
+
+      # The HTML reports of failed snapshots (specification 20.5, 20.9).
+      - name: Keep the snapshot report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapshot-report-msvc-2022
+          path: build/ci/snapshot-report
+          if-no-files-found: ignore
 
   # The library is built twice from copies of the source at different paths;
   # both builds must give the same bytes. This guards -ffile-prefix-map and
@@ -162,6 +180,15 @@ jobs:
       - name: Configure, build and test with Skia
         run: cmake --workflow --preset skia
 
+      # The HTML reports of failed snapshots (specification 20.5, 20.9).
+      - name: Keep the snapshot report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapshot-report-skia-gcc-13
+          path: build/skia/snapshot-report
+          if-no-files-found: ignore
+
   # Skia with MSVC (cl.exe, as the vcpkg port builds it on Windows). Outside
   # the required check until its build time and stability are known.
   skia-windows:
@@ -188,6 +215,15 @@ jobs:
           call "%VSINSTALL%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
           set "VCPKG_ROOT=%GITHUB_WORKSPACE%\vcpkg"
           cmake --workflow --preset skia
+
+      # The HTML reports of failed snapshots (specification 20.5, 20.9).
+      - name: Keep the snapshot report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapshot-report-skia-msvc-2022
+          path: build/skia/snapshot-report
+          if-no-files-found: ignore
 
   # Published advisories in the dependencies that ship (CONVENTIONS.md 8.2).
   # Deliberately not part of the required check "Build": a newly published
