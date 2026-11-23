@@ -16,6 +16,7 @@
 
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/Dump.h>
+#include <ngui/test/GTest.h>
 
 #include "support/FixedTextSystem.h"
 
@@ -115,7 +116,8 @@ TEST(BeLookTest, ButtonFrameIsHaikusBevel)
 {
 	// What is tested: DrawButtonFrame() of an enabled button in the panel
 	// color 216 on [0, 100) × [0, 24), recorded as a DisplayList.
-	// Success criteria: The dump equals the reference: a ring in the
+	// Success criteria: The dump equals the snapshot
+	// BeLookTest_ButtonFrame.be.dump.1x.txt: a ring in the
 	// background color, then one line array of 16 lines: the dark border in
 	// tint_color(216, B_DARKEN_4_TINT) = 96, the light bevel in
 	// tint_color(216, B_LIGHTEN_1_TINT) + 1 = 232, white, the shadow in
@@ -136,28 +138,7 @@ TEST(BeLookTest, ButtonFrameIsHaikusBevel)
 
 	// Then
 	EXPECT_EQ(rect, (gfx::Rect{5, 4, 95, 20}));
-	EXPECT_EQ(drawing.Dump(),
-		"DisplayList bounds=[0 0 100 40] ops=2\n"
-		"clip [0 0 100 24]\n"
-		"StrokeRect rect=[1 0 99 24] color=(0.847 0.847 0.847 1) width=1 cap=Butt"
-		" join=Miter aa=1\n"
-		"DrawLines width=1 cap=Square"
-		" line=(1.5 1.5)->(1.5 22.5):(0.376 0.376 0.376 1)"
-		" line=(2.5 0.5)->(97.5 0.5):(0.376 0.376 0.376 1)"
-		" line=(98.5 1.5)->(98.5 22.5):(0.376 0.376 0.376 1)"
-		" line=(2.5 23.5)->(97.5 23.5):(0.376 0.376 0.376 1)"
-		" line=(2.5 22.5)->(2.5 1.5):(0.91 0.91 0.91 1)"
-		" line=(2.5 1.5)->(97.5 1.5):(0.91 0.91 0.91 1)"
-		" line=(97.5 2.5)->(97.5 22.5):(0.596 0.596 0.596 1)"
-		" line=(97.5 22.5)->(3.5 22.5):(0.596 0.596 0.596 1)"
-		" line=(3.5 22.5)->(3.5 2.5):(1 1 1 1)"
-		" line=(3.5 2.5)->(96.5 2.5):(1 1 1 1)"
-		" line=(96.5 2.5)->(96.5 21.5):(0.847 0.847 0.847 1)"
-		" line=(96.5 21.5)->(4.5 21.5):(0.847 0.847 0.847 1)"
-		" line=(4.5 21.5)->(4.5 3.5):(1 1 1 1)"
-		" line=(4.5 3.5)->(95.5 3.5):(1 1 1 1)"
-		" line=(95.5 3.5)->(95.5 20.5):(0.91 0.91 0.91 1)"
-		" line=(95.5 20.5)->(5.5 20.5):(0.91 0.91 0.91 1)\n");
+	EXPECT_LIST_SNAPSHOT(*drawing.Finish(), "ButtonFrame", {.look = "be"});
 }
 
 
