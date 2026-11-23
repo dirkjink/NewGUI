@@ -8,6 +8,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -30,11 +31,12 @@ struct SnapshotSettings {
 										failing (`--update-snapshots`). */
 
 	static	SnapshotSettings	FromEnvironment(
-									const std::function<const char*(const char*)>& lookup
-										= nullptr);
+									const std::function<std::optional<std::string>(
+										const char*)>& lookup = nullptr);
 									/*!< The defaults, changed by NGUI_SNAPSHOT_DIR,
 										NGUI_SNAPSHOT_REPORT_DIR and NGUI_UPDATE_SNAPSHOTS=1.
-										\a lookup reads a variable; nullptr is std::getenv. */
+										\a lookup reads a variable; nullptr reads the
+										environment of the process. */
 };
 
 

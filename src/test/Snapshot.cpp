@@ -94,24 +94,47 @@ Failed(const std::string& why, const std::filesystem::path& report)
 }
 
 
+// A variable of the environment; MSVC deprecates std::getenv() (C4996)
+// in favour of _dupenv_s(), which copies the value.
+std::optional<std::string>
+EnvironmentVariable(const char* name)
+{
+#ifdef _WIN32
+	char* value = nullptr;
+	std::size_t length = 0;
+	if (_dupenv_s(&value, &length, name) != 0 || value == nullptr)
+		return std::nullopt;
+	std::string copy(value);
+	std::free(value);
+	return copy;
+#else
+	const char* value = std::getenv(name);
+	if (value == nullptr)
+		return std::nullopt;
+	return std::string(value);
+#endif
+}
+
+
 } // namespace
 
 
 SnapshotSettings
-SnapshotSettings::FromEnvironment(const std::function<const char*(const char*)>& lookup)
+SnapshotSettings::FromEnvironment(
+	const std::function<std::optional<std::string>(const char*)>& lookup)
 {
-	const auto get = [&](const char* name) -> const char* {
-		return lookup ? lookup(name) : std::getenv(name);
+	const auto get = [&](const char* name) {
+		return lookup ? lookup(name) : EnvironmentVariable(name);
 	};
 	SnapshotSettings settings;
-	if (const char* directory = get("NGUI_SNAPSHOT_DIR"); directory != nullptr && *directory)
-		settings.referenceDirectory = directory;
-	if (const char* directory = get("NGUI_SNAPSHOT_REPORT_DIR");
-			directory != nullptr && *directory) {
-		settings.reportDirectory = directory;
+	if (const auto directory = get("NGUI_SNAPSHOT_DIR"); directory && !directory->empty())
+		settings.referenceDirectory = *directory;
+	if (const auto directory = get("NGUI_SNAPSHOT_REPORT_DIR");
+			directory && !directory->empty()) {
+		settings.reportDirectory = *directory;
 	}
-	if (const char* update = get("NGUI_UPDATE_SNAPSHOTS"); update != nullptr)
-		settings.update = std::strcmp(update, "1") == 0;
+	if (const auto update = get("NGUI_UPDATE_SNAPSHOTS"); update.has_value())
+		settings.update = *update == "1";
 	return settings;
 }
 

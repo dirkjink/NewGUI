@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -217,16 +218,21 @@ TEST(SnapshotTest, SettingsComeFromEnvironmentAndFlag)
 	// update mode this way (specification 20.5).
 	//
 	// Given
-	const auto none = [](const char*) -> const char* { return nullptr; };
-	const auto all = [](const char* name) -> const char* {
+	using Value = std::optional<std::string>;
+	const auto none = [](const char*) -> Value { return std::nullopt; };
+	const auto all = [](const char* name) -> Value {
 		if (std::strcmp(name, "NGUI_SNAPSHOT_DIR") == 0)
 			return "/refs";
 		if (std::strcmp(name, "NGUI_SNAPSHOT_REPORT_DIR") == 0)
 			return "/report";
-		return std::strcmp(name, "NGUI_UPDATE_SNAPSHOTS") == 0 ? "1" : nullptr;
+		if (std::strcmp(name, "NGUI_UPDATE_SNAPSHOTS") == 0)
+			return "1";
+		return std::nullopt;
 	};
-	const auto zero = [](const char* name) -> const char* {
-		return std::strcmp(name, "NGUI_UPDATE_SNAPSHOTS") == 0 ? "0" : nullptr;
+	const auto zero = [](const char* name) -> Value {
+		if (std::strcmp(name, "NGUI_UPDATE_SNAPSHOTS") == 0)
+			return "0";
+		return std::nullopt;
 	};
 	std::string program = "tests";
 	std::string filter = "--gtest_filter=X";
