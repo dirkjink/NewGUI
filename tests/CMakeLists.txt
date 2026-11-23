@@ -14,6 +14,7 @@ file(GLOB fuzzTargetSources CONFIGURE_DEPENDS
 add_executable(ngui_tests
     ErrorTest.cpp
     FlagsTest.cpp
+    PaletteTest.cpp
     SupportDefsTest.cpp
     VersionTest.cpp
     gfx/CanvasTest.cpp
@@ -31,6 +32,7 @@ add_executable(ngui_tests
     gfx/RRectTest.cpp
     gfx/RegionTest.cpp
     gfx/SizeTest.cpp
+    look/ControlLookTest.cpp
     fuzz/FuzzRegressionTest.cpp
     ${fuzzTargetSources})
 

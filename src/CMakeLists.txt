@@ -8,7 +8,10 @@ configure_file(
     @ONLY)
 
 add_library(ngui
+    ControlLook.cpp
     Error.cpp
+    Palette.cpp
+    TextSystem.cpp
     Version.cpp
     gfx/Backend.cpp
     gfx/BackendRegistry.cpp
