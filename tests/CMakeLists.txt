@@ -71,14 +71,18 @@ if(NGUI_FUZZING)
     file(WRITE "${PROJECT_BINARY_DIR}/fuzz-targets.txt" "${fuzzTargetList}")
 endif()
 
-# Skia (vcpkg feature skia): a smoke test of the port until the Skia
-# backend (M9) brings its own tests. Its own executable, so that the main
-# test run does not depend on Skia.
+# Skia (vcpkg feature skia): the Skia backend and a smoke test of the port.
+# Their own executable, so that the main test run does not depend on Skia.
 if(NGUI_WITH_SKIA)
+    # Imported targets are visible in the directory of their find_package
+    # only; the smoke test uses Skia directly.
     find_package(unofficial-skia CONFIG REQUIRED)
-    add_executable(ngui_skia_tests skia/SkiaSmokeTest.cpp)
+    add_executable(ngui_skia_tests
+        skia/SkiaBackendTest.cpp
+        skia/SkiaSmokeTest.cpp)
     target_link_libraries(ngui_skia_tests
         PRIVATE
+            ngui::skia
             unofficial::skia::skia
             GTest::gtest
             GTest::gtest_main)

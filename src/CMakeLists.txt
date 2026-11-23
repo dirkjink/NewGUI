@@ -33,3 +33,18 @@ target_include_directories(ngui
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>")
 
 ngui_configure_target(ngui)
+
+# The Skia backend (specification 13), its own library: Skia headers appear
+# in its sources only (13.5).
+if(NGUI_WITH_SKIA)
+    find_package(unofficial-skia CONFIG REQUIRED)
+    add_library(ngui_skia
+        gfx/skia/SkiaBackend.cpp)
+    add_library(ngui::skia ALIAS ngui_skia)
+    target_link_libraries(ngui_skia
+        PUBLIC
+            ngui::ngui
+        PRIVATE
+            unofficial::skia::skia)
+    ngui_configure_target(ngui_skia)
+endif()
