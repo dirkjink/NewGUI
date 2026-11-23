@@ -15,6 +15,7 @@ option(NGUI_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(NGUI_COVERAGE "Instrument for coverage measurement (GCC and Clang)" OFF)
 option(NGUI_BUILD_API_DOCS "Add the target ngui_api_docs (requires Doxygen)" OFF)
 option(NGUI_FUZZING "Build the libFuzzer executables with sanitizers (Clang)" OFF)
+option(NGUI_WITH_SKIA "Build with Skia (vcpkg feature skia)" OFF)
 
 # Minimum compilers (CONVENTIONS.md, section 1). Clang 17 and 18 do get
 # C++23, but not std::expected from libstdc++, so they fail later with less

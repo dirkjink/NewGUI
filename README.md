@@ -53,6 +53,7 @@ cmake --workflow --preset ci
 | `ci` | RelWithDebInfo | Warnungen als Fehler |
 | `docs` | Debug | Coverage, JUnit-Ausgabe der Tests, API-Referenz (braucht GCC oder Clang, Doxygen 1.9.8+) |
 | `fuzz` | RelWithDebInfo | libFuzzer-Programme mit ASan und UBSan (braucht Clang: `CC=clang CXX=clang++`) |
+| `skia` | RelWithDebInfo | mit Skia aus dem vcpkg-Port (Feature `skia`); der erste Build von Skia dauert lange, danach kommt es aus dem Binär-Cache von vcpkg |
 
 Die CI (`.github/workflows/build.yml`) führt den Workflow `ci` mit GCC 13 und 14, Clang 19 und 20 unter Linux sowie MSVC 2022 unter Windows aus. vcpkg wird dort genau auf dem Commit der `builtin-baseline` ausgecheckt. Der Job `Build` fasst die Ergebnisse zusammen und ist Pflicht-Check für `main`.
 

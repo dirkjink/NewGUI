@@ -36,7 +36,10 @@ jobs:
   build:
     name: Build release assets
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 120
+    env:
+      CC: gcc-13
+      CXX: g++-13
     permissions:
       # Upload the assets to the release.
       contents: write
@@ -96,18 +99,20 @@ jobs:
           done
           cmp dist/newgui-"$VERSION".tar.gz "$RUNNER_TEMP"/check.tar.gz
 
+      # Same compiler and cache as the Skia jobs of build.yml; a tag can
+      # restore the caches of the default branch.
       - name: Set up vcpkg
         uses: ./.github/actions/setup-vcpkg
         with:
-          cache-key: release
+          cache-key: skia-gcc-13
 
       # The SBOM of the shipped dependencies, as in the dependency scan of
-      # build.yml: the manifest without the "tests" feature.
+      # build.yml: the manifest with Skia, without the "tests" feature.
       - name: Build the SBOM
         env:
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          "$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-install-root=build/sbom/vcpkg_installed
+          "$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=skia --x-install-root=build/sbom/vcpkg_installed
           python3 .github/scripts/vcpkg-sbom.py build/sbom/vcpkg_installed/x64-linux dist/newgui-"$VERSION".spdx.json
 
       - name: Upload assets to the release

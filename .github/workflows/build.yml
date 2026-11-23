@@ -137,15 +137,16 @@ jobs:
             "$RUNNER_TEMP"/b/other/place/NewGUI/build/release/src/libngui.a | tee hashes.txt
           test "$(cut -d' ' -f1 hashes.txt | sort -u | wc -l)" -eq 1
 
-  # Published advisories in the dependencies that ship (CONVENTIONS.md 8.2).
-  # Deliberately not part of the required check "Build": a newly published
-  # advisory must be visible at once, but it must not block unrelated pull
-  # requests. vcpkg installs the manifest without the "tests" feature, so
-  # the SBOM holds exactly the shipped ports.
-  dependency-scan:
-    name: Dependency vulnerability scan
+  # Skia from the vcpkg port (feature skia), built from source on the first
+  # run and then restored from the binary cache. Outside the required check
+  # "Build" until build time and stability are known; Linux only for now.
+  skia:
+    name: Linux (skia, gcc-13)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 120
+    env:
+      CC: gcc-13
+      CXX: g++-13
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -155,10 +156,39 @@ jobs:
       - name: Set up vcpkg
         uses: ./.github/actions/setup-vcpkg
         with:
-          cache-key: sbom
+          cache-key: skia-gcc-13
 
+      - name: Configure, build and test with Skia
+        run: cmake --workflow --preset skia
+
+  # Published advisories in the dependencies that ship (CONVENTIONS.md 8.2).
+  # Deliberately not part of the required check "Build": a newly published
+  # advisory must be visible at once, but it must not block unrelated pull
+  # requests. vcpkg installs the manifest without the "tests" feature, so
+  # the SBOM holds exactly the shipped ports.
+  dependency-scan:
+    name: Dependency vulnerability scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      # Same compiler and cache as the job "skia", so that Skia is built once.
+      CC: gcc-13
+      CXX: g++-13
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          cache-key: skia-gcc-13
+
+      # Everything that ships: the default dependencies and Skia, without
+      # the test-only "tests" feature.
       - name: Install the shipped dependencies
-        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-install-root=build/sbom/vcpkg_installed'
+        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=skia --x-install-root=build/sbom/vcpkg_installed'
 
       - name: Generate the SPDX SBOM of the shipped dependencies
         run: python3 .github/scripts/vcpkg-sbom.py build/sbom/vcpkg_installed/x64-linux build/sbom/newgui.spdx.json
