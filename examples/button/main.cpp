@@ -15,8 +15,8 @@
 // them, the presenter copying the changed area into the window; text
 // shaped by the text subsystem with the bundled Noto Sans, drawn by Skia
 // with the same font file; the layout keeping both centered when the
-// window is resized (BLayoutBuilder). Below them a BSlider drives a
-// BStatusBar while its thumb moves (its modification message).
+// window is resized (BLayoutBuilder). Below them, in a BBox, a BSlider
+// drives a BStatusBar while its thumb moves (its modification message).
 
 
 #include <cstdint>
@@ -26,7 +26,9 @@
 
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
+#include <ngui/Box.h>
 #include <ngui/Button.h>
+#include <ngui/GroupView.h>
 #include <ngui/LayoutBuilder.h>
 #include <ngui/Slider.h>
 #include <ngui/StatusBar.h>
@@ -62,7 +64,7 @@ public:
 		auto button = std::make_unique<BButton>("Click me",
 			std::make_unique<BMessage>(kClicked));
 		BButton* clickMe = button.get();
-		auto slider = std::make_unique<BSlider>("slider", "Progress",
+		auto slider = std::make_unique<BSlider>("slider", "Value",
 			std::make_unique<BMessage>(kProgress), 0, 100, BOrientation::Horizontal);
 		slider->SetModificationMessage(std::make_unique<BMessage>(kProgress));
 		slider->SetLimitLabels("0 %", "100 %");
@@ -73,9 +75,18 @@ public:
 		status->SetTo(0, {}, "0");
 		fStatus = status.get();
 
-		// The label and the button stay centered, the slider and the status
-		// bar take the width; the window cannot become smaller than they and
-		// the window insets.
+		// The slider and the status bar in a labelled box.
+		auto progress = std::make_unique<BGroupView>(BOrientation::Vertical);
+		BLayoutBuilder::Group<>(progress.get())
+			.SetInsets(kUseItemInsets)
+			.Add(std::move(slider))
+			.Add(std::move(status));
+		auto box = std::make_unique<BBox>("progress box");
+		box->SetLabel("Progress");
+		box->AddChild(std::move(progress));
+
+		// The label and the button stay centered, the box takes the width;
+		// the window cannot become smaller than they and the window insets.
 		BLayoutBuilder::Group<>(this, BOrientation::Vertical)
 			.SetInsets(kUseWindowInsets)
 			.AddGlue()
@@ -90,8 +101,7 @@ public:
 				.AddGlue()
 			.End()
 			.AddGlue()
-			.Add(std::move(slider))
-			.Add(std::move(status));
+			.Add(std::move(box));
 
 		clickMe->MakeDefault(true);
 	}

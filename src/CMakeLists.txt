@@ -11,6 +11,7 @@ add_library(ngui
     AbstractLayout.cpp
     AbstractLayoutItem.cpp
     Application.cpp
+    Box.cpp
     Button.cpp
     CardLayout.cpp
     CheckBox.cpp
