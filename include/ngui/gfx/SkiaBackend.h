@@ -49,10 +49,12 @@ public:
 	static	bool				Register(BackendRegistry& registry, int priority = 100);
 									/*!< Adds "skia" to \a registry; false if it is there. */
 
-			bool				AddFont(FontId font, std::span<const std::byte> fontFile);
+			bool				AddFont(FontId font,
+									std::span<const std::byte> fontFile) override;
 									/*!< Makes a typeface for \a font from the font file the
-										text subsystem uses (SkFontMgr::makeFromData);
-										false if Skia cannot read it. Thread-safe. */
+										text subsystem uses (SkFontMgr::makeFromData, a copy
+										of the bytes); false if Skia cannot read it.
+										Thread-safe. */
 
 			Caps				Capabilities() const override;
 									/*!< The core profile. */

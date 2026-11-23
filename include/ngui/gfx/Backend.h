@@ -128,8 +128,13 @@ struct NativeWindow;
 	looks them up with ImageRegistry::BackendImage(). A backend calls
 	ImageRegistry::DetachBackend() in its destructor.
 
-	Threads: CreateImage() and ReleaseImage() are thread-safe; everything
-	else runs on the render thread.
+	Fonts: AddFont() gives the backend the font file behind a FontId, the
+	same file the text subsystem shapes with (13.4); a glyph run in a font
+	the backend does not know is skipped. BWindow adds the fonts of
+	TextSystem::Default() before its first frame.
+
+	Threads: CreateImage(), ReleaseImage() and AddFont() are thread-safe;
+	everything else runs on the render thread.
 */
 class Backend {
 public:
@@ -143,6 +148,13 @@ public:
 										Thread-safe. */
 	virtual	void				ReleaseImage(ImageHandle image) = 0;
 									/*!< Frees the resource \a image. Thread-safe. */
+
+	virtual	bool				AddFont(FontId font, std::span<const std::byte> fontFile);
+									/*!< Makes \a fontFile the font of the glyph runs in
+										\a font, replacing an earlier one; false if the
+										backend cannot read it. The bytes are only borrowed
+										for the call. By default false: a backend that does
+										not draw text keeps it. Thread-safe. */
 
 	virtual	SurfaceRef			CreateWindowSurface(const NativeWindow& window,
 									SurfaceKind kind) = 0;

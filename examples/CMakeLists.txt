@@ -9,5 +9,6 @@ add_executable(ngui_example_button
 target_link_libraries(ngui_example_button
     PRIVATE
         ngui::sdl3
-        ngui::skia)
+        ngui::skia
+        ngui::text)
 ngui_configure_target(ngui_example_button)

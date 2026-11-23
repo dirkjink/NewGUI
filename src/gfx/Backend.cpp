@@ -26,6 +26,13 @@ PixelData::IsValid() const
 }
 
 
+bool
+Backend::AddFont(FontId, std::span<const std::byte>)
+{
+	return false;
+}
+
+
 Size
 Surface::LogicalSize() const
 {

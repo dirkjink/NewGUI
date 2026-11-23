@@ -90,7 +90,8 @@ public:
 			std::expected<void, Error> UseBackend(std::unique_ptr<gfx::Backend> backend);
 									/*!< The backend to render with, before the first frame;
 										otherwise the one of BackendRegistry::Default() with
-										the highest priority. */
+										the highest priority. The window adds the fonts of
+										TextSystem::Default() to it (Backend::AddFont()). */
 
 	// Views
 
@@ -184,6 +185,8 @@ private:
 			std::unique_ptr<platform::PlatformWindow> fPlatformWindow;
 			std::unique_ptr<gfx::Backend> fBackend;
 			gfx::SurfaceRef		fSurface;
+			const TextSystem*	fFontsOf = nullptr;
+									// The text system whose fonts fBackend has.
 			gfx::Rect			fFrame;
 			float				fScale = 1;
 			std::vector<gfx::Rect> fDirty;

@@ -7,7 +7,9 @@
 
 #include <ngui/Window.h>
 
+#include <array>
 #include <memory>
+#include <span>
 #include <string>
 #include <thread>
 #include <vector>
@@ -16,9 +18,11 @@
 
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
+#include <ngui/TextSystem.h>
 #include <ngui/gfx/Dump.h>
 
 #include "support/FakePlatform.h"
+#include "support/FixedTextSystem.h"
 #include "support/PixelBackend.h"
 #include "support/RecordingLooper.h"
 
@@ -356,6 +360,71 @@ TEST(WindowTest, ChangedAreasReachThePresenter)
 	(void)lockedWindow.WaitForLooperQuit(5s);
 	(void)AppMessenger().SendMessage(kQuitRequested);
 	runner.join();
+}
+
+
+// A text system with fixed metrics and two fonts of the given ids.
+class FontsTextSystem : public FixedTextSystem {
+public:
+	FontsTextSystem(gfx::FontId first, gfx::FontId second)
+		:
+		fFonts{FontFile{first, FontRole::Plain, std::as_bytes(std::span(kBytes))},
+			FontFile{second, FontRole::Bold, std::as_bytes(std::span(kBytes))}}
+	{
+	}
+
+	std::span<const FontFile> Fonts() const override
+	{
+		return fFonts;
+	}
+
+private:
+	static constexpr char kBytes[] = "font";
+	std::array<FontFile, 2> fFonts;
+};
+
+
+TEST(WindowTest, TheBackendGetsTheFontsOfTheTextSystem)
+{
+	// What is tested: A window with a backend that records AddFont(): its
+	// first frame with a default text system of the fonts 1 and 2, a second
+	// frame, and a frame after the default has been replaced by one with
+	// the fonts 7 and 8.
+	// Success criteria: The fonts 1 and 2 are added before the first frame,
+	// not again for the second; after the replacement 7 and 8 are added.
+	// Why it matters: The backend draws the glyph runs the text system
+	// shapes, so it must have the same font files (specification 13.4); a
+	// run in a font it does not know is not drawn.
+	//
+	// Given
+	const FontsTextSystem first(1, 2);
+	const FontsTextSystem second(7, 8);
+	TextSystem::SetDefault(&first);
+	auto added = std::make_shared<std::vector<gfx::FontId>>();
+	auto backend = std::make_unique<PixelBackend>();
+	backend->addedFonts = added;
+	auto record = std::make_shared<LooperRecord>();
+	auto owned = std::make_unique<TestWindow>(gfx::Rect{0, 0, 100, 50});
+	ASSERT_TRUE(owned->UseBackend(std::move(backend)).has_value());
+	const BMessenger toView(owned->AddChild(std::make_unique<EventView>(
+		gfx::Rect{0, 0, 10, 10}, "v", record)));
+	const BMessenger window = *BLooper::Run(std::move(owned));
+
+	// When
+	(void)Ask(window);
+	ASSERT_TRUE(toView.SendMessage(kInvalidate).has_value());
+	const BMessage secondFrame = Ask(window);
+	TextSystem::SetDefault(&second);
+	ASSERT_TRUE(toView.SendMessage(kInvalidate).has_value());
+	const BMessage thirdFrame = Ask(window);
+	ASSERT_TRUE(window.SendMessage(kQuitRequested).has_value());
+	ASSERT_TRUE(window.WaitForLooperQuit(5s).has_value());
+	TextSystem::SetDefault(nullptr);
+
+	// Then
+	EXPECT_EQ(secondFrame.GetInt64("frames", 0), 2);
+	EXPECT_EQ(thirdFrame.GetInt64("frames", 0), 3);
+	EXPECT_EQ(*added, (std::vector<gfx::FontId>{1, 2, 7, 8}));
 }
 
 

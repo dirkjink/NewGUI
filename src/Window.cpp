@@ -126,6 +126,7 @@ BWindow::UseBackend(std::unique_ptr<gfx::Backend> backend)
 		return Failure(ErrorCode::InvalidArgument, "the window has drawn already");
 	fSurface.reset();
 	fBackend = std::move(backend);
+	fFontsOf = nullptr;
 	return {};
 }
 
@@ -647,6 +648,14 @@ BWindow::_Update()
 			return;
 		fBackend = std::move(*backend);
 	}
+	// The backend draws the glyph runs of the text system, so it needs its
+	// fonts; again whenever the default text system has been replaced.
+	const TextSystem& text = TextSystem::Default();
+	if (fFontsOf != &text) {
+		for (const FontFile& font : text.Fonts())
+			(void)fBackend->AddFont(font.id, font.data);
+		fFontsOf = &text;
+	}
 	if (fSurface == nullptr) {
 		gfx::NativeWindow native;
 		if (fPlatformWindow != nullptr)
@@ -663,7 +672,7 @@ BWindow::_Update()
 	}
 
 	const gfx::Caps caps = fBackend->Capabilities();
-	const DrawEnvironment environment{caps, Palette::Default(), TextSystem::Default(), fScale};
+	const DrawEnvironment environment{caps, Palette::Default(), text, fScale};
 	fLastFrame = fRoot->RecordTree(environment);
 	fFrameCount++;
 	fBackend->BeginFrame(*fSurface, Palette::Default().Get(BColorWhich::PanelBackground));

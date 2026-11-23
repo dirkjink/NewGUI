@@ -99,4 +99,11 @@ TextSystem::SetDefault(const TextSystem* text)
 }
 
 
+std::span<const FontFile>
+TextSystem::Fonts() const
+{
+	return {};
+}
+
+
 } // namespace ngui
