@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  *
  * Ported from Haiku: headers/os/interface/LayoutBuilder.h (commit
- * b1d497bb69), the Group, Grid and Cards builders.
+ * b1d497bb69), the Group, Grid, Split and Cards builders.
  */
 #pragma once
 
@@ -20,6 +20,7 @@
 #include <ngui/GroupView.h>
 #include <ngui/Palette.h>
 #include <ngui/SpaceLayoutItem.h>
+#include <ngui/SplitView.h>
 #include <ngui/View.h>
 #include <ngui/Window.h>
 
@@ -31,6 +32,7 @@ namespace ngui::BLayoutBuilder {
 template<typename ParentBuilder> class Base;
 template<typename ParentBuilder = void*> class Group;
 template<typename ParentBuilder = void*> class Grid;
+template<typename ParentBuilder = void*> class Split;
 template<typename ParentBuilder = void*> class Cards;
 
 
@@ -77,6 +79,7 @@ public:
 	typedef Group<ParentBuilder>	ThisBuilder;	/*!< This builder. */
 	typedef Group<ThisBuilder>		GroupBuilder;	/*!< For a nested group. */
 	typedef Grid<ThisBuilder>		GridBuilder;	/*!< For a nested grid. */
+	typedef Split<ThisBuilder>		SplitBuilder;	/*!< For a nested split view. */
 	typedef Cards<ThisBuilder>		CardBuilder;	/*!< For nested cards. */
 
 public:
@@ -200,6 +203,24 @@ public:
 									}
 									/*!< Adds \a gridView and builds its layout. */
 
+			SplitBuilder		AddSplit(BOrientation orientation,
+									float spacing = kUseDefaultSpacing,
+									float weight = 1.0f)
+									{
+										return AddSplit(std::make_unique<BSplitView>(
+											orientation, spacing), weight);
+									}
+									/*!< Adds a split view and builds it. */
+			SplitBuilder		AddSplit(std::unique_ptr<BSplitView> splitView,
+									float weight = 1.0f)
+									{
+										SplitBuilder builder(splitView.get());
+										builder.SetParent(this);
+										fLayout->AddView(std::move(splitView), weight);
+										return builder;
+									}
+									/*!< Adds \a splitView and builds it. */
+
 			CardBuilder			AddCards(float weight = 1.0f)
 									{
 										return AddCards(std::make_unique<BCardView>(),
@@ -289,6 +310,7 @@ public:
 	typedef Grid<ParentBuilder>		ThisBuilder;	/*!< This builder. */
 	typedef Group<ThisBuilder>		GroupBuilder;	/*!< For a nested group. */
 	typedef Grid<ThisBuilder>		GridBuilder;	/*!< For a nested grid. */
+	typedef Split<ThisBuilder>		SplitBuilder;	/*!< For a nested split view. */
 	typedef Cards<ThisBuilder>		CardBuilder;	/*!< For nested cards. */
 
 public:
@@ -416,6 +438,27 @@ public:
 									}
 									/*!< Adds \a gridView in these cells. */
 
+			SplitBuilder		AddSplit(BOrientation orientation, float spacing,
+									int32 column, int32 row, int32 columnCount = 1,
+									int32 rowCount = 1)
+									{
+										return AddSplit(std::make_unique<BSplitView>(
+											orientation, spacing), column, row, columnCount,
+											rowCount);
+									}
+									/*!< Adds a split view in these cells. */
+			SplitBuilder		AddSplit(std::unique_ptr<BSplitView> splitView,
+									int32 column, int32 row, int32 columnCount = 1,
+									int32 rowCount = 1)
+									{
+										SplitBuilder builder(splitView.get());
+										builder.SetParent(this);
+										fLayout->AddView(std::move(splitView), column, row,
+											columnCount, rowCount);
+										return builder;
+									}
+									/*!< Adds \a splitView in these cells. */
+
 			CardBuilder			AddCards(int32 column, int32 row, int32 columnCount = 1,
 									int32 rowCount = 1)
 									{
@@ -508,6 +551,180 @@ private:
 };
 
 
+/*!	Builds a BSplitView: views and layouts with splitters between them. */
+template<typename ParentBuilder>
+class Split : public Base<ParentBuilder> {
+public:
+	typedef Split<ParentBuilder>	ThisBuilder;	/*!< This builder. */
+	typedef Group<ThisBuilder>		GroupBuilder;	/*!< For a nested group. */
+	typedef Grid<ThisBuilder>		GridBuilder;	/*!< For a nested grid. */
+	typedef Split<ThisBuilder>		SplitBuilder;	/*!< For a nested split view. */
+	typedef Cards<ThisBuilder>		CardBuilder;	/*!< For nested cards. */
+
+public:
+								Split(BSplitView* view)
+									:
+									fView(view)
+									{}
+									/*!< Builds on \a view. (Haiku's Split(orientation)
+										made a view without an owner.) */
+
+			BSplitView*			View() const
+									{ return fView; }
+									/*!< The split view built. */
+			ThisBuilder&		GetView(BView** _view)
+									{ *_view = fView; return *this; }
+									/*!< Stores View() in \a _view. */
+			ThisBuilder&		GetSplitView(BSplitView** _view)
+									{ *_view = fView; return *this; }
+									/*!< Stores View() in \a _view. */
+
+			ThisBuilder&		Add(std::unique_ptr<BView> view)
+									{ fView->AddChild(std::move(view), 1.0f); return *this; }
+									/*!< Adds \a view. */
+			ThisBuilder&		Add(std::unique_ptr<BView> view, float weight)
+									{ fView->AddChild(std::move(view), weight); return *this; }
+									/*!< Adds \a view with \a weight. */
+			ThisBuilder&		Add(std::unique_ptr<BLayoutItem> item)
+									{ fView->AddChild(std::move(item), 1.0f); return *this; }
+									/*!< Adds \a item. */
+			ThisBuilder&		Add(std::unique_ptr<BLayoutItem> item, float weight)
+									{ fView->AddChild(std::move(item), weight); return *this; }
+									/*!< Adds \a item with \a weight. */
+
+			GroupBuilder		AddGroup(BOrientation orientation,
+									float spacing = kUseDefaultSpacing,
+									float weight = 1.0f)
+									{
+										return AddGroup(std::make_unique<BGroupLayout>(
+											orientation, spacing), weight);
+									}
+									/*!< Adds a nested group and builds it. */
+			GroupBuilder		AddGroup(std::unique_ptr<BGroupView> groupView,
+									float weight = 1.0f)
+									{
+										GroupBuilder builder(groupView.get());
+										builder.SetParent(this);
+										fView->AddChild(std::move(groupView), weight);
+										return builder;
+									}
+									/*!< Adds \a groupView and builds its layout. */
+			GroupBuilder		AddGroup(std::unique_ptr<BGroupLayout> groupLayout,
+									float weight = 1.0f)
+									{
+										GroupBuilder builder(static_cast<BGroupLayout*>(
+											fView->AddChild(std::move(groupLayout), weight)));
+										builder.SetParent(this);
+										return builder;
+									}
+									/*!< Adds \a groupLayout nested and builds it. */
+
+			GridBuilder			AddGrid(float horizontal = kUseDefaultSpacing,
+									float vertical = kUseDefaultSpacing,
+									float weight = 1.0f)
+									{
+										return AddGrid(std::make_unique<BGridLayout>(
+											horizontal, vertical), weight);
+									}
+									/*!< Adds a nested grid and builds it. */
+			GridBuilder			AddGrid(std::unique_ptr<BGridView> gridView,
+									float weight = 1.0f)
+									{
+										GridBuilder builder(gridView.get());
+										builder.SetParent(this);
+										fView->AddChild(std::move(gridView), weight);
+										return builder;
+									}
+									/*!< Adds \a gridView and builds its layout. */
+			GridBuilder			AddGrid(std::unique_ptr<BGridLayout> gridLayout,
+									float weight = 1.0f)
+									{
+										GridBuilder builder(static_cast<BGridLayout*>(
+											fView->AddChild(std::move(gridLayout), weight)));
+										builder.SetParent(this);
+										return builder;
+									}
+									/*!< Adds \a gridLayout nested and builds it. */
+
+			SplitBuilder		AddSplit(BOrientation orientation,
+									float spacing = kUseDefaultSpacing,
+									float weight = 1.0f)
+									{
+										return AddSplit(std::make_unique<BSplitView>(
+											orientation, spacing), weight);
+									}
+									/*!< Adds a nested split view and builds it. */
+			SplitBuilder		AddSplit(std::unique_ptr<BSplitView> splitView,
+									float weight = 1.0f)
+									{
+										SplitBuilder builder(splitView.get());
+										builder.SetParent(this);
+										fView->AddChild(std::move(splitView), weight);
+										return builder;
+									}
+									/*!< Adds \a splitView and builds it. */
+
+			CardBuilder			AddCards(float weight = 1.0f)
+									{
+										return AddCards(std::make_unique<BCardView>(),
+											weight);
+									}
+									/*!< Adds a card view and builds its layout. */
+			CardBuilder			AddCards(std::unique_ptr<BCardLayout> cardLayout,
+									float weight = 1.0f)
+									{
+										CardBuilder builder(static_cast<BCardLayout*>(
+											fView->AddChild(std::move(cardLayout), weight)));
+										builder.SetParent(this);
+										return builder;
+									}
+									/*!< Adds \a cardLayout nested and builds it. */
+			CardBuilder			AddCards(std::unique_ptr<BCardView> cardView,
+									float weight = 1.0f)
+									{
+										CardBuilder builder(cardView.get());
+										builder.SetParent(this);
+										fView->AddChild(std::move(cardView), weight);
+										return builder;
+									}
+									/*!< Adds \a cardView and builds its layout. */
+
+			ThisBuilder&		SetCollapsible(bool collapsible)
+									{ fView->SetCollapsible(collapsible); return *this; }
+									/*!< Whether all items may collapse. */
+			ThisBuilder&		SetCollapsible(int32 index, bool collapsible)
+									{ fView->SetCollapsible(index, collapsible); return *this; }
+									/*!< Whether item \a index may collapse. */
+			ThisBuilder&		SetCollapsible(int32 first, int32 last, bool collapsible)
+									{
+										fView->SetCollapsible(first, last, collapsible);
+										return *this;
+									}
+									/*!< Whether items \a first to \a last may collapse. */
+
+			ThisBuilder&		SetInsets(float left, float top, float right,
+									float bottom)
+									{
+										fView->SetInsets(left, top, right, bottom);
+										return *this;
+									}
+									/*!< Sets the insets. */
+			ThisBuilder&		SetInsets(float horizontal, float vertical)
+									{ fView->SetInsets(horizontal, vertical); return *this; }
+									/*!< Sets the insets. */
+			ThisBuilder&		SetInsets(float insets)
+									{ fView->SetInsets(insets); return *this; }
+									/*!< Sets the insets. */
+
+								operator BSplitView*()
+									{ return fView; }
+									/*!< The split view built. */
+
+private:
+			BSplitView*			fView;
+};
+
+
 /*!	Builds a BCardLayout: pages of which one is shown. */
 template<typename ParentBuilder>
 class Cards : public Base<ParentBuilder> {
@@ -515,6 +732,7 @@ public:
 	typedef Cards<ParentBuilder>	ThisBuilder;	/*!< This builder. */
 	typedef Group<ThisBuilder>		GroupBuilder;	/*!< For a nested group. */
 	typedef Grid<ThisBuilder>		GridBuilder;	/*!< For a nested grid. */
+	typedef Split<ThisBuilder>		SplitBuilder;	/*!< For a nested split view. */
 	typedef Cards<ThisBuilder>		CardBuilder;	/*!< For nested cards. */
 
 public:
@@ -611,6 +829,22 @@ public:
 										return builder;
 									}
 									/*!< Adds \a gridView as a page. */
+
+			SplitBuilder		AddSplit(BOrientation orientation,
+									float spacing = kUseDefaultSpacing)
+									{
+										return AddSplit(std::make_unique<BSplitView>(
+											orientation, spacing));
+									}
+									/*!< Adds a split view as a page. */
+			SplitBuilder		AddSplit(std::unique_ptr<BSplitView> splitView)
+									{
+										SplitBuilder builder(splitView.get());
+										builder.SetParent(this);
+										fLayout->AddView(std::move(splitView));
+										return builder;
+									}
+									/*!< Adds \a splitView as a page. */
 
 			CardBuilder			AddCards()
 									{ return AddCards(std::make_unique<BCardView>()); }

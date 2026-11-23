@@ -17,7 +17,8 @@
 // with the same font file; the layout keeping both centered when the
 // window is resized (BLayoutBuilder). Below them, in a BBox, a BSlider
 // drives a BStatusBar while its thumb moves (its modification message);
-// a BScrollView shows a list of check boxes that is longer than its room.
+// a BScrollView shows a list of check boxes that is longer than its room;
+// a BSplitView puts both side by side with a splitter to drag.
 
 
 #include <cstdint>
@@ -59,7 +60,7 @@ class CounterWindow : public BWindow {
 public:
 	CounterWindow()
 		:
-		BWindow(gfx::Rect{100, 100, 420, 480}, "NewGUI", BWindowLook::Titled,
+		BWindow(gfx::Rect{100, 100, 620, 400}, "NewGUI", BWindowLook::Titled,
 			BWindowFlag::QuitOnWindowClose | BWindowFlag::AutoUpdateSizeLimits)
 	{
 		auto label = std::make_unique<BStringView>("label", "Not clicked yet");
@@ -102,8 +103,9 @@ public:
 		scrollView->SetExplicitMinSize({kSizeUnset, 60});
 		scrollView->SetExplicitPreferredSize({kSizeUnset, 110});
 
-		// The label and the button stay centered, the box takes the width;
-		// the window cannot become smaller than they and the window insets.
+		// The label and the button stay centered, the split view with the
+		// box and the list takes the width; the window cannot become smaller
+		// than they and the window insets.
 		BLayoutBuilder::Group<>(this, BOrientation::Vertical)
 			.SetInsets(kUseWindowInsets)
 			.AddGlue()
@@ -118,8 +120,10 @@ public:
 				.AddGlue()
 			.End()
 			.AddGlue()
-			.Add(std::move(box))
-			.Add(std::move(scrollView));
+			.AddSplit(BOrientation::Horizontal)
+				.Add(std::move(box), 2.0f)
+				.Add(std::move(scrollView), 1.0f)
+			.End();
 
 		clickMe->MakeDefault(true);
 	}
