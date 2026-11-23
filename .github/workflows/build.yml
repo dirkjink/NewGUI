@@ -3,10 +3,11 @@
 # SPDX-License-Identifier: MIT
 
 # Configure, build and test with warnings as errors (preset "ci") on all
-# supported compilers, check that the build is reproducible and that the
-# rationale blocks of the tests are well-formed. The job "Build" summarizes
-# these jobs and is the required status check for "main". The dependency
-# scan runs alongside, on purpose outside the required check.
+# supported compilers and with Skia (preset "skia"), check that the build is
+# reproducible and that the rationale blocks of the tests are well-formed.
+# The job "Build" summarizes these jobs and is the required status check for
+# "main". The dependency scan and Skia on Windows run alongside, outside the
+# required check.
 #
 # All actions are pinned to commit SHAs, not mutable tags: a moved tag would
 # otherwise run foreign code with this workflow's token. Dependabot keeps the
@@ -138,8 +139,8 @@ jobs:
           test "$(cut -d' ' -f1 hashes.txt | sort -u | wc -l)" -eq 1
 
   # Skia from the vcpkg port (feature skia), built from source on the first
-  # run and then restored from the binary cache. Outside the required check
-  # "Build" until build time and stability are known; Linux only for now.
+  # run (10 to 15 minutes) and then restored from the binary cache (about a
+  # minute). Part of the required check "Build".
   skia:
     name: Linux (skia, gcc-13)
     runs-on: ubuntu-24.04
@@ -160,6 +161,33 @@ jobs:
 
       - name: Configure, build and test with Skia
         run: cmake --workflow --preset skia
+
+  # Skia with MSVC (cl.exe, as the vcpkg port builds it on Windows). Outside
+  # the required check until its build time and stability are known.
+  skia-windows:
+    name: Windows (skia, msvc-2022)
+    runs-on: windows-2022
+    timeout-minutes: 150
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          cache-key: skia-msvc-2022
+
+      # As in the job "windows": the developer environment, then VCPKG_ROOT
+      # again.
+      - name: Configure, build and test with Skia
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set "VSINSTALL=%%i"
+          call "%VSINSTALL%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          set "VCPKG_ROOT=%GITHUB_WORKSPACE%\vcpkg"
+          cmake --workflow --preset skia
 
   # Published advisories in the dependencies that ship (CONVENTIONS.md 8.2).
   # Deliberately not part of the required check "Build": a newly published
@@ -228,7 +256,7 @@ jobs:
   build:
     name: Build
     if: always()
-    needs: [linux, windows, reproducible, test-rationale]
+    needs: [linux, windows, skia, reproducible, test-rationale]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -236,9 +264,10 @@ jobs:
         env:
           LINUX: ${{ needs.linux.result }}
           WINDOWS: ${{ needs.windows.result }}
+          SKIA: ${{ needs.skia.result }}
           REPRODUCIBLE: ${{ needs.reproducible.result }}
           RATIONALE: ${{ needs.test-rationale.result }}
         run: |
-          echo "linux: $LINUX, windows: $WINDOWS, reproducible: $REPRODUCIBLE, test rationale: $RATIONALE"
-          test "$LINUX" = success && test "$WINDOWS" = success \
+          echo "linux: $LINUX, windows: $WINDOWS, skia: $SKIA, reproducible: $REPRODUCIBLE, test rationale: $RATIONALE"
+          test "$LINUX" = success && test "$WINDOWS" = success && test "$SKIA" = success \
             && test "$REPRODUCIBLE" = success && test "$RATIONALE" = success
