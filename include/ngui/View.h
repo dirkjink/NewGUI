@@ -426,6 +426,7 @@ protected:
 									/*!< Hook: it and its descendants were laid out. */
 
 private:
+	friend class BBox;
 	friend class BWindow;
 	friend class BLayout;
 	friend class BLayoutItem;

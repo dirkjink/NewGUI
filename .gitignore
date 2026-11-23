@@ -18,3 +18,6 @@ compile_commands.json
 /docs/project/
 /docs/tests/
 /site/
+
+# reports of failed snapshot comparisons (--snapshot-report-dir)
+/snapshot-report/

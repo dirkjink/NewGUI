@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <ngui/BeLook.h>
+#include <ngui/Box.h>
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
 #include <ngui/RadioButton.h>
@@ -440,6 +441,55 @@ TEST(TextSkiaTest, StatusBarsMatchTheirSnapshots)
 			ASSERT_TRUE(image.has_value()) << image.error().message;
 			EXPECT_IMAGE_SNAPSHOT(*image, name, {.look = "be", .backend = "skia",
 				.scale = scale, .tolerance = Tolerance::Text()});
+		}
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, BoxesMatchTheirSnapshots)
+{
+	// What is tested: BBox::Draw() of a fancy box 140 × 60 with the label
+	// "Options" ("BoxFancy"), a plain box 140 × 60 ("BoxPlain") and a fancy
+	// box 140 × 2, a horizontal separator ("BoxSeparator"), each on its
+	// view color; with the bundled font, rendered by Skia at scale 1 and 2.
+	// Success criteria: Within the text tolerance of 21.2: the BeOS group
+	// frame starting half the label height down, interrupted by the bold
+	// label at x 10; the plain light and shadow lines; one etched line.
+	// Why it matters: Boxes frame most groups of controls; the label gap
+	// is clipped out of the frame (Canvas::ClipOutRect()).
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+
+	for (const char* kind : {"Fancy", "Plain", "Separator"}) {
+		const std::string_view name = kind;
+		BBox box(name, BViewFlag::WillDraw,
+			name == "Plain" ? BBorderStyle::Plain : BBorderStyle::Fancy);
+		if (name == "Fancy")
+			box.SetLabel("Options");
+		const gfx::Size size{140, name == "Separator" ? 2.0f : 60.0f};
+		box.ResizeTo(size.w, size.h);
+		const gfx::Caps caps;
+		Canvas canvas({0, 0, size.w, size.h});
+		DrawContext context{canvas, caps, Palette::Default(), *text, 1};
+		// the view color, as the window fills it
+		canvas.FillRect({0, 0, size.w, size.h}, gfx::Paint{.color = *box.ViewColor()});
+		box.Draw(context);
+		const DisplayListRef list = canvas.Finish();
+
+		for (const float scale : {1.0f, 2.0f}) {
+			// When
+			SkiaBackend backend;
+			for (const FontFile& font : text->Fonts())
+				ASSERT_TRUE(backend.AddFont(font.id, font.data));
+			const auto image = RenderToImage(backend, *list, scale);
+
+			// Then
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, std::string("Box") + kind, {.look = "be",
+				.backend = "skia", .scale = scale, .tolerance = Tolerance::Text()});
 		}
 	}
 	TextSystem::SetDefault(nullptr);
