@@ -22,7 +22,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include <ngui/BeLook.h>
 #include <ngui/ControlLook.h>
 #include <ngui/LookRegistry.h>
 #include <ngui/TextSystem.h>
@@ -323,9 +322,7 @@ BLayoutUtils::ComposeSpacing(float spacing)
 	if (spacing > kUseDefaultSpacing || spacing < kUseBorderSpacing)
 		return spacing;
 
-	static const std::shared_ptr<const ControlLook> kFallback = CreateBeLook();
-	const std::shared_ptr<const ControlLook> current = LookRegistry::Default().Current();
-	return ComposeSpacing(spacing, current ? *current : *kFallback, TextSystem::Default());
+	return ComposeSpacing(spacing, *LookRegistry::DefaultLook(), TextSystem::Default());
 }
 
 

@@ -54,6 +54,27 @@ enum class BVerticalAlignment : std::int8_t {
 };
 
 
+// The bytes of keys that type no text (documented in docs/api/ngui.dox).
+namespace keys {
+inline constexpr char kBackspace = 0x08;	/*!< B_BACKSPACE */
+inline constexpr char kTab = 0x09;			/*!< B_TAB */
+inline constexpr char kEnter = 0x0a;		/*!< B_ENTER, B_RETURN */
+inline constexpr char kSpace = 0x20;		/*!< B_SPACE */
+inline constexpr char kEscape = 0x1b;		/*!< B_ESCAPE */
+inline constexpr char kLeftArrow = 0x1c;	/*!< B_LEFT_ARROW */
+inline constexpr char kRightArrow = 0x1d;	/*!< B_RIGHT_ARROW */
+inline constexpr char kUpArrow = 0x1e;		/*!< B_UP_ARROW */
+inline constexpr char kDownArrow = 0x1f;	/*!< B_DOWN_ARROW */
+inline constexpr char kInsert = 0x05;		/*!< B_INSERT */
+inline constexpr char kDelete = 0x7f;		/*!< B_DELETE */
+inline constexpr char kHome = 0x01;			/*!< B_HOME */
+inline constexpr char kEnd = 0x04;			/*!< B_END */
+inline constexpr char kPageUp = 0x0b;		/*!< B_PAGE_UP */
+inline constexpr char kPageDown = 0x0c;		/*!< B_PAGE_DOWN */
+inline constexpr char kFunctionKey = 0x10;	/*!< B_FUNCTION_KEY: F1 to F12 */
+} // namespace keys
+
+
 /*!	Horizontal and vertical alignment together, like Haiku's BAlignment. */
 struct BAlignment {
 			BHorizontalAlignment horizontal = BHorizontalAlignment::Unset;

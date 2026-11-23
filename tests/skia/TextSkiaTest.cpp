@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <ngui/BeLook.h>
+#include <ngui/Button.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/SkiaBackend.h>
 #include <ngui/test/GTest.h>
@@ -194,6 +195,62 @@ TEST(TextSkiaTest, BeButtonLabelMatchesItsSnapshot)
 			// Then
 			ASSERT_TRUE(image.has_value()) << image.error().message;
 			EXPECT_IMAGE_SNAPSHOT(*image, pressed ? "LabeledButtonPressed" : "LabeledButton",
+				{.look = "be", .backend = "skia", .scale = scale,
+					.tolerance = Tolerance::Text()});
+		}
+	}
+}
+
+
+// A BButton "Cancel" of 100 × 30 in \a state drawn by itself (Draw()), as
+// in a window, with the bundled font.
+DisplayListRef
+ButtonIn(const TextSystem& text, const char* state)
+{
+	BButton button({0, 0, 100, 30}, "button", "Cancel", nullptr);
+	if (std::string_view(state) == "Default")
+		button.MakeDefault(true);
+	else if (std::string_view(state) == "Disabled")
+		button.SetEnabled(false);
+	else if (std::string_view(state) == "Pressed")
+		button.SetValue(kControlOn);
+	button.ResizeTo(100, 30);
+	button.MoveTo({0, 0});
+	const gfx::Caps caps;
+	Canvas canvas({0, 0, 100, 30});
+	DrawContext context{canvas, caps, Palette::Default(), text, 1};
+	button.Draw(context);
+	return canvas.Finish();
+}
+
+
+TEST(TextSkiaTest, ButtonStatesMatchTheirSnapshots)
+{
+	// What is tested: BButton::Draw() of a button "Cancel" of 100 × 30 as
+	// an ordinary, a default, a disabled and a pressed button, rendered by
+	// Skia at scale 1 and 2 against TextSkiaTest_Button<State>.be.skia.*.
+	// Success criteria: Within the text tolerance of 21.2: the BeOS frame
+	// (with the default button's extra ring), the background darkened when
+	// pressed, the label centered, in the disabled color when disabled.
+	// Why it matters: The first real control: its flags (ControlLook::
+	// Flags()) and drawing calls must give the look's pictures in every
+	// state (21.3: all states at scale 1 and 2).
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+
+	for (const char* state : {"Normal", "Default", "Disabled", "Pressed"}) {
+		const DisplayListRef list = ButtonIn(*text, state);
+		for (const float scale : {1.0f, 2.0f}) {
+			// When
+			SkiaBackend backend;
+			for (const FontFile& font : text->Fonts())
+				ASSERT_TRUE(backend.AddFont(font.id, font.data));
+			const auto image = RenderToImage(backend, *list, scale);
+
+			// Then
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, std::string("Button") + state,
 				{.look = "be", .backend = "skia", .scale = scale,
 					.tolerance = Tolerance::Text()});
 		}

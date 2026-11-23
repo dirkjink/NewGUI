@@ -88,3 +88,10 @@
 	(W1), the menu builders and AddMenuField() / AddTextControl() with the
 	menus and controls (W2, W3).
 */
+
+
+/*!
+	\namespace ngui::keys
+	\brief The bytes of keys that type no text (Haiku's B_BACKSPACE, B_ENTER
+	...), as KeyDown() gets them.
+*/

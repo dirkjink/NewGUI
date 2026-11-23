@@ -265,6 +265,11 @@ public:
 
 	// Drawing
 
+			const ControlLook&	Look() const;
+									/*!< The look to draw and measure with: its window's look
+										of this cycle (BWindow::Look()), or
+										LookRegistry::DefaultLook() outside a window. */
+
 	virtual	void				Draw(DrawContext& context);
 									/*!< Draws the view in its own coordinates (Bounds()) on
 										context.canvas; nothing by default. */
@@ -289,9 +294,10 @@ public:
 
 	// Events
 
-			void				MakeFocus(bool focus = true);
+	virtual	void				MakeFocus(bool focus = true);
 									/*!< Takes (or gives up) the keyboard focus of its
-										window. */
+										window; the view that had it gets MakeFocus(false)
+										first, as in Haiku. */
 			bool				IsFocus() const;
 									/*!< It has the focus. */
 			void				SetMouseEventMask(BEventMaskFlags mask);

@@ -11,8 +11,10 @@ add_library(ngui
     AbstractLayout.cpp
     AbstractLayoutItem.cpp
     Application.cpp
+    Button.cpp
     CardLayout.cpp
     Clock.cpp
+    Control.cpp
     ControlLook.cpp
     Locker.cpp
     LookRegistry.cpp
@@ -37,6 +39,7 @@ add_library(ngui
     LayoutUtils.cpp
     Palette.cpp
     SpaceLayoutItem.cpp
+    StringView.cpp
     TextSystem.cpp
     TruncateString.cpp
     TwoDimensionalLayout.cpp

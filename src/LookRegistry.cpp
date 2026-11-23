@@ -137,6 +137,15 @@ LookRegistry::Current() const
 }
 
 
+std::shared_ptr<const ControlLook>
+LookRegistry::DefaultLook()
+{
+	static const std::shared_ptr<const ControlLook> kFallback = CreateBeLook();
+	std::shared_ptr<const ControlLook> current = Default().Current();
+	return current ? current : kFallback;
+}
+
+
 std::expected<void, Error>
 LookRegistry::SetCurrent(std::string_view id)
 {

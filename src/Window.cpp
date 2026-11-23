@@ -15,6 +15,8 @@
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
 #include <ngui/Palette.h>
+#include <ngui/Button.h>
+#include <ngui/LookRegistry.h>
 #include <ngui/TextSystem.h>
 #include <ngui/gfx/BackendRegistry.h>
 
@@ -80,6 +82,7 @@ BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWin
 		std::scoped_lock lock(sWindowsLock);
 		sWindows.push_back(BMessenger(this));
 	}
+	fLook = LookRegistry::DefaultLook();
 	fRoot = std::make_unique<BView>(Bounds(), "root", kFollowAll, BViewFlags());
 	fRoot->SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
 	fRoot->_Attach(this);
@@ -184,6 +187,54 @@ BView*
 BWindow::RootView() const
 {
 	return fRoot.get();
+}
+
+
+// #pragma mark - Look and default button
+
+
+const ControlLook&
+BWindow::Look() const
+{
+	return *fLook;
+}
+
+
+void
+BWindow::_TakeLook()
+{
+	fLook = LookRegistry::DefaultLook();
+}
+
+
+BButton*
+BWindow::DefaultButton() const
+{
+	return fDefaultButton;
+}
+
+
+void
+BWindow::SetDefaultButton(BButton* button)
+{
+	// Ported from Haiku: src/kits/interface/Window.cpp (commit b1d497bb69).
+	if (fDefaultButton == button)
+		return;
+
+	if (fDefaultButton != nullptr) {
+		// tell old button it's no longer the default one
+		BButton* oldDefault = fDefaultButton;
+		oldDefault->MakeDefault(false);
+		oldDefault->Invalidate();
+	}
+
+	fDefaultButton = button;
+
+	if (button != nullptr) {
+		// notify new default button
+		fDefaultButton->MakeDefault(true);
+		fDefaultButton->Invalidate();
+	}
 }
 
 
@@ -538,6 +589,8 @@ BWindow::_ViewDetached(BView* view)
 		fMouseView = nullptr;
 	if (fCapture == view)
 		fCapture = nullptr;
+	if (fDefaultButton == view)
+		fDefaultButton = nullptr;
 }
 
 
@@ -631,6 +684,17 @@ BWindow::_KeyEvent(BMessage* message)
 	if (message->what == kKeyDown && bytes == "\t" && modifiers.Has(BModifier::Option)) {
 		// Option+Tab navigates even out of views that use Tab themselves.
 		_KeyboardNavigation();
+		return;
+	}
+	// The default button hears Enter without modifiers, as in Haiku's
+	// _DetermineTarget().
+	if (fDefaultButton != nullptr && bytes.size() == 1 && bytes[0] == keys::kEnter
+		&& !modifiers.HasAny(BModifier::Shift | BModifier::Command | BModifier::Control
+			| BModifier::Option)) {
+		if (message->what == kKeyDown)
+			fDefaultButton->KeyDown(bytes);
+		else
+			fDefaultButton->KeyUp(bytes);
 		return;
 	}
 	if (fFocus == nullptr) {
@@ -767,6 +831,8 @@ BWindow::_Resized(float width, float height, float scale)
 void
 BWindow::_Update()
 {
+	// A new cycle takes the look anew (L10).
+	_TakeLook();
 	// Layout first, while the update is still pending: views it moves add
 	// their areas to this frame instead of asking for another one.
 	if (!fRoot->IsLayoutValid())

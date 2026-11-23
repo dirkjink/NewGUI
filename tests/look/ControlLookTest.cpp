@@ -112,11 +112,11 @@ TEST(ControlLookTest, NonVirtualHelpersForward)
 
 TEST(ControlLookTest, VocabularyMatchesHaiku)
 {
-	// What is tested: The bit values of ControlState and Border and the set
-	// kAllBorders.
+	// What is tested: The bit values of ControlState and Border, the set
+	// kAllBorders and the interface version.
 	// Success criteria: The masks have Haiku's values (B_FOCUSED = 1,
 	// B_BLEND_FRAME = 1 << 16, B_LEFT_BORDER = 1 …); kAllBorders holds all
-	// four sides.
+	// four sides; the interface is version 2, since Flags() was added (L8).
 	// Why it matters: The compatibility layer maps Haiku's constants onto
 	// these (specification 17, L5); equal values keep that mapping trivial.
 	//
@@ -127,7 +127,7 @@ TEST(ControlLookTest, VocabularyMatchesHaiku)
 	static_assert(BorderFlags(Border::Bottom).Raw() == 8u);
 	static_assert(kAllBorders.Raw() == 0b1111u);
 	static_assert(kAllBorders.Has(Border::Left) && kAllBorders.Has(Border::Top));
-	EXPECT_EQ(ControlLook::kInterfaceVersion, 1u);
+	EXPECT_EQ(ControlLook::kInterfaceVersion, 2u);
 }
 
 
