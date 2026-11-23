@@ -79,7 +79,7 @@ BLooper::_Loop()
 
 		BAutolock lock(fLock);
 		fCurrent = std::move(message);
-		BHandler* handler = _Target(*fCurrent);
+		BHandler* handler = _FilteredTarget(fCurrent.get(), _Target(*fCurrent));
 		// A message for a handler that left the looper is dropped; its
 		// waiting sender gets kNoReply.
 		if (handler != nullptr)
@@ -106,6 +106,78 @@ BLooper::_Target(const BMessage& message) const
 	const auto handler = std::find_if(fHandlers.begin(), fHandlers.end(),
 		[&](const BHandler* candidate) { return candidate->fToken == token; });
 	return handler != fHandlers.end() ? *handler : nullptr;
+}
+
+
+BHandler*
+BLooper::_ApplyFilters(const std::vector<std::unique_ptr<BMessageFilter>>& filters,
+	BMessage* message, BHandler* target)
+{
+	for (const std::unique_ptr<BMessageFilter>& filter : filters) {
+		if (target == nullptr)
+			return nullptr;
+		if (!filter->Applies(*message))
+			continue;
+		if (filter->Filter(message, &target) == BFilterResult::Skip)
+			return nullptr;
+	}
+	return target;
+}
+
+
+BHandler*
+BLooper::_FilteredTarget(BMessage* message, BHandler* target)
+{
+	// As Haiku's _TopLevelFilter(): the common filters, then the filters of
+	// the target, again for each new target a filter chooses. A target in
+	// another looper drops the message.
+	target = _ApplyFilters(fCommonFilters, message, target);
+	for (int round = 0; target != nullptr && round < 64; round++) {
+		if (target->fLooper != this)
+			return nullptr;
+		BHandler* next = _ApplyFilters(target->fFilters, message, target);
+		if (next == target)
+			return target;
+		target = next;
+	}
+	return target != nullptr && target->fLooper == this ? target : nullptr;
+}
+
+
+BMessageFilter*
+BLooper::AddCommonFilter(std::unique_ptr<BMessageFilter> filter)
+{
+	assert(_OnOwnThread() && "BLooper::AddCommonFilter() from another thread");
+	if (filter == nullptr)
+		return nullptr;
+	filter->fOwner = this;
+	fCommonFilters.push_back(std::move(filter));
+	return fCommonFilters.back().get();
+}
+
+
+std::unique_ptr<BMessageFilter>
+BLooper::RemoveCommonFilter(BMessageFilter* filter)
+{
+	assert(_OnOwnThread() && "BLooper::RemoveCommonFilter() from another thread");
+	const auto found = std::find_if(fCommonFilters.begin(), fCommonFilters.end(),
+		[filter](const std::unique_ptr<BMessageFilter>& owned) { return owned.get() == filter; });
+	if (found == fCommonFilters.end())
+		return nullptr;
+	std::unique_ptr<BMessageFilter> removed = std::move(*found);
+	fCommonFilters.erase(found);
+	removed->fOwner = nullptr;
+	return removed;
+}
+
+
+std::vector<BMessageFilter*>
+BLooper::CommonFilterList() const
+{
+	std::vector<BMessageFilter*> filters;
+	for (const std::unique_ptr<BMessageFilter>& filter : fCommonFilters)
+		filters.push_back(filter.get());
+	return filters;
 }
 
 

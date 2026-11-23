@@ -8,18 +8,22 @@ configure_file(
     @ONLY)
 
 add_library(ngui
+    Clock.cpp
     ControlLook.cpp
     Locker.cpp
     LookRegistry.cpp
     Looper.cpp
     LooperPort.cpp
     Message.cpp
+    MessageFilter.cpp
+    MessageRunner.cpp
     Messenger.cpp
     compat/CompatView.cpp
     compat/Point.cpp
     compat/Rect.cpp
     Error.cpp
     Handler.cpp
+    Invoker.cpp
     Palette.cpp
     TextSystem.cpp
     Version.cpp

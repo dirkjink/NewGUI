@@ -7,6 +7,7 @@
 
 #include <ngui/Handler.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cassert>
 
@@ -74,6 +75,41 @@ void
 BHandler::SetName(std::string_view name)
 {
 	fName = name;
+}
+
+
+BMessageFilter*
+BHandler::AddFilter(std::unique_ptr<BMessageFilter> filter)
+{
+	if (filter == nullptr)
+		return nullptr;
+	filter->fOwner = this;
+	fFilters.push_back(std::move(filter));
+	return fFilters.back().get();
+}
+
+
+std::unique_ptr<BMessageFilter>
+BHandler::RemoveFilter(BMessageFilter* filter)
+{
+	const auto found = std::find_if(fFilters.begin(), fFilters.end(),
+		[filter](const std::unique_ptr<BMessageFilter>& owned) { return owned.get() == filter; });
+	if (found == fFilters.end())
+		return nullptr;
+	std::unique_ptr<BMessageFilter> removed = std::move(*found);
+	fFilters.erase(found);
+	removed->fOwner = nullptr;
+	return removed;
+}
+
+
+std::vector<BMessageFilter*>
+BHandler::FilterList() const
+{
+	std::vector<BMessageFilter*> filters;
+	for (const std::unique_ptr<BMessageFilter>& filter : fFilters)
+		filters.push_back(filter.get());
+	return filters;
 }
 
 
