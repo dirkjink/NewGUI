@@ -63,6 +63,7 @@ TEST(ErrorTest, EveryCodeHasItsName)
 	EXPECT_STREQ(ngui::ErrorCodeName(ErrorCode::BadData), "BadData");
 	EXPECT_STREQ(ngui::ErrorCodeName(ErrorCode::IoError), "IoError");
 	EXPECT_STREQ(ngui::ErrorCodeName(ErrorCode::TimedOut), "TimedOut");
+	EXPECT_STREQ(ngui::ErrorCodeName(ErrorCode::BadType), "BadType");
 }
 
 

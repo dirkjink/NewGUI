@@ -31,6 +31,8 @@ ErrorCodeName(ErrorCode code)
 			return "IoError";
 		case ErrorCode::TimedOut:
 			return "TimedOut";
+		case ErrorCode::BadType:
+			return "BadType";
 	}
 	return "Unknown";
 }
