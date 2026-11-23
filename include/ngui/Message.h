@@ -17,6 +17,7 @@
 #include <vector>
 
 #include <ngui/Error.h>
+#include <ngui/Messenger.h>
 #include <ngui/gfx/Color.h>
 #include <ngui/gfx/Point.h>
 #include <ngui/gfx/Rect.h>
@@ -24,6 +25,9 @@
 
 
 namespace ngui {
+
+
+struct MessageDelivery;
 
 
 /*!	A four-character code, as Haiku writes 'LONG': FourCharCode("LONG"). */
@@ -93,22 +97,56 @@ struct BFieldInfo {
 	  little-endian, canonical (equal messages give equal bytes), with the
 	  fields in the order they were added. Pointer fields cannot be
 	  flattened.
-	- Replies, messengers and specifiers come with the loopers (G3).
+	- A copy of a message carries no delivery: it is not a reply and owes
+	  none. To reply later, keep the delivered message itself
+	  (BLooper::DetachCurrentMessage()).
+	- Specifiers come with scripting (specification 20.7).
 */
 class BMessage {
 public:
 			std::uint32_t		what = 0;
 									/*!< The command, e.g. FourCharCode("_QRQ"). */
 
-								BMessage() = default;
+								BMessage();
 									/*!< An empty message with what 0. */
 	explicit					BMessage(std::uint32_t command);
 									/*!< An empty message with what = \a command. */
+
+								BMessage(const BMessage& other);
+									/*!< A copy of what and the fields, without delivery. */
+								BMessage(BMessage&& other) noexcept;
+									/*!< Takes everything, the delivery included. */
+								~BMessage();
+									/*!< A waiting sender of an unanswered message gets
+										kNoReply. */
+			BMessage&			operator=(const BMessage& other);
+									/*!< Copies what and the fields; the delivery is
+										dropped. */
+			BMessage&			operator=(BMessage&& other) noexcept;
+									/*!< Takes everything, the delivery included. */
 
 			bool				operator==(const BMessage& other) const;
 									/*!< Same what, same fields in the same order, equal
 										items; floats compare by their bits, so that NaN
 										equals itself. */
+
+	// Delivery and replies
+
+			bool				WasDelivered() const;
+									/*!< It came through a looper's queue. */
+			bool				IsSourceWaiting() const;
+									/*!< Its sender waits for a reply that is not sent yet. */
+			bool				IsReply() const;
+									/*!< It is a reply to another message. */
+			BMessenger			ReturnAddress() const;
+									/*!< Where asynchronous replies go; invalid if nowhere. */
+			std::expected<void, Error> SendReply(const BMessage& reply);
+									/*!< Answers the sender, waiting or through its reply
+										messenger. NotFound if there is nobody to answer,
+										InvalidArgument if it was answered already
+										(B_DUPLICATE_REPLY). */
+			std::expected<void, Error> SendReply(std::uint32_t command);
+									/*!< As above, with an empty reply of \a command. */
 
 	// Fields
 
@@ -499,7 +537,10 @@ private:
 			const Field*		_FindField(std::string_view name) const;
 
 			std::vector<Field>	fFields;
+			std::unique_ptr<MessageDelivery> fDelivery;
 
+			friend class BLooper;
+			friend class BMessenger;
 			friend class MessageFlattener;
 };
 

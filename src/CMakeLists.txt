@@ -11,11 +11,15 @@ add_library(ngui
     ControlLook.cpp
     Locker.cpp
     LookRegistry.cpp
+    Looper.cpp
+    LooperPort.cpp
     Message.cpp
+    Messenger.cpp
     compat/CompatView.cpp
     compat/Point.cpp
     compat/Rect.cpp
     Error.cpp
+    Handler.cpp
     Palette.cpp
     TextSystem.cpp
     Version.cpp

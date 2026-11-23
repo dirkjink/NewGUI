@@ -16,7 +16,9 @@ add_executable(ngui_tests
     FlagsTest.cpp
     LockerTest.cpp
     LookRegistryTest.cpp
+    LooperTest.cpp
     MessageTest.cpp
+    MessengerTest.cpp
     PaletteTest.cpp
     SupportDefsTest.cpp
     VersionTest.cpp
