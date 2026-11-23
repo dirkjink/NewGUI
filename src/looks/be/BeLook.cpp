@@ -210,7 +210,7 @@ ToHaiku(BackgroundType backgroundType)
 
 
 // For the methods of the ported look that use no font: a text system
-// without metrics.
+// without metrics. They use no palette either; they get the default one.
 const TextSystem&
 NoText()
 {
@@ -222,7 +222,7 @@ NoText()
 struct Port {
 	explicit Port(DrawContext& context)
 		:
-		look(context.text),
+		look(context.text, context.palette),
 		view(context)
 	{
 	}
@@ -289,17 +289,17 @@ public:
 
 	BAlignment DefaultLabelAlignment() const override
 	{
-		return BeControlLook(NoText()).DefaultLabelAlignment();
+		return BeControlLook(NoText(), Palette::Default()).DefaultLabelAlignment();
 	}
 
 	float DefaultLabelSpacing(const TextSystem& text) const override
 	{
-		return BeControlLook(text).DefaultLabelSpacing();
+		return BeControlLook(text, Palette::Default()).DefaultLabelSpacing();
 	}
 
 	float DefaultItemSpacing(const TextSystem& text) const override
 	{
-		return BeControlLook(text).DefaultItemSpacing();
+		return BeControlLook(text, Palette::Default()).DefaultItemSpacing();
 	}
 
 	void DrawButtonFrame(DrawContext& context, gfx::Rect& rect, const gfx::Color& base,
@@ -534,10 +534,9 @@ public:
 		});
 	}
 
-	gfx::Color SliderBarColor(const gfx::Color& base) const override
+	gfx::Color SliderBarColor(const Palette& palette, const gfx::Color& base) const override
 	{
-		return compat::ToColor(BeControlLook(NoText()).SliderBarColor(
-			ToRgb(base)));
+		return compat::ToColor(BeControlLook(NoText(), palette).SliderBarColor(ToRgb(base)));
 	}
 
 	void DrawSliderBar(DrawContext& context, gfx::Rect rect, const gfx::Color& base,
@@ -708,7 +707,7 @@ public:
 	Insets FrameInsets(FrameType frameType, ControlStateFlags flags) const override
 	{
 		Insets insets{};
-		BeControlLook(NoText()).GetFrameInsets(ToHaiku(frameType),
+		BeControlLook(NoText(), Palette::Default()).GetFrameInsets(ToHaiku(frameType),
 			ToHaiku(flags), insets.left, insets.top, insets.right, insets.bottom);
 		return insets;
 	}
@@ -717,7 +716,7 @@ public:
 		ControlStateFlags flags) const override
 	{
 		Insets insets{};
-		BeControlLook(NoText()).GetBackgroundInsets(ToHaiku(backgroundType),
+		BeControlLook(NoText(), Palette::Default()).GetBackgroundInsets(ToHaiku(backgroundType),
 			ToHaiku(flags), insets.left, insets.top, insets.right, insets.bottom);
 		return insets;
 	}
@@ -792,14 +791,12 @@ public:
 			ToHaiku(flags), orientation);
 	}
 
-	float ScrollBarWidth(BOrientation) const override
+	float ScrollBarWidth(const TextSystem& text, BOrientation) const override
 	{
 		// Haiku's BControlLook::GetScrollBarWidth():
 		// max(ComposeSpacing(B_USE_CORNER_SPACING), 14) with
-		// ComposeSpacing(B_USE_CORNER_SPACING) = ceil(DefaultItemSpacing() * 1.272).
-		// The interface gives no text system, so the plain font size is
-		// Haiku's default of 12.
-		const float itemSpacing = std::ceil(12.0f * 0.85f);
+		// ComposeSpacing(B_USE_CORNER_SPACING) = ceilf(DefaultItemSpacing() * 1.272f).
+		const float itemSpacing = BeControlLook(text, Palette::Default()).DefaultItemSpacing();
 		return std::max(std::ceil(itemSpacing * 1.272f), 14.0f);
 	}
 };

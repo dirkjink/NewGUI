@@ -88,7 +88,7 @@ TEST(BeLookTest, InfoAndMetricsAreHaikus)
 		(BAlignment{BHorizontalAlignment::Left, BVerticalAlignment::Middle}));
 	EXPECT_EQ(look->DefaultLabelSpacing(text), 6);
 	EXPECT_EQ(look->DefaultItemSpacing(text), 11);
-	EXPECT_EQ(look->ScrollBarWidth(BOrientation::Vertical), 14);
+	EXPECT_EQ(look->ScrollBarWidth(text, BOrientation::Vertical), 14);
 
 	EXPECT_EQ(look->FrameInsets(FrameType::Button, {}), (Insets{2, 2, 2, 2}));
 	EXPECT_EQ(look->FrameInsets(FrameType::Button, ControlState::DefaultButton),
@@ -393,19 +393,61 @@ TEST(BeLookTest, EveryMethodDraws)
 
 TEST(BeLookTest, SliderBarColorDarkensThePanel)
 {
-	// What is tested: SliderBarColor() for two base colors.
-	// Success criteria: Both give tint_color(216, B_DARKEN_1_TINT) = 184: the
-	// BeOS look takes the panel color and ignores the base.
-	// Why it matters: That is Haiku's behavior; the method has no
-	// DrawContext, so it reads the default palette (documented in BeLook.h).
+	// What is tested: SliderBarColor() with the default palette and with a
+	// palette whose panel color is 200, each for two base colors.
+	// Success criteria: tint_color(panel, B_DARKEN_1_TINT): 184 for 216 and
+	// 170 for 200; the base color makes no difference.
+	// Why it matters: The BeOS look takes the panel color through
+	// ui_color() and ignores the base; here ui_color() is the palette the
+	// caller passes, so a changed palette changes the slider bar (L3).
 	//
 	// Given
 	const auto look = CreateBeLook();
-	const gfx::Color expected = gfx::Color::FromRgba8(184, 184, 184, 255);
+	Palette darker = Palette::Default();
+	darker.Set(BColorWhich::PanelBackground, gfx::Color::FromRgba8(200, 200, 200, 255));
 
 	// When / Then
-	EXPECT_EQ(look->SliderBarColor(kPanel), expected);
-	EXPECT_EQ(look->SliderBarColor({1, 0, 0, 1}), expected);
+	const gfx::Color expected = gfx::Color::FromRgba8(184, 184, 184, 255);
+	EXPECT_EQ(look->SliderBarColor(Palette::Default(), kPanel), expected);
+	EXPECT_EQ(look->SliderBarColor(Palette::Default(), {1, 0, 0, 1}), expected);
+	const gfx::Color expectedDarker = gfx::Color::FromRgba8(170, 170, 170, 255);
+	EXPECT_EQ(look->SliderBarColor(darker, kPanel), expectedDarker);
+	EXPECT_EQ(look->SliderBarColor(darker, {1, 0, 0, 1}), expectedDarker);
+}
+
+
+TEST(BeLookTest, ScrollBarsGrowWithTheFont)
+{
+	// What is tested: ScrollBarWidth() with the plain font at 12, 13 and 24.
+	// Success criteria: Haiku's formula max(ceil(ceil(size * 0.85) * 1.272),
+	// 14): 14 for 12 (11 * 1.272 = 13.99), 16 for 13 (12 * 1.272 = 15.26),
+	// 27 for 24 (21 * 1.272 = 26.71).
+	// Why it matters: Scroll bars are part of the layout; with a larger font
+	// they must grow as in Haiku, which needs the text system (18.2).
+	//
+	// Given
+	class SizedText : public FixedTextSystem {
+	public:
+		explicit SizedText(float size)
+			:
+			fSize(size)
+		{
+		}
+
+		float FontSize(FontRole) const override
+		{
+			return fSize;
+		}
+
+	private:
+		float fSize;
+	};
+	const auto look = CreateBeLook();
+
+	// When / Then
+	EXPECT_EQ(look->ScrollBarWidth(SizedText(12), BOrientation::Vertical), 14);
+	EXPECT_EQ(look->ScrollBarWidth(SizedText(13), BOrientation::Vertical), 16);
+	EXPECT_EQ(look->ScrollBarWidth(SizedText(24), BOrientation::Horizontal), 27);
 }
 
 

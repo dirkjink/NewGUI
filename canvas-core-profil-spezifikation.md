@@ -617,7 +617,8 @@ public:
     virtual float     DefaultItemSpacing(const TextSystem&) const = 0;
     virtual Insets    FrameInsets(FrameType, ControlStateFlags flags) const = 0;
     virtual Insets    BackgroundInsets(BackgroundType, ControlStateFlags flags) const = 0;
-    virtual float     ScrollBarWidth(Orientation) const = 0;
+    virtual float     ScrollBarWidth(const TextSystem&, Orientation) const = 0;
+    virtual Color     SliderBarColor(const Palette&, Color base) const = 0;
     virtual ControlStateFlags Flags(const BControl&) const = 0;
 
     // Zeichnen: wirkt nur auf die DisplayList

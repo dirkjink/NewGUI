@@ -15,8 +15,8 @@
  * - Flags(BControl*) comes with the controls (module W2, L8).
  * - B_OP_INVERT for the pressed button is replaced by a darkened, half
  *   transparent rectangle (specification 16).
- * - be_plain_font is the plain font of the TextSystem given to the
- *   constructor.
+ * - be_plain_font is the plain font of the TextSystem, and ui_color() without
+ *   a view reads the Palette, both given to the constructor.
  */
 #pragma once
 
@@ -33,7 +33,8 @@ namespace ngui::compat {
 
 class BeControlLook : public BControlLook {
 public:
-								BeControlLook(const TextSystem& text);
+								BeControlLook(const TextSystem& text,
+									const Palette& palette);
 	virtual						~BeControlLook();
 
 	virtual BAlignment			DefaultLabelAlignment() const;
@@ -388,6 +389,8 @@ protected:
 private:
 			const TextSystem&	fText;
 									// NewGUI: for be_plain_font.
+			const Palette&		fPalette;
+									// NewGUI: for ui_color() without a view.
 };
 
 } // namespace ngui::compat

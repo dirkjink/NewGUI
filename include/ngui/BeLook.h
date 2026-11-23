@@ -22,9 +22,6 @@ namespace ngui {
 	- The pressed button is darkened with half transparency instead of
 	  inverted (specification 16).
 	- No labels on the Tracker desktop (L4).
-	- SliderBarColor() reads the default palette, and ScrollBarWidth()
-	  assumes the plain font size 12, because these two methods get no
-	  DrawContext.
 */
 std::shared_ptr<const ControlLook> CreateBeLook();
 

@@ -168,6 +168,8 @@ struct DrawContext {
 	  shrink the rectangle by the border they drew, so that the following
 	  Draw…Background() draws into the rest (L6).
 	- No update rectangle: a View records its whole DisplayList.
+	- No global font or palette: the methods that measure or derive colors
+	  get the TextSystem or the Palette as a parameter.
 	- Icons are ImageHandles, labels UTF-8 strings drawn with the
 	  TextSystem.
 	- Flags(const BControl&) comes with the controls (module W2), as a
@@ -337,8 +339,11 @@ public:
 									float tint = kDarkenMaxTint) const = 0;
 									/*!< An arrow pointing in \a direction. */
 
-	virtual	gfx::Color			SliderBarColor(const gfx::Color& base) const = 0;
-									/*!< The color of a slider bar for \a base. */
+	virtual	gfx::Color			SliderBarColor(const Palette& palette,
+									const gfx::Color& base) const = 0;
+									/*!< The color of a slider bar for \a base; looks may
+										derive it from \a palette, as Haiku's from
+										ui_color(). */
 
 	virtual	void				DrawSliderBar(DrawContext& context, gfx::Rect rect,
 									const gfx::Color& base, gfx::Color leftFillColor,
@@ -503,9 +508,10 @@ public:
 									const gfx::Color& base, ControlStateFlags flags,
 									BOrientation orientation) const = 0;
 									/*!< The border of a scroll bar. */
-	virtual	float				ScrollBarWidth(BOrientation orientation) const = 0;
+	virtual	float				ScrollBarWidth(const TextSystem& text,
+									BOrientation orientation) const = 0;
 									/*!< Width of a vertical or height of a horizontal scroll
-										bar. */
+										bar; it grows with the font, as Haiku's. */
 };
 
 
