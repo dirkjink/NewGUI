@@ -124,10 +124,26 @@ public:
 									/*!< Its thread; std::thread::id() before Run(). */
 
 protected:
-			void				_RunOnThisThread();
+	/*!	Other events a loop on the calling thread waits for besides its
+		messages, e.g. those of the platform on the main thread. */
+	class EventSource {
+	public:
+		virtual					~EventSource() = default;
+								/*!< Default. */
+		virtual	void			ProcessEvents() = 0;
+								/*!< Handles the pending events without waiting. */
+		virtual	void			WaitForEvents() = 0;
+								/*!< Blocks until an event arrives or Wake() is called. */
+		virtual	void			Wake() = 0;
+								/*!< Ends WaitForEvents(); from any thread. */
+	};
+
+			void				_RunOnThisThread(EventSource* source = nullptr);
 									/*!< Runs the loop on the calling thread until it quits;
 										for BApplication, whose loop belongs to the main
-										thread. The caller keeps the object. */
+										thread. With \a source it alternates between its
+										events and the messages; a new message wakes it.
+										The caller keeps the object. */
 
 private:
 	friend class BHandler;
@@ -140,6 +156,7 @@ private:
 									BMessage* message, BHandler* target);
 			BHandler*			_FilteredTarget(BMessage* message, BHandler* target);
 			void				_Loop();
+			void				_Dispatch(std::unique_ptr<BMessage> message);
 
 			std::shared_ptr<LooperPort> fPort;
 			BLocker				fLock;

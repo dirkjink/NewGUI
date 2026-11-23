@@ -41,6 +41,7 @@ add_library(ngui
     gfx/Region.cpp
     gfx/RegionSupport.cpp
     looks/be/BeControlLook.cpp
+    platform/CpuPresenter.cpp
     looks/be/BeLook.cpp)
 add_library(ngui::ngui ALIAS ngui)
 
