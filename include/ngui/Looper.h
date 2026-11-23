@@ -123,6 +123,12 @@ public:
 			std::thread::id		Thread() const;
 									/*!< Its thread; std::thread::id() before Run(). */
 
+protected:
+			void				_RunOnThisThread();
+									/*!< Runs the loop on the calling thread until it quits;
+										for BApplication, whose loop belongs to the main
+										thread. The caller keeps the object. */
+
 private:
 	friend class BHandler;
 	friend class BMessenger;
@@ -143,6 +149,7 @@ private:
 			std::unique_ptr<BMessage> fCurrent;
 			std::thread::id		fThread;
 			bool				fRunning = false;
+			bool				fOwnThread = false;
 			bool				fQuitting = false;
 };
 

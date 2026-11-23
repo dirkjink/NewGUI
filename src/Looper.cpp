@@ -40,6 +40,11 @@ BLooper::~BLooper()
 		handler->fNextHandler = nullptr;
 	}
 	fHandlers.clear();
+	// A looper that ran on a thread of its own is finished by that thread
+	// after this destructor; one that ran on its caller's thread
+	// (BApplication) or never ran is finished here.
+	if (!fOwnThread)
+		fPort->Finish();
 }
 
 
@@ -52,6 +57,7 @@ BLooper::Run(std::unique_ptr<BLooper> looper)
 		return Failure(ErrorCode::InvalidArgument, "the looper runs already");
 	BMessenger messenger(looper.get());
 	looper->fRunning = true;
+	looper->fOwnThread = true;
 	std::thread([owned = std::move(looper)]() mutable {
 		owned->fThread = std::this_thread::get_id();
 		owned->fPort->SetThread(owned->fThread);
@@ -63,6 +69,19 @@ BLooper::Run(std::unique_ptr<BLooper> looper)
 		port->Finish();
 	}).detach();
 	return messenger;
+}
+
+
+void
+BLooper::_RunOnThisThread()
+{
+	assert(!fRunning && "the looper runs already");
+	if (fRunning)
+		return;
+	fRunning = true;
+	fThread = std::this_thread::get_id();
+	fPort->SetThread(fThread);
+	_Loop();
 }
 
 
