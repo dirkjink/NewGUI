@@ -11,6 +11,7 @@ add_library(ngui
     ControlLook.cpp
     Locker.cpp
     LookRegistry.cpp
+    Message.cpp
     compat/CompatView.cpp
     compat/Point.cpp
     compat/Rect.cpp
