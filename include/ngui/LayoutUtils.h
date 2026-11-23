@@ -27,7 +27,37 @@ inline constexpr float kSizeUnlimited = 1024 * 1024 * 1024;
 inline constexpr gfx::Size kUnsetSize = {kSizeUnset, kSizeUnset};
 
 
+// Spacing constants: spacings and insets that depend on the look and the
+// font, as Haiku's B_USE_DEFAULT_SPACING ...; BLayoutUtils::ComposeSpacing()
+// resolves them. Layouts keep them as given and resolve them whenever they
+// compute sizes, so that a new look or font changes the spacing with the
+// next layout.
+inline constexpr float kUseDefaultSpacing = -1002;	/*!< The look's item spacing. */
+inline constexpr float kUseItemSpacing = -1003;		/*!< The look's item spacing. */
+inline constexpr float kUseItemInsets = kUseItemSpacing;	/*!< The item spacing. */
+inline constexpr float kUseHalfItemSpacing = -1004;	/*!< Half the item spacing. */
+inline constexpr float kUseHalfItemInsets = kUseHalfItemSpacing;
+													/*!< Half the item spacing. */
+inline constexpr float kUseWindowSpacing = -1005;	/*!< The item spacing. */
+inline constexpr float kUseWindowInsets = kUseWindowSpacing;
+													/*!< The item spacing. */
+inline constexpr float kUseSmallSpacing = -1006;	/*!< 0.7 times the item spacing. */
+inline constexpr float kUseSmallInsets = kUseSmallSpacing;
+													/*!< 0.7 times the item spacing. */
+inline constexpr float kUseCornerSpacing = -1007;	/*!< 1.272 times the item spacing. */
+inline constexpr float kUseCornerInsets = kUseCornerSpacing;
+													/*!< 1.272 times the item spacing. */
+inline constexpr float kUseBigSpacing = -1008;		/*!< 1.8 times the item spacing. */
+inline constexpr float kUseBigInsets = kUseBigSpacing;	/*!< 1.8 times the item spacing. */
+inline constexpr float kUseBorderSpacing = -1009;	/*!< A border: an eleventh of the item
+														spacing, at least 1. */
+inline constexpr float kUseBorderInsets = kUseBorderSpacing;
+													/*!< A border. */
+
+
 class BView;
+class ControlLook;
+class TextSystem;
 
 
 /*!	Size arithmetic of the layout engine (module G10), as Haiku's
@@ -89,6 +119,17 @@ public:
 									BAlignment alignment);
 									/*!< A rectangle of \a size placed on \a rect by
 										\a alignment; it may be larger than \a rect. */
+	static	float				ComposeSpacing(float spacing);
+									/*!< \a spacing with the spacing constants resolved by
+										the current look (LookRegistry, the BeOS look if
+										none is selected) and TextSystem::Default(), until
+										windows have looks of their own (module M17b). */
+	static	float				ComposeSpacing(float spacing, const ControlLook& look,
+									const TextSystem& text);
+									/*!< \a spacing with the spacing constants resolved by
+										\a look for \a text, as Haiku's
+										BControlLook::ComposeSpacing(); other values stay. */
+
 	static	gfx::Rect			MoveIntoFrame(gfx::Rect rect, gfx::Size frameSize);
 									/*!< \a rect moved into the frame (0, 0, \a frameSize)
 										as far as it fits, left and top edges first; its

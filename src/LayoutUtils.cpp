@@ -22,6 +22,10 @@
 #include <algorithm>
 #include <cmath>
 
+#include <ngui/BeLook.h>
+#include <ngui/ControlLook.h>
+#include <ngui/LookRegistry.h>
+#include <ngui/TextSystem.h>
 #include <ngui/View.h>
 
 
@@ -278,6 +282,50 @@ BLayoutUtils::MoveIntoFrame(gfx::Rect rect, gfx::Size frameSize)
 		leftTop.y = 0;
 
 	return {leftTop.x, leftTop.y, leftTop.x + rect.Width(), leftTop.y + rect.Height()};
+}
+
+
+// ComposeSpacing
+// Haiku's BControlLook::ComposeSpacing() (src/kits/interface/ControlLook.cpp),
+// with the look and the font given instead of be_control_look.
+float
+BLayoutUtils::ComposeSpacing(float spacing, const ControlLook& look,
+	const TextSystem& text)
+{
+	switch ((int)spacing) {
+		case (int)kUseDefaultSpacing:
+		case (int)kUseItemSpacing:
+			return look.DefaultItemSpacing(text);
+		case (int)kUseHalfItemSpacing:
+			return std::ceil(look.DefaultItemSpacing(text) * 0.5f);
+		case (int)kUseWindowSpacing:
+			return look.DefaultItemSpacing(text);
+		case (int)kUseSmallSpacing:
+			return std::ceil(look.DefaultItemSpacing(text) * 0.7f);
+		case (int)kUseCornerSpacing:
+			return std::ceil(look.DefaultItemSpacing(text) * 1.272f);
+		case (int)kUseBigSpacing:
+			return std::ceil(look.DefaultItemSpacing(text) * 1.8f);
+
+		case (int)kUseBorderSpacing:
+			return std::max(1.0f, std::floor(look.DefaultItemSpacing(text) / 11.0f));
+	}
+
+	return spacing;
+}
+
+
+// ComposeSpacing
+float
+BLayoutUtils::ComposeSpacing(float spacing)
+{
+	// only the constants need a look
+	if (spacing > kUseDefaultSpacing || spacing < kUseBorderSpacing)
+		return spacing;
+
+	static const std::shared_ptr<const ControlLook> kFallback = CreateBeLook();
+	const std::shared_ptr<const ControlLook> current = LookRegistry::Default().Current();
+	return ComposeSpacing(spacing, current ? *current : *kFallback, TextSystem::Default());
 }
 
 

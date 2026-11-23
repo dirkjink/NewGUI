@@ -6,8 +6,9 @@
  * SPDX-License-Identifier: MIT
  *
  * Ported from Haiku: src/kits/interface/SpaceLayoutItem.cpp (commit
- * b1d497bb69), without archiving and without ComposeSpacing() (see
- * SpaceLayoutItem.h). Sizes are pixel counts: Haiku's -1 (no pixel) is 0.
+ * b1d497bb69), without archiving. Sizes are pixel counts: Haiku's -1 (no
+ * pixel) is 0. The spacing constants are resolved when the sizes are asked
+ * for, not in the constructor, so that they follow the look and the font.
  */
 
 
@@ -17,6 +18,19 @@
 
 
 namespace ngui {
+
+
+namespace {
+
+
+gfx::Size
+ComposeSpacing(gfx::Size size)
+{
+	return {BLayoutUtils::ComposeSpacing(size.w), BLayoutUtils::ComposeSpacing(size.h)};
+}
+
+
+} // namespace
 
 
 BSpaceLayoutItem::BSpaceLayoutItem(gfx::Size minSize, gfx::Size maxSize,
@@ -71,21 +85,21 @@ BSpaceLayoutItem::CreateVerticalStrut(float height)
 gfx::Size
 BSpaceLayoutItem::MinSize()
 {
-	return fMinSize;
+	return ComposeSpacing(fMinSize);
 }
 
 
 gfx::Size
 BSpaceLayoutItem::MaxSize()
 {
-	return fMaxSize;
+	return ComposeSpacing(fMaxSize);
 }
 
 
 gfx::Size
 BSpaceLayoutItem::PreferredSize()
 {
-	return fPreferredSize;
+	return ComposeSpacing(fPreferredSize);
 }
 
 

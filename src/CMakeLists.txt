@@ -25,6 +25,9 @@ add_library(ngui
     compat/Point.cpp
     compat/Rect.cpp
     Error.cpp
+    GridLayout.cpp
+    GroupLayout.cpp
+    GroupView.cpp
     Handler.cpp
     Invoker.cpp
     Layout.cpp
@@ -35,6 +38,7 @@ add_library(ngui
     SpaceLayoutItem.cpp
     TextSystem.cpp
     TruncateString.cpp
+    TwoDimensionalLayout.cpp
     View.cpp
     ViewLayoutItem.cpp
     Window.cpp
