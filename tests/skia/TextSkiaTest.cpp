@@ -16,6 +16,8 @@
 
 #include <ngui/BeLook.h>
 #include <ngui/Button.h>
+#include <ngui/CheckBox.h>
+#include <ngui/RadioButton.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/SkiaBackend.h>
 #include <ngui/test/GTest.h>
@@ -255,6 +257,70 @@ TEST(TextSkiaTest, ButtonStatesMatchTheirSnapshots)
 					.tolerance = Tolerance::Text()});
 		}
 	}
+}
+
+
+// A check box or radio button of 120 × 24 labeled "Option" in \a state.
+DisplayListRef
+ChoiceIn(const TextSystem& text, std::string_view kind, std::string_view state)
+{
+	std::unique_ptr<BControl> control;
+	if (kind == "CheckBox")
+		control = std::make_unique<BCheckBox>(gfx::Rect{0, 0, 120, 24}, "c", "Option", nullptr);
+	else
+		control = std::make_unique<BRadioButton>(gfx::Rect{0, 0, 120, 24}, "r", "Option",
+			nullptr);
+	if (state == "On")
+		control->SetValue(kControlOn);
+	else if (state == "Partial")
+		control->SetValue(kControlPartiallyOn);
+	else if (state == "Disabled")
+		control->SetEnabled(false);
+	const gfx::Caps caps;
+	Canvas canvas({0, 0, 120, 24});
+	DrawContext context{canvas, caps, Palette::Default(), text, 1};
+	control->Draw(context);
+	return canvas.Finish();
+}
+
+
+TEST(TextSkiaTest, ChoiceStatesMatchTheirSnapshots)
+{
+	// What is tested: BCheckBox::Draw() off, on, partially on and disabled,
+	// and BRadioButton::Draw() off and on, labeled "Option", 120 × 24, with
+	// the bundled font as the default text system; rendered by Skia at
+	// scale 1 and 2 against TextSkiaTest_<Kind><State>.be.skia.*.
+	// Success criteria: Within the text tolerance of 21.2: the BeOS box or
+	// knob 13 px from the top left at (0, 2), its mark for on and partially
+	// on, the label left aligned after the label spacing, in the disabled
+	// color when disabled.
+	// Why it matters: The look's check box and radio button pictures in
+	// every state (21.3), placed by the controls as in Haiku.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+
+	const std::pair<const char*, const char*> cases[] = {{"CheckBox", "Off"},
+		{"CheckBox", "On"}, {"CheckBox", "Partial"}, {"CheckBox", "Disabled"},
+		{"RadioButton", "Off"}, {"RadioButton", "On"}};
+	for (const auto& [kind, state] : cases) {
+		const DisplayListRef list = ChoiceIn(*text, kind, state);
+		for (const float scale : {1.0f, 2.0f}) {
+			// When
+			SkiaBackend backend;
+			for (const FontFile& font : text->Fonts())
+				ASSERT_TRUE(backend.AddFont(font.id, font.data));
+			const auto image = RenderToImage(backend, *list, scale);
+
+			// Then
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, std::string(kind) + state,
+				{.look = "be", .backend = "skia", .scale = scale,
+					.tolerance = Tolerance::Text()});
+		}
+	}
+	TextSystem::SetDefault(nullptr);
 }
 
 
