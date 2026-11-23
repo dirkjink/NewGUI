@@ -67,7 +67,7 @@ jobs:
       # From the signed Ubuntu archive; the version is fixed per Ubuntu
       # release (1.9.8 on 24.04, the minimum cmake/NguiApiDocs.cmake asks for).
       - name: Install Doxygen
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends doxygen
+        run: .github/scripts/apt-install.sh doxygen
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
