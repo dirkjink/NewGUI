@@ -8,6 +8,7 @@
 #include <ngui/Control.h>
 
 #include <chrono>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -52,9 +53,12 @@ public:
 	{
 		auto looper = std::make_unique<RecordingLooper>(fRecord);
 		looper->action = [this](BMessage& message) {
-			std::scoped_lock guard(fLock);
-			fValues.push_back(message.GetInt32("be:value", -1));
-			fHasSource.push_back(message.FindPointer("source").has_value());
+			{
+				std::scoped_lock guard(fLock);
+				fValues.push_back(message.GetInt32("be:value", -1));
+				fHasSource.push_back(message.FindPointer("source").has_value());
+			}
+			fChanged.notify_all();
 		};
 		fMessenger = *BLooper::Run(std::move(looper));
 	}
@@ -71,12 +75,13 @@ public:
 	}
 
 	// The "be:value"s of the first \a count messages; empty if they do not
-	// come.
+	// come. It waits for the values themselves: the record has an entry
+	// before the action has stored the value.
 	std::vector<std::int32_t> Values(std::size_t count)
 	{
-		if (!fRecord->WaitFor(count))
+		std::unique_lock guard(fLock);
+		if (!fChanged.wait_for(guard, 5s, [&] { return fValues.size() >= count; }))
 			return {};
-		std::scoped_lock guard(fLock);
 		return fValues;
 	}
 
@@ -98,6 +103,7 @@ public:
 private:
 	std::shared_ptr<LooperRecord> fRecord = std::make_shared<LooperRecord>();
 	std::mutex fLock;
+	std::condition_variable fChanged;
 	std::vector<std::int32_t> fValues;
 	std::vector<bool> fHasSource;
 	BMessenger fMessenger;
