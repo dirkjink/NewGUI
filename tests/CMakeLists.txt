@@ -14,6 +14,7 @@ file(GLOB fuzzTargetSources CONFIGURE_DEPENDS
 add_executable(ngui_tests
     ErrorTest.cpp
     FlagsTest.cpp
+    LockerTest.cpp
     LookRegistryTest.cpp
     PaletteTest.cpp
     SupportDefsTest.cpp
