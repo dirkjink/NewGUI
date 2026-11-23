@@ -26,6 +26,7 @@ add_executable(ngui_tests
     LockerTest.cpp
     LookRegistryTest.cpp
     LooperTest.cpp
+    MenuTest.cpp
     MessageFilterTest.cpp
     MessageRunnerTest.cpp
     MessageTest.cpp

@@ -22,6 +22,9 @@ add_library(ngui
     LookRegistry.cpp
     Looper.cpp
     LooperPort.cpp
+    Menu.cpp
+    MenuItem.cpp
+    MenuSymbols.cpp
     Message.cpp
     MessageFilter.cpp
     MessageRunner.cpp
