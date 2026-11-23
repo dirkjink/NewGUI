@@ -20,6 +20,7 @@
 #include <SDL3/SDL.h>
 
 #include <ngui/AppDefs.h>
+#include <ngui/LayoutUtils.h>
 #include <ngui/platform/CpuPresenter.h>
 
 #include "SdlEvents.h"
@@ -297,6 +298,22 @@ public:
 			SDL_SetWindowPosition(state->window, static_cast<int>(std::lround(where.x)),
 				static_cast<int>(std::lround(where.y)));
 			UpdateGeometry(*state);
+		});
+	}
+
+	void SetSizeLimits(gfx::Size min, gfx::Size max) override
+	{
+		_Main([state = fState, min, max] {
+			std::scoped_lock lock(state->lock);
+			if (state->window == nullptr)
+				return;
+			// SDL: 0 is no limit; sizes beyond int are no limit either.
+			const auto limit = [](float size) {
+				return size >= kSizeUnlimited || !(size > 0) ? 0
+					: static_cast<int>(std::lround(size));
+			};
+			SDL_SetWindowMinimumSize(state->window, limit(min.w), limit(min.h));
+			SDL_SetWindowMaximumSize(state->window, limit(max.w), limit(max.h));
 		});
 	}
 

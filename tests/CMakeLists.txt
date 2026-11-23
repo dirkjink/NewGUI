@@ -50,6 +50,7 @@ add_executable(ngui_tests
     gfx/RRectTest.cpp
     gfx/RegionTest.cpp
     gfx/SizeTest.cpp
+    layout/LayoutTest.cpp
     layout/LayouterTest.cpp
     look/ControlLookTest.cpp
     look/be/BeLookTest.cpp

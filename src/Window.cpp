@@ -187,6 +187,131 @@ BWindow::RootView() const
 }
 
 
+// #pragma mark - Layout
+//
+// Ported from Haiku: src/kits/app/Window.cpp (commit b1d497bb69), the layout
+// part. NewGUI: there is no app_server, so SetSizeLimits() keeps the limits
+// itself, passes them to the platform window and resizes into them; layout
+// runs before a frame instead of on B_LAYOUT_WINDOW.
+
+
+BLayout*
+BWindow::SetLayout(std::unique_ptr<BLayout> layout)
+{
+	return fRoot->SetLayout(std::move(layout));
+}
+
+
+BLayout*
+BWindow::GetLayout() const
+{
+	return fRoot->GetLayout();
+}
+
+
+BLayoutItem*
+BWindow::AddChild(std::unique_ptr<BLayoutItem> child)
+{
+	return fRoot->AddChild(std::move(child));
+}
+
+
+void
+BWindow::InvalidateLayout(bool descendants)
+{
+	fRoot->InvalidateLayout(descendants);
+}
+
+
+void
+BWindow::Layout(bool force)
+{
+	UpdateSizeLimits();
+
+	// Do the actual layout
+	fRoot->Layout(force);
+}
+
+
+void
+BWindow::ResizeToPreferred()
+{
+	Layout(false);
+
+	float width = fRoot->PreferredSize().w;
+	width = std::min(width, fRoot->MaxSize().w);
+	width = std::max(width, fRoot->MinSize().w);
+
+	float height = fRoot->PreferredSize().h;
+	height = std::min(height, fRoot->MaxSize().h);
+	height = std::max(height, fRoot->MinSize().h);
+
+	if (GetLayout() != nullptr && GetLayout()->HasHeightForWidth())
+		GetLayout()->GetHeightForWidth(width, nullptr, nullptr, &height);
+
+	ResizeTo(width, height);
+}
+
+
+void
+BWindow::SetSizeLimits(float minWidth, float maxWidth, float minHeight,
+	float maxHeight)
+{
+	if (minWidth > maxWidth || minHeight > maxHeight)
+		return;
+
+	fMinSize = {minWidth, minHeight};
+	fMaxSize = {maxWidth, maxHeight};
+	if (fPlatformWindow != nullptr)
+		fPlatformWindow->SetSizeLimits(fMinSize, fMaxSize);
+
+	// what the app_server does: the window is resized into the limits
+	const float width = std::clamp(fFrame.Width(), minWidth, maxWidth);
+	const float height = std::clamp(fFrame.Height(), minHeight, maxHeight);
+	if (width != fFrame.Width() || height != fFrame.Height())
+		ResizeTo(width, height);
+}
+
+
+void
+BWindow::GetSizeLimits(float* minWidth, float* maxWidth, float* minHeight,
+	float* maxHeight) const
+{
+	if (minHeight != nullptr)
+		*minHeight = fMinSize.h;
+	if (minWidth != nullptr)
+		*minWidth = fMinSize.w;
+	if (maxHeight != nullptr)
+		*maxHeight = fMaxSize.h;
+	if (maxWidth != nullptr)
+		*maxWidth = fMaxSize.w;
+}
+
+
+void
+BWindow::UpdateSizeLimits()
+{
+	if (fFlags.Has(BWindowFlag::AutoUpdateSizeLimits)) {
+		// Get min/max constraints of the top view and enforce window
+		// size limits respectively.
+		gfx::Size minSize = fRoot->MinSize();
+		gfx::Size maxSize = fRoot->MaxSize();
+		SetSizeLimits(minSize.w, maxSize.w, minSize.h, maxSize.h);
+	}
+}
+
+
+void
+BWindow::_LayoutInvalidated()
+{
+	// Haiku posts B_LAYOUT_WINDOW; NewGUI lays out before the next frame.
+	if (fUpdatePending)
+		return;
+	fUpdatePending = true;
+	(void)PostMessage(BMessage(kUpdate), this);
+}
+
+
 void
 BWindow::Show()
 {
@@ -244,6 +369,9 @@ BWindow::MoveTo(gfx::Point where)
 void
 BWindow::ResizeTo(float width, float height)
 {
+	// what the app_server does: the size stays within the limits
+	width = std::clamp(width, fMinSize.w, fMaxSize.w);
+	height = std::clamp(height, fMinSize.h, fMaxSize.h);
 	if (fPlatformWindow != nullptr)
 		fPlatformWindow->ResizeTo({width, height});
 	_Resized(width, height, fScale);
@@ -639,6 +767,10 @@ BWindow::_Resized(float width, float height, float scale)
 void
 BWindow::_Update()
 {
+	// Layout first, while the update is still pending: views it moves add
+	// their areas to this frame instead of asking for another one.
+	if (!fRoot->IsLayoutValid())
+		Layout(false);
 	fUpdatePending = false;
 	if (fPlatformWindow != nullptr && IsHidden())
 		return;

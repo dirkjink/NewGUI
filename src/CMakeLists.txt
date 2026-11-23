@@ -8,6 +8,8 @@ configure_file(
     @ONLY)
 
 add_library(ngui
+    AbstractLayout.cpp
+    AbstractLayoutItem.cpp
     Application.cpp
     Clock.cpp
     ControlLook.cpp
@@ -25,11 +27,16 @@ add_library(ngui
     Error.cpp
     Handler.cpp
     Invoker.cpp
+    Layout.cpp
+    LayoutContext.cpp
+    LayoutItem.cpp
     LayoutUtils.cpp
     Palette.cpp
+    SpaceLayoutItem.cpp
     TextSystem.cpp
     TruncateString.cpp
     View.cpp
+    ViewLayoutItem.cpp
     Window.cpp
     Version.cpp
     layout/CollapsingLayouter.cpp

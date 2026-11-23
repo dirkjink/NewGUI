@@ -15,6 +15,8 @@
 #include <ngui/ControlLook.h>
 #include <ngui/Flags.h>
 #include <ngui/Handler.h>
+#include <ngui/Layout.h>
+#include <ngui/LayoutUtils.h>
 #include <ngui/Palette.h>
 #include <ngui/TextSystem.h>
 #include <ngui/gfx/Backend.h>
@@ -28,7 +30,10 @@
 namespace ngui {
 
 
+class BAbstractLayout;
+class BLayoutContext;
 class BMessage;
+class BViewLayoutItem;
 class BWindow;
 
 
@@ -42,7 +47,12 @@ enum class BViewFlag : std::uint32_t {
 	DrawOnChildren = 1u << 5,		/*!< B_DRAW_ON_CHILDREN: DrawAfterChildren() is called. */
 	FullUpdateOnResize = 1u << 6,	/*!< B_FULL_UPDATE_ON_RESIZE: kept for ported code; a
 										view is always recorded whole (11.4). */
-	InputMethodAware = 1u << 7		/*!< B_INPUT_METHOD_AWARE */
+	InputMethodAware = 1u << 7,		/*!< B_INPUT_METHOD_AWARE */
+	SupportsLayout = 1u << 8,		/*!< B_SUPPORTS_LAYOUT: a new size lays out its
+										children instead of moving them by their
+										resizing modes. */
+	InvalidateAfterLayout = 1u << 9	/*!< B_INVALIDATE_AFTER_LAYOUT: invalidated after
+										each layout. */
 };
 NGUI_FLAG_ENUM(BViewFlag)
 
@@ -142,7 +152,12 @@ struct DrawEnvironment {
 	- Positions are given to the mouse hooks; buttons, modifiers and clicks
 	  are in Window()->CurrentMessage() as in Haiku. KeyDown() gets the
 	  typed text as std::string_view.
-	- The layout comes with G10.
+	- Layout (module G10) as in Haiku: SetLayout() gives the view a layout
+	  that places its children; MinSize(), MaxSize(), PreferredSize() and
+	  LayoutAlignment() tell layouts how large it may be. Sizes are pixel
+	  counts (BLayoutUtils). A view that has a layout lays it out when its
+	  size changes and, in a window, before each frame in which a layout
+	  was invalidated.
 */
 class BView : public BHandler {
 public:
@@ -152,7 +167,8 @@ public:
 									/*!< A view at \a frame in its future parent. */
 	explicit					BView(std::string_view name,
 									BViewFlags flags = BViewFlag::WillDraw);
-									/*!< A view for a layout, with an empty frame. */
+									/*!< A view for a layout, with an empty frame;
+										SupportsLayout is added to \a flags. */
 								~BView() override;
 									/*!< Destroys its children; a parent must remove it
 										first (RemoveChild()). */
@@ -163,9 +179,13 @@ public:
 									/*!< Adds \a child, owned, before \a before (at the end
 										if nullptr); returns it. nullptr if \a child is
 										nullptr or \a before is not a child. */
+			BLayoutItem*		AddChild(std::unique_ptr<BLayoutItem> child);
+									/*!< Adds \a child to its layout (BLayout::AddItem());
+										nullptr if it has none. */
 			std::unique_ptr<BView> RemoveChild(BView* child);
 									/*!< Takes \a child out and gives it back; nullptr if it
-										is not a child. */
+										is not a child. Its items in layouts of this view
+										are removed and destroyed. */
 			std::unique_ptr<BView> RemoveSelf();
 									/*!< RemoveChild() on the parent. */
 			BView*				Parent() const;
@@ -278,6 +298,85 @@ public:
 									/*!< In MouseDown(): \a mask (Pointer) sends it all mouse
 										events until the buttons are up, as Haiku's. */
 
+	// Layout (module G10)
+
+			BLayout*			SetLayout(std::unique_ptr<BLayout> layout);
+									/*!< Gives the view \a layout, which places its
+										children (all of them are added to it); the old
+										layout is destroyed. Returns the layout. */
+			BLayout*			GetLayout() const;
+									/*!< Its layout, or nullptr. */
+
+	virtual	gfx::Size			MinSize();
+									/*!< The explicit minimum where set, else the layout's,
+										else GetPreferredSize(). */
+	virtual	gfx::Size			MaxSize();
+									/*!< The explicit maximum where set, else the layout's,
+										else unlimited. */
+	virtual	gfx::Size			PreferredSize();
+									/*!< The explicit preferred size where set, else the
+										layout's, else GetPreferredSize(). */
+	virtual	BAlignment			LayoutAlignment();
+									/*!< The explicit alignment where set, else the
+										layout's, else centered. */
+	virtual	void				GetPreferredSize(float* width, float* height);
+									/*!< The size it would like without a layout; its
+										current size by default. Either may be nullptr. */
+	virtual	void				ResizeToPreferred();
+									/*!< ResizeTo() GetPreferredSize(). */
+
+			void				SetExplicitMinSize(gfx::Size size);
+									/*!< Overrides the set parts of MinSize(). */
+			void				SetExplicitMaxSize(gfx::Size size);
+									/*!< Overrides the set parts of MaxSize(). */
+			void				SetExplicitPreferredSize(gfx::Size size);
+									/*!< Overrides the set parts of PreferredSize(). */
+			void				SetExplicitSize(gfx::Size size);
+									/*!< Sets all three. */
+			void				SetExplicitAlignment(BAlignment alignment);
+									/*!< Overrides the set parts of LayoutAlignment(). */
+			gfx::Size			ExplicitMinSize() const;
+									/*!< The explicit minimum (kUnsetSize by default). */
+			gfx::Size			ExplicitMaxSize() const;
+									/*!< The explicit maximum. */
+			gfx::Size			ExplicitPreferredSize() const;
+									/*!< The explicit preferred size. */
+			BAlignment			ExplicitAlignment() const;
+									/*!< The explicit alignment. */
+
+	virtual	bool				HasHeightForWidth();
+									/*!< Whether its height depends on its width; its
+										layout's answer, false without one. */
+	virtual	void				GetHeightForWidth(float width, float* min,
+									float* max, float* preferred);
+									/*!< The heights for \a width, from its layout. */
+
+	virtual	void				InvalidateLayout(bool descendants = false);
+									/*!< Its sizes changed: the layouts it is in and its own
+										must be computed again (with its descendants if
+										\a descendants); its window lays out before the next
+										frame. */
+			void				EnableLayoutInvalidation();
+									/*!< Undoes one DisableLayoutInvalidation(). */
+			void				DisableLayoutInvalidation();
+									/*!< Ignores InvalidateLayout() until enabled again. */
+			bool				IsLayoutInvalidationDisabled() const;
+									/*!< Whether invalidation is disabled. */
+			bool				IsLayoutValid() const;
+									/*!< Whether it is laid out. */
+			void				ResetLayoutInvalidation();
+									/*!< Its sizes are known to be valid again. */
+			BLayoutContext*		LayoutContext() const;
+									/*!< The layout pass running, or nullptr. */
+
+			void				Layout(bool force);
+									/*!< Lays out the view and its descendants where needed;
+										with \a force all views, but a valid layout keeps
+										its placement (as in Haiku). */
+			void				Relayout();
+									/*!< Lays it out again, now unless its parent is being
+										laid out. */
+
 	// Hooks
 
 	virtual	void				AttachedToWindow();
@@ -311,8 +410,31 @@ public:
 	virtual	void				WindowActivated(bool active);
 									/*!< Its window became active or inactive. */
 
+protected:
+	virtual	void				LayoutInvalidated(bool descendants);
+									/*!< Hook: InvalidateLayout() was called. */
+	virtual	void				DoLayout();
+									/*!< Lays out its children: its layout's DoLayout() by
+										default. */
+	virtual	void				LayoutChanged();
+									/*!< Hook: it and its descendants were laid out. */
+
 private:
 	friend class BWindow;
+	friend class BLayout;
+	friend class BLayoutItem;
+	friend class BAbstractLayout;
+	friend class BViewLayoutItem;
+
+			BView*				_AddChild(std::unique_ptr<BView> child, BView* before);
+			void				_RemoveLayoutItemsFromLayout();
+			void				_RegisterLayoutItem(BLayoutItem* item);
+			void				_DeregisterLayoutItem(BLayoutItem* item);
+			void				_Layout(bool force, BLayoutContext* context);
+			void				_InvalidateParentLayout();
+			bool				_WillLayout() const;
+			int					_HideLevel() const;
+			void				_DropLayout();
 
 			void				_ParentResized(float dw, float dh);
 			void				_Attach(BWindow* window);
@@ -332,6 +454,20 @@ private:
 			std::vector<std::unique_ptr<BView>> fChildren;
 			gfx::DisplayListRef	fList;
 			gfx::DisplayListRef	fListAfterChildren;
+
+			// Layout, as Haiku's BView::LayoutData
+			gfx::Size			fMinSize = kUnsetSize;
+			gfx::Size			fMaxSize = kUnsetSize;
+			gfx::Size			fPreferredSize = kUnsetSize;
+			BAlignment			fAlignment;
+			int					fLayoutInvalidationDisabled = 0;
+			std::unique_ptr<BLayout> fLayout;
+			BLayoutContext*		fLayoutContext = nullptr;
+			std::vector<BLayoutItem*> fLayoutItems;
+			bool				fLayoutValid = true;
+			bool				fMinMaxValid = true;
+			bool				fLayoutInProgress = false;
+			bool				fNeedsRelayout = true;
 };
 
 

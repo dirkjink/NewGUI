@@ -25,6 +25,7 @@
 #include "support/FixedTextSystem.h"
 #include "support/PixelBackend.h"
 #include "support/RecordingLooper.h"
+#include "support/StackLayout.h"
 
 
 namespace {
@@ -37,6 +38,8 @@ using namespace std::chrono_literals;
 
 constexpr std::uint32_t kAsk = FourCharCode("ASK_");
 constexpr std::uint32_t kInvalidate = FourCharCode("INVL");
+constexpr std::uint32_t kResizeToPreferred = FourCharCode("RTPF");
+constexpr std::uint32_t kResizeTo = FourCharCode("RSZT");
 
 
 std::string
@@ -151,6 +154,14 @@ public:
 
 	void MessageReceived(BMessage* message) override
 	{
+		if (message->what == kResizeToPreferred) {
+			ResizeToPreferred();
+			return;
+		}
+		if (message->what == kResizeTo) {
+			ResizeTo(message->GetFloat("width", 0), message->GetFloat("height", 0));
+			return;
+		}
 		if (message->what != kAsk) {
 			BWindow::MessageReceived(message);
 			return;
@@ -162,6 +173,17 @@ public:
 		(void)reply.AddInt64("frames", static_cast<std::int64_t>(FrameCount()));
 		(void)reply.AddString("focus", CurrentFocus() != nullptr ? CurrentFocus()->Name() : "");
 		(void)reply.AddRect("bounds", Bounds());
+		for (std::int32_t i = 0; i < CountChildren(); i++)
+			(void)reply.AddRect("frame", ChildAt(i)->Frame());
+		float minWidth;
+		float maxWidth;
+		float minHeight;
+		float maxHeight;
+		GetSizeLimits(&minWidth, &maxWidth, &minHeight, &maxHeight);
+		(void)reply.AddFloat("minWidth", minWidth);
+		(void)reply.AddFloat("maxWidth", maxWidth);
+		(void)reply.AddFloat("minHeight", minHeight);
+		(void)reply.AddFloat("maxHeight", maxHeight);
 		if (DisplayList() != nullptr)
 			(void)reply.AddString("dump", gfx::DumpText(*DisplayList()));
 		(void)message->SendReply(reply);
@@ -425,6 +447,110 @@ TEST(WindowTest, TheBackendGetsTheFontsOfTheTextSystem)
 	EXPECT_EQ(secondFrame.GetInt64("frames", 0), 2);
 	EXPECT_EQ(thirdFrame.GetInt64("frames", 0), 3);
 	EXPECT_EQ(*added, (std::vector<gfx::FontId>{1, 2, 7, 8}));
+}
+
+
+TEST(WindowTest, TheWindowLaysOutItsViews)
+{
+	// What is tested: A window of 200 × 100 with AutoUpdateSizeLimits and a
+	// stack layout holding a view of 60 × 40 to 80 × 50, preferred 70 × 45:
+	// its first frame; resized by the platform to 300 × 150; ResizeTo()
+	// 30 × 20, below the minimum; then ResizeToPreferred().
+	// Success criteria: Before the first frame the view is laid out,
+	// centered at (60, 25) with its maximum 80 × 50, and the size limits
+	// are the root view's: 60 × 40 up to unlimited. The resize lays out
+	// again: the view moves to (110, 50). ResizeTo() stays within the
+	// limits, as Haiku's app_server: 60 × 40. ResizeToPreferred() gives the
+	// window the preferred size 70 × 45.
+	// Why it matters: Windows lay out their views (module G10) and keep the
+	// user from making them smaller than their content, as Haiku's
+	// B_AUTO_UPDATE_SIZE_LIMITS.
+	//
+	// Given
+	auto record = std::make_shared<LooperRecord>();
+	auto owned = std::make_unique<TestWindow>(gfx::Rect{0, 0, 200, 100},
+		BWindowFlag::AutoUpdateSizeLimits);
+	(void)owned->SetLayout(std::make_unique<StackLayout>());
+	BView* view = owned->AddChild(std::make_unique<EventView>(gfx::Rect{0, 0, 10, 10}, "v",
+		record));
+	view->SetExplicitMinSize({60, 40});
+	view->SetExplicitMaxSize({80, 50});
+	view->SetExplicitPreferredSize({70, 45});
+	const BMessenger window = *BLooper::Run(std::move(owned));
+
+	// When
+	const BMessage first = Ask(window);
+	BMessage resized(kWindowResized);
+	(void)resized.AddFloat("width", 300);
+	(void)resized.AddFloat("height", 150);
+	ASSERT_TRUE(window.SendMessage(resized).has_value());
+	const BMessage larger = Ask(window);
+	BMessage tooSmall(kResizeTo);
+	(void)tooSmall.AddFloat("width", 30);
+	(void)tooSmall.AddFloat("height", 20);
+	ASSERT_TRUE(window.SendMessage(tooSmall).has_value());
+	const BMessage corrected = Ask(window);
+	ASSERT_TRUE(window.SendMessage(kResizeToPreferred).has_value());
+	const BMessage preferred = Ask(window);
+	ASSERT_TRUE(window.SendMessage(kQuitRequested).has_value());
+	ASSERT_TRUE(window.WaitForLooperQuit(5s).has_value());
+
+	// Then
+	EXPECT_EQ(first.FindRect("frame").value_or(gfx::Rect{}), (gfx::Rect{60, 25, 140, 75}));
+	EXPECT_EQ(first.GetFloat("minWidth", 0), 60);
+	EXPECT_EQ(first.GetFloat("minHeight", 0), 40);
+	EXPECT_EQ(first.GetFloat("maxWidth", 0), kSizeUnlimited);
+	EXPECT_EQ(larger.FindRect("frame").value_or(gfx::Rect{}), (gfx::Rect{110, 50, 190, 100}));
+	EXPECT_EQ(corrected.FindRect("bounds").value_or(gfx::Rect{}), (gfx::Rect{0, 0, 60, 40}));
+	EXPECT_EQ(preferred.FindRect("bounds").value_or(gfx::Rect{}), (gfx::Rect{0, 0, 70, 45}));
+}
+
+
+TEST(WindowTest, SizeLimitsReachThePlatformWindow)
+{
+	// What is tested: A window with AutoUpdateSizeLimits on a platform,
+	// with a stack layout holding a view of at least 120 × 80 and at most
+	// 400 × 300.
+	// Success criteria: After the first frame the platform window has the
+	// limits 120 × 80 to unlimited (the layout itself has no maximum).
+	// Why it matters: The window system must not let the user shrink the
+	// window below its content (SDL_SetWindowMinimumSize()).
+	//
+	// Given
+	auto platform = std::make_unique<FakePlatform>();
+	FakePlatform* fake = platform.get();
+	BApplication app("application/x-vnd.ngui-window-limits-test");
+	app.SetPulseRate(Clock::Time::zero());
+	ASSERT_TRUE(app.UsePlatform(std::move(platform)).has_value());
+	std::thread runner([&] { (void)app.Run(); });
+	const auto deadline = std::chrono::steady_clock::now() + 5s;
+	while (platform::Current() == nullptr && std::chrono::steady_clock::now() < deadline)
+		std::this_thread::yield();
+	ASSERT_NE(platform::Current(), nullptr);
+	auto record = std::make_shared<LooperRecord>();
+	auto owned = std::make_unique<TestWindow>(gfx::Rect{0, 0, 200, 100},
+		BWindowFlag::AutoUpdateSizeLimits);
+	ASSERT_TRUE(owned->UseBackend(std::make_unique<PixelBackend>()).has_value());
+	(void)owned->SetLayout(std::make_unique<StackLayout>());
+	BView* view = owned->AddChild(std::make_unique<EventView>(gfx::Rect{0, 0, 10, 10}, "v",
+		record));
+	view->SetExplicitMinSize({120, 80});
+	view->SetExplicitMaxSize({400, 300});
+	owned->Show();
+	const BMessenger window = *BLooper::Run(std::move(owned));
+	FakeWindow* platformWindow = fake->Windows()[0];
+
+	// When
+	ASSERT_TRUE(platformWindow->WaitForPresents(1));
+	const auto limits = platformWindow->SizeLimits();
+	ASSERT_TRUE(window.SendMessage(kQuitRequested).has_value());
+	(void)window.WaitForLooperQuit(5s);
+	(void)AppMessenger().SendMessage(kQuitRequested);
+	runner.join();
+
+	// Then
+	EXPECT_EQ(limits.first, (gfx::Size{120, 80}));
+	EXPECT_EQ(limits.second, (gfx::Size{kSizeUnlimited, kSizeUnlimited}));
 }
 
 
