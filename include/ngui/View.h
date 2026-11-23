@@ -304,7 +304,8 @@ public:
 										drag and drop exists. */
 	virtual	void				KeyDown(std::string_view bytes);
 									/*!< A key went down while it had the focus; \a bytes is
-										the text it types, possibly empty. */
+										the text it types, possibly empty. By default Tab
+										moves the focus (keyboard navigation). */
 	virtual	void				KeyUp(std::string_view bytes);
 									/*!< A key went up. */
 	virtual	void				WindowActivated(bool active);

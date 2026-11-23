@@ -47,8 +47,9 @@ namespace ngui {
 	  application through AppMessenger(), Haiku's be_app_messenger.
 	- ArgvReceived() takes the arguments as strings.
 	- The pulse is timed by Clock::Default() (rule T1).
-	- Windows, cursors and the about box come with later modules;
-	  QuitRequested() will ask the windows (G9).
+	- Windows are reached through messengers (Windows()); windows left when
+	  Run() ends are quit without being asked, and Run() waits for them.
+	- Cursors and the about box come with later modules.
 */
 class BApplication : public BLooper {
 public:
@@ -93,8 +94,17 @@ public:
 									/*!< The user asks for the about box; nothing by
 										default until alerts exist (W6). */
 			bool				QuitRequested() override;
-									/*!< Whether the application may quit; true until
-										windows exist, which it will then ask (G9). */
+									/*!< Asks the windows in the order they were made, as
+										Haiku's: each that agrees quits at once, the first
+										that refuses ends the asking with false. True if all
+										agreed. Waits for each answer, so a window must not
+										wait for the application meanwhile. */
+			std::int32_t		CountWindows() const;
+									/*!< The windows of the application. */
+			std::vector<BMessenger> Windows() const;
+									/*!< Messengers to its windows, in the order they were
+										made; there are no pointers to them (CONVENTIONS.md
+										3.4). */
 
 			void				SetPulseRate(Clock::Time rate);
 									/*!< The interval of Pulse(); 0 stops it. */

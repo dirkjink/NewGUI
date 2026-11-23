@@ -10,6 +10,9 @@
 #include <mutex>
 
 #include <ngui/AppDefs.h>
+#include <ngui/Window.h>
+
+#include "LooperPort.h"
 
 
 namespace ngui {
@@ -150,6 +153,14 @@ BApplication::Run()
 		}
 		PlatformEvents events(*fPlatform);
 		_RunOnThisThread(&events);
+	}
+	// The windows go before the application, and before its platform:
+	// quit without asking, as Haiku's _QuitAllWindows(true).
+	for (const BMessenger& window : Windows()) {
+		if (window.SendMessage(kQuitNow).has_value())
+			(void)window.WaitForLooperQuit();
+	}
+	{
 		std::scoped_lock lock(sLock);
 		sPlatform = nullptr;
 	}
@@ -219,7 +230,30 @@ BApplication::AboutRequested()
 bool
 BApplication::QuitRequested()
 {
+	// As Haiku's _WindowQuitLoop(): a window that agrees quits on its own
+	// (BLooper::DispatchMessage()), so the answer is all that is needed.
+	for (const BMessenger& window : Windows()) {
+		BMessage reply;
+		if (!window.SendMessage(BMessage(kQuitRequested), &reply).has_value())
+			continue;
+		if (reply.what == kReply && !reply.GetBool("result", true))
+			return false;
+	}
 	return true;
+}
+
+
+std::int32_t
+BApplication::CountWindows() const
+{
+	return static_cast<std::int32_t>(Windows().size());
+}
+
+
+std::vector<BMessenger>
+BApplication::Windows() const
+{
+	return BWindow::_Windows();
 }
 
 

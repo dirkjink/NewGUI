@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <ngui/AppDefs.h>
+#include <ngui/Window.h>
 
 #include "support/RecordingLooper.h"
 
@@ -29,6 +30,7 @@ using namespace std::chrono_literals;
 
 
 constexpr std::uint32_t kStopPulse = FourCharCode("STOP");
+constexpr std::uint32_t kStopApp = FourCharCode("QUIT");
 constexpr std::uint32_t kMarker = FourCharCode("MARK");
 
 
@@ -68,13 +70,16 @@ public:
 	bool QuitRequested() override
 	{
 		fRecord->Add("quit?");
-		return allowQuit;
+		// The windows have their say as well, as in Haiku.
+		return allowQuit && BApplication::QuitRequested();
 	}
 
 	void MessageReceived(BMessage* message) override
 	{
 		if (message->what == kStopPulse)
 			SetPulseRate(Clock::Time::zero());
+		if (message->what == kStopApp)
+			Quit();
 		fRecord->Add("message:" + std::to_string(message->what));
 	}
 
@@ -216,6 +221,85 @@ TEST(ApplicationTest, PulseFollowsTheClock)
 	ASSERT_TRUE(AppMessenger().SendMessage(kQuitRequested).has_value());
 	runner.join();
 	Clock::SetDefault(nullptr);
+}
+
+
+// A window that refuses to quit as often as asked to.
+class StubbornWindow : public BWindow {
+public:
+	StubbornWindow(std::string_view title, std::shared_ptr<LooperRecord> record, int refusals)
+		:
+		BWindow(gfx::Rect{0, 0, 10, 10}, title),
+		fRecord(std::move(record)),
+		fRefusals(refusals)
+	{
+	}
+
+	bool QuitRequested() override
+	{
+		fRecord->Add(Title() + " asked");
+		return fRefusals-- <= 0;
+	}
+
+private:
+	std::shared_ptr<LooperRecord> fRecord;
+	int fRefusals;
+};
+
+
+TEST(ApplicationTest, QuittingAsksTheWindows)
+{
+	// What is tested: An application with the windows "first" (agrees),
+	// "second" (refuses once) and "third" (always refuses), asked to quit
+	// twice; then ended by a Quit() of its own.
+	// Success criteria: The first request asks first and second: first
+	// quits, second refuses, so third is not asked and the application
+	// runs on; the second request asks second (it quits now) and third,
+	// which refuses again; when the application ends anyway, third is quit
+	// without being asked and Run() returns only after it is gone.
+	// Why it matters: Haiku's BApplication::QuitRequested() and
+	// _QuitAllWindows(): a window with unsaved work may stop the quit, and
+	// no window outlives the application and its platform.
+	//
+	// Given
+	auto record = std::make_shared<LooperRecord>();
+	TestApp app(record);
+	app.SetPulseRate(Clock::Time::zero());
+	const BMessenger first = *BLooper::Run(std::make_unique<StubbornWindow>("first", record, 0));
+	const BMessenger second = *BLooper::Run(std::make_unique<StubbornWindow>("second", record,
+		1));
+	const BMessenger third = *BLooper::Run(std::make_unique<StubbornWindow>("third", record,
+		100));
+	EXPECT_EQ(app.CountWindows(), 3);
+	std::thread runner([&] { (void)app.Run(); });
+	ASSERT_TRUE(record->WaitForEntry("ready:launching", 1));
+
+	// When
+	BMessage firstReply;
+	ASSERT_TRUE(AppMessenger().SendMessage(BMessage(kQuitRequested), &firstReply).has_value());
+	const bool firstGone = first.WaitForLooperQuit(5s).has_value();
+	BMessage secondReply;
+	ASSERT_TRUE(AppMessenger().SendMessage(BMessage(kQuitRequested), &secondReply).has_value());
+	const bool secondGone = second.WaitForLooperQuit(5s).has_value();
+	const bool thirdStayed = third.IsValid();
+	ASSERT_TRUE(AppMessenger().SendMessage(kStopApp).has_value());
+	runner.join();
+
+	// Then
+	EXPECT_FALSE(firstReply.GetBool("result", true));
+	EXPECT_FALSE(secondReply.GetBool("result", true));
+	EXPECT_TRUE(firstGone);
+	EXPECT_TRUE(secondGone);
+	EXPECT_TRUE(thirdStayed);
+	EXPECT_FALSE(third.IsValid());
+	EXPECT_EQ(app.CountWindows(), 0);
+	std::vector<std::string> asked;
+	for (const std::string& entry : record->Received()) {
+		if (entry.ends_with(" asked"))
+			asked.push_back(entry);
+	}
+	EXPECT_EQ(asked, (std::vector<std::string>{"first asked", "second asked", "second asked",
+		"third asked"}));
 }
 
 

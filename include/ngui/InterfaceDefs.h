@@ -8,6 +8,8 @@
 
 #include <cstdint>
 
+#include <ngui/Flags.h>
+
 
 namespace ngui {
 
@@ -71,6 +73,24 @@ enum class BHashMarkLocation : std::uint8_t {
 	BottomOrRight = 2,	/*!< B_HASH_MARKS_BOTTOM, B_HASH_MARKS_RIGHT */
 	Both = 3			/*!< B_HASH_MARKS_BOTH */
 };
+
+
+/*!	The modifier keys in the "modifiers" field of mouse and key events (AppDefs.h), as
+	Haiku's B_SHIFT_KEY ... On PC keyboards Alt is Command (Haiku's default),
+	Ctrl is Control and the Windows or Super key is Option. */
+enum class BModifier : std::uint32_t {
+	Shift = 1u << 0,		/*!< B_SHIFT_KEY */
+	Command = 1u << 1,		/*!< B_COMMAND_KEY: Alt, or Cmd on a Mac. */
+	Control = 1u << 2,		/*!< B_CONTROL_KEY: Ctrl. */
+	CapsLock = 1u << 3,		/*!< B_CAPS_LOCK */
+	ScrollLock = 1u << 4,	/*!< B_SCROLL_LOCK */
+	NumLock = 1u << 5,		/*!< B_NUM_LOCK */
+	Option = 1u << 6		/*!< B_OPTION_KEY: Windows or Super key, Option on a Mac. */
+};
+NGUI_FLAG_ENUM(BModifier)
+
+/*!	A set of BModifier keys. */
+using BModifierFlags = Flags<BModifier>;
 
 
 } // namespace ngui
