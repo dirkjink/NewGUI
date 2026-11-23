@@ -67,7 +67,7 @@ TEST(GroupLayoutTest, ARowSharesItsWidthByWeight)
 	// Given
 	BView owner({0, 0, 300, 50}, "owner");
 	auto* group = static_cast<BGroupLayout*>(owner.SetLayout(
-		std::make_unique<BGroupLayout>(BOrientation::Horizontal, 10)));
+		std::make_unique<BGroupLayout>(BOrientation::Horizontal, 10.0f)));
 	BView* a = AddBox(group, {40, 20});
 	BView* b = AddBox(group, {60, 20}, {100, kSizeUnlimited});
 
@@ -106,7 +106,7 @@ TEST(GroupLayoutTest, AColumnWithInsetsGlueAndHiddenItems)
 	// Given
 	BView owner({0, 0, 100, 200}, "owner");
 	auto* group = static_cast<BGroupLayout*>(owner.SetLayout(
-		std::make_unique<BGroupLayout>(BOrientation::Vertical, 5)));
+		std::make_unique<BGroupLayout>(BOrientation::Vertical, 5.0f)));
 	group->SetInsets(10);
 	BView* top = AddBox(group, {0, 20}, {kSizeUnlimited, 20});
 	(void)group->AddItem(BSpaceLayoutItem::CreateGlue());
@@ -194,7 +194,7 @@ TEST(GridLayoutTest, CellsAndSpansAreLaidOut)
 	// Given
 	BView owner({0, 0, 200, 100}, "owner");
 	auto* grid = static_cast<BGridLayout*>(owner.SetLayout(
-		std::make_unique<BGridLayout>(5, 5)));
+		std::make_unique<BGridLayout>(5.0f, 5.0f)));
 	BView* a = AddCell(grid, {40, 20}, 0, 0);
 	BView* b = AddCell(grid, {60, 20}, 1, 0);
 	BView* c = AddCell(grid, {150, 20}, 0, 1, 2);
@@ -239,7 +239,7 @@ TEST(GridLayoutTest, ColumnLimitsAndEmptyColumns)
 	// Given
 	BView owner({0, 0, 300, 50}, "owner");
 	auto* grid = static_cast<BGridLayout*>(owner.SetLayout(
-		std::make_unique<BGridLayout>(10, 10)));
+		std::make_unique<BGridLayout>(10.0f, 10.0f)));
 	BView* a = AddCell(grid, {40, 20}, 0, 0);
 	BView* b = AddCell(grid, {40, 20}, 2, 0);
 	grid->SetMinColumnWidth(0, 80);
@@ -279,9 +279,9 @@ TEST(GridLayoutTest, AlignedLayoutsShareTheirColumns)
 	BView first({0, 0, 300, 50}, "first");
 	BView second({0, 0, 300, 50}, "second");
 	auto* firstGrid = static_cast<BGridLayout*>(first.SetLayout(
-		std::make_unique<BGridLayout>(0, 0)));
+		std::make_unique<BGridLayout>(0.0f, 0.0f)));
 	auto* secondGrid = static_cast<BGridLayout*>(second.SetLayout(
-		std::make_unique<BGridLayout>(0, 0)));
+		std::make_unique<BGridLayout>(0.0f, 0.0f)));
 	BView* wide = AddCell(firstGrid, {100, 10}, 0, 0);
 	wide->SetExplicitMaxSize({120, kSizeUnlimited});
 	(void)AddCell(firstGrid, {10, 10}, 1, 0);
@@ -365,7 +365,7 @@ TEST(GroupLayoutTest, HeightForWidthIsLaidOutWithTheWidth)
 	// Given
 	BView owner({0, 0, 100, 300}, "owner");
 	auto* group = static_cast<BGroupLayout*>(owner.SetLayout(
-		std::make_unique<BGroupLayout>(BOrientation::Vertical, 0)));
+		std::make_unique<BGroupLayout>(BOrientation::Vertical, 0.0f)));
 	auto* item = static_cast<WrapItem*>(group->AddItem(std::make_unique<WrapItem>()));
 	float at100 = 0;
 	float at50 = 0;
