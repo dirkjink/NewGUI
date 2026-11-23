@@ -12,7 +12,8 @@
 // look drawing into a view's Canvas; the window putting the DisplayLists
 // together, Skia rendering them, the presenter copying the changed area
 // into the window; the label shaped by the text subsystem with the bundled
-// Noto Sans, drawn by Skia with the same font file.
+// Noto Sans, drawn by Skia with the same font file; the layout keeping the
+// button centered when the window is resized (BLayoutBuilder).
 
 
 #include <cstdio>
@@ -21,6 +22,7 @@
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
 #include <ngui/BeLook.h>
+#include <ngui/LayoutBuilder.h>
 #include <ngui/View.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/BackendRegistry.h>
@@ -38,13 +40,13 @@ using namespace ngui;
 // A labeled button, drawn by the BeOS look as Haiku's BButton::Draw().
 class ButtonView : public BView {
 public:
-	explicit ButtonView(gfx::Rect frame)
+	ButtonView()
 		:
-		BView(frame, "button", BResizingMode{BHorizontalFollow::Center,
-			BVerticalFollow::Center}),
+		BView("button"),
 		fLook(CreateBeLook())
 	{
 		SetViewColor(std::nullopt);
+		SetExplicitSize({120, 32});
 	}
 
 	void Draw(DrawContext& context) override
@@ -106,8 +108,19 @@ public:
 	void ReadyToRun() override
 	{
 		auto window = std::make_unique<BWindow>(gfx::Rect{100, 100, 420, 260}, "NewGUI",
-			BWindowLook::Titled, BWindowFlag::QuitOnWindowClose);
-		window->AddChild(std::make_unique<ButtonView>(gfx::Rect{100, 64, 220, 96}));
+			BWindowLook::Titled,
+			BWindowFlag::QuitOnWindowClose | BWindowFlag::AutoUpdateSizeLimits);
+		// The button stays centered; the window cannot become smaller than
+		// the button and the window insets.
+		BLayoutBuilder::Group<>(window.get(), BOrientation::Vertical)
+			.SetInsets(kUseWindowInsets)
+			.AddGlue()
+			.AddGroup(BOrientation::Horizontal)
+				.AddGlue()
+				.Add(std::make_unique<ButtonView>())
+				.AddGlue()
+			.End()
+			.AddGlue();
 		window->Show();
 		(void)BLooper::Run(std::move(window));
 	}

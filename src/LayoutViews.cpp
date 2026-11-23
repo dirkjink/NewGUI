@@ -5,12 +5,13 @@
  * Distributed under the terms of the MIT License.
  * SPDX-License-Identifier: MIT
  *
- * Ported from Haiku: src/kits/interface/GroupView.cpp and GridView.cpp
- * (commit b1d497bb69), without archiving. AdoptSystemColors() is the panel
+ * Ported from Haiku: src/kits/interface/GroupView.cpp, GridView.cpp and
+ * CardView.cpp (commit b1d497bb69), without archiving. AdoptSystemColors() is the panel
  * background as view color.
  */
 
 
+#include <ngui/CardView.h>
 #include <ngui/GridView.h>
 #include <ngui/GroupView.h>
 
@@ -101,6 +102,40 @@ BGridLayout*
 BGridView::GridLayout() const
 {
 	return dynamic_cast<BGridLayout*>(GetLayout());
+}
+
+
+// #pragma mark - BCardView
+
+
+BCardView::BCardView(std::string_view name)
+	:
+	BView(name, BViewFlags())
+{
+	SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	BView::SetLayout(std::make_unique<BCardLayout>());
+}
+
+
+BCardView::~BCardView()
+{
+}
+
+
+BLayout*
+BCardView::SetLayout(std::unique_ptr<BLayout> layout)
+{
+	if (dynamic_cast<BCardLayout*>(layout.get()) == nullptr)
+		return nullptr;
+
+	return BView::SetLayout(std::move(layout));
+}
+
+
+BCardLayout*
+BCardView::CardLayout() const
+{
+	return static_cast<BCardLayout*>(GetLayout());
 }
 
 

@@ -51,6 +51,7 @@ add_executable(ngui_tests
     gfx/RegionTest.cpp
     gfx/SizeTest.cpp
     layout/GroupGridTest.cpp
+    layout/LayoutBuilderTest.cpp
     layout/LayoutTest.cpp
     layout/LayouterTest.cpp
     look/ControlLookTest.cpp
