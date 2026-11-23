@@ -149,12 +149,16 @@ jobs:
             mkdir -p "$dir"
             git archive HEAD | tar -x -C "$dir"
             (cd "$dir" \
-              && cmake --preset release -DNGUI_BUILD_TESTS=OFF -DVCPKG_MANIFEST_FEATURES= \
+              && cmake --preset release -DNGUI_BUILD_TESTS=OFF -DVCPKG_MANIFEST_FEATURES=text \
               && cmake --build --preset release)
           done
-          sha256sum "$RUNNER_TEMP"/a/NewGUI/build/release/src/libngui.a \
-            "$RUNNER_TEMP"/b/other/place/NewGUI/build/release/src/libngui.a | tee hashes.txt
-          test "$(cut -d' ' -f1 hashes.txt | sort -u | wc -l)" -eq 1
+          # The core library and the text library, whose embedded fonts are
+          # generated during the build.
+          for library in libngui.a libngui_text.a; do
+            sha256sum "$RUNNER_TEMP"/a/NewGUI/build/release/src/$library \
+              "$RUNNER_TEMP"/b/other/place/NewGUI/build/release/src/$library | tee hashes.txt
+            test "$(cut -d' ' -f1 hashes.txt | sort -u | wc -l)" -eq 1
+          done
 
   # Skia from the vcpkg port (feature skia), built from source on the first
   # run (10 to 15 minutes) and then restored from the binary cache (about a
@@ -257,10 +261,10 @@ jobs:
       - name: Install the window system headers
         run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
 
-      # Everything that ships: the default dependencies, Skia and SDL3,
-      # without the test-only "tests" feature.
+      # Everything that ships: the default dependencies, the text subsystem,
+      # Skia and SDL3, without the test-only "tests" feature.
       - name: Install the shipped dependencies
-        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=skia --x-feature=sdl3 --x-install-root=build/sbom/vcpkg_installed'
+        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=text --x-feature=skia --x-feature=sdl3 --x-install-root=build/sbom/vcpkg_installed'
 
       - name: Generate the SPDX SBOM of the shipped dependencies
         run: python3 .github/scripts/vcpkg-sbom.py build/sbom/vcpkg_installed/x64-linux build/sbom/newgui.spdx.json

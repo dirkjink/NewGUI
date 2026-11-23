@@ -107,12 +107,14 @@ jobs:
           cache-key: skia-gcc-13
 
       # The SBOM of the shipped dependencies, as in the dependency scan of
-      # build.yml: the manifest with Skia, without the "tests" feature.
+      # build.yml: the manifest with the text subsystem, Skia and SDL3 (whose
+      # Linux build needs the window system headers), without "tests".
       - name: Build the SBOM
         env:
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          "$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=skia --x-install-root=build/sbom/vcpkg_installed
+          .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
+          "$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=text --x-feature=skia --x-feature=sdl3 --x-install-root=build/sbom/vcpkg_installed
           python3 .github/scripts/vcpkg-sbom.py build/sbom/vcpkg_installed/x64-linux dist/newgui-"$VERSION".spdx.json
 
       - name: Upload assets to the release

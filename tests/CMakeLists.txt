@@ -10,6 +10,10 @@ include(GoogleTest)
 # targets are found by it rather than listed twice.
 file(GLOB fuzzTargetSources CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/fuzz/*Fuzz.cpp")
+# Targets of optional libraries are left out when those are not built.
+if(NOT NGUI_WITH_TEXT)
+    list(FILTER fuzzTargetSources EXCLUDE REGEX "/TextFuzz\\.cpp$")
+endif()
 
 add_executable(ngui_tests
     ApplicationTest.cpp
@@ -26,6 +30,7 @@ add_executable(ngui_tests
     MessengerTest.cpp
     PaletteTest.cpp
     SupportDefsTest.cpp
+    TruncateStringTest.cpp
     VersionTest.cpp
     ViewTest.cpp
     WindowTest.cpp
@@ -72,6 +77,12 @@ target_link_libraries(ngui_tests
         ngui::testkit
         ngui::testkit_main)
 
+# The text subsystem with its bundled fonts (vcpkg feature text).
+if(NGUI_WITH_TEXT)
+    target_sources(ngui_tests PRIVATE text/FontTextSystemTest.cpp)
+    target_link_libraries(ngui_tests PRIVATE ngui::text)
+endif()
+
 ngui_configure_target(ngui_tests)
 
 # Snapshots (specification 20.5): the references are checked in under
@@ -96,6 +107,9 @@ if(NGUI_FUZZING)
         string(REGEX REPLACE "Fuzz$" "" name "${name}")
         add_executable(ngui_fuzz_${name} "${source}" fuzz/LibFuzzerMain.cpp)
         target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::ngui ngui::testkit)
+        if(NGUI_WITH_TEXT)
+            target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::text)
+        endif()
         ngui_configure_target(ngui_fuzz_${name})
         target_link_options(ngui_fuzz_${name} PRIVATE -fsanitize=fuzzer)
         list(APPEND fuzzTargetNames ${name})
