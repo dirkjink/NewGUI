@@ -193,7 +193,7 @@ public:
 		Record("DrawArrowShape");
 	}
 
-	gfx::Color SliderBarColor(const gfx::Color&) const override
+	gfx::Color SliderBarColor(const Palette&, const gfx::Color&) const override
 	{
 		return {0.5f, 0.5f, 0.5f, 1};
 	}
@@ -354,7 +354,7 @@ public:
 		Record("DrawScrollBarBorder");
 	}
 
-	float ScrollBarWidth(BOrientation) const override
+	float ScrollBarWidth(const TextSystem&, BOrientation) const override
 	{
 		return 5;
 	}

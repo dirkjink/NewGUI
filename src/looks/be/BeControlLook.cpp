@@ -49,9 +49,10 @@ static const float kButtonPopUpIndicatorWidth = 11;
 // only use.
 
 
-BeControlLook::BeControlLook(const TextSystem& text)
+BeControlLook::BeControlLook(const TextSystem& text, const Palette& palette)
 	:
-	fText(text)
+	fText(text),
+	fPalette(palette)
 {
 }
 
@@ -984,9 +985,8 @@ BeControlLook::DrawStatusBar(BView* view, BRect& rect, const BRect& updateRect,
 rgb_color
 BeControlLook::SliderBarColor(const rgb_color& /*base*/)
 {
-	// NewGUI: ui_color() without a view is the default palette; the
-	// interface gives this method no DrawContext.
-	return tint_color(ToRgbColor(Palette::Default().Get(B_PANEL_BACKGROUND_COLOR)),
+	// NewGUI: ui_color() without a view reads the palette of the caller.
+	return tint_color(ToRgbColor(fPalette.Get(B_PANEL_BACKGROUND_COLOR)),
 		B_DARKEN_1_TINT);
 }
 
