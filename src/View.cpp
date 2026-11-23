@@ -12,8 +12,11 @@
 #include <cmath>
 #include <utility>
 
+#include <ngui/AppDefs.h>
 #include <ngui/LayoutContext.h>
 #include <ngui/LookRegistry.h>
+#include <ngui/Message.h>
+#include <ngui/ScrollBar.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/Paint.h>
@@ -59,6 +62,11 @@ BView::BView(std::string_view name, BViewFlags flags)
 BView::~BView()
 {
 	assert(fParent == nullptr && "BView destroyed while in a parent; RemoveChild() it first");
+	// The scroll bars no longer scroll it.
+	if (fVerScroller != nullptr)
+		fVerScroller->SetTarget(static_cast<BView*>(nullptr));
+	if (fHorScroller != nullptr)
+		fHorScroller->SetTarget(static_cast<BView*>(nullptr));
 	// The layout goes first: its items refer to the children.
 	_DropLayout();
 	for (std::unique_ptr<BView>& child : fChildren)
@@ -278,17 +286,150 @@ BView::ResizeTo(float width, float height)
 void
 BView::ScrollBy(float dx, float dy)
 {
-	if (dx == 0 && dy == 0)
-		return;
-	fScroll = {fScroll.x + dx, fScroll.y + dy};
-	Invalidate();
+	ScrollTo({fScroll.x + dx, fScroll.y + dy});
 }
 
 
 void
 BView::ScrollTo(gfx::Point where)
 {
-	ScrollBy(where.x - fScroll.x, where.y - fScroll.y);
+	// Ported from Haiku: src/kits/interface/View.cpp (commit b1d497bb69).
+
+	// scrolling by fractional values is not supported
+	where.x = std::round(where.x);
+	where.y = std::round(where.y);
+
+	// no reason to process this further if no scroll is intended.
+	if (where.x == fScroll.x && where.y == fScroll.y)
+		return;
+
+	// make sure scrolling is within valid bounds
+	if (fHorScroller) {
+		float min, max;
+		fHorScroller->GetRange(&min, &max);
+
+		if (where.x < min)
+			where.x = min;
+		else if (where.x > max)
+			where.x = max;
+	}
+	if (fVerScroller) {
+		float min, max;
+		fVerScroller->GetRange(&min, &max);
+
+		if (where.y < min)
+			where.y = min;
+		else if (where.y > max)
+			where.y = max;
+	}
+
+	float xDiff = where.x - fScroll.x;
+	float yDiff = where.y - fScroll.y;
+	if (xDiff == 0 && yDiff == 0)
+		return;
+
+	// NewGUI: the view is recorded anew instead of the app_server
+	// scrolling its pixels (CopyBits).
+	fScroll = where;
+	Invalidate();
+
+	// then set the new values of the scrollbars
+	if (fHorScroller && xDiff != 0.0f)
+		fHorScroller->SetValue(fScroll.x);
+	if (fVerScroller && yDiff != 0.0f)
+		fVerScroller->SetValue(fScroll.y);
+}
+
+
+BScrollBar*
+BView::ScrollBar(BOrientation direction) const
+{
+	switch (direction) {
+		case BOrientation::Vertical:
+			return fVerScroller;
+
+		case BOrientation::Horizontal:
+			return fHorScroller;
+	}
+
+	return nullptr;
+}
+
+
+void
+BView::TargetedByScrollView(BScrollView* /*scrollView*/)
+{
+	// hook method
+}
+
+
+void
+BView::MessageReceived(BMessage* message)
+{
+	// Ported from Haiku: src/kits/interface/View.cpp (commit b1d497bb69).
+	if (message->what != kMouseWheelChanged) {
+		BHandler::MessageReceived(message);
+		return;
+	}
+
+	BScrollBar* horizontal = ScrollBar(BOrientation::Horizontal);
+	BScrollBar* vertical = ScrollBar(BOrientation::Vertical);
+	if (horizontal == nullptr && vertical == nullptr) {
+		// Pass the message to the next handler
+		BHandler::MessageReceived(message);
+		return;
+	}
+
+	float deltaX = 0.0f;
+	float deltaY = 0.0f;
+
+	if (horizontal != nullptr)
+		deltaX = message->GetFloat("be:wheel_delta_x", 0.0f);
+
+	if (vertical != nullptr)
+		deltaY = message->GetFloat("be:wheel_delta_y", 0.0f);
+
+	if (deltaX == 0.0f && deltaY == 0.0f)
+		return;
+
+	const auto modifiers = BModifierFlags::FromRaw(
+		static_cast<std::uint32_t>(message->GetInt32("modifiers", 0)));
+	if (modifiers.Has(BModifier::Control))
+		std::swap(horizontal, vertical);
+
+	if (horizontal != nullptr && deltaX != 0.0f)
+		(void)ScrollWithMouseWheelDelta(horizontal, deltaX);
+
+	if (vertical != nullptr && deltaY != 0.0f)
+		(void)ScrollWithMouseWheelDelta(vertical, deltaY);
+}
+
+
+bool
+BView::ScrollWithMouseWheelDelta(BScrollBar* scrollBar, float delta)
+{
+	// Ported from Haiku: src/kits/interface/View.cpp (commit b1d497bb69).
+	if (scrollBar == nullptr || delta == 0.0f)
+		return false;
+
+	float smallStep;
+	float largeStep;
+	scrollBar->GetSteps(&smallStep, &largeStep);
+
+	// pressing the shift key scrolls faster (following the pseudo-standard set
+	// by other desktop environments).
+	// NewGUI: the modifiers of the current message instead of modifiers()
+	const BMessage* current = Window() != nullptr ? Window()->CurrentMessage() : nullptr;
+	const auto modifiers = BModifierFlags::FromRaw(static_cast<std::uint32_t>(
+		current != nullptr ? current->GetInt32("modifiers", 0) : 0));
+	if (modifiers.Has(BModifier::Shift))
+		delta *= largeStep;
+	else
+		delta *= smallStep * 3;
+
+	scrollBar->SetValue(scrollBar->Value() + delta);
+
+	return true;
 }
 
 
@@ -726,6 +867,9 @@ BView::_Attach(BWindow* window)
 	// after them.
 	fWindow = window;
 	window->AddHandler(this);
+	// As in Haiku, the next handler of a view is its parent.
+	if (fParent != nullptr)
+		SetNextHandler(fParent);
 	AttachedToWindow();
 	for (std::unique_ptr<BView>& child : fChildren)
 		child->_Attach(window);

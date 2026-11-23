@@ -16,7 +16,8 @@
 // shaped by the text subsystem with the bundled Noto Sans, drawn by Skia
 // with the same font file; the layout keeping both centered when the
 // window is resized (BLayoutBuilder). Below them, in a BBox, a BSlider
-// drives a BStatusBar while its thumb moves (its modification message).
+// drives a BStatusBar while its thumb moves (its modification message);
+// a BScrollView shows a list of check boxes that is longer than its room.
 
 
 #include <cstdint>
@@ -28,8 +29,10 @@
 #include <ngui/Application.h>
 #include <ngui/Box.h>
 #include <ngui/Button.h>
+#include <ngui/CheckBox.h>
 #include <ngui/GroupView.h>
 #include <ngui/LayoutBuilder.h>
+#include <ngui/ScrollView.h>
 #include <ngui/Slider.h>
 #include <ngui/StatusBar.h>
 #include <ngui/StringView.h>
@@ -56,7 +59,7 @@ class CounterWindow : public BWindow {
 public:
 	CounterWindow()
 		:
-		BWindow(gfx::Rect{100, 100, 420, 340}, "NewGUI", BWindowLook::Titled,
+		BWindow(gfx::Rect{100, 100, 420, 480}, "NewGUI", BWindowLook::Titled,
 			BWindowFlag::QuitOnWindowClose | BWindowFlag::AutoUpdateSizeLimits)
 	{
 		auto label = std::make_unique<BStringView>("label", "Not clicked yet");
@@ -85,6 +88,20 @@ public:
 		box->SetLabel("Progress");
 		box->AddChild(std::move(progress));
 
+		// A list of options, longer than the room for it: the scroll view
+		// sets up its bar from the list's preferred size.
+		auto options = std::make_unique<BGroupView>(BOrientation::Vertical);
+		BLayoutBuilder::Group<> optionsBuilder(options.get());
+		optionsBuilder.SetInsets(kUseHalfItemInsets);
+		for (int i = 1; i <= 12; i++) {
+			optionsBuilder.Add(std::make_unique<BCheckBox>(
+				"Option " + std::to_string(i), nullptr));
+		}
+		auto scrollView = std::make_unique<BScrollView>("options", std::move(options),
+			BViewFlags{}, false, true);
+		scrollView->SetExplicitMinSize({kSizeUnset, 60});
+		scrollView->SetExplicitPreferredSize({kSizeUnset, 110});
+
 		// The label and the button stay centered, the box takes the width;
 		// the window cannot become smaller than they and the window insets.
 		BLayoutBuilder::Group<>(this, BOrientation::Vertical)
@@ -101,7 +118,8 @@ public:
 				.AddGlue()
 			.End()
 			.AddGlue()
-			.Add(std::move(box));
+			.Add(std::move(box))
+			.Add(std::move(scrollView));
 
 		clickMe->MakeDefault(true);
 	}

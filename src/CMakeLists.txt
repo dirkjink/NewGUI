@@ -41,6 +41,8 @@ add_library(ngui
     LayoutUtils.cpp
     Palette.cpp
     RadioButton.cpp
+    ScrollBar.cpp
+    ScrollView.cpp
     Slider.cpp
     StatusBar.cpp
     SpaceLayoutItem.cpp
