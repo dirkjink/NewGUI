@@ -43,3 +43,9 @@
 	\brief The platform layer (modules P1, P2): windows, screens and the events
 	of the window system, and the CPU presenter that shows rendered pixels.
 */
+
+
+/*!
+	\namespace ngui::platform::sdl3
+	\brief Internals of the SDL3 platform (SdlPlatform).
+*/

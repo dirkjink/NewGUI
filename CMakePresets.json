@@ -66,12 +66,14 @@
     },
     {
       "name": "skia",
-      "displayName": "Skia (vcpkg feature skia, warnings as errors)",
+      "displayName": "Skia and SDL3 (vcpkg features skia and sdl3, warnings as errors)",
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "VCPKG_MANIFEST_FEATURES": "tests;skia",
+        "VCPKG_MANIFEST_FEATURES": "tests;skia;sdl3",
         "NGUI_WITH_SKIA": "ON",
+        "NGUI_WITH_SDL3": "ON",
+        "NGUI_BUILD_EXAMPLES": "ON",
         "NGUI_WARNINGS_AS_ERRORS": "ON"
       }
     }
