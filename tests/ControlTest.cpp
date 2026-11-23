@@ -21,6 +21,8 @@
 #include <ngui/LookRegistry.h>
 #include <ngui/Message.h>
 #include <ngui/RadioButton.h>
+#include <ngui/Slider.h>
+#include <ngui/StatusBar.h>
 #include <ngui/StringView.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
@@ -39,6 +41,7 @@ using namespace std::chrono_literals;
 
 
 constexpr std::uint32_t kPressed = FourCharCode("PRSS");
+constexpr std::uint32_t kModified = FourCharCode("MDFY");
 
 
 // A looper that receives the controls' messages and keeps their what and
@@ -561,6 +564,220 @@ TEST(RadioButtonTest, OnlyOneSiblingIsOn)
 	EXPECT_EQ(b->PreferredSize(), (gfx::Size{55, 19}));
 	EXPECT_EQ(b->LayoutAlignment(),
 		(BAlignment{BHorizontalAlignment::Left, BVerticalAlignment::Middle}));
+}
+
+
+TEST(SliderTest, SizesFollowHaikusFormula)
+{
+	// What is tested: The sizes of sliders with the placeholder font
+	// (ascent 9, descent 3, no leading, 7.2 px per character): horizontal
+	// with the label "Volume"; with limit labels "Low" and "High" (frame
+	// constructor, outside a layout); vertical with the label "Vol".
+	// Success criteria: Haiku's minimum: height 12 + 6 (bar) plus one row
+	// of 9 + 3 + 4 = 34, width max(43.2, 32) = 43.2, as pixel counts
+	// 44.2 × 35; preferred 101 wide (100 + 1), unlimited maximum width.
+	// With limit labels 21.6 + 14.4 (two "M") + 28.8 = 64.8 wide and a
+	// second row: 65.8 × 51, and the slider made 10 high grows to 51.
+	// The vertical one is max(21.6, 18) wide and 32 + 12 high: 22.6 × 45,
+	// preferred 101 high.
+	// Why it matters: Sliders in Haiku's preference windows get their size
+	// from these formulas.
+	//
+	// Given
+	BSlider volume({0, 0, 200, 35}, "volume", "Volume", nullptr, 0, 100);
+	BSlider limited({0, 0, 200, 10}, "limited", "Volume", nullptr, 0, 100);
+	BSlider vertical("vertical", "Vol", nullptr, 0, 10, BOrientation::Vertical);
+
+	// When
+	limited.SetLimitLabels("Low", "High");
+
+	// Then
+	EXPECT_EQ(volume.MinSize(), (gfx::Size{44.2f, 35}));
+	EXPECT_EQ(volume.PreferredSize(), (gfx::Size{101, 35}));
+	EXPECT_EQ(volume.MaxSize(), (gfx::Size{kSizeUnlimited, 35}));
+	EXPECT_EQ(limited.MinSize(), (gfx::Size{65.8f, 51}));
+	EXPECT_EQ(limited.Frame(), (gfx::Rect{0, 0, 200, 51}));
+	EXPECT_EQ(vertical.MinSize(), (gfx::Size{22.6f, 45}));
+	EXPECT_EQ(vertical.PreferredSize(), (gfx::Size{22.6f, 101}));
+	EXPECT_EQ(limited.MinLimitLabel(), "Low");
+}
+
+
+TEST(SliderTest, GeometryIsHaikus)
+{
+	// What is tested: The bar, the thumb and the value for points of a
+	// slider 200 × 35 from 0 to 100 with a label, block thumb at 50; and of
+	// a triangle thumb without label at 100; SetPosition().
+	// Success criteria: Haiku's inclusive bar (8, 22, 191, 28) is (8, 22,
+	// 192, 29) half-open; the thumb at 50 is at floor(0.5 · 181 + 9) - 8 =
+	// 91: (91, 18, 109, 32). The positions run from 9 to 190: x 9 is 0, 190
+	// is 100, 99.5 is 50, 55 is 25, beyond the bar the limits. The triangle
+	// bar is inset by 7: (7, 6, 193, 13), its thumb at 100 is (185, 9, 198,
+	// 18). SetPosition(0.25) is 25.
+	// Why it matters: The thumb must be where the user clicks and where
+	// Haiku draws it.
+	//
+	// Given
+	BSlider slider({0, 0, 200, 35}, "slider", "Volume", nullptr, 0, 100);
+	BSlider triangle({0, 0, 200, 35}, "triangle", "", nullptr, 0, 100,
+		BThumbStyle::Triangle);
+
+	// When
+	slider.SetValue(50);
+	triangle.SetValue(100);
+
+	// Then
+	EXPECT_EQ(slider.BarFrame(), (gfx::Rect{8, 22, 192, 29}));
+	EXPECT_EQ(slider.ThumbFrame(), (gfx::Rect{91, 18, 109, 32}));
+	EXPECT_EQ(slider.ValueForPoint({9, 0}), 0);
+	EXPECT_EQ(slider.ValueForPoint({190, 0}), 100);
+	EXPECT_EQ(slider.ValueForPoint({99.5f, 0}), 50);
+	EXPECT_EQ(slider.ValueForPoint({55, 0}), 25);
+	EXPECT_EQ(slider.ValueForPoint({-20, 0}), 0);
+	EXPECT_EQ(slider.ValueForPoint({300, 0}), 100);
+	EXPECT_FLOAT_EQ(slider.Position(), 0.5f);
+	EXPECT_EQ(triangle.BarFrame(), (gfx::Rect{7, 6, 193, 13}));
+	EXPECT_EQ(triangle.ThumbFrame(), (gfx::Rect{185, 9, 198, 18}));
+	slider.SetPosition(0.25f);
+	EXPECT_EQ(slider.Value(), 25);
+}
+
+
+TEST(SliderTest, DraggingAndKeysSendModificationsThenTheValue)
+{
+	// What is tested: A slider from 0 to 100 with a message and a
+	// modification message: pressed at x 55, dragged to 190 and released;
+	// then Home, End pressed and released, and another key released; the
+	// limits set to 10 .. 20.
+	// Success criteria: Pressing sends a modification with 25, dragging one
+	// with 100, releasing the message with 100. Home sends a modification
+	// with 0, the key up the message with 0; End likewise 100; a key up
+	// without change sends nothing (Haiku sent the message again). New
+	// limits move the value into them: 20.
+	// Why it matters: Applications follow the value live (the modification
+	// message) and act on the final one; both must come as in Haiku.
+	//
+	// Given
+	Target target;
+	BWindow window({0, 0, 300, 100}, "sliders");
+	auto* slider = static_cast<BSlider*>(window.AddChild(std::make_unique<BSlider>(
+		gfx::Rect{0, 0, 200, 35}, "slider", "Volume", Pressed(), 0, 100)));
+	slider->SetModificationMessage(std::make_unique<BMessage>(kModified));
+	slider->SetTarget(target.Messenger());
+	slider->ResizeTo(200, 35);
+
+	// When
+	slider->MouseDown({55, 25});
+	slider->MouseMoved({190, 25}, BMouseTransit::Inside, nullptr);
+	slider->MouseUp({190, 25});
+	slider->KeyDown(std::string(1, keys::kHome));
+	slider->KeyUp(std::string(1, keys::kHome));
+	slider->KeyDown(std::string(1, keys::kEnd));
+	slider->KeyUp(std::string(1, keys::kEnd));
+	slider->KeyUp(std::string(1, keys::kEnd));
+	slider->SetLimits(10, 20);
+
+	// Then
+	EXPECT_EQ(target.Values(7), (std::vector<std::int32_t>{25, 100, 100, 0, 0, 100, 100}));
+	const std::string modified = "looper:" + std::to_string(kModified);
+	const std::string pressed = "looper:" + std::to_string(kPressed);
+	EXPECT_EQ(target.Received(), (std::vector<std::string>{modified, modified, pressed,
+		modified, pressed, modified, pressed}));
+	EXPECT_EQ(slider->Value(), 20);
+}
+
+
+TEST(StatusBarTest, SizesFollowHaikusFormula)
+{
+	// What is tested: The sizes of status bars with the placeholder font
+	// (ascent 9, descent 3, 7.2 px per character): in a layout with the
+	// label "Copying" and the text "file.txt"; in a layout without any text;
+	// at a frame without any text; after SetBarHeight(10) at the frame.
+	// Success criteria: The bar is 9 + 3 + 5 = 17 high, a text row 12 + 6 =
+	// 18. With texts ceil(50.4) + ceil(57.6) + 5 = 114 wide and 18 + 17 =
+	// 35 high, as pixel counts 115 × 36, maximum width unlimited. Without
+	// text in a layout only the bar: 6 × 18. At a frame there is always
+	// room for text, as in BeOS: 36 high; with a bar of 10 the frame
+	// becomes 18 + 10 + 1 = 29 high.
+	// Why it matters: Progress windows are laid out with these sizes.
+	//
+	// Given
+	BStatusBar copying("copying", "Copying");
+	BStatusBar empty("empty");
+	BStatusBar framed({0, 0, 200, 20}, "framed");
+
+	// When
+	copying.SetText("file.txt");
+	const gfx::Size framedPreferred = framed.PreferredSize();
+	framed.SetBarHeight(10);
+
+	// Then
+	EXPECT_FLOAT_EQ(copying.BarHeight(), 17);
+	EXPECT_EQ(copying.PreferredSize(), (gfx::Size{115, 36}));
+	EXPECT_EQ(copying.MinSize(), (gfx::Size{115, 36}));
+	EXPECT_EQ(copying.MaxSize(), (gfx::Size{kSizeUnlimited, 36}));
+	EXPECT_EQ(empty.PreferredSize(), (gfx::Size{6, 18}));
+	EXPECT_EQ(framedPreferred, (gfx::Size{6, 36}));
+	EXPECT_EQ(framed.Frame(), (gfx::Rect{0, 0, 200, 29}));
+}
+
+
+TEST(StatusBarTest, ValuesAndMessagesUpdateIt)
+{
+	// What is tested: SetTo() beyond both ends, Update() with and without
+	// texts, Reset(), the messages kUpdateStatusBar and kResetStatusBar,
+	// SetBarColor().
+	// Success criteria: Values are kept within 0 .. 100. Update(30, "a")
+	// sets the text and keeps the trailing text; Update(10) keeps both.
+	// Reset() replaces the labels, clears the texts and the value. The
+	// update message adds its delta and sets its text, the reset message
+	// sets the labels. The bar color is the palette's until one is set.
+	// Why it matters: Programs drive the status bar with these calls and
+	// messages from their worker threads.
+	//
+	// Given
+	BStatusBar bar("bar", "Label", "Trailing");
+
+	// When / Then
+	EXPECT_EQ(bar.BarColor(), Palette::Default().Get(BColorWhich::StatusBar));
+	bar.SetTo(150, "text", "trailing");
+	EXPECT_FLOAT_EQ(bar.CurrentValue(), 100);
+	bar.SetTo(-5, "text", "trailing");
+	EXPECT_FLOAT_EQ(bar.CurrentValue(), 0);
+	bar.Update(30, "a");
+	EXPECT_FLOAT_EQ(bar.CurrentValue(), 30);
+	EXPECT_EQ(bar.Text(), "a");
+	EXPECT_EQ(bar.TrailingText(), "trailing");
+	bar.Update(10);
+	EXPECT_FLOAT_EQ(bar.CurrentValue(), 40);
+	EXPECT_EQ(bar.Text(), "a");
+	EXPECT_EQ(bar.TrailingText(), "trailing");
+
+	BMessage update(kUpdateStatusBar);
+	ASSERT_TRUE(update.AddFloat("delta", 25).has_value());
+	ASSERT_TRUE(update.AddString("text", "x").has_value());
+	bar.MessageReceived(&update);
+	EXPECT_FLOAT_EQ(bar.CurrentValue(), 65);
+	EXPECT_EQ(bar.Text(), "x");
+	EXPECT_EQ(bar.TrailingText(), "trailing");
+
+	bar.Reset("New", "Labels");
+	EXPECT_FLOAT_EQ(bar.CurrentValue(), 0);
+	EXPECT_FLOAT_EQ(bar.MaxValue(), 100);
+	EXPECT_EQ(bar.Text(), "");
+	EXPECT_EQ(bar.TrailingText(), "");
+	EXPECT_EQ(bar.Label(), "New");
+
+	BMessage reset(kResetStatusBar);
+	ASSERT_TRUE(reset.AddString("label", "From").has_value());
+	ASSERT_TRUE(reset.AddString("trailing_label", "Message").has_value());
+	bar.MessageReceived(&reset);
+	EXPECT_EQ(bar.Label(), "From");
+	EXPECT_EQ(bar.TrailingLabel(), "Message");
+
+	const gfx::Color red = gfx::Color::FromRgba8(255, 0, 0);
+	bar.SetBarColor(red);
+	EXPECT_EQ(bar.BarColor(), red);
 }
 
 

@@ -18,6 +18,8 @@
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
 #include <ngui/RadioButton.h>
+#include <ngui/Slider.h>
+#include <ngui/StatusBar.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/SkiaBackend.h>
 #include <ngui/test/GTest.h>
@@ -318,6 +320,126 @@ TEST(TextSkiaTest, ChoiceStatesMatchTheirSnapshots)
 			EXPECT_IMAGE_SNAPSHOT(*image, std::string(kind) + state,
 				{.look = "be", .backend = "skia", .scale = scale,
 					.tolerance = Tolerance::Text()});
+		}
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+// A slider in \a kind ("Horizontal", "Triangle", "Vertical"), at its
+// preferred size along the cross axis, drawn by itself.
+DisplayListRef
+SliderIn(const TextSystem& text, std::string_view kind, gfx::Size& size)
+{
+	std::unique_ptr<BSlider> slider;
+	if (kind == "Vertical") {
+		slider = std::make_unique<BSlider>("s", "Vol", nullptr, 0, 100,
+			BOrientation::Vertical);
+		slider->SetValue(25);
+		size = {slider->PreferredSize().w, 120};
+	} else if (kind == "Triangle") {
+		slider = std::make_unique<BSlider>("s", "Balance", nullptr, 0, 100,
+			BOrientation::Horizontal, BThumbStyle::Triangle);
+		const gfx::Color fill = Palette::Default().Get(BColorWhich::KeyboardNavigation);
+		slider->UseFillColor(true, &fill);
+		slider->SetValue(70);
+		size = {200, slider->PreferredSize().h};
+	} else {
+		slider = std::make_unique<BSlider>("s", "Volume", nullptr, 0, 100,
+			BOrientation::Horizontal);
+		slider->SetLimitLabels("Low", "High");
+		slider->SetHashMarks(BHashMarkLocation::Both);
+		slider->SetHashMarkCount(5);
+		slider->SetValue(30);
+		size = {200, slider->PreferredSize().h};
+	}
+	slider->ResizeTo(size.w, size.h);
+	slider->SetValue(slider->Value() + 1);
+	slider->SetValue(slider->Value() - 1);
+	const gfx::Caps caps;
+	Canvas canvas({0, 0, size.w, size.h});
+	DrawContext context{canvas, caps, Palette::Default(), text, 1};
+	slider->Draw(context);
+	return canvas.Finish();
+}
+
+
+TEST(TextSkiaTest, SlidersMatchTheirSnapshots)
+{
+	// What is tested: BSlider::Draw() of a horizontal slider with label,
+	// limit labels and hash marks on both sides at 30; of a triangle thumb
+	// with a fill color at 70; of a vertical slider at 25; with the bundled
+	// font as the default text system, rendered by Skia at scale 1 and 2
+	// against TextSkiaTest_Slider<Kind>.be.skia.*.
+	// Success criteria: Within the text tolerance of 21.2: the BeOS bar
+	// filled up to the thumb, the thumb at the value, hash marks, labels
+	// where Haiku draws them.
+	// Why it matters: The slider combines most of the look's slider methods
+	// with its own geometry; both must match (21.3).
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+
+	for (const char* kind : {"Horizontal", "Triangle", "Vertical"}) {
+		gfx::Size size;
+		const DisplayListRef list = SliderIn(*text, kind, size);
+		for (const float scale : {1.0f, 2.0f}) {
+			// When
+			SkiaBackend backend;
+			for (const FontFile& font : text->Fonts())
+				ASSERT_TRUE(backend.AddFont(font.id, font.data));
+			const auto image = RenderToImage(backend, *list, scale);
+
+			// Then
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, std::string("Slider") + kind,
+				{.look = "be", .backend = "skia", .scale = scale,
+					.tolerance = Tolerance::Text()});
+		}
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, StatusBarsMatchTheirSnapshots)
+{
+	// What is tested: BStatusBar::Draw() at 30 of 100 with label, text,
+	// trailing text and trailing label, 200 wide ("StatusBar") and 120 wide
+	// so that the texts are shortened ("StatusBarTruncated"); with the
+	// bundled font, rendered by Skia at scale 1 and 2.
+	// Success criteria: Within the text tolerance of 21.2: the left text
+	// and the right text above the BeOS bar, filled to 30 %; at 120 the
+	// left text cut at its end, the right one whole.
+	// Why it matters: The texts and the fill are where Haiku puts them.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+
+	for (const float width : {200.0f, 120.0f}) {
+		BStatusBar bar("bar", "Copying: ", " of 10");
+		bar.SetTo(30, "file.txt", "3");
+		const gfx::Size size{width, bar.PreferredSize().h};
+		bar.ResizeTo(size.w, size.h);
+		const gfx::Caps caps;
+		Canvas canvas({0, 0, size.w, size.h});
+		DrawContext context{canvas, caps, Palette::Default(), *text, 1};
+		bar.Draw(context);
+		const DisplayListRef list = canvas.Finish();
+		const std::string name = width > 150 ? "StatusBar" : "StatusBarTruncated";
+
+		for (const float scale : {1.0f, 2.0f}) {
+			// When
+			SkiaBackend backend;
+			for (const FontFile& font : text->Fonts())
+				ASSERT_TRUE(backend.AddFont(font.id, font.data));
+			const auto image = RenderToImage(backend, *list, scale);
+
+			// Then
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, name, {.look = "be", .backend = "skia",
+				.scale = scale, .tolerance = Tolerance::Text()});
 		}
 	}
 	TextSystem::SetDefault(nullptr);

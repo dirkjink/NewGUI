@@ -90,4 +90,13 @@ inline constexpr std::uint32_t kWindowMoved = FourCharCode("_WMV");
 inline constexpr std::uint32_t kWindowActivated = FourCharCode("_ACT");
 
 
+/*!	B_UPDATE_STATUS_BAR: BStatusBar::Update() with "delta" (float), "text"
+	and "trailing_text" (strings). */
+inline constexpr std::uint32_t kUpdateStatusBar = FourCharCode("_UPS");
+
+/*!	B_RESET_STATUS_BAR: BStatusBar::Reset() with "label" and
+	"trailing_label" (strings). */
+inline constexpr std::uint32_t kResetStatusBar = FourCharCode("_RES");
+
+
 } // namespace ngui
