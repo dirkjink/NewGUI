@@ -90,6 +90,17 @@ public:
 	virtual	ShapedText			Shape(std::string_view text, FontRole role) const = 0;
 									/*!< \a text shaped into glyphs, positions relative to the
 										start of the baseline. */
+
+	static	const TextSystem&	Default();
+									/*!< The text system of the process: the one given to
+										SetDefault(), otherwise a placeholder until the text
+										subsystem exists (modules X1 to X6). The placeholder
+										measures a 12 px font approximately (0.6 em per
+										character, ascent 0.75 em, descent 0.25 em) and
+										shapes nothing, so no text is drawn. */
+	static	void				SetDefault(const TextSystem* text);
+									/*!< Replaces the default; nullptr restores the
+										placeholder. The object must outlive its use. */
 };
 
 

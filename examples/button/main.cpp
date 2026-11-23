@@ -6,11 +6,12 @@
 
 
 // A window with one button in the BeOS look: pressed while the mouse
-// button is down over it. Closing the window quits the application. It
-// shows the path of the toolkit end to end: the platform's events as
-// messages, a looper per window, the look drawing into a Canvas, Skia
-// rendering into a CPU surface, the presenter copying into the window.
-// There is no label yet: text needs the text subsystem.
+// button is down over it, as Haiku's BButton tracks a click. Closing the
+// window quits the application. It shows the toolkit end to end: the
+// platform's events as messages to the window, distributed to views; the
+// look drawing into a view's Canvas; the window putting the DisplayLists
+// together, Skia rendering them, the presenter copying the changed area
+// into the window. There is no label yet: text needs the text subsystem.
 
 
 #include <cstdio>
@@ -19,8 +20,9 @@
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
 #include <ngui/BeLook.h>
-#include <ngui/TextSystem.h>
-#include <ngui/gfx/Canvas.h>
+#include <ngui/View.h>
+#include <ngui/Window.h>
+#include <ngui/gfx/BackendRegistry.h>
 #include <ngui/gfx/SkiaBackend.h>
 #include <ngui/platform/SdlPlatform.h>
 
@@ -31,132 +33,59 @@ namespace {
 using namespace ngui;
 
 
-// Metrics without fonts; the button has no label.
-class NoText : public TextSystem {
+// A button without a label, drawn by the BeOS look.
+class ButtonView : public BView {
 public:
-	float FontSize(FontRole) const override
-	{
-		return 12;
-	}
-
-	FontHeight Height(FontRole) const override
-	{
-		return {9, 3, 1};
-	}
-
-	float StringWidth(std::string_view, FontRole) const override
-	{
-		return 0;
-	}
-
-	std::string Truncate(std::string_view text, float, TruncationMode, FontRole) const override
-	{
-		return std::string(text);
-	}
-
-	ShapedText Shape(std::string_view, FontRole) const override
-	{
-		return {};
-	}
-};
-
-
-class ButtonWindow : public BLooper {
-public:
-	ButtonWindow()
+	explicit ButtonView(gfx::Rect frame)
 		:
-		BLooper("button window"),
+		BView(frame, "button", BResizingMode{BHorizontalFollow::Center,
+			BVerticalFollow::Center}),
 		fLook(CreateBeLook())
 	{
-		platform::WindowSpec spec;
-		spec.title = "NewGUI";
-		spec.frame = {100, 100, 420, 260};
-		spec.target = BMessenger(this);
-		auto window = platform::Current()->CreateWindow(spec);
-		if (!window.has_value()) {
-			std::fprintf(stderr, "no window: %s\n", window.error().message.c_str());
-			return;
-		}
-		fWindow = std::move(*window);
-		fWindow->Show();
+		SetViewColor(std::nullopt);
 	}
 
-	bool QuitRequested() override
+	void Draw(DrawContext& context) override
 	{
-		// The window goes first, then the application.
-		fWindow.reset();
-		(void)AppMessenger().SendMessage(kQuitRequested);
-		return true;
-	}
-
-	void MessageReceived(BMessage* message) override
-	{
-		switch (message->what) {
-			case kWindowResized:
-				fSurface.reset();
-				_Draw();
-				break;
-			case kMouseDown:
-				fPressed = fButton.Contains(message->GetPoint("where", {}));
-				_Draw();
-				break;
-			case kMouseUp:
-				fPressed = false;
-				_Draw();
-				break;
-			default:
-				BLooper::MessageReceived(message);
-		}
-	}
-
-	void Start()
-	{
-		_Draw();
-	}
-
-private:
-	void _Draw()
-	{
-		if (fWindow == nullptr)
-			return;
-		const gfx::NativeWindow native = fWindow->Native();
-		if (fSurface == nullptr)
-			fSurface = fBackend.CreateWindowSurface(native, gfx::SurfaceKind::CpuRaster);
-		if (fSurface == nullptr)
-			return;
-
-		const gfx::Rect bounds{0, 0, native.size.w, native.size.h};
-		gfx::Canvas canvas(bounds);
-		const gfx::Caps caps;
-		DrawContext context{canvas, caps, Palette::Default(), fText, native.scale};
-		const gfx::Color panel = Palette::Default().Get(BColorWhich::PanelBackground);
-		canvas.FillRect(bounds, gfx::Paint{.color = panel});
-
-		const float x = (bounds.Width() - 120) / 2;
-		const float y = (bounds.Height() - 32) / 2;
-		fButton = {x, y, x + 120, y + 32};
-		gfx::Rect rect = fButton;
+		const gfx::Color panel = context.palette.Get(BColorWhich::PanelBackground);
+		gfx::Rect rect = Bounds();
 		const ControlStateFlags flags = fPressed ? ControlState::Activated : ControlStateFlags();
 		fLook->DrawButtonFrame(context, rect, panel, panel, flags);
 		fLook->DrawButtonBackground(context, rect, panel, flags);
+	}
 
-		fBackend.BeginFrame(*fSurface, panel);
-		fBackend.Render(*canvas.Finish(), {0, 0});
-		fBackend.EndFrame(*fSurface);
-		const std::optional<gfx::CpuPixels> pixels = fSurface->Pixels();
-		if (!pixels.has_value())
+	void MouseDown(gfx::Point) override
+	{
+		// As BButton: follow the mouse until the button is released.
+		SetMouseEventMask(BEventMask::Pointer);
+		_SetPressed(true);
+	}
+
+	void MouseMoved(gfx::Point where, BMouseTransit, const BMessage*) override
+	{
+		if (fTracking)
+			_SetPressed(Bounds().Contains(where));
+	}
+
+	void MouseUp(gfx::Point) override
+	{
+		fTracking = false;
+		_SetPressed(false);
+	}
+
+private:
+	void _SetPressed(bool pressed)
+	{
+		fTracking = fTracking || pressed;
+		if (pressed == fPressed)
 			return;
-		const gfx::IntRect all{0, 0, pixels->width, pixels->height};
-		(void)fWindow->Present(*pixels, std::span(&all, 1));
+		fPressed = pressed;
+		Invalidate();
 	}
 
 	std::shared_ptr<const ControlLook> fLook;
-	NoText fText;
-	gfx::SkiaBackend fBackend;
-	gfx::SurfaceRef fSurface;
-	std::unique_ptr<platform::PlatformWindow> fWindow;
-	gfx::Rect fButton{0, 0, 0, 0};
 	bool fPressed = false;
+	bool fTracking = false;
 };
 
 
@@ -170,9 +99,10 @@ public:
 
 	void ReadyToRun() override
 	{
-		// On the main thread: the window is made here, then runs on its own.
-		auto window = std::make_unique<ButtonWindow>();
-		window->Start();
+		auto window = std::make_unique<BWindow>(gfx::Rect{100, 100, 420, 260}, "NewGUI",
+			BWindowLook::Titled, BWindowFlag::QuitOnWindowClose);
+		window->AddChild(std::make_unique<ButtonView>(gfx::Rect{100, 64, 220, 96}));
+		window->Show();
 		(void)BLooper::Run(std::move(window));
 	}
 };
@@ -184,6 +114,7 @@ public:
 int
 main(int argc, char** argv)
 {
+	gfx::SkiaBackend::Register(gfx::BackendRegistry::Default());
 	auto platform = platform::SdlPlatform::Create();
 	if (!platform.has_value()) {
 		std::fprintf(stderr, "%s\n", platform.error().message.c_str());
