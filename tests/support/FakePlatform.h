@@ -13,6 +13,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <ngui/platform/Platform.h>
@@ -59,6 +60,20 @@ public:
 	{
 		std::scoped_lock lock(fLock);
 		fFrame = {fFrame.x0, fFrame.y0, fFrame.x0 + size.w, fFrame.y0 + size.h};
+	}
+
+	void SetSizeLimits(gfx::Size min, gfx::Size max) override
+	{
+		std::scoped_lock lock(fLock);
+		fMinSize = min;
+		fMaxSize = max;
+	}
+
+	// The limits SetSizeLimits() got last.
+	std::pair<gfx::Size, gfx::Size> SizeLimits() const
+	{
+		std::scoped_lock lock(fLock);
+		return {fMinSize, fMaxSize};
 	}
 
 	gfx::Rect Frame() const override
@@ -140,6 +155,8 @@ private:
 	mutable std::mutex fLock;
 	std::condition_variable fChanged;
 	gfx::Rect fFrame;
+	gfx::Size fMinSize = {0, 0};
+	gfx::Size fMaxSize = {0, 0};
 	float fScale;
 	BMessenger fTarget;
 	bool fShown = false;

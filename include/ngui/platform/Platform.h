@@ -67,6 +67,10 @@ public:
 									/*!< Moves the content area's left top corner. */
 	virtual	void				ResizeTo(gfx::Size size) = 0;
 									/*!< Changes the size of the content area. */
+	virtual	void				SetSizeLimits(gfx::Size min, gfx::Size max) = 0;
+									/*!< The smallest and largest size the user may give the
+										content area (BWindow::SetSizeLimits()); sizes of
+										kSizeUnlimited or more mean no limit. */
 	virtual	gfx::Rect			Frame() const = 0;
 									/*!< The content area, logical pixels on the desktop. */
 	virtual	float				Scale() const = 0;

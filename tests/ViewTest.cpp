@@ -117,7 +117,7 @@ TEST(ViewTest, ChildrenAreOwnedByTheirParent)
 	EXPECT_EQ(root->FindView("none"), nullptr);
 	EXPECT_EQ(deep->Parent(), b);
 	EXPECT_EQ(root->AddChild(std::make_unique<BView>("x"), &outsider), nullptr);
-	EXPECT_EQ(root->AddChild(nullptr), nullptr);
+	EXPECT_EQ(root->AddChild(std::unique_ptr<BView>()), nullptr);
 
 	std::unique_ptr<BView> removed = root->RemoveChild(a);
 	EXPECT_EQ(removed.get(), a);

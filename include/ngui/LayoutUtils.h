@@ -7,7 +7,10 @@
 #pragma once
 
 
+#include <ngui/InterfaceDefs.h>
 #include <ngui/SupportDefs.h>
+#include <ngui/gfx/Rect.h>
+#include <ngui/gfx/Size.h>
 
 
 namespace ngui {
@@ -19,6 +22,12 @@ inline constexpr float kSizeUnset = -2;
 /*!	A size without limit, as Haiku's B_SIZE_UNLIMITED: 2^30 pixels. Sums
 	that reach it stay at it. */
 inline constexpr float kSizeUnlimited = 1024 * 1024 * 1024;
+
+/*!	A size whose width and height are both unset, as Haiku's BSize(). */
+inline constexpr gfx::Size kUnsetSize = {kSizeUnset, kSizeUnset};
+
+
+class BView;
 
 
 /*!	Size arithmetic of the layout engine (module G10), as Haiku's
@@ -48,6 +57,42 @@ public:
 									float& preferred);
 									/*!< Raises \a max to \a min and puts \a preferred
 										between them. */
+	static	void				FixSizeConstraints(gfx::Size& min, gfx::Size& max,
+									gfx::Size& preferred);
+									/*!< The same for width and height. */
+
+	static	bool				IsSet(float size);
+									/*!< Whether \a size is not kSizeUnset (BSize::IsWidthSet()). */
+	static	gfx::Size			ComposeSize(gfx::Size size, gfx::Size layoutSize);
+									/*!< \a size, with its unset parts from \a layoutSize. */
+	static	BAlignment			ComposeAlignment(BAlignment alignment,
+									BAlignment layoutAlignment);
+									/*!< \a alignment, with its unset parts from
+										\a layoutAlignment. */
+	static	float				RelativeHorizontal(BAlignment alignment);
+									/*!< BAlignment::RelativeHorizontal(): 0 left, 1 right,
+										0.5 center; -1 unset, -2 full width. */
+	static	float				RelativeVertical(BAlignment alignment);
+									/*!< BAlignment::RelativeVertical(): 0 top, 1 bottom,
+										0.5 middle; -1 unset, -2 full height. */
+
+	static	gfx::Rect			AlignInFrame(gfx::Rect frame, gfx::Size maxSize,
+									BAlignment alignment);
+									/*!< \a frame reduced to \a maxSize where it is larger
+										and the alignment does not use the full extent,
+										placed by \a alignment. */
+	static	void				AlignInFrame(BView* view, gfx::Rect frame);
+									/*!< Moves and resizes \a view into \a frame by its
+										maximum size and alignment, height for width
+										included. */
+	static	gfx::Rect			AlignOnRect(gfx::Rect rect, gfx::Size size,
+									BAlignment alignment);
+									/*!< A rectangle of \a size placed on \a rect by
+										\a alignment; it may be larger than \a rect. */
+	static	gfx::Rect			MoveIntoFrame(gfx::Rect rect, gfx::Size frameSize);
+									/*!< \a rect moved into the frame (0, 0, \a frameSize)
+										as far as it fits, left and top edges first; its
+										size stays. */
 };
 
 

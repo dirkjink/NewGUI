@@ -12,6 +12,7 @@
 #include <cmath>
 #include <utility>
 
+#include <ngui/LayoutContext.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/Paint.h>
@@ -49,7 +50,7 @@ BView::BView(gfx::Rect frame, std::string_view name, BResizingMode resizingMode,
 
 BView::BView(std::string_view name, BViewFlags flags)
 	:
-	BView({0, 0, 0, 0}, name, kFollowLeftTop, flags)
+	BView({0, 0, 0, 0}, name, kFollowLeftTop, flags | BViewFlag::SupportsLayout)
 {
 }
 
@@ -57,6 +58,8 @@ BView::BView(std::string_view name, BViewFlags flags)
 BView::~BView()
 {
 	assert(fParent == nullptr && "BView destroyed while in a parent; RemoveChild() it first");
+	// The layout goes first: its items refer to the children.
+	_DropLayout();
 	for (std::unique_ptr<BView>& child : fChildren)
 		child->fParent = nullptr;
 }
@@ -64,6 +67,25 @@ BView::~BView()
 
 BView*
 BView::AddChild(std::unique_ptr<BView> child, BView* before)
+{
+	BView* added = _AddChild(std::move(child), before);
+	if (added != nullptr && fLayout)
+		(void)fLayout->AddView(added);
+	return added;
+}
+
+
+BLayoutItem*
+BView::AddChild(std::unique_ptr<BLayoutItem> child)
+{
+	if (!fLayout)
+		return nullptr;
+	return fLayout->AddItem(std::move(child));
+}
+
+
+BView*
+BView::_AddChild(std::unique_ptr<BView> child, BView* before)
 {
 	if (child == nullptr)
 		return nullptr;
@@ -83,6 +105,7 @@ BView::AddChild(std::unique_ptr<BView> child, BView* before)
 		added->_Attach(fWindow);
 		_Damage(ConvertToParent(added->Frame()));
 	}
+	InvalidateLayout();
 	return added;
 }
 
@@ -101,6 +124,10 @@ BView::RemoveChild(BView* child)
 	}
 	fChildren.erase(found);
 	removed->fParent = nullptr;
+	// Without a parent, the removal of its last item does not take the view
+	// out once more (BLayout::RemoveItem()).
+	removed->_RemoveLayoutItemsFromLayout();
+	InvalidateLayout();
 	return removed;
 }
 
@@ -226,8 +253,15 @@ BView::ResizeBy(float dw, float dh)
 	fFrame = {fFrame.x0, fFrame.y0, fFrame.x1 + dw, fFrame.y1 + dh};
 	// The list covers the whole view; a new size needs a new one.
 	Invalidate();
-	for (std::unique_ptr<BView>& child : fChildren)
-		child->_ParentResized(dw, dh);
+	// layout the children (Haiku's _ResizeBy(): a view that supports layout
+	// is laid out, in a window only; the others follow their modes)
+	if (fFlags.Has(BViewFlag::SupportsLayout)) {
+		if (fWindow != nullptr)
+			Relayout();
+	} else {
+		for (std::unique_ptr<BView>& child : fChildren)
+			child->_ParentResized(dw, dh);
+	}
 	if (fFlags.Has(BViewFlag::FrameEvents))
 		FrameResized(fFrame.Width(), fFrame.Height());
 }
@@ -417,6 +451,8 @@ BView::Show()
 	if (fHideLevel > 0) {
 		fHideLevel--;
 		_Damage(fFrame);
+		if (fHideLevel == 0)
+			_InvalidateParentLayout();
 	}
 }
 
@@ -426,6 +462,8 @@ BView::Hide()
 {
 	fHideLevel++;
 	_Damage(fFrame);
+	if (fHideLevel == 1)
+		_InvalidateParentLayout();
 }
 
 
@@ -679,6 +717,429 @@ BView::_Detach()
 	fWindow->_ViewDetached(this);
 	fWindow->RemoveHandler(this);
 	fWindow = nullptr;
+}
+
+
+// #pragma mark - Layout Functions
+//
+// Ported from Haiku: src/kits/interface/View.cpp (commit b1d497bb69), the
+// layout part. NewGUI: the view owns its layout (unique_ptr); the layout
+// data are members instead of a BView::LayoutData; a top-level view tells
+// its window to lay out before the next frame instead of posting
+// B_LAYOUT_WINDOW.
+
+
+BLayout*
+BView::SetLayout(std::unique_ptr<BLayout> layout)
+{
+	fFlags |= BViewFlag::SupportsLayout;
+
+	// unset and delete the old layout
+	_DropLayout();
+
+	fLayout = std::move(layout);
+
+	if (fLayout) {
+		fLayout->SetOwner(this);
+
+		// add all children
+		for (const std::unique_ptr<BView>& child : fChildren)
+			(void)fLayout->AddView(child.get());
+	}
+
+	InvalidateLayout();
+	return fLayout.get();
+}
+
+
+BLayout*
+BView::GetLayout() const
+{
+	return fLayout.get();
+}
+
+
+gfx::Size
+BView::MinSize()
+{
+	// TODO: make sure this works correctly when some methods are overridden
+	float width;
+	float height;
+	GetPreferredSize(&width, &height);
+
+	return BLayoutUtils::ComposeSize(fMinSize,
+		(fLayout ? fLayout->MinSize() : gfx::Size{width, height}));
+}
+
+
+gfx::Size
+BView::MaxSize()
+{
+	return BLayoutUtils::ComposeSize(fMaxSize,
+		(fLayout ? fLayout->MaxSize() : gfx::Size{kSizeUnlimited, kSizeUnlimited}));
+}
+
+
+gfx::Size
+BView::PreferredSize()
+{
+	// TODO: make sure this works correctly when some methods are overridden
+	float width;
+	float height;
+	GetPreferredSize(&width, &height);
+
+	return BLayoutUtils::ComposeSize(fPreferredSize,
+		(fLayout ? fLayout->PreferredSize() : gfx::Size{width, height}));
+}
+
+
+BAlignment
+BView::LayoutAlignment()
+{
+	return BLayoutUtils::ComposeAlignment(fAlignment,
+		(fLayout ? fLayout->Alignment()
+			: BAlignment{BHorizontalAlignment::Center, BVerticalAlignment::Middle}));
+}
+
+
+void
+BView::GetPreferredSize(float* width, float* height)
+{
+	if (width != nullptr)
+		*width = Bounds().Width();
+	if (height != nullptr)
+		*height = Bounds().Height();
+}
+
+
+void
+BView::ResizeToPreferred()
+{
+	float width;
+	float height;
+	GetPreferredSize(&width, &height);
+
+	ResizeTo(width, height);
+}
+
+
+void
+BView::SetExplicitMinSize(gfx::Size size)
+{
+	fMinSize = size;
+	InvalidateLayout();
+}
+
+
+void
+BView::SetExplicitMaxSize(gfx::Size size)
+{
+	fMaxSize = size;
+	InvalidateLayout();
+}
+
+
+void
+BView::SetExplicitPreferredSize(gfx::Size size)
+{
+	fPreferredSize = size;
+	InvalidateLayout();
+}
+
+
+void
+BView::SetExplicitSize(gfx::Size size)
+{
+	fMinSize = size;
+	fMaxSize = size;
+	fPreferredSize = size;
+	InvalidateLayout();
+}
+
+
+void
+BView::SetExplicitAlignment(BAlignment alignment)
+{
+	fAlignment = alignment;
+	InvalidateLayout();
+}
+
+
+gfx::Size
+BView::ExplicitMinSize() const
+{
+	return fMinSize;
+}
+
+
+gfx::Size
+BView::ExplicitMaxSize() const
+{
+	return fMaxSize;
+}
+
+
+gfx::Size
+BView::ExplicitPreferredSize() const
+{
+	return fPreferredSize;
+}
+
+
+BAlignment
+BView::ExplicitAlignment() const
+{
+	return fAlignment;
+}
+
+
+bool
+BView::HasHeightForWidth()
+{
+	return fLayout ? fLayout->HasHeightForWidth() : false;
+}
+
+
+void
+BView::GetHeightForWidth(float width, float* min, float* max, float* preferred)
+{
+	if (fLayout)
+		fLayout->GetHeightForWidth(width, min, max, preferred);
+}
+
+
+void
+BView::InvalidateLayout(bool descendants)
+{
+	if (!fMinMaxValid || fLayoutInProgress || fLayoutInvalidationDisabled > 0)
+		return;
+
+	fLayoutValid = false;
+	fMinMaxValid = false;
+	LayoutInvalidated(descendants);
+
+	if (descendants) {
+		for (const std::unique_ptr<BView>& child : fChildren)
+			child->InvalidateLayout(descendants);
+	}
+
+	if (fLayout)
+		fLayout->InvalidateLayout(descendants);
+	else
+		_InvalidateParentLayout();
+
+	if (fParent == nullptr && fWindow != nullptr)
+		fWindow->_LayoutInvalidated();
+}
+
+
+void
+BView::EnableLayoutInvalidation()
+{
+	if (fLayoutInvalidationDisabled > 0)
+		fLayoutInvalidationDisabled--;
+}
+
+
+void
+BView::DisableLayoutInvalidation()
+{
+	fLayoutInvalidationDisabled++;
+}
+
+
+bool
+BView::IsLayoutInvalidationDisabled() const
+{
+	return fLayoutInvalidationDisabled > 0;
+}
+
+
+bool
+BView::IsLayoutValid() const
+{
+	return fLayoutValid;
+}
+
+
+void
+BView::ResetLayoutInvalidation()
+{
+	fMinMaxValid = true;
+}
+
+
+BLayoutContext*
+BView::LayoutContext() const
+{
+	return fLayoutContext;
+}
+
+
+void
+BView::Layout(bool force)
+{
+	BLayoutContext context;
+	_Layout(force, &context);
+}
+
+
+void
+BView::Relayout()
+{
+	if (fLayoutValid && !fLayoutInProgress) {
+		fNeedsRelayout = true;
+		if (fLayout)
+			fLayout->RequireLayout();
+
+		// Layout() is recursive, that is if the parent view is currently laid
+		// out, we don't call layout() on this view, but wait for the parent's
+		// Layout() to do that for us.
+		if (!fParent || !fParent->fLayoutInProgress)
+			Layout(false);
+	}
+}
+
+
+void
+BView::LayoutInvalidated(bool /*descendants*/)
+{
+	// hook method
+}
+
+
+void
+BView::DoLayout()
+{
+	if (fLayout)
+		fLayout->_LayoutWithinContext(false, LayoutContext());
+}
+
+
+void
+BView::LayoutChanged()
+{
+	// hook method
+}
+
+
+void
+BView::_Layout(bool force, BLayoutContext* context)
+{
+	if (fNeedsRelayout || !fLayoutValid || force) {
+		fLayoutValid = false;
+
+		if (fLayoutInProgress)
+			return;
+
+		BLayoutContext* oldContext = fLayoutContext;
+		fLayoutContext = context;
+
+		fLayoutInProgress = true;
+		DoLayout();
+		fLayoutInProgress = false;
+
+		fLayoutValid = true;
+		fMinMaxValid = true;
+		fNeedsRelayout = false;
+
+		// layout children
+		for (const std::unique_ptr<BView>& child : fChildren) {
+			if (child->fHideLevel <= 0)
+				child->_Layout(force, context);
+		}
+
+		LayoutChanged();
+
+		fLayoutContext = oldContext;
+
+		// invalidate the drawn content, if requested
+		if (fFlags.Has(BViewFlag::InvalidateAfterLayout))
+			Invalidate();
+	}
+}
+
+
+void
+BView::_InvalidateParentLayout()
+{
+	if (!fParent)
+		return;
+
+	BLayout* layout = fLayout.get();
+	BLayout* layoutParent = layout ? layout->Layout() : nullptr;
+	if (layoutParent) {
+		layoutParent->InvalidateLayout();
+	} else if (!fLayoutItems.empty()) {
+		// NewGUI: a copy, since invalidation may not change the list, but
+		// should not depend on that.
+		const std::vector<BLayoutItem*> items = fLayoutItems;
+		for (BLayoutItem* item : items)
+			item->Layout()->InvalidateLayout();
+	} else {
+		fParent->InvalidateLayout();
+	}
+}
+
+
+bool
+BView::_WillLayout() const
+{
+	if (fLayoutInProgress)
+		return false;
+	if (fNeedsRelayout || !fLayoutValid || !fMinMaxValid)
+		return true;
+	return false;
+}
+
+
+void
+BView::_RemoveLayoutItemsFromLayout()
+{
+	// Removes the items from their layouts and destroys them.
+	while (!fLayoutItems.empty()) {
+		BLayoutItem* item = fLayoutItems.back();
+		std::unique_ptr<BLayoutItem> removed = item->RemoveSelf();
+		if (!removed) {
+			// not in a layout: cannot be registered, but do not loop
+			std::erase(fLayoutItems, item);
+		}
+	}
+}
+
+
+void
+BView::_RegisterLayoutItem(BLayoutItem* item)
+{
+	fLayoutItems.push_back(item);
+}
+
+
+void
+BView::_DeregisterLayoutItem(BLayoutItem* item)
+{
+	std::erase(fLayoutItems, item);
+}
+
+
+int
+BView::_HideLevel() const
+{
+	return fHideLevel;
+}
+
+
+void
+BView::_DropLayout()
+{
+	if (fLayout) {
+		// The layout's last invalidation must not reach the view, which may
+		// be in its destructor; SetLayout() invalidates afterwards anyway.
+		DisableLayoutInvalidation();
+		fLayout->SetOwner(nullptr);
+		fLayout.reset();
+		EnableLayoutInvalidation();
+	}
 }
 
 

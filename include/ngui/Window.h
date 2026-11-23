@@ -40,8 +40,10 @@ enum class BWindowLook : std::uint8_t {
 enum class BWindowFlag : std::uint32_t {
 	NotResizable = 1u << 0,		/*!< B_NOT_RESIZABLE */
 	NotClosable = 1u << 1,		/*!< B_NOT_CLOSABLE: the close button does nothing. */
-	QuitOnWindowClose = 1u << 2	/*!< B_QUIT_ON_WINDOW_CLOSE: the application quits with
-									it. */
+	QuitOnWindowClose = 1u << 2,	/*!< B_QUIT_ON_WINDOW_CLOSE: the application quits
+									with it. */
+	AutoUpdateSizeLimits = 1u << 3	/*!< B_AUTO_UPDATE_SIZE_LIMITS: the size limits follow
+									the root view's minimum and maximum size. */
 };
 NGUI_FLAG_ENUM(BWindowFlag)
 
@@ -114,6 +116,35 @@ public:
 			BView*				RootView() const;
 									/*!< The view that covers the content area. */
 
+	// Layout (module G10)
+
+			BLayout*			SetLayout(std::unique_ptr<BLayout> layout);
+									/*!< The layout of the root view (BView::SetLayout()). */
+			BLayout*			GetLayout() const;
+									/*!< The root view's layout, or nullptr. */
+			BLayoutItem*		AddChild(std::unique_ptr<BLayoutItem> child);
+									/*!< Adds \a child to the root view's layout. */
+			void				InvalidateLayout(bool descendants = false);
+									/*!< BView::InvalidateLayout() of the root view. */
+			void				Layout(bool force);
+									/*!< Updates the size limits (AutoUpdateSizeLimits) and
+										lays out the views. Done before each frame in which
+										a layout was invalidated. */
+			void				ResizeToPreferred();
+									/*!< Resizes to the root view's preferred size within its
+										minimum and maximum. */
+			void				SetSizeLimits(float minWidth, float maxWidth,
+									float minHeight, float maxHeight);
+									/*!< Limits the size of the content area (ignored if a
+										minimum is above its maximum); resizes the window
+										into the limits. */
+			void				GetSizeLimits(float* minWidth, float* maxWidth,
+									float* minHeight, float* maxHeight) const;
+									/*!< The limits; each pointer may be nullptr. */
+			void				UpdateSizeLimits();
+									/*!< With AutoUpdateSizeLimits: the limits from the root
+										view's minimum and maximum size. */
+
 	// The window
 
 			void				Show();
@@ -129,7 +160,7 @@ public:
 			void				MoveTo(gfx::Point where);
 									/*!< Moves the content area's left top corner. */
 			void				ResizeTo(float width, float height);
-									/*!< Resizes the content area. */
+									/*!< Resizes the content area, within the size limits. */
 			const std::string&	Title() const;
 									/*!< The title. */
 			void				SetTitle(std::string_view title);
@@ -178,6 +209,7 @@ private:
 
 	static	std::vector<BMessenger> _Windows();
 			void				_Resized(float width, float height, float scale);
+			void				_LayoutInvalidated();
 
 			std::string			fTitle;
 			BWindowFlags		fFlags;
@@ -198,6 +230,8 @@ private:
 			std::uint32_t		fButtons = 0;
 			int					fHideLevel = 1;
 			bool				fUpdatePending = false;
+			gfx::Size			fMinSize = {0, 0};
+			gfx::Size			fMaxSize = {kSizeUnlimited, kSizeUnlimited};
 			bool				fActive = false;
 };
 
