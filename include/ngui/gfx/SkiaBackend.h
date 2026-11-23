@@ -36,8 +36,8 @@ namespace ngui::gfx {
 	  added with AddFont() before a glyph run can be drawn (13.4); a run in
 	  an unknown font is skipped.
 
-	Window surfaces follow with the platform layer and the CPU presenter;
-	CreateWindowSurface() returns nullptr until then.
+	Window surfaces are CPU raster surfaces of the window's size; the CPU
+	presenter of the platform layer shows them (specification 12).
 */
 class SkiaBackend : public Backend {
 public:
@@ -62,7 +62,8 @@ public:
 									/*!< Frees the image. */
 			SurfaceRef			CreateWindowSurface(const NativeWindow& window,
 									SurfaceKind kind) override;
-									/*!< nullptr until the platform layer exists. */
+									/*!< A CPU raster surface of the window's size;
+										nullptr for SurfaceKind::Gpu. */
 			SurfaceRef			CreateOffscreenSurface(Size device, float scale) override;
 									/*!< A CPU raster surface of \a device pixels, rounded. */
 			void				ResizeSurface(Surface& surface, Size device,

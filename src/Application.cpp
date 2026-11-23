@@ -23,6 +23,7 @@ namespace {
 std::mutex sLock;
 bool sExists = false;
 BMessenger sMessenger;
+platform::Platform* sPlatform = nullptr;
 
 
 bool
@@ -34,6 +35,35 @@ IsApplicationSignature(std::string_view signature)
 
 
 } // namespace
+
+
+// The platform as event source of the application's loop.
+class BApplication::PlatformEvents : public BLooper::EventSource {
+public:
+	explicit PlatformEvents(platform::Platform& platform)
+		:
+		fPlatform(platform)
+	{
+	}
+
+	void ProcessEvents() override
+	{
+		fPlatform.ProcessEvents();
+	}
+
+	void WaitForEvents() override
+	{
+		fPlatform.WaitForEvents();
+	}
+
+	void Wake() override
+	{
+		fPlatform.Wake();
+	}
+
+private:
+	platform::Platform& fPlatform;
+};
 
 
 BApplication::BApplication(std::string_view signature, int argc, char** argv)
@@ -67,6 +97,25 @@ BApplication::~BApplication()
 
 
 std::expected<void, Error>
+BApplication::UsePlatform(std::unique_ptr<platform::Platform> platform)
+{
+	if (platform == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "no platform");
+	if (Thread() != std::thread::id())
+		return Failure(ErrorCode::InvalidArgument, "the application runs already");
+	fPlatform = std::move(platform);
+	return {};
+}
+
+
+platform::Platform*
+BApplication::Platform() const
+{
+	return fPlatform.get();
+}
+
+
+std::expected<void, Error>
 BApplication::InitCheck() const
 {
 	if (!fValidSignature) {
@@ -92,7 +141,18 @@ BApplication::Run()
 		(void)PostMessage(arguments, this);
 	}
 	(void)PostMessage(BMessage(kReadyToRun), this);
-	_RunOnThisThread();
+	if (fPlatform == nullptr) {
+		_RunOnThisThread();
+	} else {
+		{
+			std::scoped_lock lock(sLock);
+			sPlatform = fPlatform.get();
+		}
+		PlatformEvents events(*fPlatform);
+		_RunOnThisThread(&events);
+		std::scoped_lock lock(sLock);
+		sPlatform = nullptr;
+	}
 	fPulseRunner.reset();
 	return 0;
 }
@@ -201,6 +261,14 @@ AppMessenger()
 {
 	std::scoped_lock lock(sLock);
 	return sMessenger;
+}
+
+
+platform::Platform*
+platform::Current()
+{
+	std::scoped_lock lock(sLock);
+	return sPlatform;
 }
 
 

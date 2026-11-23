@@ -36,3 +36,10 @@
 	comparison with the tolerances of 21.2, and snapshots with their reports.
 	Library ngui_testkit; GoogleTest macros in ngui/test/GTest.h.
 */
+
+
+/*!
+	\namespace ngui::platform
+	\brief The platform layer (modules P1, P2): windows, screens and the events
+	of the window system, and the CPU presenter that shows rendered pixels.
+*/

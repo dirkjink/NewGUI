@@ -73,7 +73,7 @@ BLooper::Run(std::unique_ptr<BLooper> looper)
 
 
 void
-BLooper::_RunOnThisThread()
+BLooper::_RunOnThisThread(EventSource* source)
 {
 	assert(!fRunning && "the looper runs already");
 	if (fRunning)
@@ -81,7 +81,30 @@ BLooper::_RunOnThisThread()
 	fRunning = true;
 	fThread = std::this_thread::get_id();
 	fPort->SetThread(fThread);
-	_Loop();
+	if (source == nullptr) {
+		_Loop();
+		return;
+	}
+
+	// The messages and the events of the source, in turn. A message that
+	// arrives while the source waits wakes it; one that arrived before
+	// WaitForEvents() makes it return at once, since Wake() was called.
+	fPort->SetWaker([source] { source->Wake(); });
+	while (!fQuitting) {
+		source->ProcessEvents();
+		if (fQuitting)
+			break;
+		std::unique_ptr<BMessage> message = fPort->TryPop();
+		if (message != nullptr) {
+			_Dispatch(std::move(message));
+			continue;
+		}
+		if (!fPort->IsOpen())
+			break;
+		source->WaitForEvents();
+	}
+	fPort->SetWaker(nullptr);
+	fPort->Close();
 }
 
 
@@ -92,20 +115,27 @@ BLooper::_Loop()
 		std::unique_ptr<BMessage> message = fPort->Pop();
 		if (message == nullptr)
 			break;
-		if (message->fDelivery == nullptr)
-			message->fDelivery = std::make_unique<MessageDelivery>();
-		message->fDelivery->delivered = true;
-
-		BAutolock lock(fLock);
-		fCurrent = std::move(message);
-		BHandler* handler = _FilteredTarget(fCurrent.get(), _Target(*fCurrent));
-		// A message for a handler that left the looper is dropped; its
-		// waiting sender gets kNoReply.
-		if (handler != nullptr)
-			DispatchMessage(fCurrent.get(), handler);
-		fCurrent.reset();
+		_Dispatch(std::move(message));
 	}
 	fPort->Close();
+}
+
+
+void
+BLooper::_Dispatch(std::unique_ptr<BMessage> message)
+{
+	if (message->fDelivery == nullptr)
+		message->fDelivery = std::make_unique<MessageDelivery>();
+	message->fDelivery->delivered = true;
+
+	BAutolock lock(fLock);
+	fCurrent = std::move(message);
+	BHandler* handler = _FilteredTarget(fCurrent.get(), _Target(*fCurrent));
+	// A message for a handler that left the looper is dropped; its waiting
+	// sender gets kNoReply.
+	if (handler != nullptr)
+		DispatchMessage(fCurrent.get(), handler);
+	fCurrent.reset();
 }
 
 

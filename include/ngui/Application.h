@@ -19,6 +19,7 @@
 #include <ngui/Looper.h>
 #include <ngui/MessageRunner.h>
 #include <ngui/Messenger.h>
+#include <ngui/platform/Platform.h>
 
 
 namespace ngui {
@@ -62,6 +63,16 @@ public:
 								~BApplication() override;
 									/*!< Ends AppMessenger(). */
 
+			std::expected<void, Error> UsePlatform(
+									std::unique_ptr<platform::Platform> platform);
+									/*!< The window system for this application, before
+										Run(); its loop then waits for the platform's events
+										and the messages together, and platform::Current()
+										gives it to other threads. InvalidArgument for
+										nullptr or while it runs. */
+			platform::Platform*	Platform() const;
+									/*!< The platform, nullptr without one. */
+
 			std::expected<void, Error> InitCheck() const;
 									/*!< InvalidArgument for a signature that is not an
 										application MIME type ("application/..."), or if
@@ -99,7 +110,10 @@ public:
 										BLooper's. */
 
 private:
+			class PlatformEvents;
+
 			std::string			fSignature;
+			std::unique_ptr<platform::Platform> fPlatform;
 			std::vector<std::string> fArguments;
 			Clock::Time			fPulseRate = kDefaultPulseRate;
 			std::unique_ptr<BMessageRunner> fPulseRunner;

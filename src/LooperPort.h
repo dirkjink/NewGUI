@@ -16,6 +16,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <expected>
 #include <memory>
 #include <mutex>
@@ -37,6 +38,11 @@ class LooperPort {
 public:
 	std::expected<void, Error> Push(std::unique_ptr<BMessage> message);
 	std::unique_ptr<BMessage> Pop();
+	// The next message, or nullptr at once if there is none.
+	std::unique_ptr<BMessage> TryPop();
+	// Called after each Push(), outside the lock, e.g. to wake a platform
+	// event loop that waits for its own events (BApplication).
+	void SetWaker(std::function<void()> waker);
 	void Close();
 	bool IsOpen() const;
 
@@ -52,6 +58,7 @@ private:
 	std::condition_variable fFinished;
 	std::deque<std::unique_ptr<BMessage>> fQueue;
 	std::thread::id fThread;
+	std::function<void()> fWaker;
 	bool fClosed = false;
 	bool fDone = false;
 };

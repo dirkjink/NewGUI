@@ -37,6 +37,7 @@
 
 #include <ngui/gfx/DisplayList.h>
 #include <ngui/gfx/ImageRegistry.h>
+#include <ngui/gfx/NativeWindow.h>
 
 
 namespace ngui::gfx {
@@ -599,9 +600,14 @@ SkiaBackend::ReleaseImage(ImageHandle image)
 
 
 SurfaceRef
-SkiaBackend::CreateWindowSurface(const NativeWindow&, SurfaceKind)
+SkiaBackend::CreateWindowSurface(const NativeWindow& window, SurfaceKind kind)
 {
-	return nullptr;
+	// A CPU surface of the window's size in device pixels; the CPU
+	// presenter shows it (specification 12).
+	if (kind != SurfaceKind::CpuRaster)
+		return nullptr;
+	return CreateOffscreenSurface({std::round(window.size.w * window.scale),
+		std::round(window.size.h * window.scale)}, window.scale);
 }
 
 

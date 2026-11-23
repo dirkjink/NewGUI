@@ -14,6 +14,7 @@
 
 #include <ngui/gfx/Dump.h>
 #include <ngui/gfx/ImageRegistry.h>
+#include <ngui/gfx/NativeWindow.h>
 
 #include "DumpNumber.h"
 
@@ -93,9 +94,14 @@ DumpBackend::ReleaseImage(ImageHandle)
 
 
 SurfaceRef
-DumpBackend::CreateWindowSurface(const NativeWindow&, SurfaceKind)
+DumpBackend::CreateWindowSurface(const NativeWindow& window, SurfaceKind kind)
 {
-	return nullptr;
+	// A CPU surface of the window's size in device pixels; the CPU
+	// presenter shows it (specification 12).
+	if (kind != SurfaceKind::CpuRaster)
+		return nullptr;
+	return CreateOffscreenSurface({std::round(window.size.w * window.scale),
+		std::round(window.size.h * window.scale)}, window.scale);
 }
 
 

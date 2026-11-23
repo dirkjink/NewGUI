@@ -67,7 +67,8 @@ public:
 									/*!< Nothing to free. */
 			SurfaceRef			CreateWindowSurface(const NativeWindow& window,
 									SurfaceKind kind) override;
-									/*!< nullptr: the dump backend has no windows. */
+									/*!< A DumpSurface of the window's size; nullptr for
+										SurfaceKind::Gpu. */
 			SurfaceRef			CreateOffscreenSurface(Size device, float scale) override;
 									/*!< A DumpSurface. */
 			void				ResizeSurface(Surface& surface, Size device,

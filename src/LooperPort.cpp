@@ -43,17 +43,25 @@ WaitFor(std::condition_variable& condition, Lock& lock, std::chrono::microsecond
 std::expected<void, Error>
 LooperPort::Push(std::unique_ptr<BMessage> message)
 {
+	bool queued = false;
+	std::function<void()> waker;
 	{
 		std::scoped_lock lock(fLock);
 		if (!fClosed) {
 			fQueue.push_back(std::move(message));
 			fAvailable.notify_one();
-			return {};
+			waker = fWaker;
+			queued = true;
 		}
 	}
-	// Refused: the message dies here, outside the lock, which may wake its
-	// sender with kNoReply.
-	return Failure(ErrorCode::NotFound, "the looper has quit");
+	if (!queued) {
+		// Refused: the message dies here, outside the lock, which may wake
+		// its sender with kNoReply.
+		return Failure(ErrorCode::NotFound, "the looper has quit");
+	}
+	if (waker)
+		waker();
+	return {};
 }
 
 
@@ -67,6 +75,26 @@ LooperPort::Pop()
 	std::unique_ptr<BMessage> message = std::move(fQueue.front());
 	fQueue.pop_front();
 	return message;
+}
+
+
+std::unique_ptr<BMessage>
+LooperPort::TryPop()
+{
+	std::scoped_lock lock(fLock);
+	if (fQueue.empty())
+		return nullptr;
+	std::unique_ptr<BMessage> message = std::move(fQueue.front());
+	fQueue.pop_front();
+	return message;
+}
+
+
+void
+LooperPort::SetWaker(std::function<void()> waker)
+{
+	std::scoped_lock lock(fLock);
+	fWaker = std::move(waker);
 }
 
 
