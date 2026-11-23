@@ -8,6 +8,7 @@ configure_file(
     @ONLY)
 
 add_library(ngui
+    Application.cpp
     Clock.cpp
     ControlLook.cpp
     Locker.cpp

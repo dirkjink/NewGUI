@@ -12,6 +12,7 @@ file(GLOB fuzzTargetSources CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/fuzz/*Fuzz.cpp")
 
 add_executable(ngui_tests
+    ApplicationTest.cpp
     ClockTest.cpp
     ErrorTest.cpp
     FlagsTest.cpp

@@ -30,5 +30,21 @@ inline constexpr std::uint32_t kNoReply = FourCharCode("_NRP");
 /*!	A plain reply, e.g. to kQuitRequested with the bool "result" (B_REPLY). */
 inline constexpr std::uint32_t kReply = FourCharCode("RPLY");
 
+/*!	The command line, as strings "argv" and the int32 "argc"; to
+	BApplication::ArgvReceived() (B_ARGV_RECEIVED). */
+inline constexpr std::uint32_t kArgvReceived = FourCharCode("_ARG");
+
+/*!	The application is about to process messages; to
+	BApplication::ReadyToRun() (B_READY_TO_RUN). */
+inline constexpr std::uint32_t kReadyToRun = FourCharCode("_RTR");
+
+/*!	The regular pulse of the application; to BApplication::Pulse()
+	(B_PULSE). */
+inline constexpr std::uint32_t kPulse = FourCharCode("_PUL");
+
+/*!	The user asks for the about box; to BApplication::AboutRequested()
+	(B_ABOUT_REQUESTED). */
+inline constexpr std::uint32_t kAboutRequested = FourCharCode("_ABR");
+
 
 } // namespace ngui
