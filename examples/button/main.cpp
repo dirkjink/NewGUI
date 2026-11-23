@@ -15,9 +15,11 @@
 // them, the presenter copying the changed area into the window; text
 // shaped by the text subsystem with the bundled Noto Sans, drawn by Skia
 // with the same font file; the layout keeping both centered when the
-// window is resized (BLayoutBuilder).
+// window is resized (BLayoutBuilder). Below them a BSlider drives a
+// BStatusBar while its thumb moves (its modification message).
 
 
+#include <cstdint>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -26,6 +28,8 @@
 #include <ngui/Application.h>
 #include <ngui/Button.h>
 #include <ngui/LayoutBuilder.h>
+#include <ngui/Slider.h>
+#include <ngui/StatusBar.h>
 #include <ngui/StringView.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/BackendRegistry.h>
@@ -41,14 +45,16 @@ using namespace ngui;
 
 
 constexpr std::uint32_t kClicked = FourCharCode("CLCK");
+constexpr std::uint32_t kProgress = FourCharCode("PRGS");
 
 
-// The window: counts the clicks of its button in its label.
+// The window: counts the clicks of its button in its label; shows the
+// value of its slider in its status bar.
 class CounterWindow : public BWindow {
 public:
 	CounterWindow()
 		:
-		BWindow(gfx::Rect{100, 100, 420, 260}, "NewGUI", BWindowLook::Titled,
+		BWindow(gfx::Rect{100, 100, 420, 340}, "NewGUI", BWindowLook::Titled,
 			BWindowFlag::QuitOnWindowClose | BWindowFlag::AutoUpdateSizeLimits)
 	{
 		auto label = std::make_unique<BStringView>("label", "Not clicked yet");
@@ -56,9 +62,20 @@ public:
 		auto button = std::make_unique<BButton>("Click me",
 			std::make_unique<BMessage>(kClicked));
 		BButton* clickMe = button.get();
+		auto slider = std::make_unique<BSlider>("slider", "Progress",
+			std::make_unique<BMessage>(kProgress), 0, 100, BOrientation::Horizontal);
+		slider->SetModificationMessage(std::make_unique<BMessage>(kProgress));
+		slider->SetLimitLabels("0 %", "100 %");
+		slider->SetHashMarks(BHashMarkLocation::BottomOrRight);
+		slider->SetHashMarkCount(11);
+		fSlider = slider.get();
+		auto status = std::make_unique<BStatusBar>("status", "Progress: ", " %");
+		status->SetTo(0, {}, "0");
+		fStatus = status.get();
 
-		// Both stay centered; the window cannot become smaller than they
-		// and the window insets.
+		// The label and the button stay centered, the slider and the status
+		// bar take the width; the window cannot become smaller than they and
+		// the window insets.
 		BLayoutBuilder::Group<>(this, BOrientation::Vertical)
 			.SetInsets(kUseWindowInsets)
 			.AddGlue()
@@ -72,13 +89,20 @@ public:
 				.Add(std::move(button))
 				.AddGlue()
 			.End()
-			.AddGlue();
+			.AddGlue()
+			.Add(std::move(slider))
+			.Add(std::move(status));
 
 		clickMe->MakeDefault(true);
 	}
 
 	void MessageReceived(BMessage* message) override
 	{
+		if (message->what == kProgress) {
+			const std::int32_t value = fSlider->Value();
+			fStatus->SetTo(static_cast<float>(value), {}, std::to_string(value));
+			return;
+		}
 		if (message->what != kClicked) {
 			BWindow::MessageReceived(message);
 			return;
@@ -90,6 +114,8 @@ public:
 
 private:
 	BStringView* fLabel = nullptr;
+	BSlider* fSlider = nullptr;
+	BStatusBar* fStatus = nullptr;
 	int fClicks = 0;
 };
 
