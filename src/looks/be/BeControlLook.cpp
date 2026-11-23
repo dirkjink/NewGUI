@@ -45,8 +45,8 @@ namespace ngui::compat {
 
 static const float kButtonPopUpIndicatorWidth = 11;
 
-static const rgb_color kBlack = { 0, 0, 0, 255 };
-static const rgb_color kWhite = { 255, 255, 255, 255 };
+// NewGUI: kBlack and kWhite are left out with the desktop labels, their
+// only use.
 
 
 BeControlLook::BeControlLook(const TextSystem& text)
@@ -245,7 +245,7 @@ BeControlLook::DrawCheckBox(BView* view, BRect& rect, const BRect& updateRect,
 	if (isActivated) {
 		rect.InsetBy(4, 4);
 
-		float penSize = std::max(1, 2);
+		float penSize = std::max(1.0f, 2.0f);
 		if (penSize > 1 && fmodf(penSize, 2) == 0) {
 			// Tweak ends to "include" the pixel at the index,
 			// we need to do this in order to produce results like R5,
@@ -2285,7 +2285,7 @@ BeControlLook::GetFrameInsets(frame_type frameType, uint32 flags, float& _left,
 
 	switch (frameType) {
 		case B_BUTTON_FRAME:
-			inset = (flags & B_DEFAULT_BUTTON) != 0 ? 5 : 2;
+			inset = (flags & B_DEFAULT_BUTTON) != 0 ? 5.0f : 2.0f;
 			break;
 
 		case B_GROUP_FRAME:
