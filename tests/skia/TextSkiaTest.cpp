@@ -24,6 +24,7 @@
 #include <ngui/Slider.h>
 #include <ngui/SplitView.h>
 #include <ngui/StatusBar.h>
+#include <ngui/TabView.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/SkiaBackend.h>
@@ -608,6 +609,56 @@ TEST(TextSkiaTest, SplitViewsMatchTheirSnapshots)
 			// Then
 			ASSERT_TRUE(image.has_value()) << image.error().message;
 			EXPECT_IMAGE_SNAPSHOT(*image, std::string("SplitView") + kind, {.look = "be",
+				.backend = "skia", .scale = scale, .tolerance = Tolerance::Text()});
+		}
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, TabViewsMatchTheirSnapshots)
+{
+	// What is tested: A tab view 260 × 110 for a layout with the tabs
+	// "General", "Advanced" and "About", the second selected ("TabView");
+	// and one with the tabs at the bottom, as wide as their labels, and a
+	// plain border ("TabViewBottom"); with the bundled font, laid out and
+	// recorded with their children, rendered by Skia at scale 1 and 2.
+	// Success criteria: Within the text tolerance of 21.2: the BeOS tabs
+	// with the selected one in front and joined to the box, the labels
+	// centered, the frame around the page.
+	// Why it matters: The tab view combines the look's tab methods with
+	// Haiku's tab geometry.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+
+	for (const char* kind : {"", "Bottom"}) {
+		const bool bottom = std::string_view(kind) == "Bottom";
+		BWindow window({0, 0, 400, 300}, "tabs");
+		auto* tabs = static_cast<BTabView*>(window.AddChild(std::make_unique<BTabView>(
+			"tabs", bottom ? BButtonWidth::FromLabel : BButtonWidth::FromWidest)));
+		if (bottom) {
+			tabs->SetTabSide(BTabSide::Bottom);
+			tabs->SetBorder(BBorderStyle::Plain);
+		}
+		for (const char* name : {"General", "Advanced", "About"})
+			tabs->AddTab(std::make_unique<BView>(name));
+		tabs->Select(bottom ? 0 : 1);
+		tabs->ResizeTo(260, 110);
+		tabs->Layout(true);
+		const DisplayListRef list = RecordTree(*tabs, *text);
+
+		for (const float scale : {1.0f, 2.0f}) {
+			// When
+			SkiaBackend backend;
+			for (const FontFile& font : text->Fonts())
+				ASSERT_TRUE(backend.AddFont(font.id, font.data));
+			const auto image = RenderToImage(backend, *list, scale);
+
+			// Then
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, std::string("TabView") + kind, {.look = "be",
 				.backend = "skia", .scale = scale, .tolerance = Tolerance::Text()});
 		}
 	}

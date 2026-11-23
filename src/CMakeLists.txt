@@ -49,6 +49,7 @@ add_library(ngui
     SplitLayout.cpp
     SplitView.cpp
     StringView.cpp
+    TabView.cpp
     TextSystem.cpp
     TruncateString.cpp
     TwoDimensionalLayout.cpp
