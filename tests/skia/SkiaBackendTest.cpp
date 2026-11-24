@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 
+#include <ngui/Polygon.h>
+#include <ngui/Shape.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/ImageRegistry.h>
 
@@ -282,6 +284,44 @@ TEST(SkiaBackendTest, PathsAreDrawnNatively)
 	EXPECT_EQ(rendered.At(40, 50), kRed);
 	EXPECT_EQ(rendered.At(40, 55), kWhite);
 	EXPECT_EQ(rendered.At(40, 45), kWhite);
+}
+
+
+TEST(SkiaBackendTest, ShapesAndPolygonsAreDrawn)
+{
+	// What is tested: A BShape of two half circle arcs (radius 10 around
+	// (15, 15)), filled; an L-shaped BPolygon (concave) filled at the right.
+	// Success criteria: The circle is red in its middle and white in the
+	// corner of its square; the L is red in both arms and white in the
+	// notch between them.
+	// Why it matters: Haiku's FillShape() and FillPolygon() become
+	// FillPath() of ToPath(); arcs and concave polygons need the extended
+	// profile.
+	//
+	// Given
+	ngui::BShape circle;
+	circle.MoveTo({5, 15});
+	circle.ArcTo(10, 10, 0, false, false, {25, 15});
+	circle.ArcTo(10, 10, 0, false, false, {5, 15});
+	circle.Close();
+	const std::array<Point, 6> corners = {{{40, 5}, {50, 5}, {50, 20}, {65, 20}, {65, 30},
+		{40, 30}}};
+	const ngui::BPolygon l(corners);
+	Canvas canvas({0, 0, 70, 35});
+
+	// When
+	canvas.FillPath(circle.ToPath(), kRedPaint);
+	canvas.FillPath(l.ToPath(), kRedPaint);
+	const DisplayListRef list = canvas.Finish();
+	const Rendered rendered(list, {70, 35});
+
+	// Then
+	EXPECT_EQ(rendered.At(15, 15), kRed);
+	EXPECT_EQ(rendered.At(15, 6), kRed);
+	EXPECT_EQ(rendered.At(6, 6), kWhite);
+	EXPECT_EQ(rendered.At(44, 10), kRed);
+	EXPECT_EQ(rendered.At(60, 25), kRed);
+	EXPECT_EQ(rendered.At(60, 10), kWhite);
 }
 
 
