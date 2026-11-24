@@ -34,6 +34,7 @@ add_library(ngui
     MessageFilter.cpp
     MessageRunner.cpp
     Messenger.cpp
+    OutlineListView.cpp
     compat/CompatView.cpp
     compat/Point.cpp
     compat/Rect.cpp

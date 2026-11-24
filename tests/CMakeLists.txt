@@ -33,6 +33,7 @@ add_executable(ngui_tests
     MessageRunnerTest.cpp
     MessageTest.cpp
     MessengerTest.cpp
+    OutlineListViewTest.cpp
     PaletteTest.cpp
     SupportDefsTest.cpp
     TextControlTest.cpp
