@@ -42,6 +42,7 @@
 #include <ngui/CheckBox.h>
 #include <ngui/GroupView.h>
 #include <ngui/LayoutBuilder.h>
+#include <ngui/ListView.h>
 #include <ngui/Menu.h>
 #include <ngui/MenuBar.h>
 #include <ngui/MenuField.h>
@@ -50,6 +51,7 @@
 #include <ngui/ScrollView.h>
 #include <ngui/Slider.h>
 #include <ngui/StatusBar.h>
+#include <ngui/StringItem.h>
 #include <ngui/StringView.h>
 #include <ngui/TabView.h>
 #include <ngui/TextControl.h>
@@ -73,6 +75,7 @@ constexpr std::uint32_t kReset = FourCharCode("RSET");
 constexpr std::uint32_t kAbout = FourCharCode("ABOT");
 constexpr std::uint32_t kHashMarks = FourCharCode("HASH");
 constexpr std::uint32_t kName = FourCharCode("NAME");
+constexpr std::uint32_t kChosen = FourCharCode("CHSN");
 
 
 // The counter's label: a right click opens a context menu with the
@@ -180,6 +183,21 @@ public:
 			BViewFlags{}, false, true);
 		tabs->AddTab(std::move(notesScroll));
 		tabs->TabAt(1)->SetLabel("Notes");
+		// A page with a list: a double click or Enter names the item in the
+		// label.
+		auto kits = std::make_unique<BListView>("kits");
+		for (const char* kit : {"Application Kit", "Interface Kit", "Storage Kit",
+			"Support Kit", "Media Kit", "Network Kit", "Game Kit", "Device Kit",
+			"Translation Kit", "Mail Kit"}) {
+			kits->AddItem(std::make_unique<BStringItem>(kit));
+		}
+		kits->ItemAt(6)->SetEnabled(false);
+		kits->SetInvocationMessage(std::make_unique<BMessage>(kChosen));
+		fKits = kits.get();
+		auto kitsScroll = std::make_unique<BScrollView>("kits scroll", std::move(kits),
+			BViewFlags{}, false, true);
+		tabs->AddTab(std::move(kitsScroll));
+		tabs->TabAt(2)->SetLabel("Lists");
 		tabs->AddTab(std::make_unique<BStringView>("About",
 			"NewGUI: Haiku's Interface Kit on SDL3 and Skia"));
 
@@ -233,6 +251,13 @@ public:
 			fLabel->SetText(name.empty() ? "Not clicked yet" : "Hello, " + name);
 			return;
 		}
+		if (message->what == kChosen) {
+			const auto* item = dynamic_cast<const BStringItem*>(
+				fKits->ItemAt(message->GetInt32("index", -1)));
+			if (item != nullptr)
+				fLabel->SetText("Chosen: " + item->Text());
+			return;
+		}
 		if (message->what == kHashMarks) {
 			fSlider->SetHashMarks(static_cast<BHashMarkLocation>(message->GetInt32("where", 0)));
 			return;
@@ -243,7 +268,7 @@ public:
 			return;
 		}
 		if (message->what == kAbout) {
-			fTabs->Select(2);
+			fTabs->Select(3);
 			return;
 		}
 		if (message->what != kClicked) {
@@ -258,6 +283,7 @@ public:
 private:
 	BStringView* fLabel = nullptr;
 	BSlider* fSlider = nullptr;
+	BListView* fKits = nullptr;
 	BStatusBar* fStatus = nullptr;
 	BTabView* fTabs = nullptr;
 	BTextControl* fName = nullptr;
