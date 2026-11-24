@@ -937,14 +937,18 @@ TEST(TextSkiaTest, TextViewsMatchTheirSnapshots)
 	// with "The quick brown fox jumps over the lazy dog", wrapped after
 	// "jumps ": with "quick brown fox jumps ov" selected across the two
 	// lines ("TextViewSelection"),
-	// with the caret after "quick" ("TextViewCaret"), and not editable
-	// without focus ("TextViewReadOnly"); recorded with the bundled font,
+	// with the caret after "quick" ("TextViewCaret"), with an input
+	// method composing "compose" there, its "pose" selected
+	// ("TextViewInline"), and not editable without focus
+	// ("TextViewReadOnly"); recorded with the bundled font,
 	// rendered by Skia at scale 1 and 2.
 	// Success criteria: Within the text tolerance of 21.2: the text on the
 	// document background, wrapped at the view's width less the insets;
 	// the selection inverted (white on black) from "quick" to the right
 	// edge, the next line from the left edge to "ov"; a one pixel caret
-	// of the line's height; read only, the background a shade darker.
+	// of the line's height; the composed text on Haiku's light blue, its
+	// selected part on light red; read only, the background a shade
+	// darker.
 	// Why it matters: The selection and the caret are drawn as Haiku's
 	// inversions; the text is laid out by TextLayout with the font's
 	// widths.
@@ -979,6 +983,17 @@ TEST(TextSkiaTest, TextViewsMatchTheirSnapshots)
 	snapshot("TextViewSelection");
 	view->Select(9, 9);
 	snapshot("TextViewCaret");
+	BMessage compose(kInputMethodEvent);
+	(void)compose.AddInt32("be:opcode", kInputMethodChanged);
+	(void)compose.AddString("be:string", " compose");
+	(void)compose.AddBool("be:confirmed", false);
+	(void)compose.AddInt32("be:selection", 4);
+	(void)compose.AddInt32("be:selection", 8);
+	view->MessageReceived(&compose);
+	snapshot("TextViewInline");
+	BMessage stop(kInputMethodEvent);
+	(void)stop.AddInt32("be:opcode", kInputMethodStopped);
+	view->MessageReceived(&stop);
 	view->MakeFocus(false);
 	view->MakeEditable(false);
 	snapshot("TextViewReadOnly");

@@ -26,6 +26,12 @@
  *   half-open ones with the same edges.
  * - Typing undo erases and restores graphemes (Haiku: code points), as
  *   Backspace and Delete remove them.
+ * - Input methods: kInputMethodEvent as Haiku's B_INPUT_METHOD_EVENT, but
+ *   without an input method messenger (the platform composes; no location
+ *   replies, the text input area goes to the platform window instead);
+ *   kInputMethodStopped takes an active composition's text out (its final
+ *   text comes as key events), and while composing the view leaves the
+ *   input method's control keys (Backspace, arrows, Enter ...) alone.
  *
  * Authors (Haiku):
  *		Hiroshi Lockheimer (BTextView is based on his STEngine)
@@ -133,6 +139,11 @@ Inverted(const gfx::Color& color)
 {
 	return {1 - color.r, 1 - color.g, 1 - color.b, color.a};
 }
+
+
+// Haiku's colors of the text an input method composes.
+constexpr gfx::Color kBlueInputColor = gfx::Color::FromRgba8(152, 203, 255);
+constexpr gfx::Color kRedInputColor = gfx::Color::FromRgba8(255, 152, 152);
 
 
 // The clipboard's text as bytes.
@@ -440,6 +451,28 @@ BTextView::Draw(DrawContext& context)
 
 	fLayout.Draw(context.canvas, origin, text);
 
+	if (fInline != nullptr && fInline->active) {
+		// the composed text on blue, its selected part on red (Haiku's
+		// _DrawLine())
+		const auto paint = [&](int32 from, int32 to, const gfx::Color& color) {
+			gfx::Region region;
+			GetTextRegion(from, to, &region);
+			for (int32 i = 0; i < region.CountRects(); i++) {
+				const gfx::Rect rect = region.RectAt(i).ToRect();
+				context.canvas.Save();
+				context.canvas.ClipRect(rect);
+				context.canvas.FillRect(rect, gfx::Paint{.color = color});
+				fLayout.Draw(context.canvas, origin, text);
+				context.canvas.Restore();
+			}
+		};
+		paint(fInline->offset, fInline->offset + fInline->length, kBlueInputColor);
+		if (fInline->selectionLength > 0) {
+			const int32 selection = fInline->offset + fInline->selectionOffset;
+			paint(selection, selection + fInline->selectionLength, kRedInputColor);
+		}
+	}
+
 	if (!fActive)
 		return;
 
@@ -474,6 +507,8 @@ BTextView::MouseDown(gfx::Point where)
 {
 	if (!fEditable && !fSelectable)
 		return;
+
+	_CancelInputMethod();
 
 	if (!IsFocus())
 		MakeFocus();
@@ -608,6 +643,15 @@ BTextView::KeyDown(std::string_view bytes)
 		return;
 	}
 
+	if (fInline != nullptr && fInline->active) {
+		// NewGUI: the input method's own keys; typed text ends the
+		// composition
+		if (keyPressed < 0x20 || keyPressed == 0x7f)
+			return;
+		_RemoveInlineInput();
+		fInline.reset();
+	}
+
 	// hide the caret
 	_HideCaret();
 
@@ -708,6 +752,39 @@ BTextView::MessageReceived(BMessage* message)
 			SelectAll();
 			break;
 
+		case kInputMethodEvent:
+		{
+			if (!fEditable)
+				break;
+			switch (message->GetInt32("be:opcode", -1)) {
+				case kInputMethodStarted:
+					if (fInline == nullptr)
+						fInline.reset(new InlineInput{0, 0, 0, 0, false, {}});
+					break;
+
+				case kInputMethodStopped:
+					// NewGUI: the composition's text goes, its final text
+					// comes as key events
+					_RemoveInlineInput();
+					fInline.reset();
+					break;
+
+				case kInputMethodChanged:
+					if (fInline == nullptr)
+						fInline.reset(new InlineInput{0, 0, 0, 0, false, {}});
+					_HandleInputMethodChanged(message);
+					break;
+
+				case kInputMethodLocationRequest:
+					_UpdateTextInputArea();
+					break;
+
+				default:
+					break;
+			}
+			break;
+		}
+
 		case kMsgNavigateArrow:
 			_HandleArrowKey(static_cast<uint8>(message->GetInt32("key", 0)),
 				message->GetInt32("modifiers", 0));
@@ -750,6 +827,8 @@ BTextView::MessageReceived(BMessage* message)
 void
 BTextView::SetText(std::string_view text)
 {
+	_CancelInputMethod();
+
 	if (fActive) {
 		if (fSelStart != fSelEnd) {
 			if (fSelectable)
@@ -2352,6 +2431,8 @@ BTextView::_HandleAlphaKey(std::string_view bytes)
 void
 BTextView::_DoInsertText(std::string_view text, int32 offset)
 {
+	_CancelInputMethod();
+
 	// Don't do any work if the text view is full
 	if (TextLength() + static_cast<int32>(text.size()) > MaxBytes())
 		return;
@@ -2408,7 +2489,132 @@ BTextView::_ShowCaret()
 		fCaretVisible = true;
 		_InvalidateCaret();
 		_StartBlinking();
+		_UpdateTextInputArea();
 	}
+}
+
+
+void
+BTextView::_HandleInputMethodChanged(BMessage* message)
+{
+	if (!message->HasString("be:string"))
+		return;
+	const std::string string(message->GetString("be:string", ""));
+
+	_HideCaret();
+
+	const bool confirmed = message->GetBool("be:confirmed", false);
+
+	// Delete the previously inserted text (if any)
+	if (fInline->active) {
+		const int32 oldOffset = fInline->offset;
+		DeleteText(oldOffset, oldOffset + fInline->length);
+		if (confirmed)
+			fInline->active = false;
+		fCaretOffset = fSelStart = fSelEnd = oldOffset;
+	}
+
+	const auto stringLen = static_cast<int32>(string.size());
+
+	fInline->offset = fSelStart;
+	fInline->length = stringLen;
+	fInline->clauses.clear();
+
+	if (!confirmed && !fInline->active)
+		fInline->active = true;
+
+	// Get the clauses, and pass them to the InlineInput object
+	for (int32 i = 0; auto start = message->FindInt32("be:clause_start", i); i++) {
+		auto end = message->FindInt32("be:clause_end", i);
+		if (!end.has_value())
+			break;
+		fInline->clauses.emplace_back(*start, *end);
+	}
+
+	if (confirmed) {
+		_Refresh(fSelEnd);
+		_ShowCaret();
+
+		// now we need to feed ourselves the individual characters as if the
+		// user would have pressed them now - this lets KeyDown() pick out all
+		// the special characters like B_BACKSPACE, cursor keys and the like:
+		std::size_t i = 0;
+		while (i < string.size()) {
+			std::size_t next = i + 1;
+			while (next < string.size()
+				&& (static_cast<unsigned char>(string[next]) & 0xc0) == 0x80) {
+				next++;
+			}
+			KeyDown(std::string_view(string).substr(i, next - i));
+			i = next;
+		}
+
+		_Refresh(fSelEnd);
+	} else {
+		// temporarily show transient state of inline input
+		fInline->selectionOffset = message->GetInt32("be:selection", 0);
+		const auto selectionEnd = message->FindInt32("be:selection", 1);
+		fInline->selectionLength = selectionEnd.has_value()
+			? *selectionEnd - fInline->selectionOffset : 0;
+
+		InsertText(string, fSelStart);
+
+		_Refresh(fSelEnd);
+		_ShowCaret();
+	}
+	_UpdateTextInputArea();
+}
+
+
+void
+BTextView::_RemoveInlineInput()
+{
+	// NewGUI: the composed text goes (Haiku's input method sent the final
+	// text confirmed instead)
+	if (fInline == nullptr || !fInline->active)
+		return;
+
+	_HideCaret();
+	const int32 offset = fInline->offset;
+	DeleteText(offset, offset + fInline->length);
+	fInline->active = false;
+	fCaretOffset = fSelStart = fSelEnd = offset;
+	_Refresh(fCaretOffset);
+	_ShowCaret();
+}
+
+
+void
+BTextView::_CancelInputMethod()
+{
+	if (fInline == nullptr)
+		return;
+
+	const bool active = fInline->active;
+	fInline.reset();
+
+	if (active && Window() != nullptr) {
+		// the composed text stays; the input method ends (Haiku: sent it
+		// B_INPUT_METHOD_STOPPED)
+		_Refresh();
+		Window()->_ClearComposition();
+	}
+}
+
+
+void
+BTextView::_UpdateTextInputArea()
+{
+	// NewGUI: where the platform's input method shows its candidates
+	// (Haiku answered B_INPUT_METHOD_LOCATION_REQUEST)
+	if (Window() == nullptr || !fActive)
+		return;
+
+	const int32 offset = fInline != nullptr && fInline->active ? fInline->offset : fSelStart;
+	float height;
+	const gfx::Point point = PointAt(offset, &height);
+	const gfx::Point window = ConvertToWindow(point);
+	Window()->_SetTextInputArea({window.x, window.y, window.x + 1, window.y + height}, 0);
 }
 
 
@@ -2623,6 +2829,7 @@ void
 BTextView::_Deactivate()
 {
 	fActive = false;
+	_CancelInputMethod();
 	fCaretRunner.reset();
 
 	if (fSelStart != fSelEnd) {

@@ -9,6 +9,7 @@
 
 #include <SDL3/SDL_mouse.h>
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 
@@ -109,6 +110,24 @@ ButtonBit(std::uint8_t button)
 
 
 } // namespace
+
+
+// The byte offset of a character (internal).
+static std::int32_t
+ByteOffset(std::string_view text, std::int32_t characters)
+{
+	// the byte offset of the character \a characters of UTF-8 \a text (its
+	// end if there are fewer)
+	std::int32_t count = 0;
+	for (std::size_t i = 0; i < text.size(); i++) {
+		if ((static_cast<unsigned char>(text[i]) & 0xc0) == 0x80)
+			continue;
+		if (count == characters)
+			return static_cast<std::int32_t>(i);
+		count++;
+	}
+	return static_cast<std::int32_t>(text.size());
+}
 
 
 std::uint32_t
@@ -221,6 +240,29 @@ Translate(std::span<const SDL_Event> events, const TranslationContext& context)
 				if (key.down)
 					(void)message.AddInt32("be:key_repeat", key.repeat ? 1 : 0);
 				translated.push_back({key.windowID, std::move(message)});
+				break;
+			}
+			case SDL_EVENT_TEXT_EDITING:
+			{
+				// Haiku's B_INPUT_METHOD_EVENT: the composed text changed;
+				// empty, the composition ended.
+				const SDL_TextEditingEvent& editing = event.edit;
+				const std::string_view text = editing.text != nullptr ? editing.text : "";
+				BMessage message = Stamped(kInputMethodEvent, context);
+				if (text.empty()) {
+					(void)message.AddInt32("be:opcode", kInputMethodStopped);
+				} else {
+					(void)message.AddInt32("be:opcode", kInputMethodChanged);
+					(void)message.AddString("be:string", text);
+					(void)message.AddBool("be:confirmed", false);
+					// SDL counts characters, Haiku bytes
+					const std::int32_t start = ByteOffset(text, std::max(editing.start, 0));
+					const std::int32_t end = editing.length > 0
+						? ByteOffset(text, std::max(editing.start, 0) + editing.length) : start;
+					(void)message.AddInt32("be:selection", start);
+					(void)message.AddInt32("be:selection", end);
+				}
+				translated.push_back({editing.windowID, std::move(message)});
 				break;
 			}
 			case SDL_EVENT_TEXT_INPUT:

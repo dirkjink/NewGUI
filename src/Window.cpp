@@ -651,6 +651,12 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kKeyUp:
 			_KeyEvent(message);
 			return;
+		case kInputMethodEvent:
+			// To the focus view, as Haiku's _DetermineTarget(); not while
+			// menus are open.
+			if (fFocus != nullptr && fMenuTracking == nullptr)
+				fFocus->MessageReceived(message);
+			return;
 		case kMenuTrackerTick:
 			if (fMenuTracking != nullptr)
 				fMenuTracking->Tick();
@@ -1295,6 +1301,22 @@ void
 BWindow::_DisposeLater(std::unique_ptr<BView> view)
 {
 	fDisposals.push_back(std::move(view));
+}
+
+
+void
+BWindow::_SetTextInputArea(gfx::Rect rect, int32 cursor)
+{
+	if (fPlatformWindow != nullptr)
+		fPlatformWindow->SetTextInputArea(rect, cursor);
+}
+
+
+void
+BWindow::_ClearComposition()
+{
+	if (fPlatformWindow != nullptr)
+		fPlatformWindow->ClearComposition();
 }
 
 
