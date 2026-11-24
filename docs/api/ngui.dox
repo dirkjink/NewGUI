@@ -53,9 +53,11 @@
 
 /*!
 	\namespace ngui::text
-	\brief The text subsystem (modules X1, X2, X5): fonts, shaping with
-	HarfBuzz, metrics and truncation. Library ngui_text with the bundled Noto
-	fonts (vcpkg feature text, NGUI_WITH_TEXT).
+	\brief The text subsystem (modules X1, X2, X4, X5): fonts, shaping with
+	HarfBuzz, line, word and grapheme boundaries with libunibreak, metrics and
+	truncation. Library ngui_text with the bundled Noto fonts (vcpkg feature
+	text, NGUI_WITH_TEXT). The paragraph layout on top of it (X6) is
+	ngui::TextLayout, in the core library.
 */
 
 

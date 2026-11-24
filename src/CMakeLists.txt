@@ -58,6 +58,7 @@ add_library(ngui
     SplitView.cpp
     StringView.cpp
     TabView.cpp
+    TextLayout.cpp
     TextSystem.cpp
     TruncateString.cpp
     TwoDimensionalLayout.cpp
@@ -113,10 +114,12 @@ if(NGUI_WITH_SKIA)
     ngui_configure_target(ngui_skia)
 endif()
 
-# The text subsystem (modules X1, X2, X5), its own library: HarfBuzz, and the
-# bundled fonts embedded as generated sources (data/fonts/).
+# The text subsystem (modules X1, X2, X4, X5), its own library: HarfBuzz,
+# libunibreak, and the bundled fonts embedded as generated sources
+# (data/fonts/).
 if(NGUI_WITH_TEXT)
     find_package(harfbuzz CONFIG REQUIRED)
+    find_package(libunibreak CONFIG REQUIRED)
     set(embeddedFonts)
     foreach(font IN ITEMS
             "NotoSans-Regular|kNotoSansRegular"
@@ -144,7 +147,8 @@ if(NGUI_WITH_TEXT)
         PUBLIC
             ngui::ngui
         PRIVATE
-            harfbuzz::harfbuzz)
+            harfbuzz::harfbuzz
+            libunibreak::libunibreak)
     target_include_directories(ngui_text PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_text)
 endif()

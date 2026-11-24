@@ -33,12 +33,13 @@
       ]
     },
     "text": {
-      "description": "The text subsystem (ngui_text): HarfBuzz for shaping and metrics, with its own OpenType functions; FreeType comes with the search for system fonts.",
+      "description": "The text subsystem (ngui_text): HarfBuzz for shaping and metrics, with its own OpenType functions; libunibreak for line, word and grapheme boundaries (UAX #14 and #29); FreeType comes with the search for system fonts.",
       "dependencies": [
         {
           "name": "harfbuzz",
           "default-features": false
-        }
+        },
+        "libunibreak"
       ]
     },
     "sdl3": {

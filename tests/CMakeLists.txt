@@ -12,7 +12,7 @@ file(GLOB fuzzTargetSources CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/fuzz/*Fuzz.cpp")
 # Targets of optional libraries are left out when those are not built.
 if(NOT NGUI_WITH_TEXT)
-    list(FILTER fuzzTargetSources EXCLUDE REGEX "/TextFuzz\\.cpp$")
+    list(FILTER fuzzTargetSources EXCLUDE REGEX "/(Text|TextLayout)Fuzz\\.cpp$")
 endif()
 
 add_executable(ngui_tests
@@ -33,6 +33,7 @@ add_executable(ngui_tests
     MessengerTest.cpp
     PaletteTest.cpp
     SupportDefsTest.cpp
+    TextLayoutTest.cpp
     TruncateStringTest.cpp
     VersionTest.cpp
     ViewTest.cpp

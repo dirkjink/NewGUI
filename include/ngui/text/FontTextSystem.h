@@ -21,9 +21,10 @@
 namespace ngui::text {
 
 
-/*!	The text subsystem (modules X1, X2, X5; library ngui_text): fonts,
-	shaping with HarfBuzz, metrics and truncation, without hinting
-	(specification 13.4).
+/*!	The text subsystem (modules X1, X2, X4, X5; library ngui_text): fonts,
+	shaping with HarfBuzz, line, word and grapheme boundaries with
+	libunibreak, metrics and truncation, without hinting (specification
+	13.4).
 
 	CreateBundled() uses the fonts that are embedded into the library: Noto
 	Sans and Noto Sans Bold for the plain and bold roles, Noto Sans Mono for
@@ -64,6 +65,11 @@ public:
 			ShapedText			Shape(std::string_view text, FontRole role) const override;
 									/*!< Glyphs, positions and clusters (byte offsets in
 										\a text) of \a text, in left-to-right order. */
+			std::vector<TextBoundaryFlags> Boundaries(std::string_view text) const override;
+									/*!< Unicode's boundaries (libunibreak): lines after
+										UAX #14, graphemes and words after UAX #29;
+										malformed UTF-8 is broken at each code point
+										start. */
 
 			std::span<const FontFile> Fonts() const override;
 									/*!< The three bundled fonts, ids 1 to 3. */

@@ -13,6 +13,7 @@
 #include <string_view>
 #include <vector>
 
+#include <ngui/Flags.h>
 #include <ngui/gfx/GlyphRun.h>
 #include <ngui/gfx/Point.h>
 
@@ -35,6 +36,22 @@ struct FontHeight {
 			float				descent;	/*!< Below the baseline. */
 			float				leading;	/*!< Extra space between lines. */
 };
+
+
+/*!	The boundaries in a text (module X4), for TextSystem::Boundaries(): a
+	flag at offset i stands for the boundary before byte i. */
+enum class TextBoundary : std::uint8_t {
+	Grapheme = 1u << 0,			/*!< A caret may stand here: between user-perceived
+									characters (UAX #29), never inside a code point. */
+	Line = 1u << 1,				/*!< A line may begin here (UAX #14). */
+	MandatoryLine = 1u << 2,	/*!< A line must begin here: after a line break. */
+	Word = 1u << 3				/*!< A word, or the run between two words, begins or
+									ends here (UAX #29). */
+};
+NGUI_FLAG_ENUM(TextBoundary)
+
+/*!	A set of TextBoundary. */
+using TextBoundaryFlags = Flags<TextBoundary>;
 
 
 /*!	Where TextSystem::Truncate() cuts, as Haiku's B_TRUNCATE_* modes. */
@@ -104,6 +121,22 @@ public:
 	virtual	ShapedText			Shape(std::string_view text, FontRole role) const = 0;
 									/*!< \a text shaped into glyphs, positions relative to the
 										start of the baseline. */
+	virtual	std::vector<TextBoundaryFlags> Boundaries(std::string_view text) const;
+									/*!< The boundaries of \a text (UTF-8): text.size() + 1
+										flags, the first and last with Grapheme and Word.
+										By default simple rules: a grapheme per code
+										point, lines after spaces and tabs, mandatory
+										after "\n", words of ASCII letters, digits, "_"
+										and non-ASCII characters. The text subsystem
+										follows Unicode (UAX #14 and #29, libunibreak). */
+			std::vector<float>	CaretPositions(std::string_view text, FontRole role) const;
+									/*!< The x of a caret before each byte of \a text and
+										after it (text.size() + 1 values), relative to the
+										start, left to right: from the clusters of
+										Shape(), shared evenly by the code points of a
+										cluster; without clusters from StringWidth() of
+										each beginning. A byte inside a code point has the
+										value of its start. */
 	virtual	std::span<const FontFile> Fonts() const;
 									/*!< The font files of the glyph runs of Shape(), for the
 										backends; none by default, for text systems whose

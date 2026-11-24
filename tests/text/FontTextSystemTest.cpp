@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 
+#include <ngui/TextLayout.h>
+
 
 namespace {
 
@@ -163,6 +165,94 @@ TEST(FontTextSystemTest, ItIsSafeFromManyThreads)
 
 	// Then
 	EXPECT_EQ(wrong, 0);
+}
+
+
+// The offsets with \a kind in \a flags.
+std::vector<std::size_t>
+With(const std::vector<TextBoundaryFlags>& flags, TextBoundary kind)
+{
+	std::vector<std::size_t> offsets;
+	for (std::size_t i = 0; i < flags.size(); i++) {
+		if (flags[i].Has(kind))
+			offsets.push_back(i);
+	}
+	return offsets;
+}
+
+
+TEST(FontTextSystemTest, BoundariesFollowUnicode)
+{
+	// What is tested: Boundaries() of "e\u0301x" (e with a combining
+	// acute), of a woman technologist emoji (woman, ZWJ, laptop: 11 bytes),
+	// of "日本語" and of "hello, world\nok", and of malformed UTF-8 ("a",
+	// a lone continuation byte, "b").
+	// Success criteria: The combining accent belongs to the e (graphemes at
+	// 0, 3, 4); the emoji sequence is one grapheme; lines may break between
+	// the ideographs (3, 6) but not after the last; "hello", ",", " ",
+	// "world" are words and a line may begin at "world"; the line break is
+	// mandatory. In malformed text every code point start is a grapheme
+	// boundary; a lone continuation byte stays with the character before.
+	// Why it matters: The caret moves by what users see as characters, and
+	// lines break where Unicode allows (libunibreak, UAX #14 and #29).
+	//
+	// Given
+	const auto text = Bundled();
+
+	// When
+	const auto combining = text->Boundaries("e\xCC\x81x");
+	const auto emoji = text->Boundaries("\xF0\x9F\x91\xA9\xE2\x80\x8D\xF0\x9F\x92\xBB");
+	const auto ideographs = text->Boundaries("\xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E");
+	const auto words = text->Boundaries("hello, world\nok");
+	const auto malformed = text->Boundaries("a\x80" "b");
+
+	// Then
+	EXPECT_EQ(With(combining, TextBoundary::Grapheme), (std::vector<std::size_t>{0, 3, 4}));
+	EXPECT_EQ(With(emoji, TextBoundary::Grapheme), (std::vector<std::size_t>{0, 11}));
+	EXPECT_EQ(With(ideographs, TextBoundary::Line), (std::vector<std::size_t>{3, 6}));
+	EXPECT_EQ(With(words, TextBoundary::Word),
+		(std::vector<std::size_t>{0, 5, 6, 7, 12, 13, 15}));
+	EXPECT_EQ(With(words, TextBoundary::Line), (std::vector<std::size_t>{7, 13}));
+	EXPECT_EQ(With(words, TextBoundary::MandatoryLine), (std::vector<std::size_t>{13}));
+	EXPECT_EQ(With(malformed, TextBoundary::Grapheme), (std::vector<std::size_t>{0, 2, 3}));
+}
+
+
+TEST(FontTextSystemTest, TextIsLaidOutWithTheShapedWidths)
+{
+	// What is tested: A TextLayout of "The quick brown fox jumps" in the
+	// bundled plain font wrapped at 80 pixels, and the caret positions of
+	// "AV".
+	// Success criteria: The text takes several lines, each beginning at a
+	// word and no wider than 79 without its trailing space; the carets of
+	// "AV" are 0, the kerned position of V, and the run's advance; the
+	// caret after the last character of a line is where its glyphs end.
+	// Why it matters: The layout measures with the font's real (kerned)
+	// advances, so carets sit between the drawn glyphs.
+	//
+	// Given
+	const auto text = Bundled();
+	const std::string_view sentence = "The quick brown fox jumps";
+
+	// When
+	const TextLayout layout(*text, sentence, FontRole::Plain, {.width = 80});
+	const std::vector<float> carets = text->CaretPositions("AV", FontRole::Plain);
+	const ShapedText av = text->Shape("AV", FontRole::Plain);
+
+	// Then
+	ASSERT_GT(layout.CountLines(), 1);
+	for (int32 i = 0; i < layout.CountLines(); i++) {
+		const TextLayout::Line& line = layout.LineAt(i);
+		EXPECT_TRUE(line.start == 0 || sentence[line.start - 1] == ' ') << i;
+		std::size_t visibleEnd = line.end;
+		while (visibleEnd > line.start && sentence[visibleEnd - 1] == ' ')
+			visibleEnd--;
+		EXPECT_LT(layout.PointAt(visibleEnd).x - layout.PointAt(line.start).x, 80) << i;
+	}
+	ASSERT_EQ(carets.size(), 3u);
+	EXPECT_EQ(carets[0], 0);
+	EXPECT_NEAR(carets[1], av.positions[1].x, kTolerance);
+	EXPECT_NEAR(carets[2], av.advance, kTolerance);
 }
 
 
