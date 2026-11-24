@@ -138,13 +138,20 @@ TextSystem::Boundaries(std::string_view text) const
 std::vector<float>
 TextSystem::CaretPositions(std::string_view text, FontRole role) const
 {
+	return CaretPositions(text, RoleFont(role));
+}
+
+
+std::vector<float>
+TextSystem::CaretPositions(std::string_view text, const FontSpec& font) const
+{
 	const std::size_t size = text.size();
 	std::vector<float> carets(size + 1, 0.0f);
 	if (size == 0)
 		return carets;
 
 	const std::vector<std::size_t> starts = CodePointStarts(text);
-	const ShapedText shaped = Shape(text, role);
+	const ShapedText shaped = Shape(text, font);
 	if (shaped.clusters.size() == shaped.glyphs.size() && !shaped.clusters.empty()) {
 		// The x where each cluster begins: its leftmost glyph (left to
 		// right, clusters in order).
@@ -176,9 +183,9 @@ TextSystem::CaretPositions(std::string_view text, FontRole role) const
 		}
 	} else {
 		for (const std::size_t start : starts)
-			carets[start] = StringWidth(text.substr(0, start), role);
+			carets[start] = StringWidth(text.substr(0, start), font);
 	}
-	carets[size] = shaped.clusters.empty() ? StringWidth(text, role) : shaped.advance;
+	carets[size] = shaped.clusters.empty() ? StringWidth(text, font) : shaped.advance;
 
 	// bytes inside a code point: the value of its start
 	for (std::size_t i = 1; i < size; i++) {
@@ -186,6 +193,128 @@ TextSystem::CaretPositions(std::string_view text, FontRole role) const
 			carets[i] = carets[i - 1];
 	}
 	return carets;
+}
+
+
+std::vector<FontFamilyStyle>
+TextSystem::Styles() const
+{
+	return {{"Default", "Regular", 1, BFontFace::Regular, false},
+		{"Default", "Bold", 2, BFontFace::Bold, false},
+		{"Default Mono", "Regular", 3, BFontFace::Regular, true}};
+}
+
+
+FontRole
+TextSystem::RoleOf(gfx::FontId font)
+{
+	switch (font) {
+		case 2:
+			return FontRole::Bold;
+		case 3:
+			return FontRole::Fixed;
+		default:
+			return FontRole::Plain;
+	}
+}
+
+
+FontSpec
+TextSystem::RoleFont(FontRole role) const
+{
+	gfx::FontId font = 1;
+	if (role == FontRole::Bold)
+		font = 2;
+	else if (role == FontRole::Fixed)
+		font = 3;
+	return {font, FontSize(role)};
+}
+
+
+namespace {
+
+
+// From the size of \a role to \a size; metrics scale linearly without
+// hinting (specification 13.4).
+float
+ScaleFrom(const TextSystem& text, FontRole role, float size)
+{
+	const float roleSize = text.FontSize(role);
+	return roleSize > 0 ? size / roleSize : 1.0f;
+}
+
+
+} // namespace
+
+
+FontHeight
+TextSystem::Height(const FontSpec& font) const
+{
+	return DoHeight(font);
+}
+
+
+float
+TextSystem::StringWidth(std::string_view text, const FontSpec& font) const
+{
+	return DoStringWidth(text, font);
+}
+
+
+std::string
+TextSystem::Truncate(std::string_view text, float width, TruncationMode mode,
+	const FontSpec& font) const
+{
+	return DoTruncate(text, width, mode, font);
+}
+
+
+ShapedText
+TextSystem::Shape(std::string_view text, const FontSpec& font) const
+{
+	return DoShape(text, font);
+}
+
+
+FontHeight
+TextSystem::DoHeight(const FontSpec& font) const
+{
+	const FontRole role = RoleOf(font.font);
+	const float scale = ScaleFrom(*this, role, font.size);
+	const FontHeight height = Height(role);
+	return {height.ascent * scale, height.descent * scale, height.leading * scale};
+}
+
+
+float
+TextSystem::DoStringWidth(std::string_view text, const FontSpec& font) const
+{
+	const FontRole role = RoleOf(font.font);
+	return StringWidth(text, role) * ScaleFrom(*this, role, font.size);
+}
+
+
+std::string
+TextSystem::DoTruncate(std::string_view text, float width, TruncationMode mode,
+	const FontSpec& font) const
+{
+	const FontRole role = RoleOf(font.font);
+	const float scale = ScaleFrom(*this, role, font.size);
+	return Truncate(text, scale > 0 ? width / scale : width, mode, role);
+}
+
+
+ShapedText
+TextSystem::DoShape(std::string_view text, const FontSpec& font) const
+{
+	const FontRole role = RoleOf(font.font);
+	const float scale = ScaleFrom(*this, role, font.size);
+	ShapedText shaped = Shape(text, role);
+	shaped.sizePx *= scale;
+	for (gfx::Point& position : shaped.positions)
+		position = {position.x * scale, position.y * scale};
+	shaped.advance *= scale;
+	return shaped;
 }
 
 

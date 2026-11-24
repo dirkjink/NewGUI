@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include <ngui/Font.h>
 #include <ngui/TextLayout.h>
 
 
@@ -253,6 +254,63 @@ TEST(FontTextSystemTest, TextIsLaidOutWithTheShapedWidths)
 	EXPECT_EQ(carets[0], 0);
 	EXPECT_NEAR(carets[1], av.positions[1].x, kTolerance);
 	EXPECT_NEAR(carets[2], av.advance, kTolerance);
+}
+
+
+TEST(FontTextSystemTest, FontsOfAnySizeAndTheirStyles)
+{
+	// What is tested: The bundled text system at 12: its styles; Noto
+	// Sans Bold as a BFont, at 12 and at 24: Spec(), the width and height
+	// of "Haiku", the run of "Haiku" and the truncation of "Haiku is
+	// here" to 100 pixels at 24.
+	// Success criteria: "Noto Sans" has Regular (font 1) and Bold (font 2),
+	// "Noto Sans Mono" Regular (font 3, monospaced). At 24 the bold font
+	// is font 2 at 24; its width and metrics are twice those at 12 and its
+	// run says 24 pixels; truncation to 100 pixels at 24 cuts as to 50 at
+	// 12.
+	// Why it matters: BFont names the bundled fonts as Haiku names its
+	// system fonts, and the text system measures and shapes any size, not
+	// only the roles' (W7).
+	//
+	// Given
+	const auto text = Bundled();
+	TextSystem::SetDefault(text.get());
+	BFont font;
+	ASSERT_TRUE(font.SetFamilyAndStyle("Noto Sans", "Bold").has_value());
+	const float width12 = font.StringWidth("Haiku");
+	FontHeight height12{};
+	font.GetHeight(&height12);
+
+	// When
+	font.SetSize(24);
+	const FontSpec spec = font.Spec();
+	const float width24 = font.StringWidth("Haiku");
+	FontHeight height24{};
+	font.GetHeight(&height24);
+	const ShapedText shaped = text->Shape("Haiku", spec);
+	std::string truncated = "Haiku is here";
+	font.TruncateString(&truncated, TruncationMode::End, 100);
+
+	// Then
+	const std::vector<FontFamilyStyle> styles = text->Styles();
+	ASSERT_EQ(styles.size(), 3u);
+	EXPECT_EQ(styles[0].family, "Noto Sans");
+	EXPECT_EQ(styles[1].style, "Bold");
+	EXPECT_EQ(styles[1].font, 2u);
+	EXPECT_TRUE(styles[2].fixed);
+	EXPECT_EQ(BFont::Families(), (std::vector<std::string>{"Noto Sans", "Noto Sans Mono"}));
+	EXPECT_EQ(spec.font, 2u);
+	EXPECT_EQ(spec.size, 24);
+	EXPECT_FLOAT_EQ(width24, 2 * width12);
+	EXPECT_FLOAT_EQ(height24.ascent, 2 * height12.ascent);
+	EXPECT_FLOAT_EQ(height24.descent, 2 * height12.descent);
+	EXPECT_EQ(shaped.font, 2u);
+	EXPECT_EQ(shaped.sizePx, 24);
+	EXPECT_FLOAT_EQ(shaped.advance, width24);
+	EXPECT_EQ(truncated, text->Truncate("Haiku is here", 50, TruncationMode::End,
+		FontRole::Bold));
+	EXPECT_NE(truncated, "Haiku is here");
+	TextSystem::SetDefault(nullptr);
 }
 
 

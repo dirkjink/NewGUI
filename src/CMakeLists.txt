@@ -39,6 +39,7 @@ add_library(ngui
     compat/Point.cpp
     compat/Rect.cpp
     Error.cpp
+    Font.cpp
     GridLayout.cpp
     GroupLayout.cpp
     LayoutViews.cpp

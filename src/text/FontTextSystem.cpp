@@ -125,17 +125,35 @@ FontTextSystem::CreateBundled(float size)
 
 
 const FontTextSystem::Font&
-FontTextSystem::_Font(FontRole role) const
+FontTextSystem::_Font(gfx::FontId id) const
 {
-	switch (role) {
-		case FontRole::Plain:
-			return *fFonts[0];
-		case FontRole::Bold:
-			return *fFonts[1];
-		case FontRole::Fixed:
-			return *fFonts[2];
+	for (const std::unique_ptr<Font>& font : fFonts) {
+		if (font->file.id == id)
+			return *font;
 	}
+	// an unknown font: the plain one
 	return *fFonts[0];
+}
+
+
+std::vector<FontFamilyStyle>
+FontTextSystem::Styles() const
+{
+	return {{"Noto Sans", "Regular", 1, BFontFace::Regular, false},
+		{"Noto Sans", "Bold", 2, BFontFace::Bold, false},
+		{"Noto Sans Mono", "Regular", 3, BFontFace::Regular, true}};
+}
+
+
+FontSpec
+FontTextSystem::RoleFont(FontRole role) const
+{
+	gfx::FontId font = 1;
+	if (role == FontRole::Bold)
+		font = 2;
+	else if (role == FontRole::Fixed)
+		font = 3;
+	return {font, fSize};
 }
 
 
@@ -149,10 +167,17 @@ FontTextSystem::FontSize(FontRole) const
 FontHeight
 FontTextSystem::Height(FontRole role) const
 {
-	const Font& font = _Font(role);
+	return DoHeight(RoleFont(role));
+}
+
+
+FontHeight
+FontTextSystem::DoHeight(const FontSpec& spec) const
+{
+	const Font& font = _Font(spec.font);
 	hb_font_extents_t extents{};
 	hb_font_get_h_extents(font.font, &extents);
-	const float scale = fSize / font.unitsPerEm;
+	const float scale = spec.size / font.unitsPerEm;
 	return {static_cast<float>(extents.ascender) * scale,
 		-static_cast<float>(extents.descender) * scale,
 		static_cast<float>(extents.line_gap) * scale};
@@ -162,10 +187,17 @@ FontTextSystem::Height(FontRole role) const
 ShapedText
 FontTextSystem::Shape(std::string_view text, FontRole role) const
 {
-	const Font& font = _Font(role);
+	return DoShape(text, RoleFont(role));
+}
+
+
+ShapedText
+FontTextSystem::DoShape(std::string_view text, const FontSpec& spec) const
+{
+	const Font& font = _Font(spec.font);
 	ShapedText shaped;
 	shaped.font = font.file.id;
-	shaped.sizePx = fSize;
+	shaped.sizePx = spec.size;
 	shaped.text.assign(text.begin(), text.end());
 	if (text.empty())
 		return shaped;
@@ -181,7 +213,7 @@ FontTextSystem::Shape(std::string_view text, FontRole role) const
 	unsigned int count = 0;
 	const hb_glyph_info_t* infos = hb_buffer_get_glyph_infos(buffer, &count);
 	const hb_glyph_position_t* positions = hb_buffer_get_glyph_positions(buffer, &count);
-	const float scale = fSize / font.unitsPerEm;
+	const float scale = spec.size / font.unitsPerEm;
 	float x = 0;
 	for (unsigned int i = 0; i < count; i++) {
 		shaped.glyphs.push_back(infos[i].codepoint);
@@ -200,7 +232,14 @@ FontTextSystem::Shape(std::string_view text, FontRole role) const
 float
 FontTextSystem::StringWidth(std::string_view text, FontRole role) const
 {
-	return Shape(text, role).advance;
+	return DoStringWidth(text, RoleFont(role));
+}
+
+
+float
+FontTextSystem::DoStringWidth(std::string_view text, const FontSpec& spec) const
+{
+	return DoShape(text, spec).advance;
 }
 
 
@@ -208,9 +247,17 @@ std::string
 FontTextSystem::Truncate(std::string_view text, float width, TruncationMode mode,
 	FontRole role) const
 {
+	return DoTruncate(text, width, mode, RoleFont(role));
+}
+
+
+std::string
+FontTextSystem::DoTruncate(std::string_view text, float width, TruncationMode mode,
+	const FontSpec& spec) const
+{
 	// As Haiku's ServerFont::TruncateString(): the advance of each single
 	// character, in em, and the width of the ellipsis.
-	const Font& font = _Font(role);
+	const Font& font = _Font(spec.font);
 	std::vector<float> escapements;
 	for (const hb_codepoint_t codePoint : CodePoints(text)) {
 		hb_codepoint_t glyph = 0;
@@ -218,8 +265,8 @@ FontTextSystem::Truncate(std::string_view text, float width, TruncationMode mode
 		escapements.push_back(static_cast<float>(hb_font_get_glyph_h_advance(font.font, glyph))
 			/ font.unitsPerEm);
 	}
-	return TruncateString(text, mode, width, escapements, fSize,
-		StringWidth("\xE2\x80\xA6", role));
+	return TruncateString(text, mode, width, escapements, spec.size,
+		DoStringWidth("\xE2\x80\xA6", spec));
 }
 
 

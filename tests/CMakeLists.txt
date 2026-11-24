@@ -22,6 +22,7 @@ add_executable(ngui_tests
     ContainerTest.cpp
     ControlTest.cpp
     ErrorTest.cpp
+    FontTest.cpp
     FlagsTest.cpp
     InvokerTest.cpp
     LockerTest.cpp

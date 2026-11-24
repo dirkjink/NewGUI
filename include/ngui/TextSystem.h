@@ -30,6 +30,46 @@ enum class FontRole : std::uint8_t {
 };
 
 
+/*!	How a face of a font looks, as Haiku's B_*_FACE flags. A text system
+	offers the faces it has fonts for; the bundled fonts have Regular and
+	Bold. */
+enum class BFontFace : std::uint16_t {
+	Italic = 0x0001,		/*!< B_ITALIC_FACE */
+	Underscore = 0x0002,	/*!< B_UNDERSCORE_FACE */
+	Negative = 0x0004,		/*!< B_NEGATIVE_FACE */
+	Outlined = 0x0008,		/*!< B_OUTLINED_FACE */
+	Strikeout = 0x0010,		/*!< B_STRIKEOUT_FACE */
+	Bold = 0x0020,			/*!< B_BOLD_FACE */
+	Regular = 0x0040,		/*!< B_REGULAR_FACE */
+	Condensed = 0x0080,		/*!< B_CONDENSED_FACE */
+	Light = 0x0100,			/*!< B_LIGHT_FACE */
+	Heavy = 0x0200			/*!< B_HEAVY_FACE */
+};
+NGUI_FLAG_ENUM(BFontFace)
+
+/*!	A set of BFontFace. */
+using BFontFaceFlags = Flags<BFontFace>;
+
+
+/*!	A style of a font family that a text system has a font for (Haiku: a
+	font_family with a font_style, its face and B_IS_FIXED). */
+struct FontFamilyStyle {
+			std::string			family;		/*!< The family, e.g. "Noto Sans". */
+			std::string			style;		/*!< The style, e.g. "Bold". */
+			gfx::FontId			font;		/*!< The font file of the style. */
+			BFontFaceFlags		face;		/*!< How it looks. */
+			bool				fixed;		/*!< Monospaced. */
+};
+
+
+/*!	A font at a size, as the text system measures and shapes it: what a
+	BFont comes down to. */
+struct FontSpec {
+			gfx::FontId			font;		/*!< The font file (FontFamilyStyle::font). */
+			float				size;		/*!< In logical pixels. */
+};
+
+
 /*!	Vertical metrics of a font, as Haiku's font_height. */
 struct FontHeight {
 			float				ascent;		/*!< Above the baseline. */
@@ -137,6 +177,27 @@ public:
 										cluster; without clusters from StringWidth() of
 										each beginning. A byte inside a code point has the
 										value of its start. */
+	virtual	std::vector<FontFamilyStyle> Styles() const;
+									/*!< The families and styles it has fonts for, as
+										Haiku's get_font_family() and get_font_style().
+										By default the three roles: "Default" (Regular,
+										font 1; Bold, font 2) and "Default Mono" (Regular,
+										font 3). */
+	virtual	FontSpec			RoleFont(FontRole role) const;
+									/*!< The font of \a role at its size. By default font
+										1, 2 or 3 at FontSize(). */
+			FontHeight			Height(const FontSpec& font) const;
+									/*!< Vertical metrics of \a font (DoHeight()). */
+			float				StringWidth(std::string_view text, const FontSpec& font) const;
+									/*!< Width of \a text in \a font (DoStringWidth()). */
+			std::string			Truncate(std::string_view text, float width,
+									TruncationMode mode, const FontSpec& font) const;
+									/*!< Truncate() in \a font (DoTruncate()). */
+			ShapedText			Shape(std::string_view text, const FontSpec& font) const;
+									/*!< \a text shaped in \a font (DoShape()). */
+			std::vector<float>	CaretPositions(std::string_view text,
+									const FontSpec& font) const;
+									/*!< CaretPositions() in \a font. */
 	virtual	std::span<const FontFile> Fonts() const;
 									/*!< The font files of the glyph runs of Shape(), for the
 										backends; none by default, for text systems whose
@@ -152,6 +213,25 @@ public:
 	static	void				SetDefault(const TextSystem* text);
 									/*!< Replaces the default; nullptr restores the
 										placeholder. The object must outlive its use. */
+
+protected:
+	virtual	FontHeight			DoHeight(const FontSpec& font) const;
+									/*!< Height() of a FontSpec. By default the metrics of
+										the role of its font file, scaled to its size. */
+	virtual	float				DoStringWidth(std::string_view text,
+									const FontSpec& font) const;
+									/*!< StringWidth() in a FontSpec; by default scaled
+										from the role. */
+	virtual	std::string			DoTruncate(std::string_view text, float width,
+									TruncationMode mode, const FontSpec& font) const;
+									/*!< Truncate() in a FontSpec; by default by the role
+										with the width scaled. */
+	virtual	ShapedText			DoShape(std::string_view text, const FontSpec& font) const;
+									/*!< Shape() in a FontSpec; by default the role's run,
+										scaled. */
+	static	FontRole			RoleOf(gfx::FontId font);
+									/*!< The role of font 1, 2 or 3 (others: Plain), for
+										the defaults. */
 };
 
 

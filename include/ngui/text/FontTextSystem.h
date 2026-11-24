@@ -71,15 +71,39 @@ public:
 										malformed UTF-8 is broken at each code point
 										start. */
 
+			std::vector<FontFamilyStyle> Styles() const override;
+									/*!< "Noto Sans" Regular (font 1) and Bold (font 2),
+										"Noto Sans Mono" Regular (font 3). */
+			FontSpec			RoleFont(FontRole role) const override;
+									/*!< Fonts 1 to 3 at the size of the text system. */
 			std::span<const FontFile> Fonts() const override;
 									/*!< The three bundled fonts, ids 1 to 3. */
+
+			using				TextSystem::Height;
+			using				TextSystem::StringWidth;
+			using				TextSystem::Truncate;
+			using				TextSystem::Shape;
+
+protected:
+			FontHeight			DoHeight(const FontSpec& font) const override;
+									/*!< The font's ascender, descender and line gap at the
+										size. */
+			float				DoStringWidth(std::string_view text,
+									const FontSpec& font) const override;
+									/*!< The advance of \a text shaped. */
+			std::string			DoTruncate(std::string_view text, float width,
+									TruncationMode mode, const FontSpec& font) const override;
+									/*!< Haiku's truncation with "…". */
+			ShapedText			DoShape(std::string_view text,
+									const FontSpec& font) const override;
+									/*!< Glyphs, positions and clusters at the size. */
 
 private:
 			struct Font;
 
 								FontTextSystem();
 
-			const Font&			_Font(FontRole role) const;
+			const Font&			_Font(gfx::FontId id) const;
 
 			std::vector<std::unique_ptr<Font>> fFonts;
 			std::vector<FontFile> fFiles;
