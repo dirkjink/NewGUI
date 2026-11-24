@@ -8,10 +8,15 @@
 #include <ngui/text/FontTextSystem.h>
 
 #include <cstdint>
+#include <mutex>
 #include <utility>
+#include <vector>
 
+#include <graphemebreak.h>
 #include <hb-ot.h>
 #include <hb.h>
+#include <linebreak.h>
+#include <wordbreak.h>
 
 #include "TruncateString.h"
 
@@ -215,6 +220,56 @@ FontTextSystem::Truncate(std::string_view text, float width, TruncationMode mode
 	}
 	return TruncateString(text, mode, width, escapements, fSize,
 		StringWidth("\xE2\x80\xA6", role));
+}
+
+
+std::vector<TextBoundaryFlags>
+FontTextSystem::Boundaries(std::string_view text) const
+{
+	// libunibreak: UAX #14 for lines, UAX #29 for graphemes and words.
+	static std::once_flag initialized;
+	std::call_once(initialized, [] {
+		init_linebreak();
+		init_wordbreak();
+		init_graphemebreak();
+	});
+
+	const std::size_t size = text.size();
+	std::vector<TextBoundaryFlags> flags(size + 1);
+	flags[0] = TextBoundary::Grapheme | TextBoundary::Word;
+	if (size == 0)
+		return flags;
+
+	// Per byte, the break after it; positions libunibreak leaves untouched
+	// (it stops at malformed UTF-8) keep kUnset.
+	constexpr char kUnset = 0x7f;
+	std::vector<char> lines(size, kUnset);
+	std::vector<char> graphemes(size, kUnset);
+	std::vector<char> words(size, kUnset);
+	const auto* bytes = reinterpret_cast<const utf8_t*>(text.data());
+	set_linebreaks_utf8(bytes, size, nullptr, lines.data());
+	set_graphemebreaks_utf8(bytes, size, nullptr, graphemes.data());
+	set_wordbreaks_utf8(bytes, size, nullptr, words.data());
+
+	for (std::size_t k = 0; k < size; k++) {
+		const std::size_t boundary = k + 1;
+		// never inside a code point
+		if (boundary < size && (static_cast<unsigned char>(text[boundary]) & 0xc0) == 0x80)
+			continue;
+
+		// A boundary unless libunibreak says no: a malformed sequence ends
+		// where the next code point begins.
+		if (graphemes[k] != GRAPHEMEBREAK_NOBREAK)
+			flags[boundary] |= TextBoundary::Grapheme;
+		if (words[k] != WORDBREAK_NOBREAK)
+			flags[boundary] |= TextBoundary::Word;
+		if (lines[k] == LINEBREAK_MUSTBREAK)
+			flags[boundary] |= TextBoundary::Line | TextBoundary::MandatoryLine;
+		else if (lines[k] == LINEBREAK_ALLOWBREAK && boundary < size)
+			flags[boundary] |= TextBoundary::Line;
+	}
+	flags[size] |= TextBoundary::Grapheme | TextBoundary::Word;
+	return flags;
 }
 
 

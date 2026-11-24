@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <atomic>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "TruncateString.h"
 
@@ -96,6 +98,94 @@ void
 TextSystem::SetDefault(const TextSystem* text)
 {
 	sDefault.store(text);
+}
+
+
+std::vector<TextBoundaryFlags>
+TextSystem::Boundaries(std::string_view text) const
+{
+	const std::size_t size = text.size();
+	std::vector<TextBoundaryFlags> flags(size + 1);
+	const auto isContinuation = [&](std::size_t i) {
+		return (static_cast<unsigned char>(text[i]) & 0xc0) == 0x80;
+	};
+	const auto isSpace = [&](std::size_t i) { return text[i] == ' ' || text[i] == '\t'; };
+	const auto isWord = [&](std::size_t i) {
+		const auto c = static_cast<unsigned char>(text[i]);
+		return c >= 0x80 || c == '_' || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')
+			|| (c >= 'A' && c <= 'Z');
+	};
+
+	flags[0] = TextBoundary::Grapheme | TextBoundary::Word;
+	flags[size] = TextBoundary::Grapheme | TextBoundary::Word;
+	for (std::size_t i = 1; i < size; i++) {
+		if (isContinuation(i))
+			continue;
+		flags[i] |= TextBoundary::Grapheme;
+		if (text[i - 1] == '\n')
+			flags[i] |= TextBoundary::Line | TextBoundary::MandatoryLine;
+		else if (isSpace(i - 1) && !isSpace(i))
+			flags[i] |= TextBoundary::Line;
+		if (isWord(i - 1) != isWord(i) || (!isWord(i) && !isContinuation(i)))
+			flags[i] |= TextBoundary::Word;
+	}
+	if (size > 0 && text[size - 1] == '\n')
+		flags[size] |= TextBoundary::Line | TextBoundary::MandatoryLine;
+	return flags;
+}
+
+
+std::vector<float>
+TextSystem::CaretPositions(std::string_view text, FontRole role) const
+{
+	const std::size_t size = text.size();
+	std::vector<float> carets(size + 1, 0.0f);
+	if (size == 0)
+		return carets;
+
+	const std::vector<std::size_t> starts = CodePointStarts(text);
+	const ShapedText shaped = Shape(text, role);
+	if (shaped.clusters.size() == shaped.glyphs.size() && !shaped.clusters.empty()) {
+		// The x where each cluster begins: its leftmost glyph (left to
+		// right, clusters in order).
+		std::vector<std::pair<std::size_t, float>> clusters;
+		for (std::size_t g = 0; g < shaped.glyphs.size(); g++) {
+			const std::size_t cluster = std::min<std::size_t>(shaped.clusters[g], size);
+			if (clusters.empty() || clusters.back().first != cluster)
+				clusters.push_back({cluster, shaped.positions[g].x});
+		}
+		if (clusters.front().first != 0)
+			clusters.insert(clusters.begin(), {0, 0.0f});
+		clusters.push_back({size, shaped.advance});
+
+		// The code points of a cluster share its width evenly.
+		std::size_t point = 0;
+		for (std::size_t c = 0; c + 1 < clusters.size(); c++) {
+			const auto [begin, x0] = clusters[c];
+			const auto [end, x1] = clusters[c + 1];
+			std::size_t first = point;
+			while (point < starts.size() && starts[point] < end)
+				point++;
+			const std::size_t count = point - first;
+			for (std::size_t k = first; k < point; k++) {
+				const float share = count > 0
+					? static_cast<float>(k - first) / static_cast<float>(count) : 0.0f;
+				carets[starts[k]] = x0 + (x1 - x0) * share;
+			}
+			(void)begin;
+		}
+	} else {
+		for (const std::size_t start : starts)
+			carets[start] = StringWidth(text.substr(0, start), role);
+	}
+	carets[size] = shaped.clusters.empty() ? StringWidth(text, role) : shaped.advance;
+
+	// bytes inside a code point: the value of its start
+	for (std::size_t i = 1; i < size; i++) {
+		if ((static_cast<unsigned char>(text[i]) & 0xc0) == 0x80)
+			carets[i] = carets[i - 1];
+	}
+	return carets;
 }
 
 

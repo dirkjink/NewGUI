@@ -140,7 +140,7 @@ Das MVP umfasst also schon rund zwei Drittel des Gesamtumfangs. Grundgerüst, La
 |---|---|---|
 | ~~Quellkompatibilität zur BeAPI~~ (**verworfen**, Grundsatz K1) | etwa gleich, eher höher | wäre um etwa 10–20 % geringer, bezogen auf das Ganze nur etwa 6–12 % |
 | Konzeptionelle Nähe zu Haiku (Abschnitt 2, **gewählt**) | in den Zahlen bereits enthalten | holt nach Einschätzung etwa die Hälfte der Ersparnis einer Quellkompatibilität, ohne deren Nachteile |
-| Text zunächst nur LTR, BiDi später | Text-Subsystem und TextView zunächst etwa −2.000 bis −3.500 | entsprechend |
+| Text zunächst nur LTR, BiDi später (**gewählt**, siehe Abschnitt 11) | Text-Subsystem und TextView zunächst etwa −2.000 bis −3.500 | entsprechend |
 | Nur Linux im ersten Schritt | native Module vorerst etwa −1.400 bis −2.700 | entsprechend |
 | Barrierefreiheit (noch nicht enthalten) | etwa +2.000 bis +4.000 über AccessKit, aufbauend auf dem Scripting-Baum | entsprechend |
 | ColumnListView | +3.200 bis +4.200 | entsprechend |
@@ -148,6 +148,6 @@ Das MVP umfasst also schon rund zwei Drittel des Gesamtumfangs. Grundgerüst, La
 ## 11. Offene Punkte
 
 1. Wird zuerst nur Linux unterstützt?
-2. Kommt BiDi gleich ins MVP oder später?
+2. ~~Kommt BiDi gleich ins MVP oder später?~~ **Entschieden:** später. Die TextView ist im MVP nur LTR; Absatzlayout, Trefferprüfung und Cursorbewegung (X6, `TextLayout`) sind so geschnitten, dass BiDi ohne API-Bruch dazukommt.
 3. Wann folgt die Barrierefreiheit? Sie ist für viele Produkte Pflicht, in der EU z. B. durch den European Accessibility Act für bestimmte Produkte und Dienste.
-4. Welche externen Bibliotheken werden für BiDi und Zeilenumbruch verwendet: ICU (vollständig, groß) oder SheenBidi/fribidi und libunibreak (klein)?
+4. Welche externen Bibliotheken werden für BiDi und Zeilenumbruch verwendet: ICU (vollständig, groß) oder SheenBidi/fribidi und libunibreak (klein)? **Teilweise entschieden:** libunibreak für Zeilen-, Wort- und Graphemgrenzen (X4); die BiDi-Bibliothek wird mit BiDi gewählt.
