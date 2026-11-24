@@ -146,8 +146,8 @@ TEST(TextLayoutTest, AlignmentTabsAndRoles)
 	//
 	// Given
 	const TallBold text;
-	const std::array<TextStyleRun, 2> runs = {TextStyleRun{0, FontRole::Plain},
-		TextStyleRun{3, FontRole::Bold}};
+	const std::array<TextStyleRun, 2> runs = {TextStyleRun{0, text.RoleFont(FontRole::Plain)},
+		TextStyleRun{3, text.RoleFont(FontRole::Bold)}};
 
 	// When
 	const TextLayout centered(text, "ab", FontRole::Plain,

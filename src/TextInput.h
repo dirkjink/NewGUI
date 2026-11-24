@@ -38,7 +38,8 @@ public:
 			void				Paste(BClipboard* clipboard) override;
 
 protected:
-			void				InsertText(std::string_view text, int32 offset) override;
+			void				InsertText(std::string_view text, int32 offset,
+									const BTextRunArray* runs) override;
 			void				DeleteText(int32 fromOffset, int32 toOffset) override;
 
 private:

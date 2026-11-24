@@ -24,6 +24,7 @@
 #include <ngui/CheckBox.h>
 #include <ngui/Clock.h>
 #include <ngui/InterfaceDefs.h>
+#include <ngui/Font.h>
 #include <ngui/LayoutBuilder.h>
 #include <ngui/ListView.h>
 #include <ngui/AppDefs.h>
@@ -1014,6 +1015,60 @@ TEST(TextSkiaTest, TextViewsMatchTheirSnapshots)
 	view->MakeFocus(false);
 	view->MakeEditable(false);
 	snapshot("TextViewReadOnly");
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, StyledTextMatchesItsSnapshot)
+{
+	// What is tested: A stylable, focused text view of 200 × 70 in an
+	// active window with "Plain, bold, big and red text that wraps": "bold"
+	// in Noto Sans Bold, "big" at 20 pixels, "red" in red, "text" in Noto
+	// Sans Mono; "and red" selected; recorded with the bundled font,
+	// rendered by Skia at scale 1 and 2 ("TextViewStyled").
+	// Success criteria: Within the text tolerance of 21.2: each run in its
+	// font, size and color on one baseline per line; the first line as
+	// high as "big" needs, the wrapped one as high as the plain font; the
+	// selection inverted, the red run in its inverse (cyan).
+	// Why it matters: Styled text is laid out and drawn run by run (W5f,
+	// Haiku's text_run_array).
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	BWindow window({0, 0, 300, 200}, "text");
+	auto* view = static_cast<BTextView*>(window.AddChild(std::make_unique<BTextView>(
+		gfx::Rect{0, 0, 200, 70}, "view", gfx::Rect{0, 0, 200, 70})));
+	view->SetStylable(true);
+	view->SetText("Plain, bold, big and red text that wraps");
+	const BFont bold = BFont::Bold();
+	BFont big = BFont::Plain();
+	big.SetSize(20);
+	BFont mono = BFont::Fixed();
+	const gfx::Color red = gfx::Color::FromRgba8(200, 0, 0);
+	view->SetFontAndColor(7, 11, &bold);
+	view->SetFontAndColor(13, 16, &big, BFontMode::Size);
+	view->SetFontAndColor(21, 24, nullptr, BFontModeFlags{}, &red);
+	view->SetFontAndColor(25, 29, &mono);
+	view->MakeFocus(true);
+	BMessage activated(kWindowActivated);
+	(void)activated.AddBool("active", true);
+	window.DispatchMessage(&activated, &window);
+	view->Select(17, 24);
+
+	// When
+	const DisplayListRef list = RecordTree(*view, *text);
+
+	// Then
+	for (const float scale : {1.0f, 2.0f}) {
+		SkiaBackend backend;
+		for (const FontFile& font : text->Fonts())
+			ASSERT_TRUE(backend.AddFont(font.id, font.data));
+		const auto image = RenderToImage(backend, *list, scale);
+		ASSERT_TRUE(image.has_value()) << image.error().message;
+		EXPECT_IMAGE_SNAPSHOT(*image, "TextViewStyled", {.look = "be", .backend = "skia",
+			.scale = scale, .tolerance = Tolerance::Text()});
+	}
 	TextSystem::SetDefault(nullptr);
 }
 

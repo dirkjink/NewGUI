@@ -53,7 +53,7 @@ TextLayout::TextLayout(const TextSystem& system, std::string_view text, FontRole
 	const TextLayoutOptions& options)
 	:
 	fText(text),
-	fRuns{TextStyleRun{0, role}},
+	fRuns{TextStyleRun{0, system.RoleFont(role)}},
 	fOptions(options)
 {
 	_Layout(system);
@@ -68,7 +68,7 @@ TextLayout::TextLayout(const TextSystem& system, std::string_view text,
 	fOptions(options)
 {
 	if (fRuns.empty() || fRuns.front().start != 0)
-		fRuns.insert(fRuns.begin(), TextStyleRun{0, FontRole::Plain});
+		fRuns.insert(fRuns.begin(), TextStyleRun{0, system.RoleFont(FontRole::Plain)});
 	_Layout(system);
 }
 
@@ -333,7 +333,7 @@ TextLayout::SelectionRects(std::size_t from, std::size_t to) const
 
 void
 TextLayout::Draw(gfx::Canvas& canvas, gfx::Point origin, const gfx::Color& color,
-	int32 firstLine, int32 lastLine) const
+	int32 firstLine, int32 lastLine, ColorMap map) const
 {
 	if (lastLine < 0 || lastLine >= CountLines())
 		lastLine = CountLines() - 1;
@@ -345,8 +345,9 @@ TextLayout::Draw(gfx::Canvas& canvas, gfx::Point origin, const gfx::Color& color
 		for (const Segment& segment : data.segments) {
 			if (segment.shaped.glyphs.empty())
 				continue;
+			const gfx::Color runColor = segment.color.value_or(color);
 			canvas.DrawGlyphRun(segment.shaped.Run(), {x + segment.x, y},
-				gfx::Paint{.color = color});
+				gfx::Paint{.color = map != nullptr ? map(runColor) : runColor});
 		}
 	}
 }
@@ -405,7 +406,7 @@ TextLayout::_Layout(const TextSystem& system)
 	fBottom = top;
 
 	// Haiku's _NullStyleHeight(): the font at the end, without leading
-	const FontHeight height = system.Height(_RoleAt(textLength));
+	const FontHeight height = system.Height(_RunAt(textLength).font);
 	fNullStyleHeight = std::ceil(height.ascent + height.descent + 1);
 }
 
@@ -566,21 +567,21 @@ TextLayout::_Measure(const TextSystem& system, std::size_t from, std::size_t to,
 			continue;
 		}
 
-		// a piece without tabs and line breaks in one role
+		// a piece without tabs and line breaks in one run
 		const std::size_t runEnd = std::min(_RunEnd(i), to);
 		std::size_t j = i;
 		while (j < runEnd && fText[j] != '\t' && fText[j] != '\n')
 			j++;
 
 		const std::string_view piece(fText.data() + i, j - i);
-		const FontRole role = _RoleAt(i);
-		const std::vector<float> pieceCarets = system.CaretPositions(piece, role);
+		const TextStyleRun& run = _RunAt(i);
+		const std::vector<float> pieceCarets = system.CaretPositions(piece, run.font);
 		if (carets != nullptr) {
 			for (std::size_t k = 0; k < piece.size(); k++)
 				(*carets)[i - from + k] = position + pieceCarets[k];
 		}
 		if (segments != nullptr)
-			segments->push_back({position, system.Shape(piece, role)});
+			segments->push_back({position, system.Shape(piece, run.font), run.color});
 
 		position += pieceCarets.back();
 		i = j;
@@ -596,13 +597,13 @@ void
 TextLayout::_Metrics(const TextSystem& system, std::size_t from, std::size_t to,
 	float* ascent, float* descent) const
 {
-	// The highest ascent and descent of the roles from \a from to \a to, or
-	// of the role at \a from if they are equal.
+	// The highest ascent and descent of the fonts from \a from to \a to,
+	// or of the font at \a from if they are equal.
 	*ascent = 0;
 	*descent = 0;
 	std::size_t offset = from;
 	do {
-		const FontHeight height = system.Height(_RoleAt(offset));
+		const FontHeight height = system.Height(_RunAt(offset).font);
 		*ascent = std::max(*ascent, height.ascent);
 		*descent = std::max(*descent, height.descent + height.leading);
 		offset = _RunEnd(offset);
@@ -610,16 +611,17 @@ TextLayout::_Metrics(const TextSystem& system, std::size_t from, std::size_t to,
 }
 
 
-FontRole
-TextLayout::_RoleAt(std::size_t offset) const
+const TextStyleRun&
+TextLayout::_RunAt(std::size_t offset) const
 {
-	FontRole role = FontRole::Plain;
+	// the first run begins at 0 (the constructors see to it)
+	const TextStyleRun* found = &fRuns.front();
 	for (const TextStyleRun& run : fRuns) {
 		if (run.start > offset)
 			break;
-		role = run.role;
+		found = &run;
 	}
-	return role;
+	return *found;
 }
 
 

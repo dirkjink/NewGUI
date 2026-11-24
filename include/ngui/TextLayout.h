@@ -7,6 +7,7 @@
 
 
 #include <cstddef>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -28,11 +29,13 @@ class Canvas;
 }
 
 
-/*!	A part of a TextLayout's text in one font role: from \a start to the
-	next run's start. */
+/*!	A part of a TextLayout's text in one font and color: from \a start to
+	the next run's start. */
 struct TextStyleRun {
 			std::size_t			start;	/*!< Byte offset where the run begins. */
-			FontRole			role;	/*!< Its font. */
+			FontSpec			font;	/*!< Its font at its size. */
+			std::optional<gfx::Color> color = std::nullopt;
+										/*!< Its color; none: the color Draw() is given. */
 };
 
 
@@ -95,8 +98,8 @@ public:
 								TextLayout(const TextSystem& system, std::string_view text,
 									std::span<const TextStyleRun> runs,
 									const TextLayoutOptions& options = {});
-									/*!< \a text in the roles of \a runs (sorted by start;
-										the first applies from 0). */
+									/*!< \a text in the fonts of \a runs (sorted by
+										start; before the first, the plain font). */
 
 			std::string_view	Text() const;
 									/*!< The text laid out. */
@@ -156,17 +159,23 @@ public:
 										one rectangle per line (from its top to the next
 										line's). */
 
+			/*!	Maps the color of a run as it is drawn, e.g. inverted. */
+			using				ColorMap = gfx::Color (*)(const gfx::Color& color);
+
 			void				Draw(gfx::Canvas& canvas, gfx::Point origin,
 									const gfx::Color& color, int32 firstLine = 0,
-									int32 lastLine = -1) const;
+									int32 lastLine = -1, ColorMap map = nullptr) const;
 									/*!< Draws lines \a firstLine to \a lastLine (-1: the
-										last) with the text rectangle at \a origin. */
+										last) with the text rectangle at \a origin, the
+										runs without a color in \a color; \a map, if
+										given, changes each color. */
 
 private:
-	// A piece of a line drawn as one glyph run: no tab, one role.
+	// A piece of a line drawn as one glyph run: no tab, one run.
 	struct Segment {
 			float				x = 0;
 			ShapedText			shaped;
+			std::optional<gfx::Color> color;
 	};
 
 	struct LineData {
@@ -184,7 +193,7 @@ private:
 									std::vector<Segment>* segments) const;
 			void				_Metrics(const TextSystem& system, std::size_t from,
 									std::size_t to, float* ascent, float* descent) const;
-			FontRole			_RoleAt(std::size_t offset) const;
+			const TextStyleRun&	_RunAt(std::size_t offset) const;
 			std::size_t			_RunEnd(std::size_t offset) const;
 			std::size_t			_ContentEnd(const Line& line) const;
 			float				_X(int32 line, std::size_t offset) const;

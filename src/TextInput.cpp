@@ -132,7 +132,7 @@ TextInput::Paste(BClipboard* clipboard)
 
 
 void
-TextInput::InsertText(std::string_view text, int32 offset)
+TextInput::InsertText(std::string_view text, int32 offset, const BTextRunArray* runs)
 {
 	// Filter all line breaks
 	std::string filtered(text);
@@ -140,7 +140,7 @@ TextInput::InsertText(std::string_view text, int32 offset)
 		if (c == '\n' || c == '\r')
 			c = ' ';
 	}
-	BTextView::InsertText(filtered, offset);
+	BTextView::InsertText(filtered, offset, runs);
 
 	if (BTextControl* control = _TextControl(); control != nullptr
 		&& control->ModificationMessage() != nullptr) {

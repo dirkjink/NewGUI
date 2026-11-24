@@ -24,9 +24,11 @@
 // popups of the window; Alt+Escape opens them from the keyboard, Alt+R
 // resets). A BMenuField chooses where the slider's hash marks are; a right
 // click on the label opens a context menu (a BPopUpMenu) with the same
-// commands as the menus. A BTextView on a page of its own takes notes; a
+// commands as the menus. A BTextView on a page of its own takes notes,
+// styled by the Text menu (Alt+B bold, Alt+L large, Alt+P plain); a
 // BTextControl asks for a name, and the label greets it when Enter is
-// pressed or the field is left.
+// pressed or the field is left. A page with lists shows a BListView and a
+// BOutlineListView.
 
 
 #include <cstdint>
@@ -40,6 +42,7 @@
 #include <ngui/Box.h>
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
+#include <ngui/Font.h>
 #include <ngui/GroupView.h>
 #include <ngui/LayoutBuilder.h>
 #include <ngui/ListView.h>
@@ -48,6 +51,7 @@
 #include <ngui/MenuField.h>
 #include <ngui/MenuItem.h>
 #include <ngui/OutlineListView.h>
+#include <ngui/Palette.h>
 #include <ngui/PopUpMenu.h>
 #include <ngui/ScrollView.h>
 #include <ngui/Slider.h>
@@ -74,6 +78,10 @@ constexpr std::uint32_t kClicked = FourCharCode("CLCK");
 constexpr std::uint32_t kProgress = FourCharCode("PRGS");
 constexpr std::uint32_t kReset = FourCharCode("RSET");
 constexpr std::uint32_t kAbout = FourCharCode("ABOT");
+constexpr std::uint32_t kStylePlain = FourCharCode("SPLN");
+constexpr std::uint32_t kStyleBold = FourCharCode("SBLD");
+constexpr std::uint32_t kStyleLarge = FourCharCode("SLRG");
+constexpr std::uint32_t kStyleRed = FourCharCode("SRED");
 constexpr std::uint32_t kHashMarks = FourCharCode("HASH");
 constexpr std::uint32_t kName = FourCharCode("NAME");
 constexpr std::uint32_t kChosen = FourCharCode("CHSN");
@@ -176,10 +184,13 @@ public:
 		auto tabs = std::make_unique<BTabView>("tabs");
 		tabs->AddTab(std::move(split));
 		tabs->TabAt(0)->SetLabel("Panels");
-		// A page to type notes on: a text view that scrolls.
+		// A page to type notes on: a text view that scrolls, styled by the
+		// Text menu.
 		auto notes = std::make_unique<BTextView>("notes");
+		notes->SetStylable(true);
 		notes->SetText("Type here. Shift and the arrows select, a double click selects "
-			"a word, a triple click a line.\n");
+			"a word, a triple click a line. The Text menu styles the selection.\n");
+		fNotes = notes.get();
 		auto notesScroll = std::make_unique<BScrollView>("notes scroll", std::move(notes),
 			BViewFlags{}, false, true);
 		tabs->AddTab(std::move(notesScroll));
@@ -228,6 +239,12 @@ public:
 				.AddItem("Reset", kReset, 'R')
 				.AddSeparator()
 				.AddItem("Quit", kQuitRequested, 'Q')
+			.End()
+			.AddMenu("Text")
+				.AddItem("Plain", kStylePlain, 'P')
+				.AddItem("Bold", kStyleBold, 'B')
+				.AddItem("Large", kStyleLarge, 'L')
+				.AddItem("Red", kStyleRed)
 			.End()
 			.AddMenu("Help")
 				.AddItem("About", kAbout)
@@ -291,6 +308,11 @@ public:
 			fLabel->SetText("Not clicked yet");
 			return;
 		}
+		if (message->what == kStylePlain || message->what == kStyleBold
+			|| message->what == kStyleLarge || message->what == kStyleRed) {
+			_Style(message->what);
+			return;
+		}
 		if (message->what == kAbout) {
 			fTabs->Select(3);
 			return;
@@ -311,6 +333,28 @@ private:
 	BOutlineListView* fClasses = nullptr;
 	BStatusBar* fStatus = nullptr;
 	BTabView* fTabs = nullptr;
+	BTextView* fNotes = nullptr;
+
+	// The Text menu: the selected notes (or what is typed next) plain, bold,
+	// large or red.
+	void _Style(std::uint32_t what)
+	{
+		if (what == kStylePlain) {
+			const BFont plain = BFont::Plain();
+			const gfx::Color text = Palette::Default().Get(BColorWhich::DocumentText);
+			fNotes->SetFontAndColor(&plain, kFontAll, &text);
+		} else if (what == kStyleBold) {
+			BFont font = BFont::Bold();
+			fNotes->SetFontAndColor(&font, BFontMode::FamilyAndStyle);
+		} else if (what == kStyleLarge) {
+			BFont font;
+			font.SetSize(20);
+			fNotes->SetFontAndColor(&font, BFontMode::Size);
+		} else {
+			const gfx::Color red = gfx::Color::FromRgba8(200, 0, 0);
+			fNotes->SetFontAndColor(nullptr, BFontModeFlags{}, &red);
+		}
+	}
 	BTextControl* fName = nullptr;
 	int fClicks = 0;
 };
