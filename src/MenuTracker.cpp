@@ -4,9 +4,10 @@
  * Distributed under the terms of the MIT License.
  * SPDX-License-Identifier: MIT
  *
- * Ported from Haiku: src/kits/interface/MenuBar.cpp (_Track()) and
- * Menu.cpp (_Track(), _UpdateStateOpenSelect(), _UpdateNavigationArea(),
- * _UpdateStateClose()), commit b1d497bb69. NewGUI:
+ * Ported from Haiku: src/kits/interface/MenuBar.cpp (_Track(),
+ * _StealFocus(), _RestoreFocus()) and Menu.cpp (_Track(),
+ * _UpdateStateOpenSelect(), _UpdateNavigationArea(), _UpdateStateClose(),
+ * KeyDown(), _SelectNextItem(), _NextItem()), commit b1d497bb69. NewGUI:
  * - One object follows the mouse for the bar and all its open menus, on
  *   the window's thread: each mouse event (in screen coordinates) is
  *   evaluated as Haiku's polling loops would evaluate it, at the level of
@@ -16,7 +17,17 @@
  * - Submenus open at once (Haiku's kOpenSubmenuDelay is 0); while the
  *   mouse rests in a navigation area, a tick re-evaluates it after Haiku's
  *   timeout of one second (on Clock::Default()).
- * - Escape closes the menus; the other keys come with W3b2b.
+ * - The keys go to the deepest open menu, else to the bar (Haiku's
+ *   app_server gave them to the frontmost menu window): BMenu::KeyDown()
+ *   is evaluated here. While the keyboard navigates (Haiku's
+ *   MENU_STATE_KEY_TO_SUBMENU), the mouse outside the menus does not
+ *   deselect; the mouse over an item takes over again.
+ * - Enter, Space and a trigger open the submenu of an item that has one,
+ *   with its first item selected, instead of invoking the item and
+ *   closing (Haiku); a disabled item's trigger does nothing; triggers
+ *   ignore the case of ASCII letters.
+ * - _NextItem() also reaches the last item when none is selected.
+ * - No scrolling menus (Page Up/Down) and no ObscureCursor().
  *
  * Authors (Haiku):
  *		Stephan Aßmus, superstippi@gmx.de
@@ -29,6 +40,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 
 #include <ngui/AppDefs.h>
 #include <ngui/InterfaceDefs.h>
@@ -66,6 +78,39 @@ ScreenBounds(const BMenu* menu)
 }
 
 
+// The first character of \a bytes, as Haiku's BUnicodeChar::FromUTF8(), in
+// lower case for ASCII letters (the case of the triggers).
+uint32
+TriggerOf(std::string_view bytes)
+{
+	if (bytes.empty())
+		return 0;
+	const auto lead = static_cast<unsigned char>(bytes[0]);
+	if (lead < 0x80)
+		return static_cast<uint32>((lead >= 'A' && lead <= 'Z') ? lead - 'A' + 'a' : lead);
+
+	std::size_t length = 0;
+	uint32 c = 0;
+	if ((lead & 0xe0) == 0xc0) {
+		length = 2;
+		c = lead & 0x1fu;
+	} else if ((lead & 0xf0) == 0xe0) {
+		length = 3;
+		c = lead & 0x0fu;
+	} else if ((lead & 0xf8) == 0xf0) {
+		length = 4;
+		c = lead & 0x07u;
+	} else {
+		return 0;
+	}
+	if (bytes.size() < length)
+		return 0;
+	for (std::size_t i = 1; i < length; i++)
+		c = (c << 6) | (static_cast<unsigned char>(bytes[i]) & 0x3fu);
+	return c;
+}
+
+
 } // namespace
 
 
@@ -91,7 +136,7 @@ MenuTracker::IsTracking() const
 
 void
 MenuTracker::Start(int32 menuIndex, bool sticky, bool /*showMenu*/,
-	const gfx::Rect* specialRect, gfx::Point screen, std::uint32_t buttons)
+	const gfx::Rect* specialRect, std::optional<gfx::Point> screen, std::uint32_t buttons)
 {
 	BWindow* window = fBar->Window();
 	if (fTracking || window == nullptr)
@@ -99,8 +144,10 @@ MenuTracker::Start(int32 menuIndex, bool sticky, bool /*showMenu*/,
 
 	fTracking = true;
 	fLevels.clear();
-	fSticky = sticky;
-	fWhere = screen;
+	fSticky = false;
+	fKeyNavigation = false;
+	fMouseKnown = screen.has_value();
+	fWhere = screen.value_or(gfx::Point{0, 0});
 	fButtons = buttons;
 	if (specialRect != nullptr)
 		fExtraRect = *specialRect;
@@ -109,18 +156,20 @@ MenuTracker::Start(int32 menuIndex, bool sticky, bool /*showMenu*/,
 
 	window->MenusBeginning();
 	window->fMenuTracking = this;
+	_SetSticky(sticky);
 
 	if (menuIndex != -1)
 		fBar->_SelectItem(fBar->ItemAt(menuIndex), true, false);
 
-	_Evaluate(false);
+	if (fMouseKnown)
+		_Evaluate(false);
 }
 
 
 void
 MenuTracker::Tick()
 {
-	if (fTracking)
+	if (fTracking && fMouseKnown)
 		_Evaluate(false);
 }
 
@@ -140,12 +189,15 @@ MenuTracker::Stop(BMenuItem* chosen)
 	if (window != nullptr && window->fMenuTracking == this)
 		window->fMenuTracking = nullptr;
 
-	fSticky = false;
 	fLevels.clear();
 	fExtraRect.reset();
+	fKeyNavigation = false;
 
 	if (chosen != nullptr)
 		(void)chosen->Invoke();
+
+	_RestoreFocus();
+	fSticky = false;
 
 	if (window != nullptr)
 		window->MenusEnded();
@@ -159,6 +211,7 @@ MenuTracker::TrackMouse(std::uint32_t /*what*/, gfx::Point screen, std::uint32_t
 		return;
 
 	const bool changed = buttons != fButtons;
+	fMouseKnown = true;
 	fWhere = screen;
 	fButtons = buttons;
 	_Evaluate(changed);
@@ -171,9 +224,10 @@ MenuTracker::TrackKey(std::uint32_t what, std::string_view bytes)
 	if (!fTracking)
 		return false;
 
-	// NewGUI: Escape for now; keyboard navigation comes with W3b2b.
-	if (what == kKeyDown && bytes.size() == 1 && bytes[0] == keys::kEscape)
-		Stop(nullptr);
+	if (what == kKeyDown && !bytes.empty()) {
+		BMenu* menu = _DeepestShownMenu();
+		_KeyDown(menu != nullptr ? menu : fBar, bytes[0], bytes);
+	}
 
 	// The keys belong to the menus while they are open.
 	return true;
@@ -184,6 +238,14 @@ void
 MenuTracker::CancelTracking()
 {
 	Stop(nullptr);
+}
+
+
+void
+MenuTracker::ViewDetached(BView* view)
+{
+	if (view == fPrevFocus)
+		fPrevFocus = nullptr;
 }
 
 
@@ -227,8 +289,9 @@ MenuTracker::_Evaluate(bool buttonsChanged)
 	if (level != nullptr) {
 		item = level->_HitTestItems(level->ConvertFromScreen(fWhere));
 		if (item != nullptr) {
+			fKeyNavigation = false;
 			_UpdateStateOpenSelect(level, item, fWhere);
-		} else if (level->fSelected != nullptr
+		} else if (!fKeyNavigation && level->fSelected != nullptr
 			&& (level->fSelected->Submenu() == nullptr
 				|| !level->fSelected->Submenu()->_IsShown())) {
 			// over a separator: as outside the menu
@@ -241,13 +304,14 @@ MenuTracker::_Evaluate(bool buttonsChanged)
 
 		// Mouse pointer outside the menus: if there's no other submenu
 		// opened, the deepest menu deselects its item.
-		if (deepest != nullptr && !overBar && deepest->fSelected != nullptr
+		if (deepest != nullptr && !overBar && !fKeyNavigation && deepest->fSelected != nullptr
 			&& (deepest->fSelected->Submenu() == nullptr
 				|| !deepest->fSelected->Submenu()->_IsShown())) {
 			deepest->_SelectItem(nullptr);
 		}
 
 		if (item != nullptr) {
+			fKeyNavigation = false;
 			fBar->_SelectItem(item);
 		} else if (fBar->fSelected != nullptr && !fSticky && overBar) {
 			fBar->_SelectItem(nullptr);
@@ -264,10 +328,10 @@ MenuTracker::_Evaluate(bool buttonsChanged)
 				Stop(nullptr);
 				return;
 			}
-			fSticky = false;
+			_SetSticky(false);
 		} else if (fButtons == 0 && !fSticky) {
 			if (fExtraRect.has_value() && fExtraRect->Contains(fWhere)) {
-				fSticky = true;
+				_SetSticky(true);
 				fExtraRect.reset();
 			} else {
 				if (item != level->fSelected)
@@ -285,7 +349,7 @@ MenuTracker::_Evaluate(bool buttonsChanged)
 				Stop(nullptr);
 				return;
 			}
-			fSticky = false;
+			_SetSticky(false);
 		} else if (fButtons == 0 && !fSticky) {
 			BMenuItem* selected = fBar->fSelected;
 			if ((selected != nullptr && selected->Submenu() == nullptr) || item == nullptr) {
@@ -294,9 +358,228 @@ MenuTracker::_Evaluate(bool buttonsChanged)
 				Stop(selected);
 				return;
 			}
-			fSticky = true;
+			_SetSticky(true);
 		}
 	}
+}
+
+
+void
+MenuTracker::_SetSticky(bool sticky)
+{
+	// Haiku's BMenu::_SetStickyMode(), for the whole hierarchy at once.
+	if (fSticky == sticky)
+		return;
+
+	fSticky = sticky;
+	if (sticky) {
+		// If we are switching to sticky mode,
+		// steal the focus from the current focus view
+		// (needed to handle keyboard navigation)
+		_StealFocus();
+	}
+}
+
+
+void
+MenuTracker::_StealFocus()
+{
+	// We already stole the focus, don't do anything
+	if (fFocusStolen)
+		return;
+
+	BWindow* window = fBar->Window();
+	if (window == nullptr)
+		return;
+
+	BView* focusView = window->CurrentFocus();
+	fPrevFocus = (focusView != nullptr && focusView != fBar) ? focusView : nullptr;
+	fFocusStolen = true;
+	fBar->MakeFocus();
+}
+
+
+void
+MenuTracker::_RestoreFocus()
+{
+	if (fBar->Window() != nullptr && fFocusStolen) {
+		if (fPrevFocus != nullptr)
+			fPrevFocus->MakeFocus();
+		else if (fBar->IsFocus())
+			fBar->MakeFocus(false);
+	}
+	fPrevFocus = nullptr;
+	fFocusStolen = false;
+}
+
+
+void
+MenuTracker::_KeyDown(BMenu* menu, char key, std::string_view bytes)
+{
+	// Haiku's BMenu::KeyDown() of the menu that has the keys.
+
+	// turn on sticky mode on nav key press
+	switch (key) {
+		case keys::kUpArrow:
+		case keys::kDownArrow:
+		case keys::kLeftArrow:
+		case keys::kRightArrow:
+		case keys::kHome:
+		case keys::kEnd:
+		case keys::kPageUp:
+		case keys::kPageDown:
+			_SetSticky(true);
+			fKeyNavigation = true;
+			break;
+		default:
+			break;
+	}
+
+	switch (key) {
+		case keys::kUpArrow:
+		case keys::kDownArrow:
+			if (menu->Layout() == BMenuLayout::InColumn) {
+				(void)_SelectNextItem(menu, menu->fSelected, key == keys::kDownArrow);
+			} else if (menu == fBar && menu->fSelected != nullptr
+				&& menu->fSelected->Submenu() != nullptr) {
+				// NewGUI: Haiku's bar tracked the menu of its selected
+				// item (MENU_STATE_KEY_TO_SUBMENU); here it opens.
+				menu->_SelectItem(menu->fSelected, true, true);
+			}
+			break;
+
+		case keys::kLeftArrow:
+			if (menu->Layout() == BMenuLayout::InRow) {
+				(void)_SelectNextItem(menu, menu->fSelected, false);
+			} else if (menu->Superitem() != nullptr) {
+				// this case has to be handled a bit specially.
+				BMenu* super = menu->Supermenu();
+				if (super == fBar) {
+					// If we're at the top menu below the menu bar, pass
+					// the keypress to the menu bar so we can move to
+					// another top level menu.
+					_KeyDown(fBar, key, bytes);
+				} else {
+					// Haiku's MENU_STATE_KEY_LEAVE_SUBMENU in the supermenu:
+					// close the submenu, but reselect the item itself for
+					// user.
+					BMenuItem* temp = super->fSelected;
+					super->_SelectItem(nullptr);
+					super->_SelectItem(temp, false);
+				}
+			}
+			break;
+
+		case keys::kRightArrow:
+			if (menu->Layout() == BMenuLayout::InRow) {
+				(void)_SelectNextItem(menu, menu->fSelected, true);
+			} else if (menu->fSelected != nullptr && menu->fSelected->Submenu() != nullptr) {
+				menu->_SelectItem(menu->fSelected, true, true);
+			} else if (menu->Supermenu() == fBar) {
+				// if we have no submenu and we're an
+				// item in the top menu below the menubar,
+				// pass the keypress to the menubar
+				// so you can use the keypress to switch menus.
+				_KeyDown(fBar, key, bytes);
+			}
+			break;
+
+		case keys::kEnter:
+		case ' ':
+			if (menu->fSelected != nullptr)
+				(void)_OpenOrChoose(menu, menu->fSelected);
+			break;
+
+		case keys::kEscape:
+			Stop(nullptr);
+			break;
+
+		default:
+		{
+			if (menu->AreTriggersEnabled()) {
+				const uint32 trigger = TriggerOf(bytes);
+				for (int32 i = menu->CountItems(); i-- > 0;) {
+					BMenuItem* item = menu->ItemAt(i);
+					if (item->fTriggerIndex < 0 || item->fTrigger != trigger)
+						continue;
+
+					(void)_OpenOrChoose(menu, item);
+					break;
+				}
+			}
+			break;
+		}
+	}
+}
+
+
+bool
+MenuTracker::_SelectNextItem(BMenu* menu, BMenuItem* item, bool forward)
+{
+	if (menu->CountItems() == 0) // cannot select next item in an empty menu
+		return false;
+
+	BMenuItem* nextItem = _NextItem(menu, item, forward);
+	if (nextItem == nullptr)
+		return false;
+
+	menu->_SelectItem(nextItem, menu == fBar);
+	return true;
+}
+
+
+BMenuItem*
+MenuTracker::_NextItem(const BMenu* menu, BMenuItem* item, bool forward) const
+{
+	const int32 numItems = menu->CountItems();
+	if (numItems == 0)
+		return nullptr;
+
+	int32 index = menu->IndexOf(item);
+	// NewGUI: one round more without a selected item, so that the last
+	// item is reached too
+	int32 loopCount = index < 0 ? numItems + 1 : numItems;
+
+	while (--loopCount) {
+		// Cycle through menu items in the given direction...
+		if (forward)
+			index++;
+		else
+			index--;
+
+		// ... wrap around...
+		if (index < 0)
+			index = numItems - 1;
+		else if (index >= numItems)
+			index = 0;
+
+		// ... and return the first suitable item found.
+		BMenuItem* nextItem = menu->ItemAt(index);
+		if (nextItem->IsEnabled())
+			return nextItem;
+	}
+
+	// If no other suitable item was found, return NULL.
+	return nullptr;
+}
+
+
+bool
+MenuTracker::_OpenOrChoose(BMenu* menu, BMenuItem* item)
+{
+	if (!item->IsEnabled())
+		return false;
+
+	if (item->Submenu() != nullptr) {
+		// NewGUI: open it, with its first item selected
+		menu->_SelectItem(item, true, true);
+		return true;
+	}
+
+	if (item != menu->fSelected)
+		menu->_SelectItem(item, false);
+	Stop(item);
+	return true;
 }
 
 

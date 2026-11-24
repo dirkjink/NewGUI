@@ -99,4 +99,18 @@ inline constexpr std::uint32_t kUpdateStatusBar = FourCharCode("_UPS");
 inline constexpr std::uint32_t kResetStatusBar = FourCharCode("_RES");
 
 
+/*!	B_CUT: cut the selection to the clipboard (Command+X goes to the focus
+	view). */
+inline constexpr std::uint32_t kCut = FourCharCode("CCUT");
+
+/*!	B_COPY: copy the selection (Command+C). */
+inline constexpr std::uint32_t kCopy = FourCharCode("COPY");
+
+/*!	B_PASTE: paste the clipboard (Command+V). */
+inline constexpr std::uint32_t kPaste = FourCharCode("PSTE");
+
+/*!	B_SELECT_ALL: select everything (Command+A). */
+inline constexpr std::uint32_t kSelectAll = FourCharCode("SALL");
+
+
 } // namespace ngui

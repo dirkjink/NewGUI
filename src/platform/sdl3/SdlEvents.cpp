@@ -9,6 +9,7 @@
 
 #include <SDL3/SDL_mouse.h>
 
+#include <string>
 #include <string_view>
 
 #include <ngui/AppDefs.h>
@@ -207,6 +208,15 @@ Translate(std::span<const SDL_Event> events, const TranslationContext& context)
 				// well.
 				if (bytes.empty())
 					bytes = ControlBytes(key.scancode);
+				// With Command, Control or Option held SDL types no text:
+				// the key's character of the keyboard layout, as Haiku's
+				// keymaps give it, so that shortcuts work.
+				std::string character;
+				if (bytes.empty() && (key.mod & (SDL_KMOD_ALT | SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0
+					&& key.key >= 0x20 && key.key < 0x7f) {
+					character = std::string(1, static_cast<char>(key.key));
+					bytes = character;
+				}
 				(void)message.AddString("bytes", bytes);
 				if (key.down)
 					(void)message.AddInt32("be:key_repeat", key.repeat ? 1 : 0);

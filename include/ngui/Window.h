@@ -28,6 +28,8 @@ namespace ngui {
 
 
 class BButton;
+class BMenuBar;
+class BMenuItem;
 class MenuTracking;
 
 
@@ -196,6 +198,30 @@ public:
 			void				UpdateIfNeeded();
 									/*!< Draws a frame now if one is due, as Haiku's. */
 
+	// Keyboard shortcuts
+
+			void				AddShortcut(std::uint32_t key, BModifierFlags modifiers,
+									std::unique_ptr<BMessage> message);
+									/*!< Sends \a message to the window when \a key is typed
+										with \a modifiers; Command is always needed, unless
+										BModifier::NoCommand is given. Replaces a shortcut
+										of the same keys. */
+			void				AddShortcut(std::uint32_t key, BModifierFlags modifiers,
+									std::unique_ptr<BMessage> message, BHandler* target);
+									/*!< As above, to \a target; nullptr for the focus view
+										(or the window without one). */
+			void				RemoveShortcut(std::uint32_t key, BModifierFlags modifiers);
+									/*!< Removes the shortcut; Command+Q too, which is not a
+										real one. */
+			bool				HasShortcut(std::uint32_t key, BModifierFlags modifiers) const;
+									/*!< Whether there is such a shortcut. */
+
+			void				SetKeyMenuBar(BMenuBar* bar);
+									/*!< The menu bar Command+Escape opens (a menu bar
+										sets itself when attached). */
+			BMenuBar*			KeyMenuBar() const;
+									/*!< The menu bar Command+Escape opens, or nullptr. */
+
 	// Popups (NewGUI): menus and tooltips of the window
 
 			BView*				OpenPopup(std::unique_ptr<BView> view);
@@ -235,7 +261,9 @@ private:
 	friend class BView;
 
 			class PopupSurface;
+			struct Shortcut;
 	friend class MenuTracker;
+	friend class BMenuItem;
 
 			void				_AddDirty(const gfx::Rect& rect);
 			void				_AddDirty(const BView* root, const gfx::Rect& rect);
@@ -246,6 +274,10 @@ private:
 			void				_UpdatePopup(PopupSurface& popup,
 									const gfx::Caps& caps, const TextSystem& text);
 			void				_ScheduleUpdate();
+			bool				_HandleKeyDown(BMessage* event);
+			void				_AddShortcut(std::uint32_t* key, BModifierFlags* modifiers,
+									BMenuItem* item);
+			Shortcut*			_FindShortcut(std::uint32_t key, BModifierFlags modifiers) const;
 			void				_ViewDetached(BView* view);
 			void				_SetFocus(BView* view);
 			void				_SetMouseCapture(BView* view);
@@ -289,6 +321,9 @@ private:
 			std::vector<std::unique_ptr<PopupSurface>> fPopups;
 			MenuTracking*		fMenuTracking = nullptr;
 									// the menu tracking that gets the events, while it runs
+			std::vector<std::unique_ptr<Shortcut>> fShortcuts;
+			BMenuBar*			fKeyMenuBar = nullptr;
+			bool				fNoQuitShortcut = false;
 			bool				fMainUpdateWanted = true;
 									// The content area needs a frame (not only popups).
 };

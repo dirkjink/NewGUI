@@ -64,7 +64,10 @@ public:
 										0 for one chosen by the menu. */
 			void				SetShortcut(uint32 shortcut, BModifierFlags modifiers);
 									/*!< The keyboard shortcut: \a shortcut with
-										\a modifiers. */
+										\a modifiers, always with Command unless
+										BModifier::NoCommand is given; installed in
+										the window of the item's menu (see
+										BWindow::AddShortcut()). */
 
 			const std::string&	Label() const;
 									/*!< The label. */

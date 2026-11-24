@@ -17,6 +17,8 @@
 #include <ngui/Palette.h>
 #include <ngui/Button.h>
 #include <ngui/LookRegistry.h>
+#include <ngui/MenuBar.h>
+#include <ngui/MenuItem.h>
 #include <ngui/TextSystem.h>
 #include <ngui/gfx/BackendRegistry.h>
 
@@ -120,6 +122,41 @@ public:
 };
 
 
+// A keyboard shortcut (Haiku's BWindow::Shortcut): a key with prepared
+// modifiers and either a menu item or a message for a target.
+struct BWindow::Shortcut {
+	std::uint32_t			fKey = 0;
+	BModifierFlags			fModifiers;
+	BMenuItem*				fMenuItem = nullptr;
+	std::unique_ptr<BMessage> fMessage;
+	BHandler*				fTarget = nullptr;
+
+	static BModifierFlags AllowedModifiers()
+	{
+		// NewGUI: no Menu key
+		return BModifier::Command | BModifier::Option | BModifier::Shift | BModifier::Control;
+	}
+
+	static std::uint32_t PrepareKey(std::uint32_t key)
+	{
+		// NewGUI: ASCII only (Haiku: BUnicodeChar::ToUpper())
+		if (key >= 'a' && key <= 'z')
+			return key - 'a' + 'A';
+		return key;
+	}
+
+	static BModifierFlags PrepareModifiers(BModifierFlags modifiers)
+	{
+		const BModifierFlags allowed = BModifierFlags::FromRaw(modifiers.Raw()
+			& AllowedModifiers().Raw());
+		if (modifiers.Has(BModifier::NoCommand))
+			return BModifierFlags::FromRaw(allowed.Raw()
+				& ~BModifierFlags(BModifier::Command).Raw());
+		return allowed | BModifier::Command;
+	}
+};
+
+
 BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWindowFlags flags)
 	:
 	BLooper(title),
@@ -150,6 +187,16 @@ BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWin
 		}
 	}
 	_AddDirty(Bounds());
+
+	// Haiku's shortcuts of every window (Command+Q is handled directly, its
+	// message goes to the application). NewGUI: not the ones of window
+	// management (minimize, zoom, hide, front, back).
+	if (!fFlags.Has(BWindowFlag::NotClosable))
+		AddShortcut('W', BModifier::Command, std::make_unique<BMessage>(kQuitRequested));
+	AddShortcut('X', BModifier::Command, std::make_unique<BMessage>(kCut), nullptr);
+	AddShortcut('C', BModifier::Command, std::make_unique<BMessage>(kCopy), nullptr);
+	AddShortcut('V', BModifier::Command, std::make_unique<BMessage>(kPaste), nullptr);
+	AddShortcut('A', BModifier::Command, std::make_unique<BMessage>(kSelectAll), nullptr);
 }
 
 
@@ -847,6 +894,10 @@ BWindow::_ViewDetached(BView* view)
 		fCapture = nullptr;
 	if (fDefaultButton == view)
 		fDefaultButton = nullptr;
+	if (fKeyMenuBar == view)
+		fKeyMenuBar = nullptr;
+	if (fMenuTracking != nullptr)
+		fMenuTracking->ViewDetached(view);
 }
 
 
@@ -951,6 +1002,9 @@ BWindow::_KeyEvent(BMessage* message)
 	const std::string_view bytes = message->GetString("bytes", "");
 	// While menus are open, their tracking gets the keys first.
 	if (fMenuTracking != nullptr && fMenuTracking->TrackKey(message->what, bytes))
+		return;
+	// Then the window's own keys (Haiku's _HandleKeyDown()).
+	if (message->what == kKeyDown && _HandleKeyDown(message))
 		return;
 	const auto modifiers = BModifierFlags::FromRaw(
 		static_cast<std::uint32_t>(message->GetInt32("modifiers", 0)));
@@ -1198,6 +1252,192 @@ BWindow::_UpdatePopup(PopupSurface& popup, const gfx::Caps& caps, const TextSyst
 	if (popup.platformWindow != nullptr)
 		Present(*popup.platformWindow, *popup.surface, popup.dirty, popup.scale);
 	popup.dirty.clear();
+}
+
+
+// #pragma mark - shortcuts
+
+
+void
+BWindow::AddShortcut(std::uint32_t key, BModifierFlags modifiers,
+	std::unique_ptr<BMessage> message)
+{
+	AddShortcut(key, modifiers, std::move(message), this);
+}
+
+
+void
+BWindow::AddShortcut(std::uint32_t key, BModifierFlags modifiers,
+	std::unique_ptr<BMessage> message, BHandler* target)
+{
+	if (message == nullptr)
+		return;
+
+	auto shortcut = std::make_unique<Shortcut>();
+	shortcut->fKey = Shortcut::PrepareKey(key);
+	shortcut->fModifiers = Shortcut::PrepareModifiers(modifiers);
+	shortcut->fMessage = std::move(message);
+	shortcut->fTarget = target;
+
+	// removes the shortcut if it already exists!
+	RemoveShortcut(shortcut->fKey, shortcut->fModifiers.Has(BModifier::Command)
+		? shortcut->fModifiers : shortcut->fModifiers | BModifier::NoCommand);
+	fShortcuts.push_back(std::move(shortcut));
+}
+
+
+void
+BWindow::RemoveShortcut(std::uint32_t key, BModifierFlags modifiers)
+{
+	Shortcut* shortcut = _FindShortcut(key, modifiers);
+	if (shortcut != nullptr) {
+		std::erase_if(fShortcuts,
+			[shortcut](const std::unique_ptr<Shortcut>& entry) { return entry.get() == shortcut; });
+	} else if (Shortcut::PrepareKey(key) == 'Q'
+		&& Shortcut::PrepareModifiers(modifiers) == BModifierFlags(BModifier::Command)) {
+		fNoQuitShortcut = true; // the quit shortcut is a fake shortcut
+	}
+}
+
+
+bool
+BWindow::HasShortcut(std::uint32_t key, BModifierFlags modifiers) const
+{
+	return _FindShortcut(key, modifiers) != nullptr;
+}
+
+
+void
+BWindow::SetKeyMenuBar(BMenuBar* bar)
+{
+	fKeyMenuBar = bar;
+}
+
+
+BMenuBar*
+BWindow::KeyMenuBar() const
+{
+	return fKeyMenuBar;
+}
+
+
+void
+BWindow::_AddShortcut(std::uint32_t* key, BModifierFlags* modifiers, BMenuItem* item)
+{
+	auto shortcut = std::make_unique<Shortcut>();
+	shortcut->fKey = Shortcut::PrepareKey(*key);
+	shortcut->fModifiers = Shortcut::PrepareModifiers(*modifiers);
+	shortcut->fMenuItem = item;
+
+	// removes the shortcut if it already exists!
+	RemoveShortcut(shortcut->fKey, shortcut->fModifiers.Has(BModifier::Command)
+		? shortcut->fModifiers : shortcut->fModifiers | BModifier::NoCommand);
+
+	// pass the prepared key and modifiers back to caller (Haiku's
+	// Shortcut::Modifiers(): with B_NO_COMMAND_KEY if without Command)
+	*key = shortcut->fKey;
+	*modifiers = shortcut->fModifiers.Has(BModifier::Command)
+		? shortcut->fModifiers : shortcut->fModifiers | BModifier::NoCommand;
+	fShortcuts.push_back(std::move(shortcut));
+}
+
+
+BWindow::Shortcut*
+BWindow::_FindShortcut(std::uint32_t key, BModifierFlags modifiers) const
+{
+	key = Shortcut::PrepareKey(key);
+	const BModifierFlags prepared = Shortcut::PrepareModifiers(modifiers);
+	for (const std::unique_ptr<Shortcut>& shortcut : fShortcuts) {
+		if (shortcut->fKey == key && shortcut->fModifiers == prepared)
+			return shortcut.get();
+	}
+	return nullptr;
+}
+
+
+bool
+BWindow::_HandleKeyDown(BMessage* event)
+{
+	// Ported from Haiku: src/kits/interface/Window.cpp (commit b1d497bb69),
+	// the menu bar key, Command+Q and the shortcuts.
+	const std::string_view bytes = event->GetString("bytes", "");
+	if (bytes.empty())
+		return false;
+
+	const std::uint32_t key = Shortcut::PrepareKey(static_cast<unsigned char>(bytes[0]));
+	const auto modifiers = BModifierFlags::FromRaw(
+		static_cast<std::uint32_t>(event->GetInt32("modifiers", 0)));
+
+	// handle BMenuBar key
+	if (key == static_cast<std::uint32_t>(keys::kEscape) && modifiers.Has(BModifier::Command)
+		&& fKeyMenuBar != nullptr) {
+		fKeyMenuBar->StartMenuBar(0, true, false, nullptr);
+		return true;
+	}
+
+	// Special handling for Command+q
+	if (modifiers.Has(BModifier::Command)) {
+		// Command+q has been pressed, so, we will quit
+		// the shortcut mechanism doesn't allow handlers outside the window
+		if (!fNoQuitShortcut && key == 'Q') {
+			BMessage message(kQuitRequested);
+			(void)message.AddBool("shortcut", true);
+			(void)AppMessenger().SendMessage(message);
+			return true;
+		}
+	}
+
+	// Handle shortcuts
+	{
+		// Pretend that the user opened a menu, to give the subclass a
+		// chance to update its menus. This may install new shortcuts,
+		// which is why we have to call it here, before trying to find
+		// a shortcut for the given key.
+		// Only do this if Command key is down, it's too expensive to
+		// do this on every key press.
+		if (modifiers.Has(BModifier::Command))
+			MenusBeginning();
+
+		Shortcut* shortcut = _FindShortcut(key, modifiers.Has(BModifier::Command)
+			? modifiers : modifiers | BModifier::NoCommand);
+		if (shortcut != nullptr) {
+			if (shortcut->fMenuItem != nullptr) {
+				BMenu* menu = shortcut->fMenuItem->Menu();
+				if (menu != nullptr && shortcut->fMenuItem->IsEnabled()) {
+					(void)shortcut->fMenuItem->Invoke();
+				} else {
+					// Process disabled shortcuts as if they did not exist.
+					// (This lets B_NO_COMMAND_KEY shortcuts fall back to
+					// regular key events.)
+					shortcut = nullptr;
+				}
+			} else {
+				BHandler* target = shortcut->fTarget;
+				if (target == nullptr)
+					target = CurrentFocus();
+				BMessage message(*shortcut->fMessage);
+				const auto now = Clock::Default().Now().count();
+				if (message.HasInt64("when"))
+					(void)message.ReplaceInt64("when", now);
+				else
+					(void)message.AddInt64("when", now);
+				if (message.HasBool("shortcut"))
+					(void)message.ReplaceBool("shortcut", true);
+				else
+					(void)message.AddBool("shortcut", true);
+				(void)PostMessage(message, target != nullptr ? target : this);
+			}
+		}
+
+		if (modifiers.Has(BModifier::Command))
+			MenusEnded();
+
+		if (shortcut != nullptr)
+			return true;
+	}
+
+	// we always eat the event if the command key was pressed
+	return modifiers.Has(BModifier::Command);
 }
 
 

@@ -36,8 +36,8 @@ enum class BMenuLayout : std::uint8_t {
 	triggers and submenus. It sizes itself to its items.
 
 	A submenu opens in a popup of the window its menu bar is in (W3b: popups
-	belong to the window); the menu bar tracks the mouse. Keyboard
-	navigation and shortcuts follow (W3b2b).
+	belong to the window); the menu bar tracks the mouse and the keyboard.
+	The shortcuts of its items work in that window while it is attached.
 
 	Differences to Haiku: the menu owns its items (AddItem() takes them as
 	std::unique_ptr, RemoveItem() gives them back); no scripting. Sizes are

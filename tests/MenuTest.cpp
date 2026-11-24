@@ -17,6 +17,7 @@
 
 #include <ngui/AppDefs.h>
 #include <ngui/Clock.h>
+#include <ngui/Button.h>
 #include <ngui/InterfaceDefs.h>
 #include <ngui/MenuBar.h>
 #include <ngui/MenuItem.h>
@@ -268,34 +269,58 @@ TEST(MenuTest, InvokingSendsTheMessageToTheWindow)
 }
 
 
+// Whether \a item is selected: IsSelected() is protected, as in Haiku.
+struct SelectedItem : BMenuItem {
+	static bool Of(const BMenuItem* item)
+	{
+		return (item->*(&SelectedItem::IsSelected))();
+	}
+};
+
+
 constexpr std::uint32_t kAsk = FourCharCode("ASK ");
+constexpr std::uint32_t kRemoveShortcut = FourCharCode("RMSC");
 
 
 // A window with a menu bar "File" (New, Open, separator, Recent > a.txt,
-// b.txt, Quit) and "Edit" (Cut) at the top; the items send 1 .. 6 to it. It
-// records what it gets and answers kAsk with the open popups, whether the
-// bar tracks, the frame of the last popup and its menu hooks.
+// b.txt, Quit) and "Edit" (Cut) at the top, triggers enabled; the items
+// send 1 .. 6 to it. Below the bar a button "button" has the focus. With
+// \a shortcuts, New has Command+N, Open Command+O but is disabled, and the
+// window has Command+K (7) and D without Command (8). It records what it
+// gets and answers kAsk with the open popups, whether the bar tracks, the
+// frame of the last popup, its menu hooks, the selected items from the bar
+// down and the focus view's name. kRemoveShortcut removes Command+K.
 class MenuWindow : public BWindow {
 public:
-	MenuWindow()
+	explicit MenuWindow(bool shortcuts)
 		:
 		BWindow({0, 0, 400, 300}, "menus")
 	{
 		auto bar = std::make_unique<BMenuBar>(gfx::Rect{0, 0, 400, 20}, "bar");
 		auto file = std::make_unique<BMenu>("File");
-		file->AddItem(Item("New", 1));
-		file->AddItem(Item("Open", 2));
+		file->AddItem(shortcuts ? Item("New", 1, 'N', BModifier::Command) : Item("New", 1));
+		file->AddItem(shortcuts ? Item("Open", 2, 'O', BModifier::Command) : Item("Open", 2));
+		if (shortcuts)
+			file->ItemAt(1)->SetEnabled(false);
 		file->AddSeparatorItem();
 		auto recent = std::make_unique<BMenu>("Recent");
 		recent->AddItem(Item("a.txt", 3));
 		recent->AddItem(Item("b.txt", 4));
+		recent->SetTriggersEnabled(true);
 		file->AddItem(std::move(recent));
 		file->AddItem(Item("Quit", 5));
+		file->SetTriggersEnabled(true);
 		auto edit = std::make_unique<BMenu>("Edit");
 		edit->AddItem(Item("Cut", 6));
 		bar->AddItem(std::move(file));
 		bar->AddItem(std::move(edit));
 		fBar = static_cast<BMenuBar*>(AddChild(std::move(bar)));
+		AddChild(std::make_unique<BButton>(gfx::Rect{10, 100, 90, 130}, "button", "Button",
+			nullptr))->MakeFocus(true);
+		if (shortcuts) {
+			AddShortcut('K', BModifier::Command, std::make_unique<BMessage>(7));
+			AddShortcut('D', BModifier::NoCommand, std::make_unique<BMessage>(8));
+		}
 	}
 
 	void MenusBeginning() override
@@ -310,8 +335,12 @@ public:
 
 	void MessageReceived(BMessage* message) override
 	{
-		if (message->what >= 1 && message->what <= 6) {
+		if (message->what >= 1 && message->what <= 8) {
 			fChosen.push_back(static_cast<std::int32_t>(message->what));
+			return;
+		}
+		if (message->what == kRemoveShortcut) {
+			RemoveShortcut('k', BModifier::Command);
 			return;
 		}
 		if (message->what != kAsk) {
@@ -327,6 +356,21 @@ public:
 			(void)reply.AddInt32("chosen", chosen);
 		(void)reply.AddInt32("beginnings", fBeginnings);
 		(void)reply.AddInt32("ends", fEnds);
+		// the selected items, from the bar down through the open menus
+		for (BMenu* menu = fBar; menu != nullptr;) {
+			BMenu* next = nullptr;
+			for (std::int32_t i = 0; i < menu->CountItems(); i++) {
+				BMenuItem* item = menu->ItemAt(i);
+				if (!SelectedItem::Of(item))
+					continue;
+				(void)reply.AddString("selected", item->Label());
+				if (item->Submenu() != nullptr && item->Submenu()->Window() != nullptr)
+					next = item->Submenu();
+			}
+			menu = next;
+		}
+		(void)reply.AddString("focus", CurrentFocus() != nullptr ? CurrentFocus()->Name() : "");
+		(void)reply.AddBool("hasK", HasShortcut('K', BModifier::Command));
 		(void)message->SendReply(reply);
 	}
 
@@ -346,14 +390,17 @@ struct MenuState {
 	std::vector<std::int32_t> chosen;
 	std::int32_t beginnings = 0;
 	std::int32_t ends = 0;
+	std::vector<std::string> selected;
+	std::string focus;
+	bool hasK = false;
 };
 
 
 class RunningMenus {
 public:
-	RunningMenus()
+	explicit RunningMenus(bool shortcuts = false)
 		:
-		fWindow(*BLooper::Run(std::make_unique<MenuWindow>()))
+		fWindow(*BLooper::Run(std::make_unique<MenuWindow>(shortcuts)))
 	{
 	}
 
@@ -377,11 +424,17 @@ public:
 		Mouse(kMouseUp, where, 0);
 	}
 
-	void Key(char byte)
+	void Key(char byte, BModifierFlags modifiers = {})
 	{
 		BMessage message(kKeyDown);
 		(void)message.AddString("bytes", std::string(1, byte));
+		(void)message.AddInt32("modifiers", static_cast<std::int32_t>(modifiers.Raw()));
 		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	void Send(std::uint32_t what)
+	{
+		EXPECT_TRUE(fWindow.SendMessage(BMessage(what)).has_value());
 	}
 
 	void Deactivate()
@@ -406,6 +459,10 @@ public:
 			state.chosen.push_back(*chosen);
 		state.beginnings = reply.GetInt32("beginnings", 0);
 		state.ends = reply.GetInt32("ends", 0);
+		for (std::int32_t i = 0; auto selected = reply.FindString("selected", i); i++)
+			state.selected.emplace_back(*selected);
+		state.focus = reply.GetString("focus", "?");
+		state.hasK = reply.GetBool("hasK", false);
 		return state;
 	}
 
@@ -540,6 +597,167 @@ TEST(MenuBarTest, TheNavigationAreaDelaysSwitching)
 		EXPECT_TRUE(later.tracking);
 	}
 	Clock::SetDefault(nullptr);
+}
+
+
+TEST(MenuBarTest, TheKeyboardNavigatesTheMenus)
+{
+	// What is tested: Command+Escape, then Down three times, Right, Down,
+	// Left, Left, Down and Enter; the button below the bar has the focus.
+	// Success criteria: Command+Escape opens the File menu (sticky, nothing
+	// selected in it) and the bar takes the focus. Down moves through the
+	// enabled items and skips the separator; "Recent" is selected without
+	// opening. Right opens its submenu with "a.txt" selected; Left closes it
+	// again, "Recent" stays selected. Left in the File menu goes to the
+	// previous menu of the bar, wrapping around to "Edit"; Down selects its
+	// only item. Enter chooses it (6), closes the menus and gives the focus
+	// back to the button.
+	// Why it matters: Menus must be usable without a mouse, as in Haiku.
+	//
+	// Given
+	RunningMenus menus;
+	const std::string before = menus.Ask().focus;
+
+	// When
+	menus.Key(keys::kEscape, BModifier::Command);
+	const MenuState opened = menus.Ask();
+	menus.Key(keys::kDownArrow);
+	menus.Key(keys::kDownArrow);
+	menus.Key(keys::kDownArrow);
+	const MenuState recent = menus.Ask();
+	menus.Key(keys::kRightArrow);
+	const MenuState submenu = menus.Ask();
+	menus.Key(keys::kDownArrow);
+	menus.Key(keys::kLeftArrow);
+	const MenuState left = menus.Ask();
+	menus.Key(keys::kLeftArrow);
+	menus.Key(keys::kDownArrow);
+	const MenuState edit = menus.Ask();
+	menus.Key(keys::kEnter);
+	const MenuState chosen = menus.Ask();
+
+	// Then
+	EXPECT_EQ(before, "button");
+	EXPECT_TRUE(opened.tracking);
+	EXPECT_EQ(opened.popups, 1);
+	EXPECT_EQ(opened.selected, (std::vector<std::string>{"File"}));
+	EXPECT_EQ(opened.focus, "bar");
+	EXPECT_EQ(recent.popups, 1);
+	EXPECT_EQ(recent.selected, (std::vector<std::string>{"File", "Recent"}));
+	EXPECT_EQ(submenu.popups, 2);
+	EXPECT_EQ(submenu.selected, (std::vector<std::string>{"File", "Recent", "a.txt"}));
+	EXPECT_EQ(left.popups, 1);
+	EXPECT_EQ(left.selected, (std::vector<std::string>{"File", "Recent"}));
+	EXPECT_EQ(edit.popups, 1);
+	EXPECT_EQ(edit.selected, (std::vector<std::string>{"Edit", "Cut"}));
+	EXPECT_FALSE(chosen.tracking);
+	EXPECT_EQ(chosen.popups, 0);
+	EXPECT_EQ(chosen.chosen, (std::vector<std::int32_t>{6}));
+	EXPECT_EQ(chosen.focus, "button");
+	EXPECT_EQ(chosen.beginnings, 1);
+	EXPECT_EQ(chosen.ends, 1);
+}
+
+
+TEST(MenuBarTest, TriggersAndShortcutsChoose)
+{
+	// What is tested: Items with shortcuts (New: Command+N; Open:
+	// Command+O, disabled) and window shortcuts (Command+K, D without
+	// Command); the keys typed with the menus closed: Command+n,
+	// Command+Shift+n, Command+o, Command+k, d, Command+d; then Command+K
+	// removed and typed again; then Command+Escape and the triggers "r" and
+	// "b".
+	// Success criteria: Command+n chooses New (1), in either case of the
+	// letter; with Shift it is another shortcut, which does not exist. The
+	// disabled Open is not chosen. Command+k sends 7 to the window, d
+	// without Command 8; Command+d is not that shortcut. A removed shortcut
+	// is gone. MenusBeginning() and MenusEnded() come with each key typed
+	// with Command, as in Haiku. The trigger "r" opens the Recent submenu
+	// with "a.txt" selected; "b" chooses b.txt (4).
+	// Why it matters: Shortcuts and triggers are the fast way to the
+	// commands of an application.
+	//
+	// Given
+	RunningMenus menus(true);
+
+	// When
+	menus.Key('n', BModifier::Command);
+	menus.Key('n', BModifier::Command | BModifier::Shift);
+	menus.Key('o', BModifier::Command);
+	menus.Key('k', BModifier::Command);
+	menus.Key('d');
+	menus.Key('d', BModifier::Command);
+	const MenuState shortcuts = menus.Ask();
+	menus.Send(kRemoveShortcut);
+	menus.Key('k', BModifier::Command);
+	const MenuState removed = menus.Ask();
+	menus.Key(keys::kEscape, BModifier::Command);
+	menus.Key('r');
+	const MenuState triggered = menus.Ask();
+	menus.Key('b');
+	const MenuState chosen = menus.Ask();
+
+	// Then
+	EXPECT_EQ(shortcuts.chosen, (std::vector<std::int32_t>{1, 7, 8}));
+	EXPECT_FALSE(shortcuts.tracking);
+	EXPECT_EQ(shortcuts.beginnings, 5);
+	EXPECT_EQ(shortcuts.ends, 5);
+	EXPECT_FALSE(removed.hasK);
+	EXPECT_EQ(removed.chosen, (std::vector<std::int32_t>{1, 7, 8}));
+	EXPECT_EQ(triggered.popups, 2);
+	EXPECT_EQ(triggered.selected, (std::vector<std::string>{"File", "Recent", "a.txt"}));
+	EXPECT_FALSE(chosen.tracking);
+	EXPECT_EQ(chosen.chosen, (std::vector<std::int32_t>{1, 7, 8, 4}));
+}
+
+
+TEST(MenuBarTest, ItemShortcutsLiveWithTheirItems)
+{
+	// What is tested: A menu bar with an item "Cut" (X without Command) and
+	// "Paste" (Command+P) in a window; then Cut's shortcut changed to Y,
+	// Paste removed from its menu, the bar removed from the window.
+	// Success criteria: Attaching installs both shortcuts in the window
+	// (Paste's replaces nothing else); changing a shortcut moves it; a
+	// removed item and a detached bar take theirs along, and the window no
+	// longer has a key menu bar.
+	// Why it matters: A shortcut left behind would invoke an item that is
+	// no longer there.
+	//
+	// Given
+	BWindow window({0, 0, 200, 100}, "shortcuts");
+	auto bar = std::make_unique<BMenuBar>(gfx::Rect{0, 0, 200, 20}, "bar");
+	auto edit = std::make_unique<BMenu>("Edit");
+	BMenu* menu = edit.get();
+	(void)menu->AddItem(Item("Cut", 1, 'X', BModifier::NoCommand));
+	(void)menu->AddItem(Item("Paste", 2, 'P', BModifier::Command));
+	BMenuItem* cut = menu->ItemAt(0);
+	(void)bar->AddItem(std::move(edit));
+	BView* added = window.AddChild(std::move(bar));
+
+	// When
+	const bool attachedX = window.HasShortcut('X', BModifier::NoCommand);
+	const bool attachedP = window.HasShortcut('p', BModifier::Command);
+	const bool keyMenuBar = window.KeyMenuBar() == added;
+	cut->SetShortcut('Y', BModifier::NoCommand);
+	const bool movedX = window.HasShortcut('X', BModifier::NoCommand);
+	const bool movedY = window.HasShortcut('Y', BModifier::NoCommand);
+	std::unique_ptr<BMenuItem> paste = menu->RemoveItem(1);
+	const bool removedP = window.HasShortcut('P', BModifier::Command);
+	std::unique_ptr<BView> detached = window.RemoveChild(added);
+	const bool detachedY = window.HasShortcut('Y', BModifier::NoCommand);
+
+	// Then
+	EXPECT_TRUE(attachedX);
+	EXPECT_TRUE(attachedP);
+	EXPECT_TRUE(keyMenuBar);
+	EXPECT_FALSE(movedX);
+	EXPECT_TRUE(movedY);
+	EXPECT_NE(paste, nullptr);
+	EXPECT_FALSE(removedP);
+	EXPECT_NE(detached, nullptr);
+	EXPECT_FALSE(detachedY);
+	EXPECT_EQ(window.KeyMenuBar(), nullptr);
+	EXPECT_TRUE(window.HasShortcut('W', BModifier::Command));
 }
 
 

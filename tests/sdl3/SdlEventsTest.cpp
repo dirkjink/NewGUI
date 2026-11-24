@@ -54,12 +54,14 @@ Button(bool down, std::uint8_t button, float x, float y, std::uint8_t clicks)
 
 
 SDL_Event
-Key(bool down, SDL_Scancode scancode, SDL_Keymod modifiers, bool repeat = false)
+Key(bool down, SDL_Scancode scancode, SDL_Keymod modifiers, bool repeat = false,
+	SDL_Keycode key = SDLK_UNKNOWN)
 {
 	SDL_Event event{};
 	event.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
 	event.key.windowID = kWindow;
 	event.key.scancode = scancode;
+	event.key.key = key;
 	event.key.mod = modifiers;
 	event.key.down = down;
 	event.key.repeat = repeat;
@@ -211,6 +213,41 @@ TEST(SdlEventsTest, KeysWithoutTextCarryHaikusBytes)
 	EXPECT_EQ(messages[5].message.what, kKeyUp);
 	EXPECT_EQ(messages[5].message.GetString("bytes", "?"), "\n");
 	EXPECT_EQ(messages[6].message.GetString("bytes", "?"), "");
+}
+
+
+TEST(SdlEventsTest, ShortcutKeysCarryTheirCharacter)
+{
+	// What is tested: N with Alt, W with Ctrl and K with the Super key, for
+	// which SDL types no text; N without a modifier and without text.
+	// Success criteria: The keys with a modifier carry the character of
+	// their key code ("n", "w", "k") and Command, Control or Option; the
+	// plain key carries no bytes.
+	// Why it matters: Shortcuts (Command+N) are found by the character, as
+	// in Haiku, where the keymap gives it with Command held too.
+	//
+	// Given
+	const std::vector<SDL_Event> events = {
+		Key(true, SDL_SCANCODE_N, SDL_KMOD_LALT, false, SDLK_N),
+		Key(true, SDL_SCANCODE_W, SDL_KMOD_LCTRL, false, SDLK_W),
+		Key(true, SDL_SCANCODE_K, SDL_KMOD_LGUI, false, SDLK_K),
+		Key(true, SDL_SCANCODE_N, SDL_KMOD_NONE, false, SDLK_N)};
+
+	// When
+	const std::vector<TranslatedEvent> messages = Translate(events, Context());
+
+	// Then
+	ASSERT_EQ(messages.size(), 4u);
+	EXPECT_EQ(messages[0].message.GetString("bytes", "?"), "n");
+	EXPECT_EQ(messages[0].message.GetInt32("modifiers", 0),
+		static_cast<std::int32_t>(BModifierFlags(BModifier::Command).Raw()));
+	EXPECT_EQ(messages[1].message.GetString("bytes", "?"), "w");
+	EXPECT_EQ(messages[1].message.GetInt32("modifiers", 0),
+		static_cast<std::int32_t>(BModifierFlags(BModifier::Control).Raw()));
+	EXPECT_EQ(messages[2].message.GetString("bytes", "?"), "k");
+	EXPECT_EQ(messages[2].message.GetInt32("modifiers", 0),
+		static_cast<std::int32_t>(BModifierFlags(BModifier::Option).Raw()));
+	EXPECT_EQ(messages[3].message.GetString("bytes", "?"), "");
 }
 
 
