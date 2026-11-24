@@ -205,8 +205,8 @@ public:
 			{"BSlider", 2}, {"Lists", 1}, {"BListView", 2}, {"BOutlineListView", 2},
 			{"Text", 1}, {"BTextView", 2}, {"BTextControl", 2},
 			{"Application Kit", 0}, {"BLooper", 1}, {"BMessage", 1}};
-		for (const auto& [name, level] : outline)
-			classes->AddItem(std::make_unique<BStringItem>(name, level));
+		for (const auto& [className, level] : outline)
+			classes->AddItem(std::make_unique<BStringItem>(className, level));
 		classes->Collapse(classes->FullListItemAt(8));
 		classes->SetInvocationMessage(std::make_unique<BMessage>(kChosen));
 		fClasses = classes.get();
