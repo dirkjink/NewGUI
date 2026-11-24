@@ -419,4 +419,129 @@ TEST(SdlPlatformTest, AQuitEventAsksTheApplicationToQuit)
 }
 
 
+TEST(SdlPlatformTest, PopupsLeaveTheKeyboardFocusToTheirWindow)
+{
+	// What is tested: A shown window and a shown popup of it, created from
+	// another thread.
+	// Success criteria: SDL makes the popup a popup menu that cannot take
+	// the focus (SDL_WINDOW_NOT_FOCUSABLE), and the keyboard focus is not
+	// on it.
+	// Why it matters: Under Wayland SDL gives a focusable popup menu the
+	// keyboard focus when it is shown; its window then lost the focus,
+	// which ended the menus' tracking: menus closed as soon as they
+	// opened.
+	//
+	// Given
+	RunningApp app;
+	ASSERT_NE(app.Platform(), nullptr);
+	WindowSpec spec;
+	spec.title = "test";
+	spec.frame = {10, 20, 40, 30};
+	std::unique_ptr<PlatformWindow> window = *app.Platform()->CreateWindow(spec);
+	window->Show();
+	WindowSpec popupSpec;
+	popupSpec.frame = {25, 35, 45, 45};
+	popupSpec.parent = window.get();
+	popupSpec.popup = true;
+	popupSpec.decorated = false;
+	popupSpec.resizable = false;
+
+	// When
+	auto created = app.Platform()->CreateWindow(popupSpec);
+	if (!created.has_value())
+		GTEST_SKIP() << "the video driver has no popups: " << created.error().message;
+	std::unique_ptr<PlatformWindow> popup = std::move(*created);
+	popup->Show();
+	const auto [notFocusable, focused] = app.OnMain([] {
+		int count = 0;
+		SDL_Window** windows = SDL_GetWindows(&count);
+		SDL_Window* found = nullptr;
+		for (int i = 0; i < count; i++) {
+			if ((SDL_GetWindowFlags(windows[i]) & SDL_WINDOW_POPUP_MENU) != 0)
+				found = windows[i];
+		}
+		SDL_free(windows);
+		const bool flag = found != nullptr
+			&& (SDL_GetWindowFlags(found) & SDL_WINDOW_NOT_FOCUSABLE) != 0;
+		return std::pair{flag, found != nullptr && SDL_GetKeyboardFocus() == found};
+	});
+	popup.reset();
+	window.reset();
+
+	// Then
+	EXPECT_TRUE(notFocusable);
+	EXPECT_FALSE(focused);
+}
+
+
+TEST(SdlPlatformTest, AResizedWindowShowsTheWholeFrame)
+{
+	// What is tested: A window of 30 × 10 with a red frame presented; then
+	// the SDL window resized by 2 pixels and back, as a window system
+	// does when it applies a size after the frame was drawn, and the
+	// events processed.
+	// Success criteria: Afterwards SDL's window surface (a new one after
+	// each resize) shows the red frame everywhere, not only where the last
+	// frame was dirty.
+	// Why it matters: Under Wayland the size arrives after the frame;
+	// the window showed a stale, squeezed surface with black areas, and
+	// the mouse no longer matched what it showed.
+	//
+	// Given
+	RunningApp app;
+	ASSERT_NE(app.Platform(), nullptr);
+	WindowSpec spec;
+	spec.title = "test";
+	spec.frame = {10, 20, 40, 30};
+	std::unique_ptr<PlatformWindow> window = *app.Platform()->CreateWindow(spec);
+	window->Show();
+	const std::int32_t width = 30;
+	const std::int32_t height = 10;
+	std::vector<std::byte> red(static_cast<std::size_t>(width * height * 4));
+	for (std::size_t i = 0; i < red.size(); i += 4) {
+		red[i + 2] = std::byte{255};
+		red[i + 3] = std::byte{255};
+	}
+	const std::array<gfx::IntRect, 1> all = {{{0, 0, width, height}}};
+	ASSERT_TRUE(window->Present({width, height, width * 4u, gfx::PixelFormat::Bgra8Premul, red},
+		all).has_value());
+	const auto resize = [&](int w, int h) {
+		(void)app.OnMain([w, h] {
+			int count = 0;
+			SDL_Window** windows = SDL_GetWindows(&count);
+			if (count > 0)
+				SDL_SetWindowSize(windows[0], w, h);
+			SDL_free(windows);
+			return 0;
+		});
+	};
+
+	// When
+	resize(width + 2, height + 2);
+	resize(width, height);
+	// two rounds on the main thread: the events are processed in between
+	(void)app.OnMain([] { return 0; });
+	(void)app.OnMain([] { return 0; });
+	const auto pixels = app.OnMain([] {
+		int count = 0;
+		SDL_Window** windows = SDL_GetWindows(&count);
+		SDL_Window* shown = count > 0 ? windows[0] : nullptr;
+		SDL_free(windows);
+		SDL_Surface* surface = shown != nullptr ? SDL_GetWindowSurface(shown) : nullptr;
+		std::array<std::uint8_t, 3> left{};
+		std::array<std::uint8_t, 3> right{};
+		if (surface != nullptr) {
+			SDL_ReadSurfacePixel(surface, 1, 1, &left[0], &left[1], &left[2], nullptr);
+			SDL_ReadSurfacePixel(surface, 28, 8, &right[0], &right[1], &right[2], nullptr);
+		}
+		return std::pair{left, right};
+	});
+	window.reset();
+
+	// Then
+	EXPECT_EQ(pixels.first, (std::array<std::uint8_t, 3>{255, 0, 0}));
+	EXPECT_EQ(pixels.second, (std::array<std::uint8_t, 3>{255, 0, 0}));
+}
+
+
 } // namespace
