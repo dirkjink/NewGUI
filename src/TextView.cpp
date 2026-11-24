@@ -433,7 +433,7 @@ BTextView::DetachedFromWindow()
 void
 BTextView::Draw(DrawContext& context)
 {
-	const gfx::Color text = context.palette.Get(BColorWhich::DocumentText);
+	const gfx::Color text = fTextColor.value_or(context.palette.Get(BColorWhich::DocumentText));
 	const gfx::Color background = ViewColor().value_or(
 		context.palette.Get(BColorWhich::DocumentBackground));
 	const gfx::Point origin{fTextRect.x0, fTextRect.y0};
@@ -1086,6 +1086,24 @@ BTextView::AdoptSystemColors()
 		SetViewColor(background);
 	else
 		SetViewColor(TintColor(background, _UneditableTint()));
+}
+
+
+void
+BTextView::SetTextColor(std::optional<gfx::Color> color)
+{
+	if (fTextColor == color)
+		return;
+
+	fTextColor = color;
+	Invalidate();
+}
+
+
+std::optional<gfx::Color>
+BTextView::TextColor() const
+{
+	return fTextColor;
 }
 
 

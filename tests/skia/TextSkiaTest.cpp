@@ -35,6 +35,7 @@
 #include <ngui/SplitView.h>
 #include <ngui/StatusBar.h>
 #include <ngui/TabView.h>
+#include <ngui/TextControl.h>
 #include <ngui/TextView.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
@@ -981,6 +982,67 @@ TEST(TextSkiaTest, TextViewsMatchTheirSnapshots)
 	view->MakeFocus(false);
 	view->MakeEditable(false);
 	snapshot("TextViewReadOnly");
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, TextControlsMatchTheirSnapshots)
+{
+	// What is tested: Text controls "Name:" with "Haiku" at a frame of
+	// 200 wide in an active window: as is ("TextControl"), focused with the
+	// caret after the text ("TextControlFocused"), disabled
+	// ("TextControlDisabled") and marked invalid ("TextControlInvalid");
+	// each recorded with its text view on the panel background, with the
+	// bundled font, rendered by Skia at scale 1 and 2.
+	// Success criteria: Within the text tolerance of 21.2: the label left
+	// of the divider, the field in the BeOS text control border with the
+	// text on the document background; focused, the border in the focus
+	// color and the caret; disabled, label, border and text dimmed and the
+	// field on a mix of panel and document color; invalid, the field in
+	// the failure color.
+	// Why it matters: The text control is drawn by the control, its text
+	// view and the look together; all must fit.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	BWindow window({0, 0, 300, 200}, "controls");
+	std::array<BTextControl*, 4> controls{};
+	for (std::size_t i = 0; i < controls.size(); i++) {
+		const float top = 10 + 40 * static_cast<float>(i);
+		controls[i] = static_cast<BTextControl*>(window.AddChild(std::make_unique<BTextControl>(
+			gfx::Rect{10, top, 210, top + 24}, "control", "Name:", "Haiku", nullptr)));
+		controls[i]->SetDivider(50);
+	}
+	controls[2]->SetEnabled(false);
+	controls[3]->MarkAsInvalid(true);
+	controls[1]->MakeFocus(true);
+	controls[1]->TextView()->Select(5, 5);
+	BMessage activated(kWindowActivated);
+	(void)activated.AddBool("active", true);
+	window.DispatchMessage(&activated, &window);
+
+	// When / Then
+	const std::array<const char*, 4> names = {"TextControl", "TextControlFocused",
+		"TextControlDisabled", "TextControlInvalid"};
+	for (std::size_t i = 0; i < controls.size(); i++) {
+		const gfx::Rect bounds = controls[i]->Bounds();
+		const gfx::Caps caps;
+		Canvas canvas({0, 0, bounds.Width(), bounds.Height()});
+		canvas.FillRect({0, 0, bounds.Width(), bounds.Height()},
+			gfx::Paint{.color = Palette::Default().Get(BColorWhich::PanelBackground)});
+		canvas.DrawList(RecordTree(*controls[i], *text), {0, 0});
+		const DisplayListRef list = canvas.Finish();
+		for (const float scale : {1.0f, 2.0f}) {
+			SkiaBackend backend;
+			for (const FontFile& font : text->Fonts())
+				ASSERT_TRUE(backend.AddFont(font.id, font.data));
+			const auto image = RenderToImage(backend, *list, scale);
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, names[i], {.look = "be", .backend = "skia",
+				.scale = scale, .tolerance = Tolerance::Text()});
+		}
+	}
 	TextSystem::SetDefault(nullptr);
 }
 
