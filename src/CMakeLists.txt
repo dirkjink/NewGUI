@@ -59,6 +59,8 @@ add_library(ngui
     SplitView.cpp
     StringView.cpp
     TabView.cpp
+    TextControl.cpp
+    TextInput.cpp
     TextLayout.cpp
     TextSystem.cpp
     TextView.cpp

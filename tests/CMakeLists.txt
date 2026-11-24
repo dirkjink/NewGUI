@@ -34,6 +34,7 @@ add_executable(ngui_tests
     MessengerTest.cpp
     PaletteTest.cpp
     SupportDefsTest.cpp
+    TextControlTest.cpp
     TextLayoutTest.cpp
     TextViewTest.cpp
     TruncateStringTest.cpp

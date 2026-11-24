@@ -157,6 +157,12 @@ public:
 			void				AdoptSystemColors();
 									/*!< The document colors of the palette (a tint darker
 										when not editable). */
+			void				SetTextColor(std::optional<gfx::Color> color);
+									/*!< The color of all of the text; std::nullopt for the
+										palette's document text color. NewGUI: Haiku's
+										SetFontAndColor() with a color, until styles come. */
+			std::optional<gfx::Color> TextColor() const;
+									/*!< The color set by SetTextColor(). */
 
 			int32				LineAt(int32 offset) const;
 									/*!< The line of \a offset. */
@@ -356,6 +362,7 @@ private:
 			int32				fLastClickOffset = -1;
 			std::unique_ptr<BMessageRunner> fCaretRunner;
 			std::unique_ptr<UndoBuffer> fUndo;
+			std::optional<gfx::Color> fTextColor;
 			std::vector<std::pair<uint32, BModifierFlags>> fInstalledShortcuts;
 };
 

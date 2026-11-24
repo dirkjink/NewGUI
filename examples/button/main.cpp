@@ -24,7 +24,9 @@
 // popups of the window; Alt+Escape opens them from the keyboard, Alt+R
 // resets). A BMenuField chooses where the slider's hash marks are; a right
 // click on the label opens a context menu (a BPopUpMenu) with the same
-// commands as the menus. A BTextView on a page of its own takes notes.
+// commands as the menus. A BTextView on a page of its own takes notes; a
+// BTextControl asks for a name, and the label greets it when Enter is
+// pressed or the field is left.
 
 
 #include <cstdint>
@@ -50,6 +52,7 @@
 #include <ngui/StatusBar.h>
 #include <ngui/StringView.h>
 #include <ngui/TabView.h>
+#include <ngui/TextControl.h>
 #include <ngui/TextView.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/BackendRegistry.h>
@@ -69,6 +72,7 @@ constexpr std::uint32_t kProgress = FourCharCode("PRGS");
 constexpr std::uint32_t kReset = FourCharCode("RSET");
 constexpr std::uint32_t kAbout = FourCharCode("ABOT");
 constexpr std::uint32_t kHashMarks = FourCharCode("HASH");
+constexpr std::uint32_t kName = FourCharCode("NAME");
 
 
 // The counter's label: a right click opens a context menu with the
@@ -127,6 +131,9 @@ public:
 		}
 		marks->ItemAt(2)->SetMarked(true);
 		auto marksField = std::make_unique<BMenuField>("marks", "Hash marks:", std::move(marks));
+		auto name = std::make_unique<BTextControl>("name", "Name:", "",
+			std::make_unique<BMessage>(kName));
+		fName = name.get();
 		auto status = std::make_unique<BStatusBar>("status", "Progress: ", " %");
 		status->SetTo(0, {}, "0");
 		fStatus = status.get();
@@ -137,6 +144,7 @@ public:
 			.SetInsets(kUseItemInsets)
 			.Add(std::move(slider))
 			.Add(std::move(marksField))
+			.Add(std::move(name))
 			.Add(std::move(status));
 		auto box = std::make_unique<BBox>("progress box");
 		box->SetLabel("Progress");
@@ -220,6 +228,11 @@ public:
 			fStatus->SetTo(static_cast<float>(value), {}, std::to_string(value));
 			return;
 		}
+		if (message->what == kName) {
+			const std::string name(fName->Text());
+			fLabel->SetText(name.empty() ? "Not clicked yet" : "Hello, " + name);
+			return;
+		}
 		if (message->what == kHashMarks) {
 			fSlider->SetHashMarks(static_cast<BHashMarkLocation>(message->GetInt32("where", 0)));
 			return;
@@ -247,6 +260,7 @@ private:
 	BSlider* fSlider = nullptr;
 	BStatusBar* fStatus = nullptr;
 	BTabView* fTabs = nullptr;
+	BTextControl* fName = nullptr;
 	int fClicks = 0;
 };
 

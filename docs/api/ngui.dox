@@ -106,9 +106,9 @@
 		.End();
 	\endcode
 
-	In a grid, Grid::AddMenuField() puts a BMenuField's label and menu bar
-	into two columns, so that the fields of a form line up.
-	AddTextControl() comes with the text control (W5).
+	In a grid, Grid::AddMenuField() and Grid::AddTextControl() put the label
+	and the field of a BMenuField or BTextControl into two columns, so that
+	the fields of a form line up.
 */
 
 

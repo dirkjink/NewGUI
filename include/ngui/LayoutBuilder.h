@@ -5,8 +5,7 @@
  * SPDX-License-Identifier: MIT
  *
  * Ported from Haiku: headers/os/interface/LayoutBuilder.h (commit
- * b1d497bb69), the Group, Grid, Split, Cards, Menu and MenuItem builders;
- * without AddTextControl() (W5).
+ * b1d497bb69), the Group, Grid, Split, Cards, Menu and MenuItem builders.
  */
 #pragma once
 
@@ -27,6 +26,7 @@
 #include <ngui/Palette.h>
 #include <ngui/SpaceLayoutItem.h>
 #include <ngui/SplitView.h>
+#include <ngui/TextControl.h>
 #include <ngui/View.h>
 #include <ngui/Window.h>
 
@@ -404,6 +404,28 @@ public:
 									/*!< Adds \a menuField with its label in these
 										columns and its menu bar in the next ones, so that
 										fields in rows below line up. */
+			ThisBuilder&		AddTextControl(std::unique_ptr<BTextControl> textControl,
+									int32 column, int32 row,
+									BHorizontalAlignment labelAlignment
+										= BHorizontalAlignment::Unset,
+									int32 labelColumnCount = 1, int32 textColumnCount = 1,
+									int32 rowCount = 1)
+									{
+										BTextControl* control = textControl.get();
+										std::unique_ptr<BLayoutItem> item
+											= control->CreateLabelLayoutItem();
+										item->SetExplicitAlignment({labelAlignment,
+											BVerticalAlignment::Unset});
+										(void)item->TakeView(std::move(textControl));
+										fLayout->AddItem(std::move(item), column, row,
+											labelColumnCount, rowCount);
+										fLayout->AddItem(control->CreateTextViewLayoutItem(),
+											column + labelColumnCount, row, textColumnCount,
+											rowCount);
+										return *this;
+									}
+									/*!< Adds \a textControl with its label in these
+										columns and its field in the next ones. */
 
 			GroupBuilder		AddGroup(BOrientation orientation, float spacing,
 									int32 column, int32 row, int32 columnCount = 1,
