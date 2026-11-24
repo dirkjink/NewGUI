@@ -17,6 +17,7 @@ endif()
 
 add_executable(ngui_tests
     ApplicationTest.cpp
+    ClipboardTest.cpp
     ClockTest.cpp
     ContainerTest.cpp
     ControlTest.cpp

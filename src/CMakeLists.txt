@@ -15,6 +15,7 @@ add_library(ngui
     Button.cpp
     CardLayout.cpp
     CheckBox.cpp
+    Clipboard.cpp
     Clock.cpp
     Control.cpp
     ControlLook.cpp

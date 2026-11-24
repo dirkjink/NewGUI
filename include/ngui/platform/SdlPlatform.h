@@ -63,6 +63,13 @@ public:
 			void				WaitForEvents() override;
 									/*!< See Platform. */
 			void				Wake() override;
+			std::expected<void, Error> SetClipboard(const ClipboardData& data) override;
+									/*!< SDL's clipboard: text with SDL_SetClipboardText(),
+										other types with SDL_SetClipboardData(). */
+			std::expected<ClipboardData, Error> Clipboard() const override;
+									/*!< SDL's clipboard: "text/plain" from
+										SDL_GetClipboardText(), the other types as
+										offered. */
 									/*!< See Platform. */
 
 			void				RunOnMainThread(std::function<void()> work);
