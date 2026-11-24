@@ -191,6 +191,7 @@ private:
 	friend class BMenuItem;
 	friend class BMenuBar;
 	friend class MenuTracker;
+	friend class MenuFieldBar;
 
 			void				_InitData();
 			bool				_AddItem(std::unique_ptr<BMenuItem> item, int32 index);
@@ -201,7 +202,8 @@ private:
 			void				_ComputeLayout(int32 index, bool bestFit, bool moveItems,
 									float* width, float* height);
 			void				_ComputeColumnLayout(int32 index, bool bestFit,
-									bool moveItems, gfx::Rect& frame);
+									bool moveItems, const gfx::Rect* overrideFrame,
+									gfx::Rect& frame);
 			void				_ComputeRowLayout(int32 index, bool bestFit, bool moveItems,
 									gfx::Rect& frame);
 			void				_ComputeMatrixLayout(gfx::Rect& frame);

@@ -91,6 +91,7 @@ private:
 			void				_UpdateNavigationArea(BMenu* menu, gfx::Point position,
 									Level& level);
 			void				_ScheduleTick(Clock::Time when);
+			void				_InvalidateField();
 
 			void				_Begin(BWindow* window, bool sticky,
 									const gfx::Rect* specialRect,
@@ -99,6 +100,8 @@ private:
 			BMenu*				fRoot;
 			BMenuBar*			fBar;
 									// the root if it is a menu bar
+			bool				fFieldBar;
+									// the bar is a BMenuField's (Haiku's _BMCMenuBar_)
 			BWindow*			fWindow = nullptr;
 			bool				fTracking = false;
 			bool				fAutoInvoke = true;

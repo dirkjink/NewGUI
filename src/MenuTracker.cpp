@@ -33,6 +33,9 @@
  *   root's rules of BMenu::_Track() apply. Released within the click time
  *   it stays open (Haiku tracked it a second time, sticky); its window's
  *   MenusBeginning() and MenusEnded() are not called, as in Haiku.
+ * - A BMenuField's bar always tracks its one item, wherever the mouse is
+ *   (Haiku's _BMCMenuBar_ case of BMenuBar::_Track()); the field is
+ *   redrawn when tracking starts and ends (Haiku: BMenuField::_MenuTask()).
  *
  * Authors (Haiku):
  *		Stephan Aßmus, superstippi@gmx.de
@@ -42,6 +45,8 @@
 
 
 #include "MenuTracker.h"
+
+#include "MenuFieldBar.h"
 
 #include <algorithm>
 #include <chrono>
@@ -124,7 +129,8 @@ TriggerOf(std::string_view bytes)
 MenuTracker::MenuTracker(BMenu* root)
 	:
 	fRoot(root),
-	fBar(dynamic_cast<BMenuBar*>(root))
+	fBar(dynamic_cast<BMenuBar*>(root)),
+	fFieldBar(dynamic_cast<MenuFieldBar*>(root) != nullptr)
 {
 }
 
@@ -158,6 +164,8 @@ MenuTracker::Start(int32 menuIndex, bool sticky, bool /*showMenu*/,
 
 	if (menuIndex != -1)
 		fBar->_SelectItem(fBar->ItemAt(menuIndex), true, false);
+
+	_InvalidateField();
 
 	if (fMouseKnown)
 		_Evaluate(false);
@@ -259,6 +267,8 @@ MenuTracker::Stop(BMenuItem* chosen)
 
 	if (done)
 		done(chosen);
+
+	_InvalidateField();
 
 	if (window != nullptr && fBar != nullptr)
 		window->MenusEnded();
@@ -375,7 +385,10 @@ MenuTracker::_Evaluate(bool buttonsChanged)
 	} else {
 		const gfx::Point local = fBar->ConvertFromScreen(fWhere);
 		const bool overBar = fBar->Bounds().Contains(local);
-		item = overBar ? fBar->_HitTestItems(local) : nullptr;
+		if (fFieldBar)
+			item = fBar->ItemAt(0);
+		else
+			item = overBar ? fBar->_HitTestItems(local) : nullptr;
 
 		// Mouse pointer outside the menus: if there's no other submenu
 		// opened, the deepest menu deselects its item.
@@ -386,7 +399,8 @@ MenuTracker::_Evaluate(bool buttonsChanged)
 		}
 
 		if (item != nullptr) {
-			fKeyNavigation = false;
+			if (!fFieldBar)
+				fKeyNavigation = false;
 			fBar->_SelectItem(item);
 		} else if (fBar->fSelected != nullptr && !fSticky && overBar) {
 			fBar->_SelectItem(nullptr);
@@ -790,6 +804,17 @@ MenuTracker::_ScheduleTick(Clock::Time when)
 	const Clock::Time delay = std::max(when - now, Clock::Time(1ms));
 	fTicker = std::make_unique<BMessageRunner>(BMessenger(fWindow), BMessage(kMenuTrackerTick),
 		delay, 1);
+}
+
+
+void
+MenuTracker::_InvalidateField()
+{
+	if (!fFieldBar)
+		return;
+
+	if (BView* field = fBar->Parent(); field != nullptr && field->Window() != nullptr)
+		field->Invalidate();
 }
 
 

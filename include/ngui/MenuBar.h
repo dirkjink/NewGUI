@@ -90,6 +90,7 @@ public:
 private:
 	friend class MenuTracker;
 	friend class BWindow;
+	friend class BMenuField;
 
 			void				_InitData();
 			void				StartMenuBar(int32 menuIndex, bool sticky = true,
