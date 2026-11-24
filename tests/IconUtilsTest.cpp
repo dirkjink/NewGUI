@@ -9,6 +9,8 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <string_view>
 
 #include <gtest/gtest.h>
@@ -111,16 +113,52 @@ TEST(IconUtilsTest, VectorIconsFillTheBitmap)
 }
 
 
+TEST(IconUtilsTest, ContentFarOutsideIsRefused)
+{
+	// What is tested: SVGs of 20 × 10 drawn into a 10 × 5 bitmap (scale
+	// 0.5): lines to x 23 333 330, 100 000, 200 000 and 1000; a short line
+	// stroked 300 000 wide; a rectangle moved by a transform to x 200 000.
+	// Success criteria: Content reaching more than 65 536 pixels out of the
+	// bitmap is BadData, measured with its stroke and transform: the lines
+	// to 11.7 million and 100 000 pixels, the stroke reaching 75 000, the
+	// rectangle at 100 000. The lines to 50 000 and 500 pixels are drawn.
+	// Why it matters: plutovg's rasterizer computes with long, 32 bits on
+	// Windows, and hung on the far line there (found by the fuzz target
+	// VectorIcon); far content is never part of an icon.
+	//
+	// Given
+	InstalledRenderer renderer;
+	BBitmap bitmap({0, 0, 10, 5}, BColorSpace::RGBA32);
+	const auto draw = [&](std::string_view content) {
+		const std::string svg = std::string(
+			R"(<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10">)")
+			+ std::string(content) + "</svg>";
+		const auto result = BIconUtils::GetVectorIcon(Bytes(svg), &bitmap);
+		return result.has_value() ? std::optional<ErrorCode>() : result.error().code;
+	};
+
+	// When / Then
+	EXPECT_EQ(draw(R"(<path d="M0 0L23333330 10" stroke="#000"/>)"), ErrorCode::BadData);
+	EXPECT_EQ(draw(R"(<path d="M0 0L100000 10" stroke="#000"/>)"), std::nullopt);
+	EXPECT_EQ(draw(R"(<path d="M0 0L200000 10" stroke="#000"/>)"), ErrorCode::BadData);
+	EXPECT_EQ(draw(R"(<path d="M0 5L10 5" stroke="#000" stroke-width="300000"/>)"),
+		ErrorCode::BadData);
+	EXPECT_EQ(draw(R"svg(<g transform="translate(200000 0)"><rect width="1" height="1"/></g>)svg"),
+		ErrorCode::BadData);
+	EXPECT_EQ(draw(R"(<path d="M0 0L1000 10" stroke="#000"/>)"), std::nullopt);
+}
+
+
 TEST(IconUtilsTest, DashesAreDrawnSolid)
 {
 	// What is tested: An SVG of 10 × 10 with a horizontal line through its
-	// middle to x 20 000 000, stroked 2 wide with dashes of 1 and gaps of 2,
-	// drawn into a 10 × 10 bitmap.
+	// middle to x 60 000, stroked 2 wide with dashes of 0.001 and gaps of
+	// 0.002, drawn into a 10 × 10 bitmap.
 	// Success criteria: It is drawn at once, with the line solid: the
-	// pixels at x 1 and 2 on it (a gap, dashed) are both opaque.
-	// Why it matters: plutovg makes every dash a path of its own; this
-	// line would take gigabytes (found by the fuzz target VectorIcon).
-	// Icons need no dashes.
+	// pixels at x 1 and 2 on it are both opaque.
+	// Why it matters: plutovg makes every dash a path of its own; these 20
+	// million dashes would take gigabytes (found by the fuzz target
+	// VectorIcon). Icons need no dashes.
 	//
 	// Given
 	InstalledRenderer renderer;
@@ -129,8 +167,8 @@ TEST(IconUtilsTest, DashesAreDrawnSolid)
 	// When
 	const auto drawn = BIconUtils::GetVectorIcon(Bytes(
 		R"(<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">)"
-		R"(<path d="M0 5L20000000 5" stroke="#000" stroke-width="2")"
-		R"( stroke-dasharray="1 2"/></svg>)"), &bitmap);
+		R"(<path d="M0 5L60000 5" stroke="#000" stroke-width="2")"
+		R"( stroke-dasharray="0.001 0.002"/></svg>)"), &bitmap);
 
 	// Then
 	ASSERT_TRUE(drawn.has_value());

@@ -21,7 +21,10 @@ namespace ngui::svg {
 	lunasvg reads the icon, its rasterizer plutovg draws it, independent of
 	the drawing backend. Install it with VectorIconRenderer::SetDefault().
 	Dashed strokes are drawn solid: plutovg's dashes can take unbounded
-	memory (an icon needs none; Haiku's HVIF icons have none).
+	memory (an icon needs none; Haiku's HVIF icons have none). An SVG whose
+	content reaches more than 65536 pixels out of the bitmap is BadData:
+	plutovg's rasterizer hangs on such coordinates where long has 32 bits
+	(Windows).
 
 	\code
 	ngui::svg::LunaSvgRenderer icons;
@@ -35,7 +38,8 @@ public:
 									/*!< Draws the SVG \a icon into \a result (RGBA32), fitted
 										by its width and height (or view box), centered;
 										InvalidArgument for another bitmap, BadData for an
-										SVG lunasvg cannot read or without size. */
+										SVG lunasvg cannot read, without size or reaching
+										too far. */
 };
 
 

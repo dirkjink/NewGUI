@@ -52,6 +52,23 @@ LunaSvgRenderer::Render(std::span<const std::uint8_t> icon, BBitmap& result) con
 		static_cast<float>(height) / iconHeight);
 	const float x = (static_cast<float>(width) - iconWidth * scale) / 2;
 	const float y = (static_cast<float>(height) - iconHeight * scale) / 2;
+
+	// Nothing may reach far out of the bitmap: plutovg's rasterizer (from
+	// FreeType) computes with long, which has 32 bits on Windows, and hung
+	// on a line to x 23 333 330 there (found by the fuzz target VectorIcon).
+	// Its bounding box includes strokes and transforms.
+	const lunasvg::Box box = document->boundingBox();
+	if (box.w >= 0 && box.h >= 0) {
+		constexpr float kLimit = 65536;
+		const float left = box.x * scale + x;
+		const float top = box.y * scale + y;
+		const float right = (box.x + box.w) * scale + x;
+		const float bottom = (box.y + box.h) * scale + y;
+		for (const float edge : {left, top, right, bottom}) {
+			if (!(std::fabs(edge) <= kLimit))
+				return Failure(ErrorCode::BadData, "the SVG reaches too far out");
+		}
+	}
 	lunasvg::Bitmap canvas(width, height);
 	if (canvas.isNull())
 		return Failure(ErrorCode::OutOfMemory, "no canvas");
