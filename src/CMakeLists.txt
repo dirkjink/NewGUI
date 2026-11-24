@@ -71,6 +71,7 @@ add_library(ngui
     TextStyleBuffer.cpp
     TextSystem.cpp
     TextView.cpp
+    ToolTip.cpp
     TruncateString.cpp
     TwoDimensionalLayout.cpp
     View.cpp

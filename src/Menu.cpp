@@ -50,6 +50,7 @@
 #include "MenuFieldBar.h"
 #include "MenuPrivate.h"
 #include "MenuSymbols.h"
+#include "ScreenFrame.h"
 #include "compat/CompatView.h"
 
 
@@ -1217,32 +1218,6 @@ BMenu::ScreenLocation()
 
 	return superMenu->ConvertToScreen(point);
 }
-
-
-namespace {
-
-
-// The screen \a where is on, as Haiku's inclusive BScreen::Frame().
-compat::BRect
-ScreenFrameAt(gfx::Point where)
-{
-	gfx::Rect frame{0, 0, 65536, 65536};
-	if (platform::Platform* platform = platform::Current()) {
-		const std::vector<platform::DisplayInfo> displays = platform->Displays();
-		if (!displays.empty())
-			frame = displays.front().frame;
-		for (const platform::DisplayInfo& display : displays) {
-			if (display.frame.Contains(where)) {
-				frame = display.frame;
-				break;
-			}
-		}
-	}
-	return compat::BRect(frame.x0, frame.y0, frame.x1 - 1, frame.y1 - 1);
-}
-
-
-} // namespace
 
 
 gfx::Rect

@@ -543,11 +543,14 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 			// Not focusable: SDL would give a popup menu the keyboard focus
 			// (under Wayland), and the window it belongs to would lose it,
 			// which ends the menus' tracking. The keys go to that window.
+			// A tooltip takes no input at all (SDL gives it no input region
+			// under Wayland).
 			window = SDL_CreatePopupWindow(parentHandle,
 				static_cast<int>(std::lround(offset.x)), static_cast<int>(std::lround(offset.y)),
 				static_cast<int>(std::lround(spec.frame.Width())),
 				static_cast<int>(std::lround(spec.frame.Height())),
-				SDL_WINDOW_POPUP_MENU | SDL_WINDOW_NOT_FOCUSABLE | SDL_WINDOW_HIDDEN
+				(spec.tooltip ? SDL_WINDOW_TOOLTIP : SDL_WINDOW_POPUP_MENU)
+					| SDL_WINDOW_NOT_FOCUSABLE | SDL_WINDOW_HIDDEN
 					| SDL_WINDOW_HIGH_PIXEL_DENSITY);
 			if (window == nullptr)
 				return Failure(ErrorCode::NotSupported, std::string("SDL: ") + SDL_GetError());

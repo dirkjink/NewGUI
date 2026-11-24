@@ -14,6 +14,7 @@
 #include <optional>
 #include <vector>
 
+#include <ngui/Clock.h>
 #include <ngui/Error.h>
 #include <ngui/Flags.h>
 #include <ngui/Looper.h>
@@ -31,7 +32,9 @@ namespace ngui {
 class BButton;
 class BMenuBar;
 class BMenuItem;
+class BMessageRunner;
 class MenuTracking;
+class ToolTipPopup;
 
 
 /*!	How a window looks (Haiku's window_look, as far as the platform can
@@ -288,6 +291,8 @@ private:
 	friend class BAlert;
 	friend class BPopUpMenu;
 	friend class BTextView;
+	friend class BToolTipManager;
+	friend class ToolTipPopup;
 
 			void				_AddDirty(const gfx::Rect& rect);
 			void				_AddDirty(const BView* root, const gfx::Rect& rect);
@@ -296,6 +301,10 @@ private:
 			PopupSurface*		_PopupOf(const BView* root) const;
 			void				_PopupEvent(PopupSurface* popup, BMessage* message);
 			void				_WheelToMenus(const BMessage* message);
+			BView*				_OpenPopup(std::unique_ptr<BView> view, bool tooltip);
+			void				_MouseMovedForToolTip(gfx::Point screen);
+			void				_MouseIdleCheck();
+			void				_CheckToolTipOwner(const BView* under);
 			void				_UpdatePopup(PopupSurface& popup,
 									const gfx::Caps& caps, const TextSystem& text);
 			void				_ScheduleUpdate();
@@ -360,6 +369,12 @@ private:
 									// on the screen, from the last mouse event
 			std::vector<std::unique_ptr<BView>> fDisposals;
 									// destroyed after the message being dispatched
+			std::unique_ptr<ToolTipPopup> fToolTip;
+									// the tooltip shown, once one was
+			std::unique_ptr<BMessageRunner> fIdleRunner;
+			Clock::Time			fLastMove{0};
+			bool				fIdlePending = false;
+									// the mouse moved and has not rested yet
 			bool				fMainUpdateWanted = true;
 									// The content area needs a frame (not only popups).
 };

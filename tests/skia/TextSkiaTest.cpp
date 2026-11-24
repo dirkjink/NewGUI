@@ -48,6 +48,7 @@
 #include <ngui/TabView.h>
 #include <ngui/TextControl.h>
 #include <ngui/TextView.h>
+#include <ngui/ToolTip.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/SkiaBackend.h>
@@ -1142,6 +1143,46 @@ TEST(TextSkiaTest, AlertMatchesItsSnapshot)
 	(void)key.AddString("bytes", "\n");
 	(void)messenger.SendMessage(key);
 	(void)messenger.WaitForLooperQuit(5s);
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, ToolTipMatchesItsSnapshot)
+{
+	// What is tested: The text tooltip "Counts the clicks." / "Enter clicks
+	// it too." of a view, shown in its window's popup; the popup recorded
+	// with the bundled font, rendered by Skia at scale 1 and 2 ("ToolTip").
+	// Success criteria: Within the text tolerance of 21.2: Haiku's tooltip:
+	// both lines in black on the light yellow of the palette, with half the
+	// item spacing around them and the one pixel border of a bordered
+	// window.
+	// Why it matters: Tooltips explain controls; they look like Haiku's.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	BWindow window({100, 100, 400, 300}, "tips");
+	BView* view = window.AddChild(std::make_unique<BView>(gfx::Rect{10, 10, 110, 40}, "view",
+		BResizingMode{}, BViewFlags{}));
+	view->SetToolTip("Counts the clicks.\nEnter clicks it too.");
+
+	// When
+	view->ShowToolTip(view->ToolTip());
+	ASSERT_EQ(window.CountPopups(), 1);
+	BView* popup = window.PopupAt(0);
+	popup->Layout(true);
+	const DisplayListRef list = RecordTree(*popup, *text);
+
+	// Then
+	for (const float scale : {1.0f, 2.0f}) {
+		SkiaBackend backend;
+		for (const FontFile& font : text->Fonts())
+			ASSERT_TRUE(backend.AddFont(font.id, font.data));
+		const auto image = RenderToImage(backend, *list, scale);
+		ASSERT_TRUE(image.has_value()) << image.error().message;
+		EXPECT_IMAGE_SNAPSHOT(*image, "ToolTip", {.look = "be", .backend = "skia",
+			.scale = scale, .tolerance = Tolerance::Text()});
+	}
 	TextSystem::SetDefault(nullptr);
 }
 

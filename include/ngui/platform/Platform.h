@@ -58,6 +58,9 @@ struct WindowSpec {
 															above it, without the
 															keyboard focus; #frame is
 															still on the desktop. */
+			bool				tooltip = false;		/*!< With #popup: a tooltip, which
+															takes no input (the mouse
+															reaches what is below). */
 };
 
 
