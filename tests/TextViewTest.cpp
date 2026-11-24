@@ -7,6 +7,8 @@
 
 #include <ngui/TextView.h>
 
+#include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <memory>
 #include <string>
@@ -461,6 +463,183 @@ TEST(TextViewTest, InputMethodsComposeInline)
 	text.Compose("y");
 	text.Key("Y");
 	EXPECT_EQ(text.Ask().text, "a\xE6\x97\xA5\xE6\x9C\xAC" "Y");
+}
+
+
+TEST(TextViewTest, NavigationKeysMoveAndSelect)
+{
+	// What is tested: In "one two three\nfour five\nsix\n" (lines of 14,
+	// 10 and 4 bytes, then an empty one): Command+End, Command+Home; End,
+	// Shift+Home; Down, Shift+Down; Option+Right twice, Option+Shift+Right,
+	// Option+Left twice; Command+Right, Command+Left; Option+Backspace.
+	// Success criteria: Command+End and Command+Home go to the end and
+	// start of the text; End stops before the line break, Shift+Home
+	// selects back to the line's start; Down keeps the column on the next
+	// line, Shift+Down selects a line; Option+Right goes to the end of the
+	// next word, with Shift it selects it; Option+Left first collapses the
+	// selection to its start, then goes to the start of the word before;
+	// Command+Right and Command+Left go by words as Option does (Haiku);
+	// Option+Backspace removes the word before the caret.
+	// Why it matters: These are the keys of every text field and editor,
+	// as Haiku binds them (its navigation shortcuts included).
+	//
+	// Given
+	RunningText text;
+	text.SetText("one two three\nfour five\nsix\n");
+	// asked after each key: a key that is a shortcut of the window reaches
+	// the view as a message of its own, posted behind the keys already
+	// waiting (as in Haiku)
+	const auto caret = [&text] {
+		const TextState state = text.Ask();
+		return std::pair{state.start, state.end};
+	};
+	using Range = std::pair<int32, int32>;
+
+	// When / Then
+	text.Key("\x04", BModifier::Command);	// End
+	EXPECT_EQ(caret(), (Range{28, 28}));
+	text.Key("\x01", BModifier::Command);	// Home
+	EXPECT_EQ(caret(), (Range{0, 0}));
+	text.Key("\x04");
+	EXPECT_EQ(caret(), (Range{13, 13}));
+	text.Key("\x01", BModifier::Shift);
+	EXPECT_EQ(caret(), (Range{0, 13}));
+	text.Key("\x1d");
+	text.Key("\x1f");						// Down from column 13 of line 0
+	EXPECT_EQ(caret(), (Range{23, 23}));
+	text.Key("\x1f", BModifier::Shift);
+	EXPECT_EQ(caret(), (Range{23, 27}));
+	text.Key("\x01", BModifier::Command);
+	EXPECT_EQ(caret(), (Range{0, 0}));
+	text.Key("\x1d", BModifier::Option);
+	EXPECT_EQ(caret(), (Range{3, 3}));
+	text.Key("\x1d", BModifier::Option);
+	EXPECT_EQ(caret(), (Range{7, 7}));
+	text.Key("\x1d", BModifier::Option | BModifier::Shift);
+	EXPECT_EQ(caret(), (Range{7, 13}));
+	text.Key("\x1c", BModifier::Option);
+	EXPECT_EQ(caret(), (Range{7, 7}));
+	text.Key("\x1c", BModifier::Option);
+	EXPECT_EQ(caret(), (Range{4, 4}));
+	text.Key("\x1d", BModifier::Command);
+	EXPECT_EQ(caret(), (Range{7, 7}));
+	text.Key("\x1c", BModifier::Command);
+	EXPECT_EQ(caret(), (Range{4, 4}));
+	text.Key("\x08", BModifier::Option);	// Backspace
+	EXPECT_EQ(text.Ask().text, "two three\nfour five\nsix\n");
+}
+
+
+TEST(TextViewTest, PageKeysGoByTheViewsHeight)
+{
+	// What is tested: In a text of 30 lines in the view of 100 pixels
+	// (lines of 14): Page Down, Page Down with Shift, Page Up; Page Down,
+	// then Page Up with Shift twice.
+	// Success criteria: Page Down moves the caret about a view's height
+	// down (6 or 7 lines), Shift extends the selection by the same; Page Up
+	// moves back up; with Shift up to the start, the selection reaches
+	// from the start to where the caret was (its anchor).
+	// Why it matters: Long texts are read and selected page by page.
+	//
+	// Given
+	RunningText text;
+	std::string lines;
+	for (int i = 0; i < 30; i++)
+		lines += "line " + std::to_string(i) + "\n";
+	text.SetText(lines);
+	const auto lineOf = [&](int32 offset) {
+		return static_cast<int32>(std::count(lines.begin(), lines.begin() + offset, '\n'));
+	};
+
+	// When
+	text.Key("\x0c");						// Page Down
+	const TextState down = text.Ask();
+	text.Key("\x0c", BModifier::Shift);
+	const TextState selected = text.Ask();
+	text.Key("\x0b");						// Page Up
+	const TextState up = text.Ask();
+	text.Key("\x0c");
+	const TextState again = text.Ask();
+	text.Key("\x0b", BModifier::Shift);
+	text.Key("\x0b", BModifier::Shift);
+	const TextState turned = text.Ask();
+
+	// Then
+	EXPECT_EQ(down.start, down.end);
+	EXPECT_GE(lineOf(down.start), 6);
+	EXPECT_LE(lineOf(down.start), 7);
+	EXPECT_EQ(selected.start, down.start);
+	EXPECT_EQ(lineOf(selected.end) - lineOf(selected.start), lineOf(down.start));
+	EXPECT_EQ(up.start, up.end);
+	EXPECT_LT(up.start, selected.end);
+	EXPECT_EQ(turned.start, 0);
+	EXPECT_EQ(turned.end, again.start);
+}
+
+
+TEST(TextViewTest, SizesForTheLayout)
+{
+	// What is tested: With the fixed text system: a text view of 200 × 100
+	// (not in a window) with "aaaa bbbb cccc dddd": SetInsets() and
+	// GetInsets(); SetTabWidth() with "a\tb"; not editable, the height for
+	// a width of 50 and of 300; MinSize() and PreferredSize() wrapping and
+	// not wrapping.
+	// Success criteria: The insets come back and move the text rect; the
+	// tab stops at the tab width; not editable it has a height for width:
+	// more lines when narrower, each 14 pixels plus the insets; its
+	// minimum is three lines wide and one high (with the insets), without
+	// wrapping as wide as the text (NewGUI: SetWordWrap() invalidates the
+	// layout; Haiku kept the old size).
+	// Why it matters: Text views in layouts (labels of alerts, forms) get
+	// their size from these methods (Haiku's _ValidateLayoutData()).
+	//
+	// Given
+	test::FixedTextSystem fixed;
+	TextSystem::SetDefault(&fixed);
+	BTextView view({0, 0, 200, 100}, "view", {0, 0, 200, 100});
+	view.SetText("aaaa bbbb cccc dddd");
+
+	// When
+	view.SetInsets(5, 6, 7, 8);
+	float left = 0;
+	float top = 0;
+	float right = 0;
+	float bottom = 0;
+	view.GetInsets(&left, &top, &right, &bottom);
+	const gfx::Rect textRect = view.TextRect();
+	view.SetText("a\tb");
+	view.SetTabWidth(40);
+	const float tabbed = view.PointAt(2).x - view.PointAt(0).x;
+	view.SetText("aaaa bbbb cccc dddd");
+	view.MakeEditable(false);
+	const bool heightForWidth = view.HasHeightForWidth();
+	float narrow = 0;
+	float wide = 0;
+	view.GetHeightForWidth(50, nullptr, nullptr, &narrow);
+	view.GetHeightForWidth(300, nullptr, nullptr, &wide);
+	const gfx::Size min = view.MinSize();
+	view.SetWordWrap(false);
+	const gfx::Size unwrapped = view.MinSize();
+	const gfx::Size preferred = view.PreferredSize();
+
+	// Then
+	EXPECT_EQ(left, 5);
+	EXPECT_EQ(top, 6);
+	EXPECT_EQ(right, 7);
+	EXPECT_EQ(bottom, 8);
+	EXPECT_EQ(textRect.x0, 5);
+	EXPECT_EQ(textRect.y0, 6);
+	EXPECT_EQ(textRect.x1, 200 - 7);
+	EXPECT_EQ(tabbed, 40);
+	EXPECT_TRUE(heightForWidth);
+	EXPECT_EQ(wide, 14 + 6 + 8);
+	EXPECT_GT(narrow, wide);
+	EXPECT_EQ(std::fmod(narrow - 14, 14), 0);
+	EXPECT_EQ(min.w, 3 * 14 + 5 + 7);
+	EXPECT_EQ(min.h, 14 + 6 + 8);
+	EXPECT_EQ(unwrapped.w, 7 * 19 + 5 + 7);
+	EXPECT_EQ(preferred.w, unwrapped.w);
+	TextSystem::SetDefault(nullptr);
 }
 
 
