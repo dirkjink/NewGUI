@@ -390,6 +390,106 @@ TEST(ListViewTest, SeveralItemsAreSelectedWithShiftAndCommand)
 }
 
 
+TEST(ListViewTest, ShiftedKeysGrowAndShrinkTheSelection)
+{
+	// What is tested: In a multiple selection list of six items of 17
+	// pixels in 50 pixels: Page Down twice and Page Up twice; then a click
+	// on item 1, Shift+Down, Shift+Up twice and Space; a click on item 2,
+	// Shift+Home and Shift+End.
+	// Success criteria: Page Down scrolls by the list's height (50), but
+	// not past the last item (102 − 50 = 52); Page Up goes back by 50 and
+	// not above 0, without changing the selection. Shift+Home extends the
+	// Shift+Down extends item 1 by item 2; the first Shift+Up takes item 2
+	// back, the second extends upwards by item 0. Space invokes with the
+	// selection. Shift+Home extends the selection from item 2 to the top,
+	// Shift+End from there to the end.
+	// Why it matters: Selecting ranges by keyboard and paging work as in
+	// Haiku.
+	//
+	// Given
+	RunningList list(BListViewType::MultipleSelection);
+	const auto scrolled = [&] {
+		float scroll = -1;
+		(void)list.Received(&scroll);
+		return scroll;
+	};
+
+	// When
+	list.Key(std::string(1, keys::kPageDown));
+	const float page = scrolled();
+	list.Key(std::string(1, keys::kPageDown));
+	const float last = scrolled();
+	list.Key(std::string(1, keys::kPageUp));
+	const float back = scrolled();
+	list.Key(std::string(1, keys::kPageUp));
+	const float top = scrolled();
+	list.Click(1);
+	list.Key(std::string(1, keys::kDownArrow), BModifier::Shift);
+	list.Key(std::string(1, keys::kUpArrow), BModifier::Shift);
+	list.Key(std::string(1, keys::kUpArrow), BModifier::Shift);
+	list.Key(std::string(1, keys::kSpace));
+	list.Click(2);
+	list.Key(std::string(1, keys::kHome), BModifier::Shift);
+	list.Key(std::string(1, keys::kEnd), BModifier::Shift);
+	const std::vector<std::string> all = list.Received();
+
+	// Then
+	EXPECT_EQ(page, 50);
+	EXPECT_EQ(last, 52);
+	EXPECT_EQ(back, 2);
+	EXPECT_EQ(top, 0);
+	EXPECT_EQ(all, (std::vector<std::string>{"s1", "s12", "s1", "s01", "i01", "s2", "s012",
+		"s012345"}));
+}
+
+
+TEST(ListViewTest, AddedListsKeepTheSelection)
+{
+	// What is tested: A list of three items with item 1 selected: two
+	// items added before it with AddList(), one list at the end; lists
+	// with an empty entry or at an index past the end.
+	// Success criteria: The selected item stays selected and its index
+	// moves by two, to 3; the list counts six items in order. A list with
+	// an empty entry and one past the end are refused and change nothing.
+	// Why it matters: Applications fill lists in batches; the selection
+	// must follow its item.
+	//
+	// Given
+	BListView view({0, 0, 100, 100}, "list", BListViewType::MultipleSelection);
+	for (const char* label : {"c", "d", "e"})
+		view.AddItem(std::make_unique<BStringItem>(label));
+	view.Select(1);
+	const auto items = [](std::initializer_list<const char*> labels) {
+		std::vector<std::unique_ptr<BListItem>> list;
+		for (const char* label : labels)
+			list.push_back(std::make_unique<BStringItem>(label));
+		return list;
+	};
+
+	// When
+	const bool before = view.AddList(items({"a", "b"}), 0);
+	const bool after = view.AddList(items({"f"}));
+	std::vector<std::unique_ptr<BListItem>> broken = items({"x"});
+	broken.push_back(nullptr);
+	const bool withEmpty = view.AddList(std::move(broken));
+	const bool pastTheEnd = view.AddList(items({"y"}), 7);
+
+	// Then
+	EXPECT_TRUE(before);
+	EXPECT_TRUE(after);
+	EXPECT_FALSE(withEmpty);
+	EXPECT_FALSE(pastTheEnd);
+	ASSERT_EQ(view.CountItems(), 6);
+	std::string order;
+	for (int32 i = 0; i < view.CountItems(); i++)
+		order += static_cast<BStringItem*>(view.ItemAt(i))->Text();
+	EXPECT_EQ(order, "abcdef");
+	EXPECT_EQ(view.CurrentSelection(), 3);
+	EXPECT_EQ(view.CurrentSelection(1), -1);
+	EXPECT_TRUE(view.IsItemSelected(3));
+}
+
+
 TEST(ListViewTest, TheScrollBarCoversAllItems)
 {
 	// What is tested: A list of 100 × 50 in a BScrollView with a vertical
