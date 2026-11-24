@@ -21,8 +21,11 @@
 #include <ngui/AppDefs.h>
 #include <ngui/Menu.h>
 #include <ngui/MenuBar.h>
+#include <ngui/MenuField.h>
 #include <ngui/MenuItem.h>
 #include <ngui/Message.h>
+#include <ngui/Palette.h>
+#include <ngui/PopUpMenu.h>
 #include <ngui/RadioButton.h>
 #include <ngui/ScrollBar.h>
 #include <ngui/ScrollView.h>
@@ -799,6 +802,76 @@ TEST(TextSkiaTest, OpenMenusMatchTheirSnapshots)
 		}
 	}
 	mouse(kMouseUp, {290, 190});
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, MenuFieldsMatchTheirSnapshots)
+{
+	// What is tested: Menu fields "Size:" at a frame of 180 × 24 with a
+	// fixed bar showing "Medium": as is ("MenuField"), disabled
+	// ("MenuFieldDisabled") and with its menu open after a click
+	// ("MenuFieldOpen"); each recorded with its bar on the panel
+	// background, with the bundled font, rendered by Skia at scale 1 and 2.
+	// Success criteria: Within the text tolerance of 21.2: the label left
+	// of the divider; the bar in its sunken BeOS frame with "Medium" and
+	// the pop-up marker at its right; disabled, all of it dimmed; open, the
+	// label on the menu selection color and "Medium" highlighted.
+	// Why it matters: The menu field is drawn by the field, its bar and the
+	// look together; all three must fit.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	const auto menu = [] {
+		auto popUp = std::make_unique<BPopUpMenu>("size");
+		for (const char* label : {"Small", "Medium", "Large"})
+			popUp->AddItem(std::make_unique<BMenuItem>(label, std::make_unique<BMessage>(1)));
+		popUp->ItemAt(1)->SetMarked(true);
+		return popUp;
+	};
+	BWindow window({0, 0, 300, 200}, "fields");
+	std::array<BMenuField*, 3> fields{};
+	for (std::size_t i = 0; i < fields.size(); i++) {
+		const float top = 10 + 40 * static_cast<float>(i);
+		fields[i] = static_cast<BMenuField*>(window.AddChild(std::make_unique<BMenuField>(
+			gfx::Rect{10, top, 190, top + 24}, "field", "Size:", menu(), true)));
+		fields[i]->SetDivider(40);
+	}
+	fields[1]->SetEnabled(false);
+	window.Layout(false);
+	BMessage down(kMouseDown);
+	(void)down.AddPoint("where", gfx::Point{120, 100});
+	(void)down.AddInt32("buttons", 1);
+	window.DispatchMessage(&down, &window);
+	ASSERT_TRUE(fields[2]->MenuBar()->IsTracking());
+
+	// When / Then
+	const std::array<const char*, 3> names = {"MenuField", "MenuFieldDisabled",
+		"MenuFieldOpen"};
+	for (std::size_t i = 0; i < fields.size(); i++) {
+		const gfx::Rect bounds = fields[i]->Bounds();
+		const gfx::Caps caps;
+		Canvas canvas({0, 0, bounds.Width(), bounds.Height()});
+		canvas.FillRect({0, 0, bounds.Width(), bounds.Height()},
+			gfx::Paint{.color = Palette::Default().Get(BColorWhich::PanelBackground)});
+		canvas.DrawList(RecordTree(*fields[i], *text), {0, 0});
+		const DisplayListRef list = canvas.Finish();
+		for (const float scale : {1.0f, 2.0f}) {
+			SkiaBackend backend;
+			for (const FontFile& font : text->Fonts())
+				ASSERT_TRUE(backend.AddFont(font.id, font.data));
+			const auto image = RenderToImage(backend, *list, scale);
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, names[i], {.look = "be", .backend = "skia",
+				.scale = scale, .tolerance = Tolerance::Text()});
+		}
+	}
+	BMessage up(kMouseUp);
+	(void)up.AddPoint("where", gfx::Point{290, 190});
+	(void)up.AddInt32("buttons", 0);
+	window.DispatchMessage(&up, &window);
+	window.DispatchMessage(&down, &window);
 	TextSystem::SetDefault(nullptr);
 }
 

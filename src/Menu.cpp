@@ -47,6 +47,7 @@
 #include <ngui/Window.h>
 #include <ngui/platform/Platform.h>
 
+#include "MenuFieldBar.h"
 #include "MenuPrivate.h"
 #include "MenuSymbols.h"
 #include "compat/CompatView.h"
@@ -548,7 +549,9 @@ BMenu::SetEnabled(bool enable)
 
 	fEnabled = enable;
 
-	// NewGUI: the menu field's menu bar comes with W3c.
+	if (dynamic_cast<MenuFieldBar*>(Supermenu()) != nullptr)
+		Supermenu()->SetEnabled(enable);
+
 	if (fSuperitem)
 		fSuperitem->SetEnabled(enable);
 
@@ -925,10 +928,19 @@ BMenu::_ComputeLayout(int32 index, bool bestFit, bool moveItems, float* _width,
 	gfx::Rect frame{0, 0, 0, 0};
 	switch (fLayout) {
 		case BMenuLayout::InColumn:
-			// NewGUI: the menu field's menu bar (override frame) comes
-			// with W3c.
-			_ComputeColumnLayout(index, bestFit, moveItems, frame);
+		{
+			// NewGUI: the bar's inclusive bounds; no looper to lock
+			gfx::Rect parentFrame;
+			const gfx::Rect* overrideFrame = nullptr;
+			if (dynamic_cast<MenuFieldBar*>(Supermenu()) != nullptr) {
+				const gfx::Rect bounds = Supermenu()->Bounds();
+				parentFrame = {0, 0, bounds.Width() - 1, bounds.Height() - 1};
+				overrideFrame = &parentFrame;
+			}
+
+			_ComputeColumnLayout(index, bestFit, moveItems, overrideFrame, frame);
 			break;
+		}
 
 		case BMenuLayout::InRow:
 			_ComputeRowLayout(index, bestFit, moveItems, frame);
@@ -943,7 +955,9 @@ BMenu::_ComputeLayout(int32 index, bool bestFit, bool moveItems, float* _width,
 	// NewGUI: Haiku's widths (pixels - 1)
 	gfx::Size size;
 	if (ResizingMode().horizontal == BHorizontalFollow::LeftRight) {
-		if (Parent() != nullptr)
+		if (dynamic_cast<MenuFieldBar*>(this) != nullptr)
+			size.w = Bounds().Width() - 1 - fPad.x1;
+		else if (Parent() != nullptr)
 			size.w = Parent()->Frame().Width() - 1;
 		else if (Window() != nullptr)
 			size.w = Window()->Frame().Width() - 1;
@@ -970,7 +984,7 @@ BMenu::_ComputeLayout(int32 index, bool bestFit, bool moveItems, float* _width,
 
 void
 BMenu::_ComputeColumnLayout(int32 index, bool /*bestFit*/, bool moveItems,
-	gfx::Rect& frame)
+	const gfx::Rect* overrideFrame, gfx::Rect& frame)
 {
 	bool command = false;
 	bool control = false;
@@ -980,6 +994,8 @@ BMenu::_ComputeColumnLayout(int32 index, bool /*bestFit*/, bool moveItems,
 
 	if (index > 0)
 		frame = ItemAt(index - 1)->fBounds;
+	else if (overrideFrame != nullptr)
+		frame = {0, 0, overrideFrame->x1, -1};
 	else
 		frame = {0, 0, 0, -1};
 
@@ -1226,7 +1242,7 @@ gfx::Rect
 BMenu::_CalcFrame(gfx::Point where)
 {
 	// Ported from Haiku's _CalcFrame() with inclusive rectangles. NewGUI:
-	// the menu field's menu bar comes with W3c; no frameShiftedLeft yet.
+	// no frameShiftedLeft yet.
 	using compat::BRect;
 	const gfx::Rect bounds = Bounds();
 	BRect frame(where.x, where.y, where.x + bounds.Width() - 1,
@@ -1236,7 +1252,18 @@ BMenu::_CalcFrame(gfx::Point where)
 	BMenu* superMenu = Supermenu();
 	BMenuItem* superItem = Superitem();
 
-	if (superMenu == nullptr || superItem == nullptr) {
+	// TODO: Horrible hack:
+	// When added to a BMenuField, a BPopUpMenu is the child of
+	// a _BMCMenuBar_ to "fake" the menu hierarchy
+	bool inMenuField = dynamic_cast<MenuFieldBar*>(superMenu) != nullptr;
+
+	// Offset the menu field menu window left by the width of the checkmark
+	// so that the text when the menu is closed lines up with the text when
+	// the menu is open.
+	if (inMenuField)
+		frame.OffsetBy(-8.0f, 0.0f);
+
+	if (superMenu == nullptr || superItem == nullptr || inMenuField) {
 		// just move the window on screen
 		if (frame.bottom > screenFrame.bottom)
 			frame.OffsetBy(0, screenFrame.bottom - frame.bottom);

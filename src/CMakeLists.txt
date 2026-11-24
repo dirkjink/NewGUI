@@ -24,6 +24,8 @@ add_library(ngui
     LooperPort.cpp
     Menu.cpp
     MenuBar.cpp
+    MenuField.cpp
+    MenuFieldBar.cpp
     MenuItem.cpp
     MenuSymbols.cpp
     MenuTracker.cpp

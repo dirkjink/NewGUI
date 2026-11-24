@@ -22,13 +22,16 @@
 // first page of a BTabView whose second page says what this is. A BMenuBar
 // on top resets the counter, quits, or shows that page (its menus open in
 // popups of the window; Alt+Escape opens them from the keyboard, Alt+R
-// resets).
+// resets). A BMenuField chooses where the slider's hash marks are; a right
+// click on the label opens a context menu (a BPopUpMenu) with the same
+// commands as the menus.
 
 
 #include <cstdint>
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
@@ -39,7 +42,9 @@
 #include <ngui/LayoutBuilder.h>
 #include <ngui/Menu.h>
 #include <ngui/MenuBar.h>
+#include <ngui/MenuField.h>
 #include <ngui/MenuItem.h>
+#include <ngui/PopUpMenu.h>
 #include <ngui/ScrollView.h>
 #include <ngui/Slider.h>
 #include <ngui/StatusBar.h>
@@ -62,6 +67,30 @@ constexpr std::uint32_t kClicked = FourCharCode("CLCK");
 constexpr std::uint32_t kProgress = FourCharCode("PRGS");
 constexpr std::uint32_t kReset = FourCharCode("RSET");
 constexpr std::uint32_t kAbout = FourCharCode("ABOT");
+constexpr std::uint32_t kHashMarks = FourCharCode("HASH");
+
+
+// The counter's label: a right click opens a context menu with the
+// commands of the menus, which sends them to the window.
+class CounterLabel : public BStringView {
+public:
+	CounterLabel()
+		:
+		BStringView("label", "Not clicked yet")
+	{
+	}
+
+	void MouseDown(gfx::Point where) override
+	{
+		const BMessage* current = Window()->CurrentMessage();
+		if (current == nullptr || (current->GetInt32("buttons", 0) & 2) == 0)
+			return;
+		auto menu = std::make_unique<BPopUpMenu>("context", false, false);
+		menu->AddItem(std::make_unique<BMenuItem>("Reset", std::make_unique<BMessage>(kReset)));
+		menu->AddItem(std::make_unique<BMenuItem>("About", std::make_unique<BMessage>(kAbout)));
+		(void)BPopUpMenu::Go(std::move(menu), ConvertToScreen(where), {.autoInvoke = true});
+	}
+};
 
 
 // The window: counts the clicks of its button in its label; shows the
@@ -73,7 +102,7 @@ public:
 		BWindow(gfx::Rect{100, 100, 620, 440}, "NewGUI", BWindowLook::Titled,
 			BWindowFlag::QuitOnWindowClose | BWindowFlag::AutoUpdateSizeLimits)
 	{
-		auto label = std::make_unique<BStringView>("label", "Not clicked yet");
+		auto label = std::make_unique<CounterLabel>();
 		fLabel = label.get();
 		auto button = std::make_unique<BButton>("Click me",
 			std::make_unique<BMessage>(kClicked));
@@ -85,6 +114,18 @@ public:
 		slider->SetHashMarks(BHashMarkLocation::BottomOrRight);
 		slider->SetHashMarkCount(11);
 		fSlider = slider.get();
+		// Where the slider's hash marks are, chosen in a menu field.
+		auto marks = std::make_unique<BPopUpMenu>("marks");
+		const std::pair<const char*, BHashMarkLocation> locations[] = {
+			{"None", BHashMarkLocation::None}, {"Top", BHashMarkLocation::TopOrLeft},
+			{"Bottom", BHashMarkLocation::BottomOrRight}, {"Both", BHashMarkLocation::Both}};
+		for (const auto& [name, location] : locations) {
+			auto message = std::make_unique<BMessage>(kHashMarks);
+			(void)message->AddInt32("where", static_cast<std::int32_t>(location));
+			marks->AddItem(std::make_unique<BMenuItem>(name, std::move(message)));
+		}
+		marks->ItemAt(2)->SetMarked(true);
+		auto marksField = std::make_unique<BMenuField>("marks", "Hash marks:", std::move(marks));
 		auto status = std::make_unique<BStatusBar>("status", "Progress: ", " %");
 		status->SetTo(0, {}, "0");
 		fStatus = status.get();
@@ -94,6 +135,7 @@ public:
 		BLayoutBuilder::Group<>(progress.get())
 			.SetInsets(kUseItemInsets)
 			.Add(std::move(slider))
+			.Add(std::move(marksField))
 			.Add(std::move(status));
 		auto box = std::make_unique<BBox>("progress box");
 		box->SetLabel("Progress");
@@ -168,6 +210,10 @@ public:
 		if (message->what == kProgress) {
 			const std::int32_t value = fSlider->Value();
 			fStatus->SetTo(static_cast<float>(value), {}, std::to_string(value));
+			return;
+		}
+		if (message->what == kHashMarks) {
+			fSlider->SetHashMarks(static_cast<BHashMarkLocation>(message->GetInt32("where", 0)));
 			return;
 		}
 		if (message->what == kReset) {

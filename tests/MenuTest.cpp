@@ -8,6 +8,7 @@
 #include <ngui/Menu.h>
 
 #include <atomic>
+#include <cmath>
 #include <chrono>
 #include <memory>
 #include <mutex>
@@ -22,9 +23,12 @@
 #include <ngui/InterfaceDefs.h>
 #include <ngui/MenuBar.h>
 #include <ngui/MenuItem.h>
+#include <ngui/LayoutUtils.h>
+#include <ngui/MenuField.h>
 #include <ngui/Message.h>
 #include <ngui/PopUpMenu.h>
 #include <ngui/SeparatorItem.h>
+#include <ngui/TextSystem.h>
 #include <ngui/Window.h>
 
 #include "support/RecordingLooper.h"
@@ -1058,6 +1062,284 @@ TEST(PopUpMenuTest, AHandedOverMenuDestroysItself)
 	EXPECT_EQ(chosen.done, (std::vector<std::string>{"Four"}));
 	EXPECT_EQ(submenu.popups, 2);
 	EXPECT_EQ(destroyed, 3);
+}
+
+
+// A pop-up menu Small, Medium, Large (21 .. 23), Medium marked.
+std::unique_ptr<BPopUpMenu>
+SizeMenu()
+{
+	auto menu = std::make_unique<BPopUpMenu>("size");
+	menu->AddItem(Item("Small", 21));
+	menu->AddItem(Item("Medium", 22));
+	menu->AddItem(Item("Large", 23));
+	menu->ItemAt(1)->SetMarked(true);
+	return menu;
+}
+
+
+TEST(MenuFieldTest, TheBarShowsTheMarkedItemBesideTheLabel)
+{
+	// What is tested: A menu field for a layout, "Size:" with a pop-up menu
+	// whose "Medium" is marked, laid out at its minimum size; one at a
+	// frame of 200 × 24 with a fixed-size bar; one with a plain menu (not
+	// radio) whose first item is disabled and second a separator; the
+	// first field disabled.
+	// Success criteria: The bar's item shows the marked label, or the first
+	// enabled item that is not a separator. The bar begins two pixels right
+	// of the divider, which is the label width plus the label spacing; the
+	// field is two pixels larger than the bar on each side and as wide as
+	// wanted. At a frame the divider is half the width (Haiku's 99) and the
+	// fixed bar reaches to two pixels before the right edge. The field's
+	// bar does not become the window's key menu bar. Disabling the field
+	// disables its bar.
+	// Why it matters: The menu field is Haiku's choice control; its
+	// geometry must match Haiku's for the look to fit.
+	//
+	// Given
+	BWindow window({0, 0, 300, 200}, "fields");
+	auto* field = static_cast<BMenuField*>(window.AddChild(
+		std::make_unique<BMenuField>("size", "Size:", SizeMenu())));
+	auto* framed = static_cast<BMenuField*>(window.AddChild(std::make_unique<BMenuField>(
+		gfx::Rect{0, 100, 200, 124}, "framed", "Label", SizeMenu(), true)));
+	auto plain = std::make_unique<BMenu>("plain");
+	plain->AddItem(Item("Off", 31));
+	plain->ItemAt(0)->SetEnabled(false);
+	plain->AddSeparatorItem();
+	plain->AddItem(Item("On", 32));
+	auto* first = static_cast<BMenuField*>(window.AddChild(
+		std::make_unique<BMenuField>("plain", "Plain", std::move(plain))));
+
+	// When
+	const gfx::Size min = field->MinSize();
+	field->ResizeTo(min.w, min.h);
+	field->Layout(true);
+	const gfx::Rect bar = field->MenuBar()->Frame();
+	const gfx::Size barMin = field->MenuBar()->MinSize();
+	const float divider = std::ceil(TextSystem::Default().StringWidth("Size:", FontRole::Plain))
+		+ field->Look().DefaultLabelSpacing(TextSystem::Default());
+	field->SetEnabled(false);
+
+	// Then
+	EXPECT_EQ(field->MenuItem()->Label(), "Medium");
+	EXPECT_EQ(first->MenuItem()->Label(), "On");
+	EXPECT_EQ(window.KeyMenuBar(), nullptr);
+	EXPECT_EQ(field->Divider(), divider);
+	EXPECT_EQ(bar.x0, divider + 2);
+	EXPECT_EQ(bar.y0, 2);
+	EXPECT_EQ(min.w, barMin.w + divider + 4);
+	EXPECT_EQ(min.h, barMin.h + 4);
+	EXPECT_EQ(field->MaxSize().w, kSizeUnlimited);
+	EXPECT_EQ(framed->Divider(), 99);
+	EXPECT_EQ(framed->MenuBar()->Frame().x0, 101);
+	EXPECT_EQ(framed->MenuBar()->Frame().x1, 198);
+	EXPECT_FALSE(field->IsEnabled());
+	EXPECT_FALSE(field->MenuBar()->IsEnabled());
+}
+
+
+constexpr std::uint32_t kDisableField = FourCharCode("DSFD");
+
+
+// A window with a menu field "Size:" at (10, 100), 200 wide, a fixed bar,
+// with SizeMenu(); the field has the focus. It records the messages
+// 21 .. 23 and answers kAsk with the field's label, whether it tracks, the
+// open popups and the last one's frame, the bar item's frame and the menu
+// items' frames on the screen while open, and the focus view's name.
+class FieldWindow : public BWindow {
+public:
+	FieldWindow()
+		:
+		BWindow({0, 0, 400, 300}, "field")
+	{
+		fField = static_cast<BMenuField*>(AddChild(std::make_unique<BMenuField>(
+			gfx::Rect{10, 100, 210, 124}, "field", "Size:", SizeMenu(), true)));
+		fField->MakeFocus(true);
+	}
+
+	void MessageReceived(BMessage* message) override
+	{
+		if (message->what >= 21 && message->what <= 23) {
+			fChosen.push_back(static_cast<std::int32_t>(message->what));
+			return;
+		}
+		if (message->what == kDisableField) {
+			fField->SetEnabled(false);
+			return;
+		}
+		if (message->what != kAsk) {
+			BWindow::MessageReceived(message);
+			return;
+		}
+		BMessage reply(kAsk);
+		(void)reply.AddString("label", fField->MenuItem()->Label());
+		(void)reply.AddBool("tracking", fField->MenuBar()->IsTracking());
+		(void)reply.AddInt32("popups", CountPopups());
+		if (CountPopups() > 0)
+			(void)reply.AddRect("last", PopupAt(CountPopups() - 1)->Frame());
+		const gfx::Rect item = fField->MenuItem()->Frame();
+		const gfx::Point itemOrigin = fField->MenuBar()->ConvertToScreen({item.x0, item.y0});
+		(void)reply.AddRect("item", {itemOrigin.x, itemOrigin.y, itemOrigin.x + item.Width(),
+			itemOrigin.y + item.Height()});
+		BMenu* menu = fField->Menu();
+		for (std::int32_t i = 0; i < menu->CountItems(); i++) {
+			const gfx::Rect frame = menu->ItemAt(i)->Frame();
+			const gfx::Point origin = menu->Window() != nullptr
+				? menu->ConvertToScreen({frame.x0, frame.y0}) : gfx::Point{0, 0};
+			(void)reply.AddRect("items", {origin.x, origin.y, origin.x + frame.Width(),
+				origin.y + frame.Height()});
+		}
+		for (std::int32_t chosen : fChosen)
+			(void)reply.AddInt32("chosen", chosen);
+		(void)reply.AddString("focus", CurrentFocus() != nullptr ? CurrentFocus()->Name() : "");
+		(void)message->SendReply(reply);
+	}
+
+private:
+	BMenuField* fField = nullptr;
+	std::vector<std::int32_t> fChosen;
+};
+
+
+// The state a FieldWindow answers.
+struct FieldState {
+	std::string label;
+	bool tracking = false;
+	std::int32_t popups = -1;
+	gfx::Rect last;
+	gfx::Rect item;
+	std::vector<gfx::Rect> items;
+	std::vector<std::int32_t> chosen;
+	std::string focus;
+};
+
+
+class RunningField {
+public:
+	RunningField()
+		:
+		fWindow(*BLooper::Run(std::make_unique<FieldWindow>()))
+	{
+	}
+
+	~RunningField()
+	{
+		(void)fWindow.SendMessage(kQuitRequested);
+		(void)fWindow.WaitForLooperQuit(5s);
+	}
+
+	void Mouse(std::uint32_t what, gfx::Point where, std::int32_t buttons)
+	{
+		BMessage message(what);
+		(void)message.AddPoint("where", where);
+		(void)message.AddInt32("buttons", buttons);
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	void Click(gfx::Point where)
+	{
+		Mouse(kMouseDown, where, 1);
+		Mouse(kMouseUp, where, 0);
+	}
+
+	void Key(char byte)
+	{
+		BMessage message(kKeyDown);
+		(void)message.AddString("bytes", std::string(1, byte));
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	void Send(std::uint32_t what)
+	{
+		EXPECT_TRUE(fWindow.SendMessage(BMessage(what)).has_value());
+	}
+
+	FieldState Ask()
+	{
+		// Twice, as RunningMenus::Ask().
+		BMessage reply;
+		EXPECT_TRUE(fWindow.SendMessage(BMessage(kAsk), &reply).has_value());
+		EXPECT_TRUE(fWindow.SendMessage(BMessage(kAsk), &reply).has_value());
+		FieldState state;
+		state.label = reply.GetString("label", "?");
+		state.tracking = reply.GetBool("tracking", false);
+		state.popups = reply.GetInt32("popups", -1);
+		state.last = reply.GetRect("last", {});
+		state.item = reply.GetRect("item", {});
+		for (std::int32_t i = 0; auto item = reply.FindRect("items", i); i++)
+			state.items.push_back(*item);
+		for (std::int32_t i = 0; auto chosen = reply.FindInt32("chosen", i); i++)
+			state.chosen.push_back(*chosen);
+		state.focus = reply.GetString("focus", "?");
+		return state;
+	}
+
+private:
+	BMessenger fWindow;
+};
+
+
+gfx::Point
+Center(const gfx::Rect& rect)
+{
+	return {(rect.x0 + rect.x1) / 2, (rect.y0 + rect.y1) / 2};
+}
+
+
+TEST(MenuFieldTest, ChoosingAnItemChangesTheLabel)
+{
+	// What is tested: A click on the bar of a menu field showing "Medium",
+	// then a click on "Large" in the opened menu; Down, Up, Up and Enter
+	// while the field has the focus; the field disabled and clicked.
+	// Success criteria: The click opens the pop-up menu so that "Medium"
+	// lies exactly over the bar's item, moved 8 pixels left as in Haiku
+	// (for the check mark), and keeps it open (the release is in the
+	// field). Choosing "Large" sends its message (23), closes the
+	// menu and shows "Large". Down opens the menu without a selection; Up
+	// selects the last item, then "Medium"; Enter chooses it (22), and the
+	// field has the focus again. A disabled field does not open.
+	// Why it matters: The menu field is how a user picks one of several
+	// options, with the mouse or the keyboard.
+	//
+	// Given
+	RunningField field;
+	const FieldState before = field.Ask();
+
+	// When
+	field.Click(Center(before.item));
+	const FieldState opened = field.Ask();
+	ASSERT_EQ(opened.items.size(), 3u);
+	field.Click(Center(opened.items[2]));
+	const FieldState chosen = field.Ask();
+	field.Key(keys::kDownArrow);
+	const FieldState keyOpened = field.Ask();
+	field.Key(keys::kUpArrow);
+	field.Key(keys::kUpArrow);
+	field.Key(keys::kEnter);
+	const FieldState keyChosen = field.Ask();
+	field.Send(kDisableField);
+	field.Click(Center(before.item));
+	const FieldState disabled = field.Ask();
+
+	// Then
+	EXPECT_EQ(before.label, "Medium");
+	EXPECT_TRUE(opened.tracking);
+	EXPECT_EQ(opened.popups, 1);
+	EXPECT_EQ(opened.items[1].y0, before.item.y0);
+	EXPECT_EQ(opened.items[1].x0, before.item.x0 - 8);
+	EXPECT_EQ(opened.last.y0, opened.items[0].y0 - 1);
+	EXPECT_FALSE(chosen.tracking);
+	EXPECT_EQ(chosen.popups, 0);
+	EXPECT_EQ(chosen.label, "Large");
+	EXPECT_EQ(chosen.chosen, (std::vector<std::int32_t>{23}));
+	EXPECT_TRUE(keyOpened.tracking);
+	EXPECT_EQ(keyOpened.popups, 1);
+	EXPECT_EQ(keyOpened.focus, "_mc_mb_");
+	EXPECT_EQ(keyChosen.label, "Medium");
+	EXPECT_EQ(keyChosen.chosen, (std::vector<std::int32_t>{23, 22}));
+	EXPECT_EQ(keyChosen.focus, "field");
+	EXPECT_FALSE(disabled.tracking);
+	EXPECT_EQ(disabled.popups, 0);
 }
 
 
