@@ -1876,6 +1876,11 @@ BTextView::SetWordWrap(bool wrap)
 	fWrap = wrap;
 	_ResetTextRect();
 
+	// NewGUI: without wrapping the text view is as wide as its text, so its
+	// size for the layout changes (Haiku kept the old one until the layout
+	// was invalidated otherwise)
+	InvalidateLayout();
+
 	if (fEditable || fSelectable)
 		ScrollToOffset(fCaretOffset);
 }
