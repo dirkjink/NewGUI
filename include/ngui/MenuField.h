@@ -12,6 +12,7 @@
 #include <string_view>
 
 #include <ngui/InterfaceDefs.h>
+#include <ngui/LayoutItem.h>
 #include <ngui/View.h>
 
 
@@ -29,13 +30,17 @@ class BMenuItem;
 	over the field. Internally a menu bar with one item whose submenu is
 	the menu.
 
+	In a grid, label and menu bar can take a column each
+	(CreateLabelLayoutItem(), CreateMenuBarLayoutItem(), or
+	BLayoutBuilder::Grid::AddMenuField()), so that the fields of a form
+	line up.
+
 	Differences to Haiku: the field owns its menu (taken as
 	std::unique_ptr, through its item in the menu bar); the bar's item
 	copies only the label of the item it starts with (Haiku: an archived
 	copy, with its message and shortcut). A disabled field does not open
-	its menu with the mouse either. No layout items for label and menu bar
-	yet (CreateLabelLayoutItem(), coming with W3c3), no archiving and
-	scripting.
+	its menu with the mouse either. The layout items are handed over once
+	(see CreateLabelLayoutItem()). No archiving and scripting.
 */
 class BMenuField : public BView {
 public:
@@ -72,6 +77,8 @@ public:
 									/*!< Destroys the field, its menu bar and menu. */
 
 			void				Draw(DrawContext& context) override;
+			void				AttachedToWindow() override;
+									/*!< Takes its parent's view color. */
 			void				AllAttached() override;
 									/*!< Without layout: fits its height to the menu bar. */
 			void				MouseDown(gfx::Point where) override;
@@ -121,6 +128,18 @@ public:
 									/*!< Unlimited width. */
 			gfx::Size			PreferredSize() override;
 
+			std::unique_ptr<BLayoutItem> CreateLabelLayoutItem();
+									/*!< An item for the label, to put into a layout
+										beside CreateMenuBarLayoutItem(); the field then
+										spans both. NewGUI: the layout owns it, so it is
+										created once, and nullptr comes back while it
+										lives (Haiku gave the same item again). A field
+										without parent must come into the layout with one
+										of its items (BLayoutItem::TakeView()). */
+			std::unique_ptr<BLayoutItem> CreateMenuBarLayoutItem();
+									/*!< An item for the menu bar, as
+										CreateLabelLayoutItem(); unlimited in width. */
+
 protected:
 			void				LayoutInvalidated(bool descendants) override;
 			void				DoLayout() override;
@@ -128,7 +147,12 @@ protected:
 private:
 	friend class MenuFieldBar;
 
+			class LabelLayoutItem;
+			class MenuBarLayoutItem;
+
 	struct LayoutData {
+		LabelLayoutItem*	labelLayoutItem = nullptr;
+		MenuBarLayoutItem*	menuBarLayoutItem = nullptr;
 		float				previousHeight = -1;
 		float				labelWidth = 0;
 		float				labelHeight = 0;
@@ -147,6 +171,7 @@ private:
 			void				_ValidateLayoutData();
 			float				_MenuBarOffset() const;
 			float				_MenuBarWidth() const;
+			void				_UpdateFrame();
 
 			std::string			fLabel;
 			BMenu*				fMenu = nullptr;

@@ -5,12 +5,15 @@
  * SPDX-License-Identifier: MIT
  *
  * Ported from Haiku: headers/os/interface/LayoutBuilder.h (commit
- * b1d497bb69), the Group, Grid, Split and Cards builders.
+ * b1d497bb69), the Group, Grid, Split, Cards, Menu and MenuItem builders;
+ * without AddTextControl() (W5).
  */
 #pragma once
 
 
+#include <cstdint>
 #include <memory>
+#include <string_view>
 
 #include <ngui/CardLayout.h>
 #include <ngui/CardView.h>
@@ -18,6 +21,9 @@
 #include <ngui/GridView.h>
 #include <ngui/GroupLayout.h>
 #include <ngui/GroupView.h>
+#include <ngui/Menu.h>
+#include <ngui/MenuField.h>
+#include <ngui/MenuItem.h>
 #include <ngui/Palette.h>
 #include <ngui/SpaceLayoutItem.h>
 #include <ngui/SplitView.h>
@@ -34,6 +40,8 @@ template<typename ParentBuilder = void*> class Group;
 template<typename ParentBuilder = void*> class Grid;
 template<typename ParentBuilder = void*> class Split;
 template<typename ParentBuilder = void*> class Cards;
+template<typename ParentBuilder = void*> class Menu;
+template<typename ParentBuilder = void*> class MenuItem;
 
 
 namespace internal {
@@ -373,6 +381,29 @@ public:
 										return *this;
 									}
 									/*!< Adds \a item covering these cells. */
+			ThisBuilder&		AddMenuField(std::unique_ptr<BMenuField> menuField,
+									int32 column, int32 row,
+									BHorizontalAlignment labelAlignment
+										= BHorizontalAlignment::Unset,
+									int32 labelColumnCount = 1, int32 fieldColumnCount = 1,
+									int32 rowCount = 1)
+									{
+										BMenuField* field = menuField.get();
+										std::unique_ptr<BLayoutItem> item
+											= field->CreateLabelLayoutItem();
+										item->SetExplicitAlignment({labelAlignment,
+											BVerticalAlignment::Unset});
+										(void)item->TakeView(std::move(menuField));
+										fLayout->AddItem(std::move(item), column, row,
+											labelColumnCount, rowCount);
+										fLayout->AddItem(field->CreateMenuBarLayoutItem(),
+											column + labelColumnCount, row, fieldColumnCount,
+											rowCount);
+										return *this;
+									}
+									/*!< Adds \a menuField with its label in these
+										columns and its menu bar in the next ones, so that
+										fields in rows below line up. */
 
 			GroupBuilder		AddGroup(BOrientation orientation, float spacing,
 									int32 column, int32 row, int32 columnCount = 1,
@@ -889,6 +920,122 @@ public:
 
 private:
 			BCardLayout*		fLayout;
+};
+
+
+/*!	Fills a BMenu (or a BMenuBar) with items and submenus. */
+template<typename ParentBuilder>
+class Menu : public Base<ParentBuilder> {
+public:
+	typedef Menu<ParentBuilder>		ThisBuilder;	/*!< This builder. */
+	typedef MenuItem<ParentBuilder>	ItemBuilder;	/*!< For the item just added. */
+	typedef Menu<ThisBuilder>		MenuBuilder;	/*!< For a submenu. */
+
+public:
+								Menu(BMenu* menu)
+									:
+									fMenu(menu)
+									{}
+									/*!< Builds on \a menu. */
+
+			ThisBuilder&		GetMenu(BMenu*& _menu)
+									{ _menu = fMenu; return *this; }
+									/*!< Stores the menu in \a _menu. */
+
+			ItemBuilder			AddItem(std::unique_ptr<BMenuItem> item)
+									{
+										BMenuItem* added = item.get();
+										if (!fMenu->AddItem(std::move(item)))
+											added = nullptr;
+										return ItemBuilder(this->fParent, fMenu, added);
+									}
+									/*!< Adds \a item. */
+			ItemBuilder			AddItem(std::unique_ptr<BMenu> menu)
+									{
+										BMenuItem* added = fMenu->AddItem(std::move(menu))
+											? fMenu->ItemAt(fMenu->CountItems() - 1) : nullptr;
+										return ItemBuilder(this->fParent, fMenu, added);
+									}
+									/*!< Adds an item for the submenu \a menu. */
+			ItemBuilder			AddItem(std::string_view label,
+									std::unique_ptr<BMessage> message, char shortcut = 0,
+									BModifierFlags modifiers = {})
+									{
+										return AddItem(std::make_unique<BMenuItem>(label,
+											std::move(message),
+											static_cast<std::uint32_t>(
+												static_cast<unsigned char>(shortcut)),
+											modifiers));
+									}
+									/*!< Adds an item sending \a message, with an optional
+										shortcut. */
+			ItemBuilder			AddItem(std::string_view label, std::uint32_t messageWhat,
+									char shortcut = 0, BModifierFlags modifiers = {})
+									{
+										return AddItem(label,
+											std::make_unique<BMessage>(messageWhat), shortcut,
+											modifiers);
+									}
+									/*!< Adds an item sending a message \a messageWhat. */
+
+			MenuBuilder			AddMenu(std::unique_ptr<BMenu> menu)
+									{
+										MenuBuilder builder(menu.get());
+										(void)fMenu->AddItem(std::move(menu));
+										builder.SetParent(this);
+										return builder;
+									}
+									/*!< Adds the submenu \a menu and builds on it; End()
+										comes back here. */
+			MenuBuilder			AddMenu(std::string_view title,
+									BMenuLayout layout = BMenuLayout::InColumn)
+									{
+										return AddMenu(std::make_unique<BMenu>(title, layout));
+									}
+									/*!< Adds a new submenu \a title and builds on it. */
+
+			ThisBuilder&		AddSeparator()
+									{ fMenu->AddSeparatorItem(); return *this; }
+									/*!< Adds a separator. */
+
+private:
+			BMenu*				fMenu;
+};
+
+
+/*!	The item a Menu builder just added: sets it up, then goes on adding to
+	the same menu. */
+template<typename ParentBuilder>
+class MenuItem : public Menu<ParentBuilder> {
+public:
+	typedef MenuItem<ParentBuilder>	ThisBuilder;	/*!< This builder. */
+
+public:
+								MenuItem(ParentBuilder* parentBuilder, BMenu* menu,
+									BMenuItem* item)
+									:
+									Menu<ParentBuilder>(menu),
+									fMenuItem(item)
+									{ this->SetParent(parentBuilder); }
+									/*!< For \a item of \a menu. */
+
+			ThisBuilder&		GetItem(BMenuItem*& _item)
+									{ _item = fMenuItem; return *this; }
+									/*!< Stores the item in \a _item. */
+
+			ThisBuilder&		SetEnabled(bool enabled)
+									{ fMenuItem->SetEnabled(enabled); return *this; }
+									/*!< Enables or disables the item. */
+			ThisBuilder&		SetTarget(BMessenger target)
+									{ fMenuItem->SetTarget(std::move(target)); return *this; }
+									/*!< Where the item sends its message (Haiku: a
+										handler and looper). */
+			ThisBuilder&		SetMarked(bool marked)
+									{ fMenuItem->SetMarked(marked); return *this; }
+									/*!< Marks the item. */
+
+private:
+			BMenuItem*			fMenuItem;
 };
 
 

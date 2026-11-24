@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <initializer_list>
 #include <memory>
 
 #include <gtest/gtest.h>
@@ -18,6 +19,7 @@
 #include <ngui/Box.h>
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
+#include <ngui/LayoutBuilder.h>
 #include <ngui/AppDefs.h>
 #include <ngui/Menu.h>
 #include <ngui/MenuBar.h>
@@ -872,6 +874,57 @@ TEST(TextSkiaTest, MenuFieldsMatchTheirSnapshots)
 	(void)up.AddInt32("buttons", 0);
 	window.DispatchMessage(&up, &window);
 	window.DispatchMessage(&down, &window);
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, MenuFieldFormMatchesItsSnapshot)
+{
+	// What is tested: A view of 240 × 60 in a window, with a grid (spacing
+	// 5, insets 5) built with AddMenuField(): "Size:" showing "Medium" and
+	// "Orientation:" showing "Portrait"; laid out and recorded with its
+	// children ("MenuFieldForm"), with the bundled font, rendered by Skia
+	// at scale 1 and 2.
+	// Success criteria: Within the text tolerance of 21.2: both labels in
+	// the first column, both menu bars beginning at the same x in the
+	// second and reaching to the right inset.
+	// Why it matters: The field draws its label in the label item's frame
+	// and its bar where the bar item put it; a form must line up.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	const auto menu = [](std::initializer_list<const char*> labels, int marked) {
+		auto popUp = std::make_unique<BPopUpMenu>("menu");
+		for (const char* label : labels)
+			popUp->AddItem(std::make_unique<BMenuItem>(label, std::make_unique<BMessage>(1)));
+		popUp->ItemAt(marked)->SetMarked(true);
+		return popUp;
+	};
+	BWindow window({0, 0, 300, 100}, "form");
+	BView& form = *window.AddChild(std::make_unique<BView>(gfx::Rect{0, 0, 240, 60}, "form",
+		kFollowLeftTop, BViewFlag::WillDraw));
+	BLayoutBuilder::Grid<>(&form, 5, 5)
+		.SetInsets(5)
+		.AddMenuField(std::make_unique<BMenuField>("size", "Size:",
+			menu({"Small", "Medium", "Large"}, 1)), 0, 0)
+		.AddMenuField(std::make_unique<BMenuField>("orientation", "Orientation:",
+			menu({"Portrait", "Landscape"}, 0)), 0, 1);
+	form.Layout(false);
+
+	// When
+	const DisplayListRef list = RecordTree(form, *text);
+
+	// Then
+	for (const float scale : {1.0f, 2.0f}) {
+		SkiaBackend backend;
+		for (const FontFile& font : text->Fonts())
+			ASSERT_TRUE(backend.AddFont(font.id, font.data));
+		const auto image = RenderToImage(backend, *list, scale);
+		ASSERT_TRUE(image.has_value()) << image.error().message;
+		EXPECT_IMAGE_SNAPSHOT(*image, "MenuFieldForm", {.look = "be", .backend = "skia",
+			.scale = scale, .tolerance = Tolerance::Text()});
+	}
 	TextSystem::SetDefault(nullptr);
 }
 

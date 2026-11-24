@@ -168,16 +168,15 @@ public:
 
 		// The menus.
 		auto menuBar = std::make_unique<BMenuBar>("menu bar");
-		auto file = std::make_unique<BMenu>("File");
-		file->AddItem(std::make_unique<BMenuItem>("Reset", std::make_unique<BMessage>(kReset),
-			'R', BModifier::Command));
-		file->AddSeparatorItem();
-		file->AddItem(std::make_unique<BMenuItem>("Quit",
-			std::make_unique<BMessage>(kQuitRequested), 'Q', BModifier::Command));
-		auto help = std::make_unique<BMenu>("Help");
-		help->AddItem(std::make_unique<BMenuItem>("About", std::make_unique<BMessage>(kAbout)));
-		menuBar->AddItem(std::move(file));
-		menuBar->AddItem(std::move(help));
+		BLayoutBuilder::Menu<>(menuBar.get())
+			.AddMenu("File")
+				.AddItem("Reset", kReset, 'R')
+				.AddSeparator()
+				.AddItem("Quit", kQuitRequested, 'Q')
+			.End()
+			.AddMenu("Help")
+				.AddItem("About", kAbout)
+			.End();
 		fTabs = tabs.get();
 
 		// The menu bar on top, without insets; below it the label and the

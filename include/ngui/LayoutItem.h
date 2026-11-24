@@ -47,6 +47,14 @@ public:
 			std::unique_ptr<BLayoutItem> RemoveSelf();
 									/*!< Takes the item out of its layout and gives it
 										back; nullptr if it has none. */
+			std::unique_ptr<BView> TakeView(std::unique_ptr<BView> view);
+									/*!< Holds \a view, which is View() and has no parent,
+										until a layout adds the item and makes the view a
+										child of its target, as BLayout::AddView() does
+										(NewGUI: Haiku's layout adopted a parentless view
+										of any item). Gives \a view back if it is not
+										View(), has a parent, or the item is in a layout
+										or holds a view already. */
 
 	virtual	gfx::Size			MinSize() = 0;
 									/*!< The smallest size it can have. */

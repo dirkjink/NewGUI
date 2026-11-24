@@ -8,12 +8,16 @@
 #include <ngui/LayoutBuilder.h>
 
 #include <cmath>
+#include <initializer_list>
 #include <memory>
 
 #include <gtest/gtest.h>
 
 #include <ngui/AbstractLayoutItem.h>
 #include <ngui/CardView.h>
+#include <ngui/MenuBar.h>
+#include <ngui/PopUpMenu.h>
+#include <ngui/SeparatorItem.h>
 #include <ngui/View.h>
 #include <ngui/Window.h>
 
@@ -245,6 +249,124 @@ TEST(CardLayoutTest, SizesCoverAllPages)
 	EXPECT_EQ(preferred, 30);
 	EXPECT_EQ(cards->VisibleItem(), firstPage);
 	EXPECT_EQ(cards->VisibleIndex(), 0);
+}
+
+
+// A pop-up menu with the items \a labels, the first marked.
+std::unique_ptr<BPopUpMenu>
+Choices(std::initializer_list<const char*> labels)
+{
+	auto menu = std::make_unique<BPopUpMenu>("choices");
+	for (const char* label : labels)
+		menu->AddItem(std::make_unique<BMenuItem>(label, nullptr));
+	menu->ItemAt(0)->SetMarked(true);
+	return menu;
+}
+
+
+TEST(LayoutBuilderTest, MenuFieldsLineUpInAGrid)
+{
+	// What is tested: A grid on a window of 300 × 200 (spacing 5, no
+	// insets) with two menu fields added by AddMenuField(), "Size:" in row
+	// 0 and "Orientation:" in row 1; laid out. Then a field's label item
+	// asked for again, and the first field removed from its layout.
+	// Success criteria: Each field is a child of the root view and spans
+	// both columns: its frame begins at x 0 and reaches to the right edge
+	// (the menu bar column is unlimited). The labels take column 0, as wide
+	// as the wider label; both menu bars begin at the same x (the dividers
+	// are equal, column 1's left edge). A label item is handed out once
+	// while it lives. Removing the field's items takes the field out of the
+	// window, and it can make new items.
+	// Why it matters: Forms of several menu fields are aligned this way in
+	// Haiku's preferences; the field must follow its two items.
+	//
+	// Given
+	BWindow window({0, 0, 300, 200}, "form");
+	auto size = std::make_unique<BMenuField>("size", "Size:", Choices({"Small", "Large"}));
+	auto orientation = std::make_unique<BMenuField>("orientation", "Orientation:",
+		Choices({"Portrait", "Landscape"}));
+	BMenuField* first = size.get();
+	BMenuField* second = orientation.get();
+
+	// When
+	BLayoutBuilder::Grid<>(&window, 5, 5)
+		.AddMenuField(std::move(size), 0, 0)
+		.AddMenuField(std::move(orientation), 0, 1);
+	window.Layout(false);
+	const auto barLeft = [](BMenuField* field) {
+		return field->Frame().x0 + field->MenuBar()->Frame().x0;
+	};
+	const std::unique_ptr<BLayoutItem> again = first->CreateLabelLayoutItem();
+	BGridLayout* grid = static_cast<BGridLayout*>(window.RootView()->GetLayout());
+	BLayoutItem* column1 = grid->ItemAt(1, 1);
+	const float column1Left = column1->Frame().x0;
+	std::unique_ptr<BView> removed = grid->RemoveView(first);
+	const bool newItems = first->CreateLabelLayoutItem() != nullptr
+		&& first->CreateMenuBarLayoutItem() != nullptr;
+
+	// Then
+	EXPECT_EQ(second->Parent(), window.RootView());
+	EXPECT_EQ(grid->CountColumns(), 2);
+	EXPECT_EQ(grid->CountRows(), 2);
+	EXPECT_EQ(second->Frame().x0, 0);
+	EXPECT_EQ(second->Frame().x1, 300);
+	EXPECT_EQ(second->Divider(), column1Left);
+	EXPECT_EQ(barLeft(second), column1Left + 2);
+	EXPECT_EQ(again, nullptr);
+	EXPECT_EQ(removed.get(), first);
+	EXPECT_EQ(first->Parent(), nullptr);
+	EXPECT_TRUE(newItems);
+}
+
+
+TEST(LayoutBuilderTest, MenusAreBuiltInOneExpression)
+{
+	// What is tested: A menu bar filled by a Menu builder: "File" with
+	// New (1, Command+N), Open (2, disabled), a separator and the submenu
+	// "Recent" with a.txt (3, marked); "Edit" with Cut (a message 4,
+	// Command+X), its item stored with GetItem().
+	// Success criteria: The bar has File and Edit; File has its four
+	// items in order, Open disabled, the separator third, Recent's a.txt
+	// marked; New has its shortcut; GetItem() gave Cut, whose message is 4.
+	// End() leads back from a submenu to its menu and from a menu to the
+	// bar's builder.
+	// Why it matters: Haiku applications build their menus this way.
+	//
+	// Given
+	BMenuBar bar({0, 0, 300, 20}, "bar");
+	BMenuItem* cut = nullptr;
+
+	// When
+	BLayoutBuilder::Menu<>(&bar)
+		.AddMenu("File")
+			.AddItem("New", 1, 'N')
+			.AddItem("Open", 2).SetEnabled(false)
+			.AddSeparator()
+			.AddMenu("Recent")
+				.AddItem("a.txt", 3).SetMarked(true)
+			.End()
+		.End()
+		.AddMenu("Edit")
+			.AddItem("Cut", std::make_unique<BMessage>(4), 'X').GetItem(cut)
+		.End();
+	BMenu* file = bar.SubmenuAt(0);
+	BModifierFlags modifiers;
+
+	// Then
+	ASSERT_EQ(bar.CountItems(), 2);
+	ASSERT_NE(file, nullptr);
+	EXPECT_EQ(file->Name(), "File");
+	EXPECT_EQ(bar.SubmenuAt(1)->Name(), "Edit");
+	ASSERT_EQ(file->CountItems(), 4);
+	EXPECT_EQ(file->ItemAt(0)->Label(), "New");
+	EXPECT_EQ(file->ItemAt(0)->Shortcut(&modifiers), static_cast<uint32>('N'));
+	EXPECT_FALSE(file->ItemAt(1)->IsEnabled());
+	EXPECT_NE(dynamic_cast<BSeparatorItem*>(file->ItemAt(2)), nullptr);
+	ASSERT_NE(file->SubmenuAt(3), nullptr);
+	EXPECT_TRUE(file->SubmenuAt(3)->ItemAt(0)->IsMarked());
+	ASSERT_NE(cut, nullptr);
+	EXPECT_EQ(cut->Label(), "Cut");
+	EXPECT_EQ(cut->Message()->what, 4u);
 }
 
 

@@ -5,8 +5,7 @@
  * SPDX-License-Identifier: MIT
  *
  * Ported from Haiku: src/kits/interface/MenuField.cpp (commit b1d497bb69),
- * without archiving, scripting and the layout items. NewGUI (see
- * MenuField.h):
+ * without archiving and scripting. NewGUI (see MenuField.h):
  * - Sizes are pixel counts; Haiku's inclusive rectangles become half-open
  *   ones with the same edges.
  * - The tracking runs on the window's thread (MenuTracker), which redraws
@@ -16,6 +15,9 @@
  * - AllAttached() fits the height only without layout.
  * - Colors from the palette: the label on the panel background (or the
  *   view color), the bar on the control background.
+ * - The layout items are owned by their layout; an item and the field
+ *   forget each other when either goes. The label item's width is a pixel
+ *   count, one more than Haiku's.
  *
  * Authors (Haiku):
  *		Marc Flerackers, mflerackers@androme.be
@@ -30,6 +32,7 @@
 #include <cmath>
 #include <utility>
 
+#include <ngui/AbstractLayoutItem.h>
 #include <ngui/ControlLook.h>
 #include <ngui/LayoutUtils.h>
 #include <ngui/Menu.h>
@@ -52,8 +55,206 @@ constexpr float kMinMenuBarWidth = 20.0f;
 	// found by experimenting on BeOS R5
 constexpr float kVMargin = kMenuFieldMargin;
 
+// No frame yet (Haiku's invalid BRect()).
+constexpr gfx::Rect kNoFrame = {0, 0, -1, -1};
+
+
+bool
+IsValidFrame(const gfx::Rect& frame)
+{
+	return frame.x1 >= frame.x0 && frame.y1 >= frame.y0;
+}
+
 
 } // namespace
+
+
+// #pragma mark - LabelLayoutItem
+
+
+class BMenuField::LabelLayoutItem : public BAbstractLayoutItem {
+public:
+	explicit LabelLayoutItem(BMenuField* parent)
+		:
+		fParent(parent),
+		fView(parent)
+	{
+	}
+
+	~LabelLayoutItem() override
+	{
+		if (fParent != nullptr)
+			fParent->fLayoutData.labelLayoutItem = nullptr;
+	}
+
+	gfx::Rect FrameInParent() const
+	{
+		const gfx::Rect parent = fParent->Frame();
+		return {fFrame.x0 - parent.x0, fFrame.y0 - parent.y0, fFrame.x1 - parent.x0,
+			fFrame.y1 - parent.y0};
+	}
+
+	bool IsVisible() override
+	{
+		return fParent != nullptr && !fParent->IsHidden();
+	}
+
+	void SetVisible(bool /*visible*/) override
+	{
+		// not allowed
+	}
+
+	gfx::Rect Frame() override
+	{
+		return fFrame;
+	}
+
+	void SetFrame(gfx::Rect frame) override
+	{
+		fFrame = frame;
+		if (fParent != nullptr)
+			fParent->_UpdateFrame();
+	}
+
+	BView* View() override
+	{
+		return fView;
+	}
+
+	gfx::Size BaseMinSize() override
+	{
+		if (fParent == nullptr)
+			return {0, 0};
+
+		fParent->_ValidateLayoutData();
+		if (fParent->Label().empty())
+			return {0, 0};
+
+		// NewGUI: a pixel count
+		return {fParent->fLayoutData.labelWidth
+				+ fParent->Look().DefaultLabelSpacing(TextSystem::Default()) + 1,
+			fParent->fLayoutData.labelHeight};
+	}
+
+	gfx::Size BaseMaxSize() override
+	{
+		return BaseMinSize();
+	}
+
+	gfx::Size BasePreferredSize() override
+	{
+		return BaseMinSize();
+	}
+
+	BAlignment BaseAlignment() override
+	{
+		return {BHorizontalAlignment::UseFullWidth, BVerticalAlignment::UseFullHeight};
+	}
+
+	// The field is going: forget it (View() stays for the layout).
+	void ParentGone()
+	{
+		fParent = nullptr;
+	}
+
+private:
+	BMenuField*			fParent;
+	BView*				fView;
+	gfx::Rect			fFrame = kNoFrame;
+};
+
+
+// #pragma mark - MenuBarLayoutItem
+
+
+class BMenuField::MenuBarLayoutItem : public BAbstractLayoutItem {
+public:
+	explicit MenuBarLayoutItem(BMenuField* parent)
+		:
+		fParent(parent),
+		fView(parent)
+	{
+		// by default the part right of the divider shall have an unlimited
+		// maximum width
+		SetExplicitMaxSize({kSizeUnlimited, kSizeUnset});
+	}
+
+	~MenuBarLayoutItem() override
+	{
+		if (fParent != nullptr)
+			fParent->fLayoutData.menuBarLayoutItem = nullptr;
+	}
+
+	bool IsVisible() override
+	{
+		return fParent != nullptr && !fParent->IsHidden();
+	}
+
+	void SetVisible(bool /*visible*/) override
+	{
+		// not allowed
+	}
+
+	gfx::Rect Frame() override
+	{
+		return fFrame;
+	}
+
+	void SetFrame(gfx::Rect frame) override
+	{
+		fFrame = frame;
+		if (fParent != nullptr)
+			fParent->_UpdateFrame();
+	}
+
+	BView* View() override
+	{
+		return fView;
+	}
+
+	gfx::Size BaseMinSize() override
+	{
+		if (fParent == nullptr)
+			return {0, 0};
+
+		fParent->_ValidateLayoutData();
+		gfx::Size size = fParent->fLayoutData.menuBarMin;
+		size.w += 2 * kVMargin;
+		size.h += 2 * kVMargin;
+		return size;
+	}
+
+	gfx::Size BaseMaxSize() override
+	{
+		gfx::Size size(BaseMinSize());
+		size.w = kSizeUnlimited;
+		return size;
+	}
+
+	gfx::Size BasePreferredSize() override
+	{
+		return BaseMinSize();
+	}
+
+	BAlignment BaseAlignment() override
+	{
+		return {BHorizontalAlignment::UseFullWidth, BVerticalAlignment::UseFullHeight};
+	}
+
+	// The field is going: forget it (View() stays for the layout).
+	void ParentGone()
+	{
+		fParent = nullptr;
+	}
+
+private:
+	BMenuField*			fParent;
+	BView*				fView;
+	gfx::Rect			fFrame = kNoFrame;
+};
+
+
+// #pragma mark - BMenuField
 
 
 BMenuField::BMenuField(gfx::Rect frame, std::string_view name, std::string_view label,
@@ -116,6 +317,12 @@ BMenuField::BMenuField(std::string_view label, std::unique_ptr<BMenu> menu,
 
 BMenuField::~BMenuField()
 {
+	// NewGUI: the items stay in their layouts until BView's destructor
+	// takes them out, but must not reach this part of the field any more.
+	if (fLayoutData.labelLayoutItem != nullptr)
+		fLayoutData.labelLayoutItem->ParentGone();
+	if (fLayoutData.menuBarLayoutItem != nullptr)
+		fLayoutData.menuBarLayoutItem->ParentGone();
 }
 
 
@@ -124,6 +331,20 @@ BMenuField::Draw(DrawContext& context)
 {
 	_DrawLabel(context);
 	_DrawMenuBar(context);
+}
+
+
+void
+BMenuField::AttachedToWindow()
+{
+	BView::AttachedToWindow();
+
+	// Our low color must match the parent's view color (Haiku's
+	// AdoptParentColors(), else AdoptSystemColors()).
+	if (Parent() != nullptr && Parent()->ViewColor().has_value())
+		SetViewColor(Parent()->ViewColor());
+	else
+		SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
 }
 
 
@@ -428,6 +649,33 @@ BMenuField::PreferredSize()
 }
 
 
+std::unique_ptr<BLayoutItem>
+BMenuField::CreateLabelLayoutItem()
+{
+	if (fLayoutData.labelLayoutItem != nullptr)
+		return nullptr;
+
+	auto item = std::make_unique<LabelLayoutItem>(this);
+	fLayoutData.labelLayoutItem = item.get();
+	return item;
+}
+
+
+std::unique_ptr<BLayoutItem>
+BMenuField::CreateMenuBarLayoutItem()
+{
+	if (fLayoutData.menuBarLayoutItem != nullptr)
+		return nullptr;
+
+	// align the menu bar in the full available space
+	fMenuBar->SetExplicitAlignment({BHorizontalAlignment::UseFullWidth,
+		BVerticalAlignment::Unset});
+	auto item = std::make_unique<MenuBarLayoutItem>(this);
+	fLayoutData.menuBarLayoutItem = item.get();
+	return item;
+}
+
+
 void
 BMenuField::LayoutInvalidated(bool /*descendants*/)
 {
@@ -459,10 +707,17 @@ BMenuField::DoLayout()
 	if (size.h < fLayoutData.min.h)
 		size.h = fLayoutData.min.h;
 
-	// divider (NewGUI: no layout items yet)
+	// divider
 	float divider = 0;
-	if (fLayoutData.labelWidth > 0)
+	if (fLayoutData.labelLayoutItem != nullptr && fLayoutData.menuBarLayoutItem != nullptr
+		&& IsValidFrame(fLayoutData.labelLayoutItem->Frame())
+		&& IsValidFrame(fLayoutData.menuBarLayoutItem->Frame())) {
+		// We have valid layout items, they define the divider location.
+		divider = std::abs(fLayoutData.menuBarLayoutItem->Frame().x0
+			- fLayoutData.labelLayoutItem->Frame().x0);
+	} else if (fLayoutData.labelWidth > 0) {
 		divider = fLayoutData.labelWidth + Look().DefaultLabelSpacing(TextSystem::Default());
+	}
 
 	// menu bar
 	gfx::Rect menuBarFrame = {divider + kVMargin, kVMargin, size.w - kVMargin,
@@ -512,9 +767,14 @@ BMenuField::_DrawLabel(DrawContext& context)
 	if (fLabel.empty())
 		return;
 
-	// Haiku's inclusive rectangle up to the divider
-	gfx::Rect rect = Bounds();
-	rect.x1 = fDivider + 1;
+	gfx::Rect rect;
+	if (fLayoutData.labelLayoutItem != nullptr)
+		rect = fLayoutData.labelLayoutItem->FrameInParent();
+	else {
+		// Haiku's inclusive rectangle up to the divider
+		rect = Bounds();
+		rect.x1 = fDivider + 1;
+	}
 	if (rect.x1 <= rect.x0 || rect.y1 <= rect.y0)
 		return;
 
@@ -673,6 +933,34 @@ BMenuField::_ValidateLayoutData()
 	fLayoutData.valid = true;
 
 	ResetLayoutInvalidation();
+}
+
+
+void
+BMenuField::_UpdateFrame()
+{
+	if (fLayoutData.labelLayoutItem == nullptr || fLayoutData.menuBarLayoutItem == nullptr)
+		return;
+
+	const gfx::Rect labelFrame = fLayoutData.labelLayoutItem->Frame();
+	const gfx::Rect menuFrame = fLayoutData.menuBarLayoutItem->Frame();
+
+	if (!IsValidFrame(labelFrame) || !IsValidFrame(menuFrame))
+		return;
+
+	// update divider
+	fDivider = menuFrame.x0 - labelFrame.x0;
+
+	// update our frame
+	MoveTo({labelFrame.x0, labelFrame.y0});
+	const gfx::Rect oldBounds = Bounds();
+	ResizeTo(menuFrame.x1 - labelFrame.x0, menuFrame.y1 - labelFrame.y0);
+	const gfx::Rect newBounds = Bounds();
+
+	// If the size changes, ResizeTo() will trigger a relayout, otherwise
+	// we need to do that explicitly.
+	if (newBounds.Width() == oldBounds.Width() && newBounds.Height() == oldBounds.Height())
+		Relayout();
 }
 
 
