@@ -143,6 +143,84 @@ TEST(OutlineListViewTest, SubitemsAreShownAndHidden)
 }
 
 
+TEST(OutlineListViewTest, SubtreesAreWalkedAndRemoved)
+{
+	// What is tested: The outline of the previous test in a window, with
+	// the fixed text system: EachItemUnder() of Kits one level deep, all
+	// levels deep and stopping at BView; FullListDoForEach() stopping at
+	// Storage; FullListIndexOf() of a point in the fourth row with
+	// Interface collapsed; the preferred size; RemoveItems() of two items
+	// from Storage, and past the end; MakeEmpty().
+	// Success criteria: One level deep visits Support, Interface, Storage;
+	// all levels adds BView and BWindow; the walk returns the item the
+	// function returns. FullListDoForEach() stops after the item it
+	// accepts. The fourth row is Storage, index 5 in the full list. The
+	// preferred width is the widest item plus the font size (12) and the
+	// indent for its level and the latch (11 each): Interface, 63 + 6
+	// (label spacing) + 12 + 2 · 11 = 103; the height the visible rows
+	// (5 · 17). RemoveItems() takes Storage and Apps; past
+	// the end it does nothing. MakeEmpty() empties both lists.
+	// Why it matters: Applications walk and prune outlines (Haiku's
+	// Tracker, Debugger); the full list and the visible one stay in step.
+	//
+	// Given
+	test::FixedTextSystem fixed;
+	TextSystem::SetDefault(&fixed);
+	BWindow window({0, 0, 200, 200}, "outline");
+	auto& list = static_cast<BOutlineListView&>(*window.AddChild(
+		std::make_unique<BOutlineListView>(gfx::Rect{0, 0, 150, 150}, "outline")));
+	AddKits(list);
+	BListItem* kits = list.FullListItemAt(0);
+	const auto walk = [&](bool oneLevelOnly, std::string_view stopAt) {
+		std::vector<std::string> visited;
+		BListItem* stopped = list.EachItemUnder(kits, oneLevelOnly, [&](BListItem* item) {
+			visited.push_back(TextOf(item));
+			return TextOf(item) == stopAt ? item : nullptr;
+		});
+		return std::pair{visited, TextOf(stopped)};
+	};
+
+	// When
+	const auto oneLevel = walk(true, "");
+	const auto allLevels = walk(false, "");
+	const auto stopped = walk(false, "BView");
+	std::vector<std::string> forEach;
+	list.FullListDoForEach([&](BListItem* item) {
+		forEach.push_back(TextOf(item));
+		return TextOf(item) == "Storage";
+	});
+	list.Collapse(list.FullListItemAt(2));
+	const int32 fourthRow = list.FullListIndexOf(gfx::Point{20, 3 * 17 + 8});
+	float width = 0;
+	float height = 0;
+	list.GetPreferredSize(&width, &height);
+	const bool removed = list.RemoveItems(5, 2);
+	const std::vector<std::string> afterRemoving = Full(list);
+	const bool pastTheEnd = list.RemoveItems(9, 1);
+	list.MakeEmpty();
+
+	// Then
+	EXPECT_EQ(oneLevel.first, (std::vector<std::string>{"Support", "Interface", "Storage"}));
+	EXPECT_EQ(allLevels.first, (std::vector<std::string>{"Support", "Interface", "BView",
+		"BWindow", "Storage"}));
+	EXPECT_EQ(allLevels.second, "?");
+	EXPECT_EQ(stopped.first, (std::vector<std::string>{"Support", "Interface", "BView"}));
+	EXPECT_EQ(stopped.second, "BView");
+	EXPECT_EQ(forEach, (std::vector<std::string>{"Kits", "Support", "Interface", "BView",
+		"BWindow", "Storage"}));
+	EXPECT_EQ(fourthRow, 5);
+	EXPECT_FLOAT_EQ(width, 103);
+	EXPECT_FLOAT_EQ(height, 5 * 17);
+	EXPECT_TRUE(removed);
+	EXPECT_EQ(afterRemoving, (std::vector<std::string>{"Kits", "Support", "Interface", "BView",
+		"BWindow"}));
+	EXPECT_FALSE(pastTheEnd);
+	EXPECT_EQ(list.FullListCountItems(), 0);
+	EXPECT_EQ(list.CountItems(), 0);
+	TextSystem::SetDefault(nullptr);
+}
+
+
 TEST(OutlineListViewTest, CollapsingPassesTheSelectionUp)
 {
 	// What is tested: In the outline of the first test, BView selected,
