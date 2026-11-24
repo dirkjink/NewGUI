@@ -7,13 +7,18 @@
 #pragma once
 
 
+#include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <memory>
 #include <optional>
 #include <string>
+#include <span>
 #include <string_view>
 #include <vector>
 
+#include <ngui/Error.h>
+#include <ngui/Font.h>
 #include <ngui/InterfaceDefs.h>
 #include <ngui/TextLayout.h>
 #include <ngui/View.h>
@@ -25,6 +30,22 @@ namespace ngui {
 
 class BClipboard;
 class BMessageRunner;
+class TextStyleBuffer;
+struct TextStyleRunEntry;
+
+
+/*!	A run of styled text (Haiku's text_run): from \a offset on, in \a font
+	and \a color. */
+struct BTextRun {
+			int32				offset = 0;	/*!< Where it begins, relative to the start
+												of the text it styles. */
+			BFont				font;		/*!< Its font. */
+			gfx::Color			color;		/*!< Its color. */
+};
+
+
+/*!	The runs of a text (Haiku's text_run_array), sorted by offset. */
+using BTextRunArray = std::vector<BTextRun>;
 
 
 /*!	What BTextView::Undo() would undo (Haiku's undo_state). */
@@ -46,17 +67,28 @@ enum class BUndoState : std::uint8_t {
 	scrolling with its scroll bars. Offsets are byte offsets into the UTF-8
 	text; the caret moves by graphemes.
 
-	Differences to Haiku: one font (the plain one) and color for all of the
-	text; the text is laid out by TextLayout, again after each change (Haiku:
-	only the changed lines), and is kept in a std::string (Haiku: a gap
-	buffer). The selection and the caret are drawn by Draw() (Haiku
+	A stylable text view (SetStylable()) has a font and color per run of
+	text (SetFontAndColor(), SetRunArray()); otherwise one for all of it.
+	Typed and inserted text takes the style before it, or the one
+	SetFontAndColor() gave the caret (Haiku's "null style"). Copying puts
+	the runs on the clipboard too ("application/x-vnd.Be-text_run_array",
+	Haiku's flattened format), pasting into a stylable view takes them;
+	undoing restores them.
+
+	Differences to Haiku: the text is laid out by TextLayout, again after
+	each change (Haiku: only the changed lines), and is kept in a
+	std::string (Haiku: a gap buffer). Text without a color of its own is
+	drawn in the text color (SetTextColor(), by default the palette's), so
+	that it follows the palette; GetFontAndColor() and RunArray() report
+	that color, and runs in that color (SetRunArray(), pasting) follow it
+	too. The selection and the caret are drawn by Draw() (Haiku
 	inverted them on the screen); the caret blinks on a timer of its own
 	(Haiku: Pulse()). CountLines() counts the empty line after a final line
 	break. Input methods (kInputMethodEvent) compose their text inline,
 	on Haiku's colors; the window's platform shows their candidates at the
-	caret. Not yet: drag and drop of text, the context menu, styles and run
-	arrays, HideTyping(), MakeResizable(), auto scrolling while selecting
-	and the I-beam cursor.
+	caret. Not yet: drag and drop of text, the context menu, HideTyping(),
+	MakeResizable(), auto scrolling while selecting and the I-beam
+	cursor.
 */
 class BTextView : public BView {
 public:
@@ -96,11 +128,15 @@ public:
 										kUndo, kSelectAll, kInputMethodEvent, and the
 										navigation shortcuts it installs while active. */
 
-			void				SetText(std::string_view text);
-									/*!< Replaces the text; the caret goes to 0. */
-			void				Insert(std::string_view text);
+			void				SetText(std::string_view text,
+									const BTextRunArray* runs = nullptr);
+									/*!< Replaces the text, styled by \a runs if stylable;
+										the caret goes to 0. */
+			void				Insert(std::string_view text,
+									const BTextRunArray* runs = nullptr);
 									/*!< Inserts \a text at the selection's start. */
-			void				Insert(int32 offset, std::string_view text);
+			void				Insert(int32 offset, std::string_view text,
+									const BTextRunArray* runs = nullptr);
 									/*!< Inserts \a text at \a offset. */
 			void				Delete();
 									/*!< Deletes the selection. */
@@ -160,11 +196,54 @@ public:
 									/*!< The document colors of the palette (a tint darker
 										when not editable). */
 			void				SetTextColor(std::optional<gfx::Color> color);
-									/*!< The color of all of the text; std::nullopt for the
-										palette's document text color. NewGUI: Haiku's
-										SetFontAndColor() with a color, until styles come. */
+									/*!< The color of the text without a color of its own;
+										std::nullopt for the palette's document text color.
+										NewGUI: the text follows it as long as no
+										SetFontAndColor() gave it a color. */
 			std::optional<gfx::Color> TextColor() const;
 									/*!< The color set by SetTextColor(). */
+
+			void				SetFontAndColor(const BFont* font,
+									BFontModeFlags mode = kFontAll,
+									const gfx::Color* color = nullptr);
+									/*!< Styles the selection (or, without one, what is
+										typed next); \a mode says which properties of
+										\a font count, the color counts with all or none.
+										Not stylable: all of the text. */
+			void				SetFontAndColor(int32 startOffset, int32 endOffset,
+									const BFont* font, BFontModeFlags mode = kFontAll,
+									const gfx::Color* color = nullptr);
+									/*!< Styles the text between the offsets. */
+			void				GetFontAndColor(int32 offset, BFont* font,
+									gfx::Color* color = nullptr) const;
+									/*!< The style at \a offset. */
+			void				GetFontAndColor(BFont* font, BFontModeFlags* mode,
+									gfx::Color* color = nullptr,
+									bool* sameColor = nullptr) const;
+									/*!< The style of the selection: \a mode keeps what
+										all of it shares, \a sameColor whether it has one
+										color. */
+			void				SetRunArray(int32 startOffset, int32 endOffset,
+									const BTextRunArray& runs);
+									/*!< Styles the text between the offsets by \a runs
+										(offsets relative to \a startOffset). Not
+										stylable: all of the text by the first run. */
+			BTextRunArray		RunArray(int32 startOffset, int32 endOffset) const;
+									/*!< The runs between the offsets, relative to
+										\a startOffset. */
+			void				SetStylable(bool stylable);
+									/*!< Whether runs of the text can have their own
+										style (not by default). */
+			bool				IsStylable() const;
+									/*!< Whether it is stylable. */
+
+	static	std::vector<std::byte> FlattenRunArray(const BTextRunArray& runs);
+									/*!< \a runs in Haiku's flattened format ('Ali!',
+										big endian), as on the clipboard. */
+	static	std::expected<BTextRunArray, Error> UnflattenRunArray(
+									std::span<const std::byte> data);
+									/*!< The runs of flattened \a data; BadData if it is
+										not in that format. */
 
 			int32				LineAt(int32 offset) const;
 									/*!< The line of \a offset. */
@@ -261,9 +340,11 @@ public:
 									float* preferred) override;
 
 protected:
-	virtual	void				InsertText(std::string_view text, int32 offset);
-									/*!< Hook: puts \a text into the text at \a offset;
-										the selection follows. */
+	virtual	void				InsertText(std::string_view text, int32 offset,
+									const BTextRunArray* runs);
+									/*!< Hook: puts \a text into the text at \a offset,
+										styled by \a runs (or the null style); the
+										selection follows. */
 	virtual	void				DeleteText(int32 fromOffset, int32 toOffset);
 									/*!< Hook: takes the bytes out of the text; the
 										selection follows. */
@@ -321,8 +402,26 @@ private:
 			void				_HandleDelete(int32 modifiers = -1);
 			void				_HandlePageKey(uint8 pageKey, int32 modifiers = -1);
 			void				_HandleAlphaKey(std::string_view bytes);
-			void				_DoInsertText(std::string_view text, int32 offset);
-			std::string			_FilterDisallowedChars(std::string_view text) const;
+			void				_DoInsertText(std::string_view text, int32 offset,
+									const BTextRunArray* runs = nullptr);
+			void				_ApplyStyleRange(int32 fromOffset, int32 toOffset,
+									BFontModeFlags mode = kFontAll,
+									const BFont* font = nullptr,
+									const std::optional<gfx::Color>* color = nullptr,
+									bool syncNullStyle = true);
+			void				_SetRunArray(int32 startOffset, int32 endOffset,
+									const BTextRunArray& runs);
+			std::vector<TextStyleRunEntry> _StyleRuns(int32 startOffset,
+									int32 endOffset) const;
+			void				_SetStyleRuns(int32 startOffset, int32 endOffset,
+									const std::vector<TextStyleRunEntry>& runs);
+			void				_InsertStyled(int32 offset, std::string_view text,
+									const std::vector<TextStyleRunEntry>& runs);
+			std::vector<TextStyleRun> _LayoutRuns() const;
+			gfx::Color			_ResolvedColor(const std::optional<gfx::Color>& color) const;
+			std::string			_FilterDisallowedChars(std::string_view text,
+									BTextRunArray* runArray = nullptr) const;
+			BTextRunArray		_ResolvedRuns(const std::vector<TextStyleRunEntry>& runs) const;
 			TypingUndoBuffer*	_TypingUndo();
 			void				_HandleInputMethodChanged(BMessage* message);
 			void				_RemoveInlineInput();
@@ -380,6 +479,8 @@ private:
 			std::unique_ptr<BMessageRunner> fCaretRunner;
 			std::unique_ptr<UndoBuffer> fUndo;
 			std::optional<gfx::Color> fTextColor;
+			std::unique_ptr<TextStyleBuffer> fStyles;
+			bool				fStylable = false;
 			std::unique_ptr<InlineInput> fInline;
 			std::vector<std::pair<uint32, BModifierFlags>> fInstalledShortcuts;
 };

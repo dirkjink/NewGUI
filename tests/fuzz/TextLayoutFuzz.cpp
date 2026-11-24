@@ -20,8 +20,8 @@
 NGUI_FUZZ_TARGET(TextLayout)
 {
 	// What is tested: A TextLayout of arbitrary bytes in the bundled fonts:
-	// the first byte chooses wrapping, alignment and the role of a second
-	// style run, the second the width, the third where that run begins;
+	// the first byte chooses wrapping, alignment and the role and size of
+	// a second style run, the second the width, the third where that run begins;
 	// then points and offsets at every byte and some points.
 	// Success criteria: No crash or sanitizer report; the lines cover the
 	// text from 0 to its end without gaps, each but an empty last line
@@ -41,10 +41,13 @@ NGUI_FUZZ_TARGET(TextLayout)
 	options.alignment = static_cast<ngui::BHorizontalAlignment>((data[0] >> 1) % 3);
 	options.width = static_cast<float>(data[1]);
 	const std::string text(reinterpret_cast<const char*>(data.data() + 3), data.size() - 3);
+	// the second run in another role, at 6 to 34 pixels
+	const ngui::FontSpec second = {
+		kText->RoleFont(static_cast<ngui::FontRole>((data[0] >> 3) % 3)).font,
+		6.0f + static_cast<float>(data[0] >> 5) * 4.0f};
 	const std::vector<ngui::TextStyleRun> runs = {
-		{0, ngui::FontRole::Plain},
-		{text.empty() ? 0 : data[2] % (text.size() + 1),
-			static_cast<ngui::FontRole>((data[0] >> 3) % 3)}};
+		{0, kText->RoleFont(ngui::FontRole::Plain)},
+		{text.empty() ? 0 : data[2] % (text.size() + 1), second}};
 
 	// When
 	const ngui::TextLayout layout(*kText, text, runs, options);

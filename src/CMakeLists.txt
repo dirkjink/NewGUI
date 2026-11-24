@@ -67,6 +67,7 @@ add_library(ngui
     TextControl.cpp
     TextInput.cpp
     TextLayout.cpp
+    TextStyleBuffer.cpp
     TextSystem.cpp
     TextView.cpp
     TruncateString.cpp

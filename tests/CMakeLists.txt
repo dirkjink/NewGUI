@@ -40,6 +40,7 @@ add_executable(ngui_tests
     SupportDefsTest.cpp
     TextControlTest.cpp
     TextLayoutTest.cpp
+    TextStyleTest.cpp
     TextViewTest.cpp
     TruncateStringTest.cpp
     VersionTest.cpp

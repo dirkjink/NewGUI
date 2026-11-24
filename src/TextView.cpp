@@ -48,6 +48,7 @@
 #include <ngui/TextView.h>
 
 #include <algorithm>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <span>
@@ -66,6 +67,9 @@
 #include <ngui/TextSystem.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
+
+#include "TextStyleBuffer.h"
+#include "compat/InterfaceDefs.h"
 
 
 namespace ngui {
@@ -154,6 +158,10 @@ Bytes(std::string_view text)
 }
 
 
+// The type of the runs on the clipboard.
+constexpr std::string_view kTextRunArrayType = "application/x-vnd.Be-text_run_array";
+
+
 } // namespace
 
 
@@ -161,8 +169,9 @@ Bytes(std::string_view text)
 
 
 // Ported from Haiku: src/kits/interface/textview_support/UndoBuffer.cpp
-// (commit b1d497bb69), with std::string; without the run arrays and the
-// DropUndoBuffer.
+// (commit b1d497bb69), with std::string; without the DropUndoBuffer. The
+// runs are kept as the style buffer has them (colors that follow the text
+// color included).
 class BTextView::UndoBuffer {
 public:
 	UndoBuffer(BTextView* textView, BUndoState state)
@@ -172,6 +181,8 @@ public:
 	{
 		fTextView->GetSelection(&fStart, &fEnd);
 		fTextData = fTextView->GetText(fStart, fEnd - fStart);
+		if (fTextView->IsStylable())
+			fRunArray = fTextView->_StyleRuns(fStart, fEnd);
 	}
 
 	virtual ~UndoBuffer() = default;
@@ -195,7 +206,7 @@ protected:
 	virtual void UndoSelf(BClipboard* /*clipboard*/)
 	{
 		fTextView->Select(fStart, fStart);
-		fTextView->Insert(fTextData);
+		fTextView->_InsertStyled(fStart, fTextData, fRunArray);
 		fTextView->Select(fStart, fStart);
 	}
 
@@ -207,6 +218,7 @@ protected:
 	int32				fStart = 0;
 	int32				fEnd = 0;
 	std::string			fTextData;
+	std::vector<TextStyleRunEntry> fRunArray;
 	bool				fRedo = false;
 
 private:
@@ -231,6 +243,10 @@ protected:
 			(void)clipboard->Clear();
 			if (BMessage* clip = clipboard->Data()) {
 				(void)clip->AddData("text/plain", BTypeCode::Mime, Bytes(fTextData));
+				if (!fRunArray.empty()) {
+					(void)clip->AddData(kTextRunArrayType, BTypeCode::Mime,
+						FlattenRunArray(fTextView->_ResolvedRuns(fRunArray)));
+				}
 				(void)clipboard->Commit();
 			}
 			clipboard->Unlock();
@@ -241,10 +257,12 @@ protected:
 
 class BTextView::PasteUndoBuffer : public BTextView::UndoBuffer {
 public:
-	PasteUndoBuffer(BTextView* textView, std::string_view text)
+	PasteUndoBuffer(BTextView* textView, std::string_view text,
+		std::optional<BTextRunArray> runArray)
 		:
 		UndoBuffer(textView, BUndoState::Paste),
-		fPasteText(text)
+		fPasteText(text),
+		fPasteRunArray(std::move(runArray))
 	{
 	}
 
@@ -253,7 +271,7 @@ protected:
 	{
 		fTextView->Select(fStart, fStart);
 		fTextView->Delete(fStart, fStart + static_cast<int32>(fPasteText.size()));
-		fTextView->Insert(fTextData);
+		fTextView->_InsertStyled(fStart, fTextData, fRunArray);
 		fTextView->Select(fStart, fEnd);
 	}
 
@@ -261,13 +279,14 @@ protected:
 	{
 		fTextView->Select(fStart, fStart);
 		fTextView->Delete(fStart, fEnd);
-		fTextView->Insert(fPasteText);
+		fTextView->Insert(fPasteText, fPasteRunArray.has_value() ? &*fPasteRunArray : nullptr);
 		const int32 end = fStart + static_cast<int32>(fPasteText.size());
 		fTextView->Select(end, end);
 	}
 
 private:
 	std::string			fPasteText;
+	std::optional<BTextRunArray> fPasteRunArray;
 };
 
 
@@ -488,7 +507,7 @@ BTextView::Draw(DrawContext& context)
 			context.canvas.Save();
 			context.canvas.ClipRect(rect);
 			context.canvas.FillRect(rect, gfx::Paint{.color = Inverted(background)});
-			fLayout.Draw(context.canvas, origin, Inverted(text));
+			fLayout.Draw(context.canvas, origin, text, 0, -1, Inverted);
 			context.canvas.Restore();
 		}
 	} else if (fCaretVisible && (fEditable || fSelectable)) {
@@ -825,7 +844,7 @@ BTextView::MessageReceived(BMessage* message)
 
 
 void
-BTextView::SetText(std::string_view text)
+BTextView::SetText(std::string_view text, const BTextRunArray* runs)
 {
 	_CancelInputMethod();
 
@@ -841,7 +860,7 @@ BTextView::SetText(std::string_view text)
 		DeleteText(0, TextLength());
 
 	if (!text.empty())
-		InsertText(text, 0);
+		InsertText(text, 0, runs);
 
 	fCaretOffset = fSelStart = fSelEnd = 0;
 	_Refresh();
@@ -852,19 +871,19 @@ BTextView::SetText(std::string_view text)
 
 
 void
-BTextView::Insert(std::string_view text)
+BTextView::Insert(std::string_view text, const BTextRunArray* runs)
 {
 	if (!text.empty())
-		_DoInsertText(text, fSelStart);
+		_DoInsertText(text, fSelStart, runs);
 }
 
 
 void
-BTextView::Insert(int32 offset, std::string_view text)
+BTextView::Insert(int32 offset, std::string_view text, const BTextRunArray* runs)
 {
 	offset = std::clamp(offset, 0, TextLength());
 	if (!text.empty())
-		_DoInsertText(text, offset);
+		_DoInsertText(text, offset, runs);
 }
 
 
@@ -993,6 +1012,13 @@ BTextView::Copy(BClipboard* clipboard)
 		if (BMessage* clip = clipboard->Data()) {
 			const std::string text = GetText(fSelStart, fSelEnd - fSelStart);
 			(void)clip->AddData("text/plain", BTypeCode::Mime, Bytes(text));
+
+			// NewGUI: the runs flattened (Haiku: the text_run_array as it
+			// is in memory)
+			if (fStylable) {
+				(void)clip->AddData(kTextRunArrayType, BTypeCode::Mime,
+					FlattenRunArray(RunArray(fSelStart, fSelEnd)));
+			}
 			(void)clipboard->Commit();
 		}
 		clipboard->Unlock();
@@ -1008,8 +1034,18 @@ BTextView::Paste(BClipboard* clipboard)
 
 	if (BMessage* clip = clipboard->Data()) {
 		if (auto data = clip->FindData("text/plain", BTypeCode::Mime)) {
-			const std::string text = _FilterDisallowedChars(std::string_view(
-				reinterpret_cast<const char*>(data->data()), data->size()));
+			const std::string_view pasted(reinterpret_cast<const char*>(data->data()),
+				data->size());
+			std::optional<BTextRunArray> runArray;
+			if (fStylable) {
+				if (auto runs = clip->FindData(kTextRunArrayType, BTypeCode::Mime)) {
+					if (auto unflattened = UnflattenRunArray(*runs))
+						runArray = std::move(*unflattened);
+				}
+			}
+
+			const std::string text = _FilterDisallowedChars(pasted,
+				runArray.has_value() ? &*runArray : nullptr);
 			if (text.empty()) {
 				// NewGUI: no beep()
 				clipboard->Unlock();
@@ -1017,12 +1053,12 @@ BTextView::Paste(BClipboard* clipboard)
 			}
 
 			if (fUndo)
-				fUndo = std::make_unique<PasteUndoBuffer>(this, text);
+				fUndo = std::make_unique<PasteUndoBuffer>(this, text, runArray);
 
 			if (fSelStart != fSelEnd)
 				Delete();
 
-			Insert(text);
+			Insert(text, runArray.has_value() ? &*runArray : nullptr);
 			ScrollToOffset(fSelEnd);
 		}
 	}
@@ -1106,6 +1142,8 @@ BTextView::Select(int32 startOffset, int32 endOffset)
 	if (startOffset == fSelStart && endOffset == fSelEnd)
 		return;
 
+	fStyles->InvalidateNullStyle();
+
 	_HideCaret();
 
 	if (startOffset == endOffset) {
@@ -1183,6 +1221,279 @@ std::optional<gfx::Color>
 BTextView::TextColor() const
 {
 	return fTextColor;
+}
+
+
+void
+BTextView::SetFontAndColor(const BFont* font, BFontModeFlags mode, const gfx::Color* color)
+{
+	SetFontAndColor(fSelStart, fSelEnd, font, mode, color);
+}
+
+
+void
+BTextView::SetFontAndColor(int32 startOffset, int32 endOffset, const BFont* font,
+	BFontModeFlags mode, const gfx::Color* color)
+{
+	_HideCaret();
+
+	const int32 textLength = TextLength();
+
+	if (!fStylable) {
+		// When the text view is not stylable, we always set the whole text's
+		// style and ignore the offsets
+		startOffset = 0;
+		endOffset = textLength;
+	} else {
+		// pin offsets at reasonable values
+		startOffset = std::clamp(startOffset, 0, textLength);
+		endOffset = std::clamp(endOffset, 0, textLength);
+	}
+
+	// apply the style to the style buffer
+	fStyles->InvalidateNullStyle();
+	const std::optional<gfx::Color> optionalColor = color != nullptr
+		? std::optional<gfx::Color>(*color) : std::nullopt;
+	_ApplyStyleRange(startOffset, endOffset, mode, font,
+		color != nullptr ? &optionalColor : nullptr);
+
+	// NewGUI: laid out and drawn anew in any case (Haiku: only redrawn if
+	// neither family, style nor size changed)
+	InvalidateLayout();
+	_Refresh();
+
+	_ShowCaret();
+}
+
+
+void
+BTextView::GetFontAndColor(int32 offset, BFont* font, gfx::Color* color) const
+{
+	const TextStyle style = fStyles->GetStyle(offset);
+	if (font != nullptr)
+		*font = style.font;
+	if (color != nullptr)
+		*color = _ResolvedColor(style.color);
+}
+
+
+void
+BTextView::GetFontAndColor(BFont* font, BFontModeFlags* mode, gfx::Color* color,
+	bool* sameColor) const
+{
+	std::optional<gfx::Color> styleColor;
+	fStyles->ContinuousGetStyle(font, mode, &styleColor, sameColor, fSelStart, fSelEnd);
+	if (color != nullptr)
+		*color = _ResolvedColor(styleColor);
+}
+
+
+void
+BTextView::SetRunArray(int32 startOffset, int32 endOffset, const BTextRunArray& runs)
+{
+	_CancelInputMethod();
+
+	BTextRunArray oneRun;
+	const BTextRunArray* used = &runs;
+
+	if (!fStylable) {
+		// when the text view is not stylable, we always set the whole text's
+		// style with the first run and ignore the offsets
+		if (runs.empty())
+			return;
+
+		startOffset = 0;
+		endOffset = TextLength();
+		oneRun.push_back(runs.front());
+		oneRun.front().offset = 0;
+		used = &oneRun;
+	} else {
+		// pin offsets at reasonable values
+		startOffset = std::clamp(startOffset, 0, TextLength());
+		endOffset = std::clamp(endOffset, 0, TextLength());
+	}
+
+	_SetRunArray(startOffset, endOffset, *used);
+
+	_Refresh();
+}
+
+
+BTextRunArray
+BTextView::RunArray(int32 startOffset, int32 endOffset) const
+{
+	// pin offsets at reasonable values
+	startOffset = std::clamp(startOffset, 0, TextLength());
+	endOffset = std::clamp(endOffset, 0, TextLength());
+
+	return _ResolvedRuns(_StyleRuns(startOffset, endOffset));
+}
+
+
+void
+BTextView::SetStylable(bool stylable)
+{
+	fStylable = stylable;
+}
+
+
+bool
+BTextView::IsStylable() const
+{
+	return fStylable;
+}
+
+
+namespace {
+
+
+// Haiku's flattened_text_run and flattened_text_run_array, big endian.
+constexpr std::uint32_t kFlattenedTextRunArrayMagic = 0x416c6921;	// 'Ali!'
+constexpr std::uint32_t kFlattenedTextRunArrayVersion = 0;
+constexpr std::size_t kFlattenedHeaderSize = 12;
+constexpr std::size_t kFontNameLength = 64;		// B_FONT_FAMILY_LENGTH + 1
+constexpr std::size_t kFlattenedRunSize = 4 + 2 * kFontNameLength + 4 + 4 + 2 + 4 + 2;
+
+
+void
+PutUint32(std::vector<std::byte>& out, std::uint32_t value)
+{
+	for (int shift = 24; shift >= 0; shift -= 8)
+		out.push_back(static_cast<std::byte>((value >> shift) & 0xff));
+}
+
+
+void
+PutUint16(std::vector<std::byte>& out, std::uint16_t value)
+{
+	out.push_back(static_cast<std::byte>(value >> 8));
+	out.push_back(static_cast<std::byte>(value & 0xff));
+}
+
+
+void
+PutFloat(std::vector<std::byte>& out, float value)
+{
+	PutUint32(out, std::bit_cast<std::uint32_t>(value));
+}
+
+
+void
+PutName(std::vector<std::byte>& out, const std::string& name)
+{
+	// a C string in a fixed field, cut to fit with its terminating 0
+	for (std::size_t i = 0; i < kFontNameLength; i++) {
+		out.push_back(i + 1 < kFontNameLength && i < name.size()
+			? static_cast<std::byte>(name[i]) : std::byte{0});
+	}
+}
+
+
+std::uint32_t
+GetUint32(std::span<const std::byte> data, std::size_t at)
+{
+	std::uint32_t value = 0;
+	for (std::size_t i = 0; i < 4; i++)
+		value = (value << 8) | static_cast<std::uint32_t>(data[at + i]);
+	return value;
+}
+
+
+std::uint16_t
+GetUint16(std::span<const std::byte> data, std::size_t at)
+{
+	return static_cast<std::uint16_t>((static_cast<unsigned>(data[at]) << 8)
+		| static_cast<unsigned>(data[at + 1]));
+}
+
+
+std::string
+GetName(std::span<const std::byte> data, std::size_t at)
+{
+	std::string name;
+	for (std::size_t i = 0; i < kFontNameLength && data[at + i] != std::byte{0}; i++)
+		name.push_back(static_cast<char>(data[at + i]));
+	return name;
+}
+
+
+} // namespace
+
+
+std::vector<std::byte>
+BTextView::FlattenRunArray(const BTextRunArray& runs)
+{
+	std::vector<std::byte> out;
+	out.reserve(kFlattenedHeaderSize + runs.size() * kFlattenedRunSize);
+	PutUint32(out, kFlattenedTextRunArrayMagic);
+	PutUint32(out, kFlattenedTextRunArrayVersion);
+	PutUint32(out, static_cast<std::uint32_t>(runs.size()));
+
+	for (const BTextRun& run : runs) {
+		PutUint32(out, static_cast<std::uint32_t>(run.offset));
+		std::string family;
+		std::string style;
+		run.font.GetFamilyAndStyle(&family, &style);
+		PutName(out, family);
+		PutName(out, style);
+		PutFloat(out, run.font.Size());
+		// NewGUI: no shear; Haiku's upright 90 degrees
+		PutFloat(out, 90.0f);
+		PutUint16(out, static_cast<std::uint16_t>(run.font.Face().Raw()));
+		const compat::rgb_color color = compat::ToRgbColor(run.color);
+		out.push_back(static_cast<std::byte>(color.red));
+		out.push_back(static_cast<std::byte>(color.green));
+		out.push_back(static_cast<std::byte>(color.blue));
+		out.push_back(std::byte{255});
+		PutUint16(out, 0);
+	}
+
+	return out;
+}
+
+
+std::expected<BTextRunArray, Error>
+BTextView::UnflattenRunArray(std::span<const std::byte> data)
+{
+	if (data.size() < kFlattenedHeaderSize
+		|| GetUint32(data, 0) != kFlattenedTextRunArrayMagic
+		|| GetUint32(data, 4) != kFlattenedTextRunArrayVersion) {
+		return Failure(ErrorCode::BadData, "not a flattened text_run_array");
+	}
+
+	const std::uint32_t count = GetUint32(data, 8);
+	if (count > (data.size() - kFlattenedHeaderSize) / kFlattenedRunSize)
+		return Failure(ErrorCode::BadData, "the flattened text_run_array is cut off");
+
+	BTextRunArray runArray;
+	for (std::size_t i = 0; i < count; i++) {
+		const std::size_t at = kFlattenedHeaderSize + i * kFlattenedRunSize;
+		BTextRun run;
+		run.offset = static_cast<int32>(GetUint32(data, at));
+
+		// Set family and style independently from each other, so that
+		// even if the family doesn't exist, we try to preserve the style
+		(void)run.font.SetFamilyAndStyle(GetName(data, at + 4), "");
+		(void)run.font.SetFamilyAndStyle("", GetName(data, at + 4 + kFontNameLength));
+
+		std::size_t field = at + 4 + 2 * kFontNameLength;
+		run.font.SetSize(std::bit_cast<float>(GetUint32(data, field)));
+		field += 8;	// size and shear (NewGUI: no shear)
+
+		const auto face = BFontFaceFlags::FromRaw(GetUint16(data, field));
+		if (face != BFontFaceFlags(BFontFace::Regular)) {
+			// Be's version doesn't seem to set this correctly
+			run.font.SetFace(face);
+		}
+		field += 2;
+
+		run.color = gfx::Color::FromRgba8(static_cast<std::uint8_t>(data[field]),
+			static_cast<std::uint8_t>(data[field + 1]), static_cast<std::uint8_t>(data[field + 2]),
+			static_cast<std::uint8_t>(data[field + 3]));
+		runArray.push_back(run);
+	}
+
+	return runArray;
 }
 
 
@@ -1275,10 +1586,11 @@ BTextView::LineHeight(int32 lineNumber) const
 {
 	float lineHeight = TextHeight(lineNumber, lineNumber);
 	if (lineHeight == 0.0f) {
-		// We probably don't have text content yet. Take the plain font's
-		// height, as _RecalculateLineBreaks() does.
-		const FontHeight fontHeight = TextSystem::Default().Height(FontRole::Plain);
-		lineHeight = std::ceil(fontHeight.ascent + fontHeight.descent) + 1;
+		// We probably don't have text content yet. Take the null style's
+		// height (Haiku's _NullStyleHeight()).
+		FontHeight fontHeight{};
+		fStyles->NullStyle().font.GetHeight(&fontHeight);
+		lineHeight = std::ceil(fontHeight.ascent + fontHeight.descent + 1);
 	}
 	return lineHeight;
 }
@@ -1534,6 +1846,12 @@ BTextView::MakeEditable(bool editable)
 	if (systemColors)
 		AdoptSystemColors();
 
+	// TextControls change the color of the text when
+	// they are made editable, so we need to invalidate
+	// the NULL style here
+	if (fEditable)
+		fStyles->InvalidateNullStyle();
+
 	if (Window() != nullptr && fActive) {
 		if (!fEditable && !fSelectable)
 			_HideCaret();
@@ -1728,7 +2046,7 @@ BTextView::GetHeightForWidth(float width, float* min, float* max, float* preferr
 	float textWidth = width;
 	if (fLayoutData.overridden)
 		textWidth -= fLayoutData.leftInset + fLayoutData.rightInset;
-	const TextLayout layout(TextSystem::Default(), fText, FontRole::Plain,
+	const TextLayout layout(TextSystem::Default(), fText, _LayoutRuns(),
 		{.width = textWidth, .wrap = fWrap, .tabWidth = fTabWidth, .alignment = fAlignment});
 	float height = layout.Height();
 	if (fLayoutData.overridden)
@@ -1775,7 +2093,7 @@ BTextView::DoLayout()
 
 
 void
-BTextView::InsertText(std::string_view text, int32 offset)
+BTextView::InsertText(std::string_view text, int32 offset, const BTextRunArray* runs)
 {
 	offset = std::clamp(offset, 0, TextLength());
 
@@ -1784,11 +2102,21 @@ BTextView::InsertText(std::string_view text, int32 offset)
 		// add the text to the buffer
 		fText.insert(static_cast<std::size_t>(offset), text);
 
-		// update the selection
+		// update the style runs
+		fStyles->BumpOffset(length, fStyles->OffsetToRun(offset - 1) + 1);
+
+		// offset the caret/selection, if the text was inserted before it
 		if (offset <= fSelEnd) {
 			fSelStart += length;
 			fCaretOffset = fSelEnd = fSelStart;
 		}
+	}
+
+	if (fStylable && runs != nullptr)
+		_SetRunArray(offset, offset + length, *runs);
+	else {
+		// apply null-style to inserted text
+		_ApplyStyleRange(offset, offset + length);
 	}
 }
 
@@ -1802,9 +2130,16 @@ BTextView::DeleteText(int32 fromOffset, int32 toOffset)
 	if (fromOffset >= toOffset)
 		return;
 
+	// set nullStyle to style at beginning of range
+	fStyles->InvalidateNullStyle();
+	fStyles->SyncNullStyle(fromOffset);
+
 	// remove from the text buffer
 	fText.erase(static_cast<std::size_t>(fromOffset),
 		static_cast<std::size_t>(toOffset - fromOffset));
+
+	// remove any style runs that have been obliterated
+	fStyles->RemoveStyleRange(fromOffset, toOffset);
 
 	// update the selection
 	const int32 range = toOffset - fromOffset;
@@ -1837,6 +2172,7 @@ void
 BTextView::_InitObject(gfx::Rect textRect)
 {
 	fTextRect = textRect;
+	fStyles = std::make_unique<TextStyleBuffer>(BFont::Plain(), std::nullopt);
 	_UpdateInsets(textRect);
 	AdoptSystemColors();
 	SetDoesUndo(true);
@@ -1896,6 +2232,7 @@ BTextView::_Relayout()
 	// the text's. Without wrapping it is as wide as the widest line, placed
 	// by the alignment.
 	const TextSystem& system = TextSystem::Default();
+	const std::vector<TextStyleRun> runs = _LayoutRuns();
 	const gfx::Rect bounds = Bounds();
 	const float left = fLayoutData.leftInset;
 	const float right = bounds.Width() - fLayoutData.rightInset;
@@ -1908,7 +2245,7 @@ BTextView::_Relayout()
 		.tabWidth = fTabWidth, .alignment = fAlignment};
 
 	if (!fWrap) {
-		const TextLayout measured(system, fText, FontRole::Plain,
+		const TextLayout measured(system, fText, runs,
 			{.width = 0, .wrap = false, .tabWidth = fTabWidth});
 		const float minTextRectWidth = std::max(std::round(measured.MaxWidth()), 1.0f);
 		switch (fAlignment) {
@@ -1937,7 +2274,7 @@ BTextView::_Relayout()
 		options.width = fTextRect.Width();
 	}
 
-	fLayout = TextLayout(system, fText, FontRole::Plain, options);
+	fLayout = TextLayout(system, fText, runs, options);
 
 	// always set text rect bottom (Haiku's _ValidateTextRect(): at least
 	// one pixel)
@@ -2167,6 +2504,8 @@ BTextView::_HandleArrowKey(uint8 arrowKey, int32 modifiers)
 		default:
 			break;
 	}
+
+	fStyles->InvalidateNullStyle();
 
 	if (fEditable || fSelectable) {
 		if (shiftKeyDown)
@@ -2429,7 +2768,7 @@ BTextView::_HandleAlphaKey(std::string_view bytes)
 
 
 void
-BTextView::_DoInsertText(std::string_view text, int32 offset)
+BTextView::_DoInsertText(std::string_view text, int32 offset, const BTextRunArray* runs)
 {
 	_CancelInputMethod();
 
@@ -2443,26 +2782,174 @@ BTextView::_DoInsertText(std::string_view text, int32 offset)
 	offset = std::min(offset, TextLength());
 
 	// copy data into buffer
-	InsertText(text, offset);
+	InsertText(text, offset, runs);
 
 	// recalc line breaks and draw the text
 	_Refresh();
 }
 
 
-std::string
-BTextView::_FilterDisallowedChars(std::string_view text) const
+void
+BTextView::_ApplyStyleRange(int32 fromOffset, int32 toOffset, BFontModeFlags mode,
+	const BFont* font, const std::optional<gfx::Color>* color, bool syncNullStyle)
 {
-	// Haiku's _FilterDisallowedChars(), byte by byte
+	// NewGUI: no _NormalizeFont() (no encodings and spacing)
+	if (!fStylable) {
+		// always apply font and color to full range for non-stylable textviews
+		fromOffset = 0;
+		toOffset = TextLength();
+	}
+
+	if (syncNullStyle)
+		fStyles->SyncNullStyle(fromOffset);
+
+	fStyles->SetStyleRange(fromOffset, toOffset, TextLength(), mode, font, color);
+}
+
+
+void
+BTextView::_SetRunArray(int32 startOffset, int32 endOffset, const BTextRunArray& runs)
+{
+	const auto numStyles = static_cast<int32>(runs.size());
+	if (numStyles > 0) {
+		for (int32 index = 0; index < numStyles; index++) {
+			const BTextRun& theRun = runs[static_cast<std::size_t>(index)];
+			const int32 fromOffset = theRun.offset + startOffset;
+			int32 toOffset = endOffset;
+			if (index + 1 < numStyles) {
+				toOffset = runs[static_cast<std::size_t>(index + 1)].offset + startOffset;
+				toOffset = (toOffset > endOffset) ? endOffset : toOffset;
+			}
+
+			// NewGUI: a run beyond the range styles nothing (Haiku styled from
+			// its offset backwards, or changed the null style)
+			if (fromOffset >= toOffset)
+				continue;
+
+			// NewGUI: the text color stays the text color, so that the text
+			// follows it
+			const std::optional<gfx::Color> color = theRun.color == _ResolvedColor(std::nullopt)
+				? std::nullopt : std::optional<gfx::Color>(theRun.color);
+			_ApplyStyleRange(fromOffset, toOffset, kFontAll, &theRun.font, &color, false);
+		}
+		fStyles->InvalidateNullStyle();
+	}
+}
+
+
+std::vector<TextStyleRunEntry>
+BTextView::_StyleRuns(int32 startOffset, int32 endOffset) const
+{
+	return fStyles->GetStyleRange(startOffset, endOffset - 1);
+}
+
+
+void
+BTextView::_SetStyleRuns(int32 startOffset, int32 endOffset,
+	const std::vector<TextStyleRunEntry>& runs)
+{
+	// _SetRunArray() with the runs as kept, colors that follow the text
+	// color included
+	const auto numStyles = static_cast<int32>(runs.size());
+	for (int32 index = 0; index < numStyles; index++) {
+		const TextStyleRunEntry& theRun = runs[static_cast<std::size_t>(index)];
+		const int32 fromOffset = theRun.offset + startOffset;
+		int32 toOffset = endOffset;
+		if (index + 1 < numStyles) {
+			toOffset = std::min(runs[static_cast<std::size_t>(index + 1)].offset + startOffset,
+				endOffset);
+		}
+		if (fromOffset >= toOffset)
+			continue;
+		_ApplyStyleRange(fromOffset, toOffset, kFontAll, &theRun.style.font,
+			&theRun.style.color, false);
+	}
+	if (numStyles > 0)
+		fStyles->InvalidateNullStyle();
+}
+
+
+void
+BTextView::_InsertStyled(int32 offset, std::string_view text,
+	const std::vector<TextStyleRunEntry>& runs)
+{
+	// Haiku's undo buffers: Insert() with the run array they kept; styled
+	// is only what was inserted, where it was
+	const int32 at = std::clamp(offset, 0, TextLength());
+	const int32 before = TextLength();
+	const auto length = static_cast<int32>(text.size());
+	Insert(at, text);
+	if (fStylable && !runs.empty() && length > 0 && TextLength() - before == length) {
+		_SetStyleRuns(at, at + length, runs);
+		_Refresh();
+	}
+}
+
+
+std::vector<TextStyleRun>
+BTextView::_LayoutRuns() const
+{
+	std::vector<TextStyleRun> runs;
+	if (fStyles->NumRuns() == 0) {
+		const TextStyle& style = fStyles->NullStyle();
+		runs.push_back({0, style.font.Spec(), style.color});
+		return runs;
+	}
+
+	for (int32 i = 0; i < fStyles->NumRuns(); i++) {
+		const TextStyleRunEntry& run = fStyles->RunAt(i);
+		// the first run from the start
+		const int32 start = i == 0 ? 0 : std::max(run.offset, 0);
+		runs.push_back({static_cast<std::size_t>(start), run.style.font.Spec(), run.style.color});
+	}
+	return runs;
+}
+
+
+gfx::Color
+BTextView::_ResolvedColor(const std::optional<gfx::Color>& color) const
+{
+	return color.value_or(fTextColor.value_or(
+		Palette::Default().Get(BColorWhich::DocumentText)));
+}
+
+
+std::string
+BTextView::_FilterDisallowedChars(std::string_view text, BTextRunArray* runArray) const
+{
+	// Haiku's _FilterDisallowedChars(), byte by byte; the runs move with
+	// the text that is left
 	std::string filtered;
 	filtered.reserve(text.size());
-	for (const char c : text) {
+	std::vector<int32> keptBefore(text.size() + 1, 0);
+	for (std::size_t i = 0; i < text.size(); i++) {
+		keptBefore[i] = static_cast<int32>(filtered.size());
+		const char c = text[i];
 		if (std::find(fDisallowedChars.begin(), fDisallowedChars.end(),
 				static_cast<uint32>(static_cast<unsigned char>(c))) == fDisallowedChars.end()) {
 			filtered.push_back(c);
 		}
 	}
+	keptBefore[text.size()] = static_cast<int32>(filtered.size());
+
+	if (runArray != nullptr) {
+		for (BTextRun& run : *runArray) {
+			const auto offset = static_cast<std::size_t>(
+				std::clamp(run.offset, 0, static_cast<int32>(text.size())));
+			run.offset = keptBefore[offset];
+		}
+	}
 	return filtered;
+}
+
+
+BTextRunArray
+BTextView::_ResolvedRuns(const std::vector<TextStyleRunEntry>& runs) const
+{
+	BTextRunArray runArray;
+	for (const TextStyleRunEntry& run : runs)
+		runArray.push_back({run.offset, run.style.font, _ResolvedColor(run.style.color)});
+	return runArray;
 }
 
 
@@ -2557,7 +3044,7 @@ BTextView::_HandleInputMethodChanged(BMessage* message)
 		fInline->selectionLength = selectionEnd.has_value()
 			? *selectionEnd - fInline->selectionOffset : 0;
 
-		InsertText(string, fSelStart);
+		InsertText(string, fSelStart, nullptr);
 
 		_Refresh(fSelEnd);
 		_ShowCaret();

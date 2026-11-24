@@ -7,16 +7,42 @@
 #pragma once
 
 
+#include <cstdint>
 #include <expected>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include <ngui/Error.h>
+#include <ngui/Flags.h>
 #include <ngui/TextSystem.h>
 
 
 namespace ngui {
+
+
+/*!	Which properties of a font a call sets, as Haiku's B_FONT_* mode
+	flags (BTextView::SetFontAndColor()). NewGUI's fonts have only the
+	family and style, the face and the size; the others are accepted and
+	ignored. */
+enum class BFontMode : std::uint32_t {
+	FamilyAndStyle = 0x0001,	/*!< B_FONT_FAMILY_AND_STYLE */
+	Size = 0x0002,				/*!< B_FONT_SIZE */
+	Shear = 0x0004,				/*!< B_FONT_SHEAR */
+	Rotation = 0x0008,			/*!< B_FONT_ROTATION */
+	Spacing = 0x0010,			/*!< B_FONT_SPACING */
+	Encoding = 0x0020,			/*!< B_FONT_ENCODING */
+	Face = 0x0040,				/*!< B_FONT_FACE */
+	Flags = 0x0080,				/*!< B_FONT_FLAGS */
+	FalseBoldWidth = 0x0100		/*!< B_FONT_FALSE_BOLD_WIDTH */
+};
+NGUI_FLAG_ENUM(BFontMode)
+
+/*!	A set of BFontMode. */
+using BFontModeFlags = Flags<BFontMode>;
+
+/*!	All of them (B_FONT_ALL). */
+inline constexpr BFontModeFlags kFontAll = BFontModeFlags::FromRaw(0x01ff);
 
 
 /*!	A font: a family and style at a size (Haiku's BFont), a facade to the
