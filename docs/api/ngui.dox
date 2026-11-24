@@ -85,9 +85,28 @@
 	window, a view or a layout that belongs to a view; Haiku's builders that
 	make a free group view (Group<>(B_VERTICAL)) are not ported, since
 	nobody would own that view (likewise Split<>(orientation): a Split
-	builder starts at a BSplitView or comes from AddSplit()). The menu
-	builders and AddMenuField() / AddTextControl() come with the menus and
-	controls (W2, W3).
+	builder starts at a BSplitView or comes from AddSplit()).
+
+	Menus are built the same way; AddMenu() returns a builder for the
+	submenu, AddItem() one for the item just added (SetEnabled(),
+	SetMarked() ...), from which further items go into the same menu:
+
+	\code
+	BLayoutBuilder::Menu<>(menuBar)
+		.AddMenu("File")
+			.AddItem("Open", kOpen, 'O')
+			.AddItem("Save", kSave, 'S').SetEnabled(false)
+			.AddSeparator()
+			.AddItem("Quit", kQuitRequested, 'Q')
+		.End()
+		.AddMenu("Edit")
+			.AddItem("Copy", kCopy, 'C')
+		.End();
+	\endcode
+
+	In a grid, Grid::AddMenuField() puts a BMenuField's label and menu bar
+	into two columns, so that the fields of a form line up.
+	AddTextControl() comes with the text control (W5).
 */
 
 

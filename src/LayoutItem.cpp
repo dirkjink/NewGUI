@@ -48,6 +48,19 @@ BLayoutItem::RemoveSelf()
 }
 
 
+std::unique_ptr<BView>
+BLayoutItem::TakeView(std::unique_ptr<BView> view)
+{
+	if (view == nullptr || view.get() != View() || view->Parent() != nullptr
+		|| fLayout != nullptr || fRemovedView != nullptr) {
+		return view;
+	}
+
+	fRemovedView = std::move(view);
+	return nullptr;
+}
+
+
 void
 BLayoutItem::SetExplicitSize(gfx::Size size)
 {
