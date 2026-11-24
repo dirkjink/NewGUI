@@ -288,6 +288,15 @@ public:
 		});
 	}
 
+	void Activate() override
+	{
+		_Main([state = fState] {
+			std::scoped_lock lock(state->lock);
+			if (state->window != nullptr)
+				(void)SDL_RaiseWindow(state->window);
+		});
+	}
+
 	void ClearComposition() override
 	{
 		_Main([state = fState] {

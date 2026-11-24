@@ -10,6 +10,7 @@ configure_file(
 add_library(ngui
     AbstractLayout.cpp
     AbstractLayoutItem.cpp
+    Alert.cpp
     Application.cpp
     Box.cpp
     Button.cpp

@@ -43,6 +43,16 @@ enum class BWindowLook : std::uint8_t {
 };
 
 
+/*!	How a window behaves towards the other windows (Haiku's window_feel). */
+enum class BWindowFeel : std::uint8_t {
+	Normal,		/*!< B_NORMAL_WINDOW_FEEL */
+	ModalApp	/*!< B_MODAL_APP_WINDOW_FEEL: while it is shown, the other windows of the
+					application take no mouse and keyboard input; a click on one of them
+					brings it to the front. Of several, the one shown last has the
+					input. */
+};
+
+
 /*!	Window options (Haiku's B_NOT_RESIZABLE ...). */
 enum class BWindowFlag : std::uint32_t {
 	NotResizable = 1u << 0,		/*!< B_NOT_RESIZABLE */
@@ -93,6 +103,9 @@ public:
 									BWindowFlags flags = {});
 									/*!< A hidden window; \a frame is the content area on the
 										desktop. */
+								BWindow(gfx::Rect frame, std::string_view title,
+									BWindowLook look, BWindowFeel feel, BWindowFlags flags = {});
+									/*!< A hidden window with \a feel. */
 								~BWindow() override;
 									/*!< Destroys its views and closes its platform window. */
 
@@ -190,6 +203,13 @@ public:
 									/*!< Its flags. */
 			bool				IsActive() const;
 									/*!< It has the focus of the window system. */
+			void				Activate(bool active = true);
+									/*!< Brings it to the front with the focus (Haiku: false
+										gives the focus away; NewGUI: does nothing). */
+			void				SetFeel(BWindowFeel feel);
+									/*!< How it behaves towards the other windows. */
+			BWindowFeel			Feel() const;
+									/*!< Its feel. */
 
 			gfx::DisplayListRef	DisplayList() const;
 									/*!< The DisplayList of the last frame (for screenshots,
@@ -265,6 +285,7 @@ private:
 			struct Shortcut;
 	friend class MenuTracker;
 	friend class BMenuItem;
+	friend class BAlert;
 	friend class BPopUpMenu;
 	friend class BTextView;
 
@@ -298,12 +319,15 @@ private:
 			BView*				_LastViewChild(BView* parent) const;
 
 	static	std::vector<BMessenger> _Windows();
+			void				_UpdateModal();
+			bool				_BlockedByModal(BMessenger* modal) const;
 			void				_Resized(float width, float height, float scale);
 			void				_LayoutInvalidated();
 			void				_TakeLook();
 
 			std::string			fTitle;
 			BWindowFlags		fFlags;
+			BWindowFeel			fFeel = BWindowFeel::Normal;
 			std::unique_ptr<BView> fRoot;
 			std::unique_ptr<platform::PlatformWindow> fPlatformWindow;
 			std::unique_ptr<gfx::Backend> fBackend;

@@ -27,6 +27,7 @@
 #include <ngui/Font.h>
 #include <ngui/LayoutBuilder.h>
 #include <ngui/ListView.h>
+#include <ngui/Alert.h>
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
 #include <ngui/Menu.h>
@@ -1069,6 +1070,78 @@ TEST(TextSkiaTest, StyledTextMatchesItsSnapshot)
 		EXPECT_IMAGE_SNAPSHOT(*image, "TextViewStyled", {.look = "be", .backend = "skia",
 			.scale = scale, .tolerance = Tolerance::Text()});
 	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, AlertMatchesItsSnapshot)
+{
+	// What is tested: A warning alert "Save changes to the document
+	// \"Untitled\" before closing?" with "Cancel", "Don't save" and "Save",
+	// offset spacing, shown by Go(); its window recorded on its own thread
+	// with the bundled font, rendered by Skia at scale 1 and 2 ("Alert").
+	// Success criteria: Within the text tolerance of 21.2: Haiku's layout:
+	// the darker stripe on the left and the room of the (later) icon, the
+	// text wrapped beside it on the panel background, the buttons at the
+	// bottom right, "Cancel" apart from the others, "Save" the default
+	// button with its frame.
+	// Why it matters: Alerts are the most common dialog; they are laid out
+	// from Haiku's constants.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	constexpr std::uint32_t kRecord = FourCharCode("RCRD");
+	class RecordingAlert : public BAlert {
+	public:
+		RecordingAlert(const TextSystem& textSystem)
+			:
+			BAlert("Alert", "Save changes to the document \"Untitled\" before closing?",
+				"Cancel", "Don't save", "Save", BButtonWidth::AsUsual, BButtonSpacing::Offset,
+				BAlertType::Warning),
+			fText(textSystem)
+		{
+		}
+
+		void MessageReceived(BMessage* message) override
+		{
+			if (message->what != kRecord) {
+				BAlert::MessageReceived(message);
+				return;
+			}
+			Layout(false);
+			recorded = RecordTree(*RootView(), fText);
+			(void)message->SendReply(BMessage(kReply));
+		}
+
+		DisplayListRef recorded;
+
+	private:
+		const TextSystem& fText;
+	};
+	auto owned = std::make_unique<RecordingAlert>(*text);
+	RecordingAlert* alert = owned.get();
+	const BMessenger messenger = *BAlert::Go(std::move(owned), [](int32) {});
+
+	// When
+	BMessage reply;
+	(void)messenger.SendMessage(BMessage(kRecord), &reply);
+	const DisplayListRef list = alert->recorded;
+
+	// Then
+	for (const float scale : {1.0f, 2.0f}) {
+		SkiaBackend backend;
+		for (const FontFile& font : text->Fonts())
+			ASSERT_TRUE(backend.AddFont(font.id, font.data));
+		const auto image = RenderToImage(backend, *list, scale);
+		ASSERT_TRUE(image.has_value()) << image.error().message;
+		EXPECT_IMAGE_SNAPSHOT(*image, "Alert", {.look = "be", .backend = "skia",
+			.scale = scale, .tolerance = Tolerance::Text()});
+	}
+	BMessage key(kKeyDown);
+	(void)key.AddString("bytes", "\n");
+	(void)messenger.SendMessage(key);
+	(void)messenger.WaitForLooperQuit(5s);
 	TextSystem::SetDefault(nullptr);
 }
 

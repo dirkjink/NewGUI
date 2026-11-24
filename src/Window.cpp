@@ -37,10 +37,31 @@ namespace {
 constexpr std::uint32_t kUpdate = FourCharCode("_UPD");
 
 
+// Asks a window to activate itself (from a window a modal one blocks).
+constexpr std::uint32_t kActivateRequest = FourCharCode("_ACQ");
+
+
 // The windows of the process, in the order they were made, for the
 // application (Haiku's looper list).
 std::mutex sWindowsLock;
 std::vector<BMessenger> sWindows;
+
+// The shown windows with BWindowFeel::ModalApp, under sWindowsLock.
+struct ModalWindow {
+	const BWindow*	window;
+	BMessenger		messenger;
+};
+std::vector<ModalWindow> sModalWindows;
+
+
+// Mouse and keyboard input, which a modal window takes from the others.
+bool
+IsInput(std::uint32_t what)
+{
+	return what == kMouseDown || what == kMouseUp || what == kMouseMoved
+		|| what == kMouseWheelChanged || what == kKeyDown || what == kKeyUp
+		|| what == kInputMethodEvent;
+}
 
 
 // The deepest visible view at \a point, given in \a view's coordinates.
@@ -205,12 +226,24 @@ BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWin
 }
 
 
+BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWindowFeel feel,
+	BWindowFlags flags)
+	:
+	BWindow(frame, title, look, flags)
+{
+	fFeel = feel;
+}
+
+
 BWindow::~BWindow()
 {
 	{
 		const BMessenger self(this);
 		std::scoped_lock lock(sWindowsLock);
 		std::erase(sWindows, self);
+		std::erase_if(sModalWindows, [this](const ModalWindow& modal) {
+			return modal.window == this;
+		});
 	}
 	// Open menus give their popups back before the popups close.
 	if (fMenuTracking != nullptr)
@@ -477,6 +510,7 @@ BWindow::Show()
 		if (fPlatformWindow != nullptr)
 			fPlatformWindow->Show();
 		_AddDirty(Bounds());
+		_UpdateModal();
 	}
 }
 
@@ -484,8 +518,11 @@ BWindow::Show()
 void
 BWindow::Hide()
 {
-	if (fHideLevel++ == 0 && fPlatformWindow != nullptr)
-		fPlatformWindow->Hide();
+	if (fHideLevel++ == 0) {
+		if (fPlatformWindow != nullptr)
+			fPlatformWindow->Hide();
+		_UpdateModal();
+	}
 }
 
 
@@ -564,6 +601,56 @@ BWindow::IsActive() const
 }
 
 
+void
+BWindow::Activate(bool active)
+{
+	if (active && fPlatformWindow != nullptr)
+		fPlatformWindow->Activate();
+}
+
+
+void
+BWindow::SetFeel(BWindowFeel feel)
+{
+	fFeel = feel;
+	_UpdateModal();
+}
+
+
+BWindowFeel
+BWindow::Feel() const
+{
+	return fFeel;
+}
+
+
+void
+BWindow::_UpdateModal()
+{
+	// registered while shown with the modal feel
+	std::scoped_lock lock(sWindowsLock);
+	std::erase_if(sModalWindows, [this](const ModalWindow& modal) {
+		return modal.window == this;
+	});
+	if (fFeel == BWindowFeel::ModalApp && !IsHidden())
+		sModalWindows.push_back({this, BMessenger(this)});
+}
+
+
+bool
+BWindow::_BlockedByModal(BMessenger* modal) const
+{
+	// The modal window shown last takes the input; the others, earlier
+	// modal ones too, are blocked.
+	std::scoped_lock lock(sWindowsLock);
+	if (sModalWindows.empty() || sModalWindows.back().window == this)
+		return false;
+	if (modal != nullptr)
+		*modal = sModalWindows.back().messenger;
+	return true;
+}
+
+
 gfx::DisplayListRef
 BWindow::DisplayList() const
 {
@@ -637,10 +724,25 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		BLooper::DispatchMessage(message, handler);
 		return;
 	}
+	// NewGUI: a shown modal window of the application takes the input of
+	// the others (Haiku's app_server does that); a click brings it to the
+	// front.
+	if (IsInput(message->what)) {
+		BMessenger modal;
+		if (_BlockedByModal(&modal)) {
+			if (message->what == kMouseDown)
+				(void)modal.SendMessage(kActivateRequest);
+			return;
+		}
+	}
+
 	switch (message->what) {
 		case kUpdate:
 			if (fUpdatePending)
 				_Update();
+			return;
+		case kActivateRequest:
+			Activate();
 			return;
 		case kMouseDown:
 		case kMouseUp:
@@ -690,6 +792,13 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 			fActive = message->GetBool("active", false);
 			if (!fActive && fMenuTracking != nullptr)
 				fMenuTracking->CancelTracking();
+			if (fActive) {
+				// activated by the window system, but a modal window has the
+				// input: it comes to the front
+				BMessenger modal;
+				if (_BlockedByModal(&modal))
+					(void)modal.SendMessage(kActivateRequest);
+			}
 			WindowActivated(fActive);
 			ForEachView(fRoot.get(), [this](BView* view) { view->WindowActivated(fActive); });
 			return;

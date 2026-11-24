@@ -20,11 +20,12 @@
 // a BScrollView shows a list of check boxes that is longer than its room;
 // a BSplitView puts both side by side with a splitter to drag, on the
 // first page of a BTabView whose second page says what this is. A BMenuBar
-// on top resets the counter, quits, or shows that page (its menus open in
-// popups of the window; Alt+Escape opens them from the keyboard, Alt+R
-// resets). A BMenuField chooses where the slider's hash marks are; a right
-// click on the label opens a context menu (a BPopUpMenu) with the same
-// commands as the menus. A BTextView on a page of its own takes notes,
+// on top resets the counter (after asking in a BAlert), quits, or shows
+// that page and an about alert (its menus open in popups of the window;
+// Alt+Escape opens them from the keyboard, Alt+R resets). A BMenuField
+// chooses where the slider's hash marks are; a right click on the label
+// opens a context menu (a BPopUpMenu) with the same commands as the
+// menus. A BTextView on a page of its own takes notes,
 // styled by the Text menu (Alt+B bold, Alt+L large, Alt+P plain); a
 // BTextControl asks for a name, and the label greets it when Enter is
 // pressed or the field is left. A page with lists shows a BListView and a
@@ -37,6 +38,7 @@
 #include <string>
 #include <utility>
 
+#include <ngui/Alert.h>
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
 #include <ngui/Box.h>
@@ -44,6 +46,8 @@
 #include <ngui/CheckBox.h>
 #include <ngui/Font.h>
 #include <ngui/GroupView.h>
+#include <ngui/InterfaceDefs.h>
+#include <ngui/Invoker.h>
 #include <ngui/LayoutBuilder.h>
 #include <ngui/ListView.h>
 #include <ngui/Menu.h>
@@ -77,6 +81,7 @@ using namespace ngui;
 constexpr std::uint32_t kClicked = FourCharCode("CLCK");
 constexpr std::uint32_t kProgress = FourCharCode("PRGS");
 constexpr std::uint32_t kReset = FourCharCode("RSET");
+constexpr std::uint32_t kResetAnswered = FourCharCode("RSTA");
 constexpr std::uint32_t kAbout = FourCharCode("ABOT");
 constexpr std::uint32_t kStylePlain = FourCharCode("SPLN");
 constexpr std::uint32_t kStyleBold = FourCharCode("SBLD");
@@ -304,8 +309,20 @@ public:
 			return;
 		}
 		if (message->what == kReset) {
-			fClicks = 0;
-			fLabel->SetText("Not clicked yet");
+			// asks first: "Cancel" (Escape) or "Reset" (Enter); the answer
+			// comes back as kResetAnswered with "which"
+			auto alert = std::make_unique<BAlert>("Reset", "Reset the click counter?",
+				"Cancel", "Reset", "", BButtonWidth::AsUsual, BAlertType::Warning);
+			alert->SetShortcut(0, keys::kEscape);
+			(void)BAlert::Go(std::move(alert), std::make_unique<BInvoker>(
+				std::make_unique<BMessage>(kResetAnswered), BMessenger(this)));
+			return;
+		}
+		if (message->what == kResetAnswered) {
+			if (message->GetInt32("which", 0) == 1) {
+				fClicks = 0;
+				fLabel->SetText("Not clicked yet");
+			}
 			return;
 		}
 		if (message->what == kStylePlain || message->what == kStyleBold
@@ -314,7 +331,10 @@ public:
 			return;
 		}
 		if (message->what == kAbout) {
+			// an info alert, which only needs to be closed
 			fTabs->Select(3);
+			(void)BAlert::Go(std::make_unique<BAlert>("About",
+				"NewGUI\n\nHaiku's Interface Kit on SDL3 and Skia.", "OK"), [](int32) {});
 			return;
 		}
 		if (message->what != kClicked) {
