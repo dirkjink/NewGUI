@@ -121,6 +121,32 @@ public:
 using ClipboardData = std::vector<std::pair<std::string, std::vector<std::byte>>>;
 
 
+/*!	A cursor image: RGBA bytes, not premultiplied, rows without padding. */
+struct CursorImage {
+			std::int32_t		width = 0;		/*!< Width in pixels. */
+			std::int32_t		height = 0;		/*!< Height in pixels. */
+			gfx::Point			hotspot = {0, 0};	/*!< The pixel that points. */
+			std::vector<std::uint8_t> rgba;		/*!< `width * height * 4` bytes. */
+
+			bool				operator==(const CursorImage& other) const = default;
+									/*!< Same size, hot spot and pixels. */
+};
+
+
+/*!	The mouse cursor to show: a system cursor by Haiku's BCursorID value, or
+	an image. */
+struct CursorShape {
+			std::uint8_t		system = 1;		/*!< A BCursorID value; ignored with an
+													image. */
+			std::shared_ptr<const CursorImage> image;
+												/*!< The image, or nullptr. */
+
+			bool				operator==(const CursorShape& other) const;
+									/*!< The same system cursor, or images with the same
+										pixels. */
+};
+
+
 /*!	The window system (module P1): windows, screens and the events of the
 	main thread. BApplication::UsePlatform() hands it to the application,
 	whose loop then waits for the platform's events and its own messages
@@ -157,6 +183,13 @@ public:
 	virtual	std::expected<ClipboardData, Error> Clipboard() const;
 									/*!< What the system clipboard holds; from any thread.
 										NotSupported by default. */
+
+	virtual	void				SetCursor(const CursorShape& cursor);
+									/*!< Shows \a cursor for the mouse; from any thread.
+										Nothing by default. */
+	virtual	void				SetCursorVisible(bool visible);
+									/*!< Shows or hides the mouse cursor; from any thread.
+										Nothing by default. */
 };
 
 

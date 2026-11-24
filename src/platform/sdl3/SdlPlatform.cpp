@@ -204,6 +204,10 @@ public:
 	std::mutex				lock;
 	std::deque<std::function<void()>> work;
 	std::map<SDL_WindowID, std::weak_ptr<WindowState>> windows;
+	// the cursors made so far (main thread only): system ones by Haiku's
+	// BCursorID, the image cursor shown last
+	std::map<std::uint8_t, SDL_Cursor*> systemCursors;
+	SDL_Cursor*				imageCursor = nullptr;
 
 	bool OnMainThread() const
 	{
@@ -252,6 +256,122 @@ public:
 		auto shared = std::make_shared<decltype(packaged)>(std::move(packaged));
 		Queue([shared] { (*shared)(); });
 		return result.get();
+	}
+
+	// Shows \a shape; on the main thread.
+	void ApplyCursor(const CursorShape& shape)
+	{
+		if (shape.image != nullptr) {
+			const CursorImage& image = *shape.image;
+			if (image.width <= 0 || image.height <= 0
+				|| image.rgba.size() != static_cast<std::size_t>(image.width)
+					* static_cast<std::size_t>(image.height) * 4) {
+				return;
+			}
+			std::vector<std::uint8_t> pixels = image.rgba;
+			SDL_Surface* surface = SDL_CreateSurfaceFrom(image.width, image.height,
+				SDL_PIXELFORMAT_RGBA32, pixels.data(), image.width * 4);
+			if (surface == nullptr)
+				return;
+			SDL_Cursor* cursor = SDL_CreateColorCursor(surface,
+				static_cast<int>(image.hotspot.x), static_cast<int>(image.hotspot.y));
+			SDL_DestroySurface(surface);
+			if (cursor == nullptr)
+				return;
+			SDL_SetCursor(cursor);
+			if (imageCursor != nullptr)
+				SDL_DestroyCursor(imageCursor);
+			imageCursor = cursor;
+			return;
+		}
+		if (SDL_Cursor* cursor = SystemCursor(shape.system))
+			SDL_SetCursor(cursor);
+	}
+
+	// The SDL cursor of a BCursorID value, made on first use; nullptr if SDL
+	// has none.
+	SDL_Cursor* SystemCursor(std::uint8_t id)
+	{
+		const auto found = systemCursors.find(id);
+		if (found != systemCursors.end())
+			return found->second;
+		SDL_Cursor* cursor = nullptr;
+		if (id == 12) {
+			// B_CURSOR_ID_NO_CURSOR: a transparent pixel (SDL has no such
+			// system cursor; hiding it would mix with HideCursor())
+			const std::uint8_t clear[4] = {0, 0, 0, 0};
+			SDL_Surface* surface = SDL_CreateSurfaceFrom(1, 1, SDL_PIXELFORMAT_RGBA32,
+				const_cast<std::uint8_t*>(clear), 4);
+			if (surface != nullptr) {
+				cursor = SDL_CreateColorCursor(surface, 0, 0);
+				SDL_DestroySurface(surface);
+			}
+		} else
+			cursor = SDL_CreateSystemCursor(SystemCursorFor(id));
+		if (cursor != nullptr)
+			systemCursors[id] = cursor;
+		return cursor;
+	}
+
+	// The nearest SDL cursor of a BCursorID value.
+	static SDL_SystemCursor SystemCursorFor(std::uint8_t id)
+	{
+		switch (id) {
+			case 2:		// IBeam
+			case 10:	// IBeamHorizontal
+				return SDL_SYSTEM_CURSOR_TEXT;
+			case 5:		// CrossHair
+				return SDL_SYSTEM_CURSOR_CROSSHAIR;
+			case 6:		// FollowLink
+				return SDL_SYSTEM_CURSOR_POINTER;
+			case 7:		// Grab
+			case 8:		// Grabbing
+			case 11:	// Move
+				return SDL_SYSTEM_CURSOR_MOVE;
+			case 13:	// NotAllowed
+				return SDL_SYSTEM_CURSOR_NOT_ALLOWED;
+			case 14:	// Progress
+				return SDL_SYSTEM_CURSOR_PROGRESS;
+			case 15:	// ResizeNorth
+				return SDL_SYSTEM_CURSOR_N_RESIZE;
+			case 16:	// ResizeEast
+				return SDL_SYSTEM_CURSOR_E_RESIZE;
+			case 17:	// ResizeSouth
+				return SDL_SYSTEM_CURSOR_S_RESIZE;
+			case 18:	// ResizeWest
+				return SDL_SYSTEM_CURSOR_W_RESIZE;
+			case 19:	// ResizeNorthEast
+				return SDL_SYSTEM_CURSOR_NE_RESIZE;
+			case 20:	// ResizeNorthWest
+				return SDL_SYSTEM_CURSOR_NW_RESIZE;
+			case 21:	// ResizeSouthEast
+				return SDL_SYSTEM_CURSOR_SE_RESIZE;
+			case 22:	// ResizeSouthWest
+				return SDL_SYSTEM_CURSOR_SW_RESIZE;
+			case 23:	// ResizeNorthSouth
+				return SDL_SYSTEM_CURSOR_NS_RESIZE;
+			case 24:	// ResizeEastWest
+				return SDL_SYSTEM_CURSOR_EW_RESIZE;
+			case 25:	// ResizeNorthEastSouthWest
+				return SDL_SYSTEM_CURSOR_NESW_RESIZE;
+			case 26:	// ResizeNorthWestSouthEast
+				return SDL_SYSTEM_CURSOR_NWSE_RESIZE;
+			default:
+				// SystemDefault; SDL has no context menu, copy, link, help
+				// or zoom cursor
+				return SDL_SYSTEM_CURSOR_DEFAULT;
+		}
+	}
+
+	// Frees the cursors; on the main thread, before SDL_Quit().
+	void DestroyCursors()
+	{
+		for (const auto& [id, cursor] : systemCursors)
+			SDL_DestroyCursor(cursor);
+		systemCursors.clear();
+		if (imageCursor != nullptr)
+			SDL_DestroyCursor(imageCursor);
+		imageCursor = nullptr;
 	}
 };
 
@@ -494,6 +614,7 @@ SdlPlatform::Create()
 SdlPlatform::~SdlPlatform()
 {
 	fData->RunWork();
+	fData->DestroyCursors();
 	SDL_Quit();
 }
 
@@ -712,6 +833,27 @@ void
 SdlPlatform::Wake()
 {
 	fData->Wake();
+}
+
+
+void
+SdlPlatform::SetCursor(const CursorShape& cursor)
+{
+	// The cursor is SDL's, on the main thread; the caller does not wait.
+	const std::shared_ptr<sdl3::PlatformState> data = fData;
+	RunOnMainThread([data, cursor] { data->ApplyCursor(cursor); });
+}
+
+
+void
+SdlPlatform::SetCursorVisible(bool visible)
+{
+	RunOnMainThread([visible] {
+		if (visible)
+			SDL_ShowCursor();
+		else
+			SDL_HideCursor();
+	});
 }
 
 

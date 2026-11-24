@@ -16,6 +16,7 @@
 #include <ngui/Application.h>
 #include <ngui/Palette.h>
 #include <ngui/Button.h>
+#include <ngui/Cursor.h>
 #include <ngui/LookRegistry.h>
 #include <ngui/MenuBar.h>
 #include <ngui/MenuItem.h>
@@ -25,6 +26,7 @@
 #include <ngui/gfx/BackendRegistry.h>
 
 #include "LooperPort.h"
+#include "CursorState.h"
 #include "MenuPrivate.h"
 #include "ToolTipPopup.h"
 
@@ -1083,6 +1085,8 @@ BWindow::_ViewDetached(BView* view)
 		fMenuTracking->ViewDetached(view);
 	if (fToolTip != nullptr)
 		fToolTip->ViewDetached(view);
+	if (fCursorView == view)
+		fCursorView = nullptr;
 }
 
 
@@ -1182,6 +1186,26 @@ BWindow::_CheckToolTipOwner(const BView* under)
 
 
 void
+BWindow::_UpdateCursor(const BView* under)
+{
+	fCursorView = under;
+	std::optional<platform::CursorShape> cursor;
+	if (under != nullptr && under->fCursor != nullptr)
+		cursor = under->fCursor->Shape();
+	detail::CursorState::Default().SetViewCursor(cursor);
+}
+
+
+void
+BWindow::_ViewCursorChanged(const BView* view)
+{
+	// Haiku's AS_SET_VIEW_CURSOR: shown at once under the mouse
+	if (view == fCursorView)
+		_UpdateCursor(view);
+}
+
+
+void
 BWindow::_MouseEvent(BMessage* message, BView* root)
 {
 	// NewGUI: the position on the screen, so that a view of another surface
@@ -1192,9 +1216,14 @@ BWindow::_MouseEvent(BMessage* message, BView* root)
 	const bool exited = message->GetBool("be:exited", false);
 	if (message->HasPoint("where"))
 		fLastMouse = screen;
+	if (message->what == kMouseMoved)
+		detail::CursorState::Default().MouseMoved();
 
 	// While menus are open, their tracking gets every mouse event.
 	if (fMenuTracking != nullptr) {
+		// the application's cursor over menus (their views have none)
+		if (message->what == kMouseMoved)
+			_UpdateCursor(nullptr);
 		const auto buttons = static_cast<std::uint32_t>(message->GetInt32("buttons",
 			message->what == kMouseUp ? 0 : static_cast<std::int32_t>(fButtons)));
 		fButtons = buttons;
@@ -1203,8 +1232,12 @@ BWindow::_MouseEvent(BMessage* message, BView* root)
 	}
 
 	BView* under = exited ? nullptr : ViewAt(root, root->ConvertFromWindow(where));
-	if (message->what == kMouseMoved)
+	if (message->what == kMouseMoved) {
 		_MouseMovedForToolTip(screen);
+		// the cursor of the view under the mouse, also while another one
+		// gets the events (Haiku's Window::MouseMoved())
+		_UpdateCursor(under);
+	}
 
 	switch (message->what) {
 		case kMouseDown:

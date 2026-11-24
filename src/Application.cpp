@@ -10,8 +10,10 @@
 #include <mutex>
 
 #include <ngui/AppDefs.h>
+#include <ngui/Cursor.h>
 #include <ngui/Window.h>
 
+#include "CursorState.h"
 #include "LooperPort.h"
 
 
@@ -151,6 +153,8 @@ BApplication::Run()
 			std::scoped_lock lock(sLock);
 			sPlatform = fPlatform.get();
 		}
+		// the process's cursor on the new platform
+		detail::CursorState::Default().PlatformChanged();
 		PlatformEvents events(*fPlatform);
 		_RunOnThisThread(&events);
 	}
@@ -164,6 +168,7 @@ BApplication::Run()
 		std::scoped_lock lock(sLock);
 		sPlatform = nullptr;
 	}
+	detail::CursorState::Default().PlatformChanged();
 	fPulseRunner.reset();
 	return 0;
 }
@@ -313,6 +318,65 @@ platform::PlatformWindow::SetTextInputArea(gfx::Rect /*rect*/, int32 /*cursor*/)
 
 void
 platform::PlatformWindow::ClearComposition()
+{
+}
+
+
+void
+BApplication::SetCursor(const BCursor& cursor)
+{
+	if (cursor.InitCheck().has_value())
+		detail::CursorState::Default().SetAppCursor(cursor.Shape());
+}
+
+
+void
+BApplication::ShowCursor()
+{
+	detail::CursorState::Default().Show();
+}
+
+
+void
+BApplication::HideCursor()
+{
+	detail::CursorState::Default().Hide();
+}
+
+
+void
+BApplication::ObscureCursor()
+{
+	detail::CursorState::Default().Obscure();
+}
+
+
+bool
+BApplication::IsCursorHidden()
+{
+	return detail::CursorState::Default().IsHidden();
+}
+
+
+bool
+platform::CursorShape::operator==(const CursorShape& other) const
+{
+	if (image != nullptr || other.image != nullptr) {
+		return image != nullptr && other.image != nullptr
+			&& (image == other.image || *image == *other.image);
+	}
+	return system == other.system;
+}
+
+
+void
+platform::Platform::SetCursor(const CursorShape& /*cursor*/)
+{
+}
+
+
+void
+platform::Platform::SetCursorVisible(bool /*visible*/)
 {
 }
 

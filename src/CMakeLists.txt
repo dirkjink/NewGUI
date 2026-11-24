@@ -45,6 +45,7 @@ add_library(ngui
     Clipboard.cpp
     Clock.cpp
     Control.cpp
+    Cursor.cpp
     ControlLook.cpp
     Locker.cpp
     LookRegistry.cpp
