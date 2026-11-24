@@ -114,7 +114,7 @@ jobs:
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
           .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
-          "$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=text --x-feature=skia --x-feature=sdl3 --x-install-root=build/sbom/vcpkg_installed
+          "$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=text --x-feature=svg --x-feature=skia --x-feature=sdl3 --x-install-root=build/sbom/vcpkg_installed
           python3 .github/scripts/vcpkg-sbom.py build/sbom/vcpkg_installed/x64-linux dist/newgui-"$VERSION".spdx.json
 
       - name: Upload assets to the release
