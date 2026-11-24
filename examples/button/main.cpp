@@ -24,7 +24,7 @@
 // popups of the window; Alt+Escape opens them from the keyboard, Alt+R
 // resets). A BMenuField chooses where the slider's hash marks are; a right
 // click on the label opens a context menu (a BPopUpMenu) with the same
-// commands as the menus.
+// commands as the menus. A BTextView on a page of its own takes notes.
 
 
 #include <cstdint>
@@ -50,6 +50,7 @@
 #include <ngui/StatusBar.h>
 #include <ngui/StringView.h>
 #include <ngui/TabView.h>
+#include <ngui/TextView.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/BackendRegistry.h>
 #include <ngui/gfx/SkiaBackend.h>
@@ -163,6 +164,14 @@ public:
 		auto tabs = std::make_unique<BTabView>("tabs");
 		tabs->AddTab(std::move(split));
 		tabs->TabAt(0)->SetLabel("Panels");
+		// A page to type notes on: a text view that scrolls.
+		auto notes = std::make_unique<BTextView>("notes");
+		notes->SetText("Type here. Shift and the arrows select, a double click selects "
+			"a word, a triple click a line.\n");
+		auto notesScroll = std::make_unique<BScrollView>("notes scroll", std::move(notes),
+			BViewFlags{}, false, true);
+		tabs->AddTab(std::move(notesScroll));
+		tabs->TabAt(1)->SetLabel("Notes");
 		tabs->AddTab(std::make_unique<BStringView>("About",
 			"NewGUI: Haiku's Interface Kit on SDL3 and Skia"));
 
@@ -221,7 +230,7 @@ public:
 			return;
 		}
 		if (message->what == kAbout) {
-			fTabs->Select(1);
+			fTabs->Select(2);
 			return;
 		}
 		if (message->what != kClicked) {

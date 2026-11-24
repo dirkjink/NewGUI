@@ -1,0 +1,2459 @@
+/*
+ * Copyright 2001-2020 Haiku, Inc. All rights reserved.
+ * Copyright 2026, The NewGUI Authors. All rights reserved.
+ * Distributed under the terms of the MIT License.
+ * SPDX-License-Identifier: MIT
+ *
+ * Ported from Haiku: src/kits/interface/TextView.cpp (commit b1d497bb69),
+ * the single-style core: text, selection, caret, keyboard, mouse,
+ * scrolling and layout; without archiving, scripting, styles, the
+ * clipboard, undo, input methods, drag and drop and the offscreen bitmap.
+ * NewGUI (see TextView.h):
+ * - TextLayout breaks the lines and answers PointAt() and OffsetAt();
+ *   _Refresh() lays out all of the text again.
+ * - The caret moves by graphemes (_NextInitialByte() and
+ *   _PreviousInitialByte() step over them, Haiku: over code points).
+ * - Highlight(), the caret and the selection invalidate; Draw() fills the
+ *   selection with the inverted colors and draws its text inverted
+ *   (Haiku: B_OP_INVERT), while the view is active.
+ * - The caret blinks on a BMessageRunner (Haiku: Pulse() at 500 ms).
+ * - A click in the selection is a click: without drag and drop there is
+ *   nothing to drag (Haiku: _InitiateDrag()); no auto scrolling while
+ *   selecting, no I-beam cursor, no context menu.
+ * - ScrollToOffset() does not realign a text that does not wrap.
+ * - Sizes are pixel counts; Haiku's inclusive rectangles become
+ *   half-open ones with the same edges.
+ *
+ * Authors (Haiku):
+ *		Hiroshi Lockheimer (BTextView is based on his STEngine)
+ *		John Scipione, jscipione@gmail.com
+ *		Ingo Weinhold, ingo_weinhold@gmx.de
+ *		Stephan Aßmus, superstippi@gmx.de
+ *		Axel Dörfler, axeld@pinc-software.de
+ *		Oliver Tappe, zooey@hirschkaefer.de
+ *		Stefano Ceccherini, stefano.ceccherini@gmail.com
+ *		Marc Flerackers, mflerackers@androme.be
+ */
+
+
+#include <ngui/TextView.h>
+
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <utility>
+
+#include <ngui/AppDefs.h>
+#include <ngui/Clock.h>
+#include <ngui/ControlLook.h>
+#include <ngui/LayoutUtils.h>
+#include <ngui/Message.h>
+#include <ngui/MessageRunner.h>
+#include <ngui/Messenger.h>
+#include <ngui/Palette.h>
+#include <ngui/ScrollBar.h>
+#include <ngui/TextSystem.h>
+#include <ngui/Window.h>
+#include <ngui/gfx/Canvas.h>
+
+
+namespace ngui {
+
+
+using namespace std::chrono_literals;
+
+
+namespace {
+
+
+constexpr float kHorizontalScrollBarStep = 10.0f;
+constexpr float kVerticalScrollBarStep = 12.0f;
+
+constexpr std::uint32_t kMsgNavigateArrow = FourCharCode("_NvA");
+constexpr std::uint32_t kMsgNavigatePage = FourCharCode("_NvP");
+constexpr std::uint32_t kMsgRemoveWord = FourCharCode("_RmW");
+// NewGUI: the caret's timer (Haiku: Pulse())
+constexpr std::uint32_t kMsgCaretBlink = FourCharCode("_TVB");
+
+constexpr Clock::Time kCaretBlinkRate = 500ms;
+// Haiku's default click speed (get_click_speed())
+constexpr Clock::Time kClickSpeed = 500ms;
+
+enum {
+	CHAR_CLASS_DEFAULT,
+	CHAR_CLASS_WHITESPACE,
+	CHAR_CLASS_GRAPHICAL,
+	CHAR_CLASS_QUOTE,
+	CHAR_CLASS_PUNCTUATION,
+	CHAR_CLASS_PARENS_OPEN,
+	CHAR_CLASS_PARENS_CLOSE,
+	CHAR_CLASS_END_OF_TEXT
+};
+
+
+// The shortcuts _Activate() installs, in pairs that are installed only if
+// the window has neither (Haiku's fInstalled... flags).
+struct NavigationShortcut {
+	uint8				key;
+	BModifierFlags		modifiers;
+	std::uint32_t		what;
+};
+
+const NavigationShortcut kNavigationShortcuts[][2] = {
+	{{keys::kLeftArrow, BModifier::Command, kMsgNavigateArrow},
+		{keys::kRightArrow, BModifier::Command, kMsgNavigateArrow}},
+	{{keys::kLeftArrow, BModifier::Command | BModifier::Shift, kMsgNavigateArrow},
+		{keys::kRightArrow, BModifier::Command | BModifier::Shift, kMsgNavigateArrow}},
+	{{keys::kDelete, BModifier::Command, kMsgRemoveWord},
+		{keys::kBackspace, BModifier::Command, kMsgRemoveWord}},
+	{{keys::kLeftArrow, BModifier::Option, kMsgNavigateArrow},
+		{keys::kRightArrow, BModifier::Option, kMsgNavigateArrow}},
+	{{keys::kLeftArrow, BModifier::Option | BModifier::Shift, kMsgNavigateArrow},
+		{keys::kRightArrow, BModifier::Option | BModifier::Shift, kMsgNavigateArrow}},
+	{{keys::kDelete, BModifier::Option, kMsgRemoveWord},
+		{keys::kBackspace, BModifier::Option, kMsgRemoveWord}},
+	{{keys::kUpArrow, BModifier::Option, kMsgNavigateArrow},
+		{keys::kDownArrow, BModifier::Option, kMsgNavigateArrow}},
+	{{keys::kUpArrow, BModifier::Option | BModifier::Shift, kMsgNavigateArrow},
+		{keys::kDownArrow, BModifier::Option | BModifier::Shift, kMsgNavigateArrow}},
+	{{keys::kHome, BModifier::Command, kMsgNavigatePage},
+		{keys::kEnd, BModifier::Command, kMsgNavigatePage}},
+	{{keys::kHome, BModifier::Command | BModifier::Shift, kMsgNavigatePage},
+		{keys::kEnd, BModifier::Command | BModifier::Shift, kMsgNavigatePage}},
+};
+
+
+gfx::Color
+Inverted(const gfx::Color& color)
+{
+	return {1 - color.r, 1 - color.g, 1 - color.b, color.a};
+}
+
+
+} // namespace
+
+
+BTextView::BTextView(gfx::Rect frame, std::string_view name, gfx::Rect textRect,
+	BResizingMode resizingMode, BViewFlags flags)
+	:
+	BView(frame, name, resizingMode, flags)
+{
+	_InitObject(textRect);
+}
+
+
+BTextView::BTextView(std::string_view name, BViewFlags flags)
+	:
+	BView(name, flags)
+{
+	_InitObject(Bounds());
+}
+
+
+BTextView::~BTextView()
+{
+}
+
+
+void
+BTextView::AttachedToWindow()
+{
+	BView::AttachedToWindow();
+
+	fCaretVisible = false;
+	fClickCount = 0;
+	fClickTime.reset();
+	fActive = false;
+
+	_Refresh();
+}
+
+
+void
+BTextView::DetachedFromWindow()
+{
+	// NewGUI: the shortcuts and the timer belong to the window
+	if (fActive)
+		_Deactivate();
+	_StopMouseTracking();
+	BView::DetachedFromWindow();
+}
+
+
+void
+BTextView::Draw(DrawContext& context)
+{
+	const gfx::Color text = context.palette.Get(BColorWhich::DocumentText);
+	const gfx::Color background = ViewColor().value_or(
+		context.palette.Get(BColorWhich::DocumentBackground));
+	const gfx::Point origin{fTextRect.x0, fTextRect.y0};
+
+	fLayout.Draw(context.canvas, origin, text);
+
+	if (!fActive)
+		return;
+
+	if (fSelStart != fSelEnd) {
+		if (!fSelectable)
+			return;
+
+		// Haiku's Highlight(): B_OP_INVERT over the selection
+		gfx::Region region;
+		GetTextRegion(fSelStart, fSelEnd, &region);
+		for (int32 i = 0; i < region.CountRects(); i++) {
+			const gfx::Rect rect = region.RectAt(i).ToRect();
+			context.canvas.Save();
+			context.canvas.ClipRect(rect);
+			context.canvas.FillRect(rect, gfx::Paint{.color = Inverted(background)});
+			fLayout.Draw(context.canvas, origin, Inverted(text));
+			context.canvas.Restore();
+		}
+	} else if (fCaretVisible && (fEditable || fSelectable)) {
+		// Haiku's _DrawCaret(): a line of the line's height, inverted
+		float lineHeight;
+		gfx::Point caret = PointAt(fSelStart, &lineHeight);
+		caret.x = std::min(caret.x, fTextRect.x1 - 1);
+		context.canvas.FillRect({caret.x, caret.y, caret.x + 1, caret.y + lineHeight},
+			gfx::Paint{.color = Inverted(background)});
+	}
+}
+
+
+void
+BTextView::MouseDown(gfx::Point where)
+{
+	if (!fEditable && !fSelectable)
+		return;
+
+	if (!IsFocus())
+		MakeFocus();
+
+	_HideCaret();
+
+	_StopMouseTracking();
+
+	int32 modifiers = 0;
+	int32 buttons = 0;
+	if (Window() != nullptr && Window()->CurrentMessage() != nullptr) {
+		modifiers = Window()->CurrentMessage()->GetInt32("modifiers", 0);
+		buttons = Window()->CurrentMessage()->GetInt32("buttons", 0);
+	}
+
+	if (buttons == 2) {
+		// NewGUI: no context menu yet (Haiku's _ShowContextMenu())
+		return;
+	}
+
+	fTrackingMouse.emplace();
+	fTrackingMouse->clickOffset = OffsetAt(where);
+	fTrackingMouse->shiftDown
+		= BModifierFlags::FromRaw(static_cast<uint32>(modifiers)).Has(BModifier::Shift);
+
+	const Clock::Time clickTime = Clock::Default().Now();
+	const bool multipleClick = fClickTime.has_value()
+		&& clickTime - std::chrono::microseconds(*fClickTime) < kClickSpeed
+		&& fLastClickOffset == fTrackingMouse->clickOffset;
+	const auto clickMicroseconds
+		= std::chrono::duration_cast<std::chrono::microseconds>(clickTime).count();
+
+	SetMouseEventMask(BEventMask::Pointer);
+
+	if (multipleClick) {
+		if (fClickCount > 3) {
+			fClickCount = 0;
+			fClickTime.reset();
+		} else {
+			fClickCount++;
+			fClickTime = clickMicroseconds;
+		}
+	} else if (!fTrackingMouse->shiftDown) {
+		fLastClickOffset = fCaretOffset = fTrackingMouse->clickOffset;
+		fClickCount = 1;
+		fClickTime = clickMicroseconds;
+
+		// Deselect any previously selected text
+		Select(fTrackingMouse->clickOffset, fTrackingMouse->clickOffset);
+	}
+
+	if (!fSelectable) {
+		_StopMouseTracking();
+		return;
+	}
+
+	int32 offset = fSelStart;
+	if (fTrackingMouse->clickOffset > fSelStart)
+		offset = fSelEnd;
+
+	fTrackingMouse->anchor = offset;
+
+	MouseMoved(where, BMouseTransit::Inside, nullptr);
+}
+
+
+void
+BTextView::MouseUp(gfx::Point where)
+{
+	BView::MouseUp(where);
+	_PerformMouseUp(where);
+}
+
+
+void
+BTextView::MouseMoved(gfx::Point where, BMouseTransit transit, const BMessage* dragMessage)
+{
+	// Check if it's a "click'n'move"
+	if (_PerformMouseMoved(where))
+		return;
+
+	BView::MouseMoved(where, transit, dragMessage);
+}
+
+
+void
+BTextView::WindowActivated(bool active)
+{
+	BView::WindowActivated(active);
+
+	if (active && IsFocus()) {
+		if (!fActive)
+			_Activate();
+	} else {
+		if (fActive)
+			_Deactivate();
+	}
+}
+
+
+void
+BTextView::KeyDown(std::string_view bytes)
+{
+	if (bytes.empty())
+		return;
+
+	const auto keyPressed = static_cast<uint8>(bytes[0]);
+
+	if (!fEditable) {
+		// only arrow and page keys are allowed
+		// (no need to hide the cursor)
+		switch (keyPressed) {
+			case keys::kLeftArrow:
+			case keys::kRightArrow:
+			case keys::kUpArrow:
+			case keys::kDownArrow:
+				_HandleArrowKey(keyPressed);
+				break;
+
+			case keys::kHome:
+			case keys::kEnd:
+			case keys::kPageUp:
+			case keys::kPageDown:
+				_HandlePageKey(keyPressed);
+				break;
+
+			default:
+				BView::KeyDown(bytes);
+				break;
+		}
+
+		return;
+	}
+
+	// hide the caret
+	_HideCaret();
+
+	switch (keyPressed) {
+		case keys::kBackspace:
+			_HandleBackspace();
+			break;
+
+		case keys::kLeftArrow:
+		case keys::kRightArrow:
+		case keys::kUpArrow:
+		case keys::kDownArrow:
+			_HandleArrowKey(keyPressed);
+			break;
+
+		case keys::kDelete:
+			_HandleDelete();
+			break;
+
+		case keys::kHome:
+		case keys::kEnd:
+		case keys::kPageUp:
+		case keys::kPageDown:
+			_HandlePageKey(keyPressed);
+			break;
+
+		case keys::kEscape:
+		case keys::kInsert:
+		case keys::kFunctionKey:
+			// ignore, pass it up to superclass
+			BView::KeyDown(bytes);
+			break;
+
+		default:
+			// bail out if the character is not allowed
+			if (std::find(fDisallowedChars.begin(), fDisallowedChars.end(),
+					static_cast<uint32>(keyPressed)) != fDisallowedChars.end()) {
+				// NewGUI: no beep()
+				return;
+			}
+
+			_HandleAlphaKey(bytes);
+			break;
+	}
+
+	// draw the caret
+	if (fSelStart == fSelEnd)
+		_ShowCaret();
+}
+
+
+void
+BTextView::FrameResized(float newWidth, float newHeight)
+{
+	BView::FrameResized(newWidth, newHeight);
+
+	// NewGUI: a text that does not wrap is aligned in _Relayout() as well
+	_ResetTextRect();
+}
+
+
+void
+BTextView::MakeFocus(bool focus)
+{
+	BView::MakeFocus(focus);
+
+	if (focus && Window() != nullptr && Window()->IsActive()) {
+		if (!fActive)
+			_Activate();
+	} else {
+		if (fActive)
+			_Deactivate();
+	}
+}
+
+
+void
+BTextView::MessageReceived(BMessage* message)
+{
+	switch (message->what) {
+		case kSelectAll:
+			SelectAll();
+			break;
+
+		case kMsgNavigateArrow:
+			_HandleArrowKey(static_cast<uint8>(message->GetInt32("key", 0)),
+				message->GetInt32("modifiers", 0));
+			break;
+
+		case kMsgNavigatePage:
+			_HandlePageKey(static_cast<uint8>(message->GetInt32("key", 0)),
+				message->GetInt32("modifiers", 0));
+			break;
+
+		case kMsgRemoveWord:
+		{
+			const int32 key = message->GetInt32("key", 0);
+			const int32 modifiers = message->GetInt32("modifiers", 0);
+			if (key == keys::kDelete)
+				_HandleDelete(modifiers);
+			else if (key == keys::kBackspace)
+				_HandleBackspace(modifiers);
+			break;
+		}
+
+		case kMsgCaretBlink:
+			// Haiku's Pulse()
+			if (fActive && (fEditable || fSelectable) && fSelStart == fSelEnd) {
+				fCaretVisible = !fCaretVisible;
+				_InvalidateCaret();
+			}
+			break;
+
+		default:
+			BView::MessageReceived(message);
+			break;
+	}
+}
+
+
+// #pragma mark - text
+
+
+void
+BTextView::SetText(std::string_view text)
+{
+	if (fActive) {
+		if (fSelStart != fSelEnd) {
+			if (fSelectable)
+				Highlight(fSelStart, fSelEnd);
+		} else
+			_HideCaret();
+	}
+
+	if (!fText.empty())
+		DeleteText(0, TextLength());
+
+	if (!text.empty())
+		InsertText(text, 0);
+
+	fCaretOffset = fSelStart = fSelEnd = 0;
+	_Refresh();
+
+	// draw the caret
+	_ShowCaret();
+}
+
+
+void
+BTextView::Insert(std::string_view text)
+{
+	if (!text.empty())
+		_DoInsertText(text, fSelStart);
+}
+
+
+void
+BTextView::Insert(int32 offset, std::string_view text)
+{
+	offset = std::clamp(offset, 0, TextLength());
+	if (!text.empty())
+		_DoInsertText(text, offset);
+}
+
+
+void
+BTextView::Delete()
+{
+	Delete(fSelStart, fSelEnd);
+}
+
+
+void
+BTextView::Delete(int32 startOffset, int32 endOffset)
+{
+	// anchor the offsets
+	startOffset = std::clamp(startOffset, 0, TextLength());
+	endOffset = std::clamp(endOffset, 0, TextLength());
+
+	// bail out if there is nothing to do
+	if (startOffset == endOffset)
+		return;
+
+	// hide the caret/selection
+	if (fActive) {
+		if (fSelStart != fSelEnd) {
+			if (fSelectable)
+				Highlight(fSelStart, fSelEnd);
+		} else
+			_HideCaret();
+	}
+
+	// remove data from buffer
+	DeleteText(startOffset, endOffset);
+
+	// check if the caret needs to be moved
+	if (fCaretOffset >= endOffset)
+		fCaretOffset -= (endOffset - startOffset);
+	else if (fCaretOffset >= startOffset && fCaretOffset < endOffset)
+		fCaretOffset = startOffset;
+
+	fSelEnd = fSelStart = fCaretOffset;
+
+	// recalc line breaks and draw what's left
+	_Refresh(fCaretOffset);
+
+	// draw the caret
+	_ShowCaret();
+}
+
+
+std::string_view
+BTextView::Text() const
+{
+	return fText;
+}
+
+
+int32
+BTextView::TextLength() const
+{
+	return static_cast<int32>(fText.size());
+}
+
+
+std::string
+BTextView::GetText(int32 offset, int32 length) const
+{
+	if (offset < 0 || offset >= TextLength() || length < 1)
+		return {};
+	return fText.substr(static_cast<std::size_t>(offset), static_cast<std::size_t>(length));
+}
+
+
+uint8
+BTextView::ByteAt(int32 offset) const
+{
+	if (offset < 0 || offset >= TextLength())
+		return '\0';
+
+	return static_cast<uint8>(fText[static_cast<std::size_t>(offset)]);
+}
+
+
+int32
+BTextView::CountLines() const
+{
+	return fLayout.CountLines();
+}
+
+
+int32
+BTextView::CurrentLine() const
+{
+	return LineAt(fSelStart);
+}
+
+
+void
+BTextView::GoToLine(int32 index)
+{
+	_HideCaret();
+	fSelStart = fSelEnd = fCaretOffset = OffsetAt(index);
+	_ShowCaret();
+}
+
+
+void
+BTextView::Clear()
+{
+	Delete();
+}
+
+
+void
+BTextView::Select(int32 startOffset, int32 endOffset)
+{
+	if (!fSelectable)
+		return;
+
+	// pin offsets at reasonable values
+	startOffset = std::clamp(startOffset, 0, TextLength());
+	endOffset = std::clamp(endOffset, 0, TextLength());
+
+	// a negative selection?
+	if (startOffset > endOffset)
+		return;
+
+	// is the new selection any different from the current selection?
+	if (startOffset == fSelStart && endOffset == fSelEnd)
+		return;
+
+	_HideCaret();
+
+	if (startOffset == endOffset) {
+		if (fSelStart != fSelEnd) {
+			// unhilite the selection
+			if (fActive)
+				Highlight(fSelStart, fSelEnd);
+		}
+		fSelStart = fSelEnd = fCaretOffset = startOffset;
+		_ShowCaret();
+	} else {
+		if (fActive) {
+			// NewGUI: the old and the new selection are redrawn (Haiku
+			// inverted what changed)
+			if (fSelStart != fSelEnd)
+				Highlight(fSelStart, fSelEnd);
+			Highlight(startOffset, endOffset);
+		}
+		fSelStart = startOffset;
+		fSelEnd = endOffset;
+	}
+}
+
+
+void
+BTextView::SelectAll()
+{
+	fCaretOffset = TextLength();
+	Select(0, fCaretOffset);
+}
+
+
+void
+BTextView::GetSelection(int32* start, int32* end) const
+{
+	int32 selectionStart = 0;
+	int32 selectionEnd = 0;
+
+	if (fSelectable) {
+		selectionStart = fSelStart;
+		selectionEnd = fSelEnd;
+	}
+
+	if (start != nullptr)
+		*start = selectionStart;
+
+	if (end != nullptr)
+		*end = selectionEnd;
+}
+
+
+void
+BTextView::AdoptSystemColors()
+{
+	const gfx::Color background = Palette::Default().Get(BColorWhich::DocumentBackground);
+	if (IsEditable())
+		SetViewColor(background);
+	else
+		SetViewColor(TintColor(background, _UneditableTint()));
+}
+
+
+// #pragma mark - geometry
+
+
+int32
+BTextView::LineAt(int32 offset) const
+{
+	return fLayout.LineAtOffset(static_cast<std::size_t>(std::clamp(offset, 0, TextLength())));
+}
+
+
+int32
+BTextView::LineAt(gfx::Point point) const
+{
+	return fLayout.LineAtY(point.y - fTextRect.y0);
+}
+
+
+gfx::Point
+BTextView::PointAt(int32 offset, float* height) const
+{
+	const gfx::Point point = fLayout.PointAt(
+		static_cast<std::size_t>(std::clamp(offset, 0, TextLength())), height);
+	return {std::round(point.x + fTextRect.x0), std::round(point.y + fTextRect.y0)};
+}
+
+
+int32
+BTextView::OffsetAt(gfx::Point point) const
+{
+	return static_cast<int32>(fLayout.OffsetAt({point.x - fTextRect.x0,
+		point.y - fTextRect.y0}));
+}
+
+
+int32
+BTextView::OffsetAt(int32 line) const
+{
+	if (line < 0)
+		return 0;
+
+	if (line >= CountLines())
+		return TextLength();
+
+	return static_cast<int32>(fLayout.LineAt(line).start);
+}
+
+
+void
+BTextView::FindWord(int32 offset, int32* fromOffset, int32* toOffset)
+{
+	if (offset < 0) {
+		if (fromOffset != nullptr)
+			*fromOffset = 0;
+		if (toOffset != nullptr)
+			*toOffset = 0;
+		return;
+	}
+
+	if (offset > TextLength()) {
+		if (fromOffset != nullptr)
+			*fromOffset = TextLength();
+		if (toOffset != nullptr)
+			*toOffset = TextLength();
+		return;
+	}
+
+	if (fromOffset != nullptr)
+		*fromOffset = _PreviousWordBoundary(offset);
+
+	if (toOffset != nullptr)
+		*toOffset = _NextWordBoundary(offset);
+}
+
+
+float
+BTextView::LineWidth(int32 lineNumber) const
+{
+	if (lineNumber < 0 || lineNumber >= CountLines())
+		return 0;
+
+	return fLayout.LineAt(lineNumber).width;
+}
+
+
+float
+BTextView::LineHeight(int32 lineNumber) const
+{
+	float lineHeight = TextHeight(lineNumber, lineNumber);
+	if (lineHeight == 0.0f) {
+		// We probably don't have text content yet. Take the plain font's
+		// height, as _RecalculateLineBreaks() does.
+		const FontHeight fontHeight = TextSystem::Default().Height(FontRole::Plain);
+		lineHeight = std::ceil(fontHeight.ascent + fontHeight.descent) + 1;
+	}
+	return lineHeight;
+}
+
+
+float
+BTextView::TextHeight(int32 startLine, int32 endLine) const
+{
+	const int32 numLines = CountLines();
+	startLine = std::clamp(startLine, 0, numLines - 1);
+	endLine = std::clamp(endLine, 0, numLines - 1);
+
+	// NewGUI: the empty line after a final line break is a line of its own
+	const float bottom = endLine + 1 < numLines ? fLayout.LineAt(endLine + 1).top
+		: fLayout.Height();
+	return std::ceil(bottom - fLayout.LineAt(startLine).top);
+}
+
+
+void
+BTextView::GetTextRegion(int32 startOffset, int32 endOffset, gfx::Region* outRegion) const
+{
+	if (outRegion == nullptr)
+		return;
+
+	outRegion->MakeEmpty();
+
+	startOffset = std::clamp(startOffset, 0, TextLength());
+	endOffset = std::clamp(endOffset, 0, TextLength());
+
+	// return an empty region if the range is invalid
+	if (startOffset >= endOffset)
+		return;
+
+	float startLineHeight = 0.0;
+	float endLineHeight = 0.0;
+	const gfx::Point startPt = PointAt(startOffset, &startLineHeight);
+	const gfx::Point endPt = PointAt(endOffset, &endLineHeight);
+
+	startLineHeight = std::ceil(startLineHeight);
+	endLineHeight = std::ceil(endLineHeight);
+
+	const gfx::Rect bounds = Bounds();
+	const float left = std::min(fTextRect.x0, bounds.x0 + fLayoutData.leftInset);
+	const float right = std::max(fTextRect.x1, bounds.x1 - fLayoutData.rightInset);
+	const auto include = [outRegion](float x0, float y0, float x1, float y1) {
+		if (x1 > x0 && y1 > y0)
+			outRegion->Include(gfx::IntRect::RoundedFrom({x0, y0, x1, y1}));
+	};
+
+	if (startPt.y == endPt.y) {
+		// this is a one-line region
+		include(startPt.x, startPt.y, endPt.x, endPt.y + endLineHeight);
+	} else {
+		// more than one line in the specified offset range
+		include(startPt.x, startPt.y, right, startPt.y + startLineHeight);
+
+		// if the startPt line and the endPt line are not adjacent
+		// fill the gap
+		if (startPt.y + startLineHeight < endPt.y)
+			include(left, startPt.y + startLineHeight, right, endPt.y);
+
+		include(left, endPt.y, endPt.x, endPt.y + endLineHeight);
+	}
+}
+
+
+void
+BTextView::ScrollToOffset(int32 offset)
+{
+	const gfx::Rect bounds = Bounds();
+	float lineHeight = 0.0;
+	const gfx::Point point = PointAt(offset, &lineHeight);
+	gfx::Point scrollBy{0, 0};
+
+	// horizontal (Haiku's inclusive right edge, one less)
+	const float boundsRight = bounds.x1 - 1;
+	if (point.x < bounds.x0)
+		scrollBy.x = point.x - boundsRight;
+	else if (point.x > boundsRight)
+		scrollBy.x = point.x - bounds.x0;
+
+	// prevent from scrolling out of view
+	if (scrollBy.x != 0.0f) {
+		const float rightMax = fTextRect.x1 - 1 + fLayoutData.rightInset;
+		if (boundsRight + scrollBy.x > rightMax)
+			scrollBy.x = rightMax - boundsRight;
+		const float leftMin = fTextRect.x0 - fLayoutData.leftInset;
+		if (bounds.x0 + scrollBy.x < leftMin)
+			scrollBy.x = leftMin - bounds.x0;
+	}
+
+	// vertical
+	const float boundsBottom = bounds.y1 - 1;
+	if (CountLines() > 1) {
+		// scroll in Y only if multiple lines!
+		if (point.y < bounds.y0 - fLayoutData.topInset)
+			scrollBy.y = point.y - bounds.y0 - fLayoutData.topInset;
+		else if (point.y + lineHeight > boundsBottom + fLayoutData.bottomInset) {
+			scrollBy.y = point.y + lineHeight - boundsBottom + fLayoutData.bottomInset;
+		}
+	}
+
+	if (scrollBy.x != 0 || scrollBy.y != 0)
+		ScrollBy(scrollBy.x, scrollBy.y);
+}
+
+
+void
+BTextView::ScrollToSelection()
+{
+	ScrollToOffset(fSelStart);
+}
+
+
+void
+BTextView::Highlight(int32 startOffset, int32 endOffset)
+{
+	// get real
+	startOffset = std::clamp(startOffset, 0, TextLength());
+	endOffset = std::clamp(endOffset, 0, TextLength());
+
+	if (startOffset >= endOffset)
+		return;
+
+	// NewGUI: views are redrawn whole
+	Invalidate();
+}
+
+
+void
+BTextView::SetTextRect(gfx::Rect rect)
+{
+	if (rect == fTextRect)
+		return;
+
+	if (!fWrap) {
+		rect.x1 = Bounds().x1;
+		rect.y1 = Bounds().y1;
+	}
+
+	_UpdateInsets(rect);
+
+	fTextRect = rect;
+
+	_ResetTextRect();
+}
+
+
+gfx::Rect
+BTextView::TextRect() const
+{
+	return fTextRect;
+}
+
+
+void
+BTextView::SetInsets(float left, float top, float right, float bottom)
+{
+	if (fLayoutData.leftInset == left && fLayoutData.topInset == top
+		&& fLayoutData.rightInset == right && fLayoutData.bottomInset == bottom) {
+		return;
+	}
+
+	fLayoutData.leftInset = left;
+	fLayoutData.topInset = top;
+	fLayoutData.rightInset = right;
+	fLayoutData.bottomInset = bottom;
+
+	fLayoutData.overridden = true;
+
+	InvalidateLayout();
+	// NewGUI: the text moves at once (Haiku waited for the layout)
+	_ResetTextRect();
+}
+
+
+void
+BTextView::GetInsets(float* left, float* top, float* right, float* bottom) const
+{
+	if (left != nullptr)
+		*left = fLayoutData.leftInset;
+	if (top != nullptr)
+		*top = fLayoutData.topInset;
+	if (right != nullptr)
+		*right = fLayoutData.rightInset;
+	if (bottom != nullptr)
+		*bottom = fLayoutData.bottomInset;
+}
+
+
+// #pragma mark - settings
+
+
+void
+BTextView::SetTabWidth(float width)
+{
+	if (width == fTabWidth)
+		return;
+
+	fTabWidth = width;
+
+	_Refresh();
+}
+
+
+float
+BTextView::TabWidth() const
+{
+	return fTabWidth;
+}
+
+
+void
+BTextView::MakeSelectable(bool selectable)
+{
+	if (selectable == fSelectable)
+		return;
+
+	fSelectable = selectable;
+
+	if (fActive && Window() != nullptr) {
+		if (fSelStart != fSelEnd)
+			Highlight(fSelStart, fSelEnd);
+		else if (fSelectable)
+			_ShowCaret();
+		else
+			_HideCaret();
+	}
+}
+
+
+bool
+BTextView::IsSelectable() const
+{
+	return fSelectable;
+}
+
+
+void
+BTextView::MakeEditable(bool editable)
+{
+	if (editable == fEditable)
+		return;
+
+	// NewGUI: Haiku's HasSystemColors(), the color of the other state
+	const gfx::Color background = Palette::Default().Get(BColorWhich::DocumentBackground);
+	const bool systemColors = ViewColor() == (fEditable ? background
+		: TintColor(background, _UneditableTint()));
+
+	fEditable = editable;
+
+	if (systemColors)
+		AdoptSystemColors();
+
+	if (Window() != nullptr && fActive) {
+		if (!fEditable && !fSelectable)
+			_HideCaret();
+	}
+	Invalidate();
+}
+
+
+bool
+BTextView::IsEditable() const
+{
+	return fEditable;
+}
+
+
+void
+BTextView::SetWordWrap(bool wrap)
+{
+	if (wrap == fWrap)
+		return;
+
+	fWrap = wrap;
+	_ResetTextRect();
+
+	if (fEditable || fSelectable)
+		ScrollToOffset(fCaretOffset);
+}
+
+
+bool
+BTextView::DoesWordWrap() const
+{
+	return fWrap;
+}
+
+
+void
+BTextView::SetMaxBytes(int32 max)
+{
+	const int32 textLength = TextLength();
+	fMaxBytes = max;
+
+	if (fMaxBytes < textLength) {
+		int32 offset = fMaxBytes;
+		// Delete the text after fMaxBytes, but
+		// respect multibyte characters boundaries.
+		const int32 previousInitial = _PreviousInitialByte(offset);
+		if (_NextInitialByte(previousInitial) != offset)
+			offset = previousInitial;
+
+		Delete(offset, textLength);
+	}
+}
+
+
+int32
+BTextView::MaxBytes() const
+{
+	return fMaxBytes;
+}
+
+
+void
+BTextView::DisallowChar(uint32 character)
+{
+	if (std::find(fDisallowedChars.begin(), fDisallowedChars.end(), character)
+			== fDisallowedChars.end()) {
+		fDisallowedChars.push_back(character);
+	}
+}
+
+
+void
+BTextView::AllowChar(uint32 character)
+{
+	std::erase(fDisallowedChars, character);
+}
+
+
+void
+BTextView::SetAlignment(BHorizontalAlignment alignment)
+{
+	// Do a reality check
+	if (fAlignment != alignment
+		&& (alignment == BHorizontalAlignment::Left
+			|| alignment == BHorizontalAlignment::Right
+			|| alignment == BHorizontalAlignment::Center)) {
+		fAlignment = alignment;
+
+		// After setting new alignment, update the view/window
+		_ResetTextRect();
+	}
+}
+
+
+BHorizontalAlignment
+BTextView::Alignment() const
+{
+	return fAlignment;
+}
+
+
+void
+BTextView::SetAutoindent(bool state)
+{
+	fAutoindent = state;
+}
+
+
+bool
+BTextView::DoesAutoindent() const
+{
+	return fAutoindent;
+}
+
+
+// #pragma mark - layout
+
+
+void
+BTextView::ResizeToPreferred()
+{
+	BView::ResizeToPreferred();
+}
+
+
+void
+BTextView::GetPreferredSize(float* width, float* height)
+{
+	_ValidateLayoutData();
+
+	if (width != nullptr) {
+		float preferredWidth = Bounds().Width();
+		if (preferredWidth < fLayoutData.min.w || Flags().Has(BViewFlag::SupportsLayout))
+			preferredWidth = fLayoutData.min.w;
+		*width = preferredWidth;
+	}
+
+	if (height != nullptr) {
+		float preferredHeight = Bounds().Height();
+		if (preferredHeight < fLayoutData.min.h || Flags().Has(BViewFlag::SupportsLayout))
+			preferredHeight = fLayoutData.min.h;
+		*height = preferredHeight;
+	}
+}
+
+
+gfx::Size
+BTextView::MinSize()
+{
+	_ValidateLayoutData();
+	return BLayoutUtils::ComposeSize(ExplicitMinSize(), fLayoutData.min);
+}
+
+
+gfx::Size
+BTextView::MaxSize()
+{
+	return BLayoutUtils::ComposeSize(ExplicitMaxSize(), {kSizeUnlimited, kSizeUnlimited});
+}
+
+
+gfx::Size
+BTextView::PreferredSize()
+{
+	_ValidateLayoutData();
+	return BLayoutUtils::ComposeSize(ExplicitPreferredSize(), fLayoutData.preferred);
+}
+
+
+bool
+BTextView::HasHeightForWidth()
+{
+	if (IsEditable())
+		return BView::HasHeightForWidth();
+
+	// When not editable, we assume that all text is supposed to be visible.
+	return true;
+}
+
+
+void
+BTextView::GetHeightForWidth(float width, float* min, float* max, float* preferred)
+{
+	if (IsEditable()) {
+		BView::GetHeightForWidth(width, min, max, preferred);
+		return;
+	}
+
+	// NewGUI: a layout of its own at that width (Haiku recalculated its
+	// lines and restored the text rectangle)
+	float textWidth = width;
+	if (fLayoutData.overridden)
+		textWidth -= fLayoutData.leftInset + fLayoutData.rightInset;
+	const TextLayout layout(TextSystem::Default(), fText, FontRole::Plain,
+		{.width = textWidth, .wrap = fWrap, .tabWidth = fTabWidth, .alignment = fAlignment});
+	float height = layout.Height();
+	if (fLayoutData.overridden)
+		height += fLayoutData.topInset + fLayoutData.bottomInset;
+
+	if (min != nullptr)
+		*min = height;
+	if (max != nullptr)
+		*max = kSizeUnlimited;
+	if (preferred != nullptr)
+		*preferred = height;
+}
+
+
+void
+BTextView::LayoutInvalidated(bool /*descendants*/)
+{
+	fLayoutData.valid = false;
+}
+
+
+void
+BTextView::DoLayout()
+{
+	// Bail out, if we shan't do layout.
+	if (!Flags().Has(BViewFlag::SupportsLayout))
+		return;
+
+	// If the user set a layout, we let the base class version call its
+	// hook.
+	if (GetLayout() != nullptr) {
+		BView::DoLayout();
+		return;
+	}
+
+	_ValidateLayoutData();
+
+	// reset the text rect
+	_ResetTextRect();
+}
+
+
+// #pragma mark - hooks
+
+
+void
+BTextView::InsertText(std::string_view text, int32 offset)
+{
+	offset = std::clamp(offset, 0, TextLength());
+
+	const auto length = static_cast<int32>(text.size());
+	if (length > 0) {
+		// add the text to the buffer
+		fText.insert(static_cast<std::size_t>(offset), text);
+
+		// update the selection
+		if (offset <= fSelEnd) {
+			fSelStart += length;
+			fCaretOffset = fSelEnd = fSelStart;
+		}
+	}
+}
+
+
+void
+BTextView::DeleteText(int32 fromOffset, int32 toOffset)
+{
+	fromOffset = std::clamp(fromOffset, 0, TextLength());
+	toOffset = std::clamp(toOffset, 0, TextLength());
+
+	if (fromOffset >= toOffset)
+		return;
+
+	// remove from the text buffer
+	fText.erase(static_cast<std::size_t>(fromOffset),
+		static_cast<std::size_t>(toOffset - fromOffset));
+
+	// update the selection
+	const int32 range = toOffset - fromOffset;
+	if (fSelStart >= toOffset) {
+		// selection is behind the range that was removed
+		fSelStart -= range;
+		fSelEnd -= range;
+	} else if (fSelStart >= fromOffset && fSelEnd <= toOffset) {
+		// the selection is within the range that was removed
+		fSelStart = fSelEnd = fromOffset;
+	} else if (fSelStart >= fromOffset && fSelEnd > toOffset) {
+		// the selection starts within and ends after the range
+		// the remaining part is the part that was after the range
+		fSelStart = fromOffset;
+		fSelEnd = fromOffset + fSelEnd - toOffset;
+	} else if (fSelStart < fromOffset && fSelEnd < toOffset) {
+		// the selection starts before, but ends within the range
+		fSelEnd = fromOffset;
+	} else if (fSelStart < fromOffset && fSelEnd >= toOffset) {
+		// the selection starts before and ends after the range
+		fSelEnd -= range;
+	}
+}
+
+
+// #pragma mark - private
+
+
+void
+BTextView::_InitObject(gfx::Rect textRect)
+{
+	fTextRect = textRect;
+	_UpdateInsets(textRect);
+	AdoptSystemColors();
+	_Relayout();
+}
+
+
+void
+BTextView::_ValidateLayoutData()
+{
+	if (fLayoutData.valid)
+		return;
+
+	const float lineHeight = std::ceil(LineHeight(0));
+
+	gfx::Size min{lineHeight * 3, lineHeight};
+	min.w += fLayoutData.leftInset + fLayoutData.rightInset;
+	min.h += fLayoutData.topInset + fLayoutData.bottomInset;
+
+	fLayoutData.min = min;
+
+	// compute our preferred size
+	fLayoutData.preferred.h = _TextHeight();
+
+	if (fWrap)
+		fLayoutData.preferred.w = min.w + 5 * lineHeight;
+	else {
+		float maxWidth = fLayout.MaxWidth() + fLayoutData.leftInset + fLayoutData.rightInset;
+		if (maxWidth < min.w)
+			maxWidth = min.w;
+
+		fLayoutData.preferred.w = maxWidth;
+		fLayoutData.min = fLayoutData.preferred;
+	}
+
+	fLayoutData.valid = true;
+	ResetLayoutInvalidation();
+}
+
+
+void
+BTextView::_ResetTextRect()
+{
+	const gfx::Rect bounds = Bounds();
+	fTextRect = {fLayoutData.leftInset, fLayoutData.topInset,
+		bounds.Width() - fLayoutData.rightInset, bounds.Height() - fLayoutData.bottomInset};
+
+	_Refresh();
+}
+
+
+void
+BTextView::_Relayout()
+{
+	// Haiku's _RecalculateLineBreaks() for all of the text: the text rect
+	// keeps its left, top and (when wrapping) right edges; its height is
+	// the text's. Without wrapping it is as wide as the widest line, placed
+	// by the alignment.
+	const TextSystem& system = TextSystem::Default();
+	const gfx::Rect bounds = Bounds();
+	const float left = fLayoutData.leftInset;
+	const float right = bounds.Width() - fLayoutData.rightInset;
+
+	// update text rect (Haiku: after the lines, from the bounds and insets)
+	fTextRect.x0 = left;
+	fTextRect.x1 = right;
+	fTextRect.y0 = fLayoutData.topInset;
+	TextLayoutOptions options{.width = std::max(fTextRect.Width(), 0.0f), .wrap = fWrap,
+		.tabWidth = fTabWidth, .alignment = fAlignment};
+
+	if (!fWrap) {
+		const TextLayout measured(system, fText, FontRole::Plain,
+			{.width = 0, .wrap = false, .tabWidth = fTabWidth});
+		const float minTextRectWidth = std::max(std::round(measured.MaxWidth()), 1.0f);
+		switch (fAlignment) {
+			default:
+			case BHorizontalAlignment::Left:
+				// move right edge
+				fTextRect.x0 = left;
+				fTextRect.x1 = left + minTextRectWidth;
+				break;
+
+			case BHorizontalAlignment::Right:
+				// move left edge
+				fTextRect.x1 = right;
+				fTextRect.x0 = right - minTextRectWidth;
+				break;
+
+			case BHorizontalAlignment::Center:
+			{
+				// move both edges
+				const float inset = (right - left - minTextRectWidth) / 2;
+				fTextRect.x0 = left + inset;
+				fTextRect.x1 = right - inset;
+				break;
+			}
+		}
+		options.width = fTextRect.Width();
+	}
+
+	fLayout = TextLayout(system, fText, FontRole::Plain, options);
+
+	// always set text rect bottom (Haiku's _ValidateTextRect(): at least
+	// one pixel)
+	fTextRect.y1 = fTextRect.y0 + std::max(fLayout.Height(), 1.0f);
+	if (fTextRect.x1 <= fTextRect.x0)
+		fTextRect.x1 = fTextRect.x0 + 1;
+}
+
+
+void
+BTextView::_Refresh(std::optional<int32> scrollTo)
+{
+	// recalculate line breaks and redraw everything (NewGUI: Haiku
+	// recalculated and drew only the lines from fromOffset to toOffset)
+	_Relayout();
+
+	if (Window() == nullptr)
+		return;
+
+	Invalidate();
+	_UpdateScrollbars();
+
+	if (scrollTo.has_value())
+		ScrollToOffset(*scrollTo);
+}
+
+
+int32
+BTextView::_CurrentModifiers() const
+{
+	const BMessage* currentMessage = Window() != nullptr ? Window()->CurrentMessage() : nullptr;
+	return currentMessage != nullptr ? currentMessage->GetInt32("modifiers", 0) : 0;
+}
+
+
+void
+BTextView::_HandleBackspace(int32 modifiers)
+{
+	if (!fEditable)
+		return;
+
+	if (modifiers < 0)
+		modifiers = _CurrentModifiers();
+
+	const auto flags = BModifierFlags::FromRaw(static_cast<uint32>(modifiers));
+	const bool controlKeyDown = flags.Has(BModifier::Control);
+	const bool optionKeyDown = flags.Has(BModifier::Option);
+	const bool commandKeyDown = flags.Has(BModifier::Command);
+
+	if ((commandKeyDown || optionKeyDown) && !controlKeyDown) {
+		fSelStart = _PreviousWordStart(fCaretOffset - 1);
+		fSelEnd = fCaretOffset;
+	}
+
+	if (fSelStart == fSelEnd) {
+		if (fSelStart != 0)
+			fSelStart = _PreviousInitialByte(fSelStart);
+	} else
+		Highlight(fSelStart, fSelEnd);
+
+	DeleteText(fSelStart, fSelEnd);
+	fCaretOffset = fSelEnd = fSelStart;
+
+	_Refresh(fCaretOffset);
+}
+
+
+void
+BTextView::_HandleArrowKey(uint8 arrowKey, int32 modifiers)
+{
+	// return if there's nothing left to do
+	if (TextLength() == 0)
+		return;
+
+	int32 selStart = fSelStart;
+	int32 selEnd = fSelEnd;
+
+	if (modifiers < 0)
+		modifiers = _CurrentModifiers();
+
+	const auto flags = BModifierFlags::FromRaw(static_cast<uint32>(modifiers));
+	const bool shiftKeyDown = flags.Has(BModifier::Shift);
+	const bool controlKeyDown = flags.Has(BModifier::Control);
+	const bool optionKeyDown = flags.Has(BModifier::Option);
+	const bool commandKeyDown = flags.Has(BModifier::Command);
+
+	const int32 lastClickOffset = fCaretOffset;
+
+	switch (arrowKey) {
+		case keys::kLeftArrow:
+			if (!fEditable && !fSelectable)
+				_ScrollBy(-kHorizontalScrollBarStep, 0);
+			else if (fSelStart != fSelEnd && !shiftKeyDown)
+				fCaretOffset = fSelStart;
+			else {
+				if ((commandKeyDown || optionKeyDown) && !controlKeyDown)
+					fCaretOffset = _PreviousWordStart(fCaretOffset - 1);
+				else
+					fCaretOffset = _PreviousInitialByte(fCaretOffset);
+
+				if (shiftKeyDown && fCaretOffset != lastClickOffset) {
+					if (fCaretOffset < fSelStart) {
+						// extend selection to the left
+						selStart = fCaretOffset;
+						if (lastClickOffset > fSelStart) {
+							// caret has jumped across "anchor"
+							selEnd = fSelStart;
+						}
+					} else {
+						// shrink selection from the right
+						selEnd = fCaretOffset;
+					}
+				}
+			}
+			break;
+
+		case keys::kRightArrow:
+			if (!fEditable && !fSelectable)
+				_ScrollBy(kHorizontalScrollBarStep, 0);
+			else if (fSelStart != fSelEnd && !shiftKeyDown)
+				fCaretOffset = fSelEnd;
+			else {
+				if ((commandKeyDown || optionKeyDown) && !controlKeyDown)
+					fCaretOffset = _NextWordEnd(fCaretOffset);
+				else
+					fCaretOffset = _NextInitialByte(fCaretOffset);
+
+				if (shiftKeyDown && fCaretOffset != lastClickOffset) {
+					if (fCaretOffset > fSelEnd) {
+						// extend selection to the right
+						selEnd = fCaretOffset;
+						if (lastClickOffset < fSelEnd) {
+							// caret has jumped across "anchor"
+							selStart = fSelEnd;
+						}
+					} else {
+						// shrink selection from the left
+						selStart = fCaretOffset;
+					}
+				}
+			}
+			break;
+
+		case keys::kUpArrow:
+		{
+			if (!fEditable && !fSelectable)
+				_ScrollBy(0, -kVerticalScrollBarStep);
+			else if (fSelStart != fSelEnd && !shiftKeyDown)
+				fCaretOffset = fSelStart;
+			else {
+				if (optionKeyDown && !commandKeyDown && !controlKeyDown)
+					fCaretOffset = _PreviousLineStart(fCaretOffset);
+				else if (commandKeyDown && !optionKeyDown && !controlKeyDown) {
+					_ScrollTo(0, 0);
+					fCaretOffset = 0;
+				} else {
+					float height;
+					gfx::Point point = PointAt(fCaretOffset, &height);
+					// find the caret position on the previous
+					// line by gradually moving the point up
+					for (int i = 1; static_cast<float>(i) <= height; i++) {
+						point.y--;
+						const int32 offset = OffsetAt(point);
+						if (offset < fCaretOffset || static_cast<float>(i) == height) {
+							fCaretOffset = offset;
+							break;
+						}
+					}
+				}
+
+				if (shiftKeyDown && fCaretOffset != lastClickOffset) {
+					if (fCaretOffset < fSelStart) {
+						// extend selection to the top
+						selStart = fCaretOffset;
+						if (lastClickOffset > fSelStart) {
+							// caret has jumped across "anchor"
+							selEnd = fSelStart;
+						}
+					} else {
+						// shrink selection from the bottom
+						selEnd = fCaretOffset;
+					}
+				}
+			}
+			break;
+		}
+
+		case keys::kDownArrow:
+		{
+			if (!fEditable && !fSelectable)
+				_ScrollBy(0, kVerticalScrollBarStep);
+			else if (fSelStart != fSelEnd && !shiftKeyDown)
+				fCaretOffset = fSelEnd;
+			else {
+				if (optionKeyDown && !commandKeyDown && !controlKeyDown)
+					fCaretOffset = _NextLineEnd(fCaretOffset);
+				else if (commandKeyDown && !optionKeyDown && !controlKeyDown) {
+					_ScrollTo(0, fTextRect.y1 + fLayoutData.bottomInset);
+					fCaretOffset = TextLength();
+				} else {
+					float height;
+					gfx::Point point = PointAt(fCaretOffset, &height);
+					point.y += height;
+					fCaretOffset = OffsetAt(point);
+				}
+
+				if (shiftKeyDown && fCaretOffset != lastClickOffset) {
+					if (fCaretOffset > fSelEnd) {
+						// extend selection to the bottom
+						selEnd = fCaretOffset;
+						if (lastClickOffset < fSelEnd) {
+							// caret has jumped across "anchor"
+							selStart = fSelEnd;
+						}
+					} else {
+						// shrink selection from the top
+						selStart = fCaretOffset;
+					}
+				}
+			}
+			break;
+		}
+
+		default:
+			break;
+	}
+
+	if (fEditable || fSelectable) {
+		if (shiftKeyDown)
+			Select(selStart, selEnd);
+		else
+			Select(fCaretOffset, fCaretOffset);
+
+		// scroll if needed
+		ScrollToOffset(fCaretOffset);
+	}
+}
+
+
+void
+BTextView::_HandleDelete(int32 modifiers)
+{
+	if (!fEditable)
+		return;
+
+	if (modifiers < 0)
+		modifiers = _CurrentModifiers();
+
+	const auto flags = BModifierFlags::FromRaw(static_cast<uint32>(modifiers));
+	const bool controlKeyDown = flags.Has(BModifier::Control);
+	const bool optionKeyDown = flags.Has(BModifier::Option);
+	const bool commandKeyDown = flags.Has(BModifier::Command);
+
+	if ((commandKeyDown || optionKeyDown) && !controlKeyDown) {
+		fSelStart = fCaretOffset;
+		// NewGUI: the next grapheme (Haiku: + 1)
+		fSelEnd = _NextInitialByte(_NextWordEnd(fCaretOffset));
+	}
+
+	if (fSelStart == fSelEnd) {
+		if (fSelEnd != TextLength())
+			fSelEnd = _NextInitialByte(fSelEnd);
+	} else
+		Highlight(fSelStart, fSelEnd);
+
+	DeleteText(fSelStart, fSelEnd);
+	fCaretOffset = fSelEnd = fSelStart;
+
+	_Refresh(fCaretOffset);
+}
+
+
+void
+BTextView::_HandlePageKey(uint8 pageKey, int32 modifiers)
+{
+	if (modifiers < 0)
+		modifiers = _CurrentModifiers();
+
+	const auto flags = BModifierFlags::FromRaw(static_cast<uint32>(modifiers));
+	const bool shiftKeyDown = flags.Has(BModifier::Shift);
+	const bool controlKeyDown = flags.Has(BModifier::Control);
+	const bool optionKeyDown = flags.Has(BModifier::Option);
+	const bool commandKeyDown = flags.Has(BModifier::Command);
+
+	int32 selStart = fSelStart;
+	int32 selEnd = fSelEnd;
+
+	const int32 lastClickOffset = fCaretOffset;
+	switch (pageKey) {
+		case keys::kHome:
+			if (!fEditable && !fSelectable) {
+				fCaretOffset = 0;
+				_ScrollTo(0, 0);
+				break;
+			} else {
+				if (commandKeyDown && !optionKeyDown && !controlKeyDown) {
+					_ScrollTo(0, 0);
+					fCaretOffset = 0;
+				} else {
+					// move cursor to start of current line
+					fCaretOffset = OffsetAt(LineAt(lastClickOffset));
+				}
+
+				if (!shiftKeyDown)
+					selStart = selEnd = fCaretOffset;
+				else if (fCaretOffset != lastClickOffset) {
+					if (fCaretOffset < fSelStart) {
+						// extend selection to the left
+						selStart = fCaretOffset;
+						if (lastClickOffset > fSelStart) {
+							// caret has jumped across "anchor"
+							selEnd = fSelStart;
+						}
+					} else {
+						// shrink selection from the right
+						selEnd = fCaretOffset;
+					}
+				}
+			}
+			break;
+
+		case keys::kEnd:
+			if (!fEditable && !fSelectable) {
+				fCaretOffset = TextLength();
+				_ScrollTo(0, fTextRect.y1 + fLayoutData.bottomInset);
+				break;
+			} else {
+				if (commandKeyDown && !optionKeyDown && !controlKeyDown) {
+					_ScrollTo(0, fTextRect.y1 + fLayoutData.bottomInset);
+					fCaretOffset = TextLength();
+				} else {
+					// If we are on the last line, just go to the last
+					// character in the buffer, otherwise get the starting
+					// offset of the next line, and go to the previous
+					// character
+					const int32 currentLine = LineAt(lastClickOffset);
+					if (currentLine + 1 < CountLines()
+						&& !_IsOnEmptyLastLine(OffsetAt(currentLine + 1))) {
+						fCaretOffset = _PreviousInitialByte(OffsetAt(currentLine + 1));
+					} else {
+						if (fCaretOffset != TextLength()) {
+							// This check is needed to avoid moving the
+							// cursor when the cursor is on the last line,
+							// and that line is empty
+							fCaretOffset = TextLength();
+							if (ByteAt(fCaretOffset - 1) == '\n')
+								fCaretOffset--;
+						}
+					}
+				}
+
+				if (!shiftKeyDown)
+					selStart = selEnd = fCaretOffset;
+				else if (fCaretOffset != lastClickOffset) {
+					if (fCaretOffset > fSelEnd) {
+						// extend selection to the right
+						selEnd = fCaretOffset;
+						if (lastClickOffset < fSelEnd) {
+							// caret has jumped across "anchor"
+							selStart = fSelEnd;
+						}
+					} else {
+						// shrink selection from the left
+						selStart = fCaretOffset;
+					}
+				}
+			}
+			break;
+
+		case keys::kPageUp:
+		{
+			float lineHeight;
+			const gfx::Point currentPos = PointAt(fCaretOffset, &lineHeight);
+			gfx::Point nextPos{currentPos.x, currentPos.y + lineHeight - Bounds().Height()};
+			fCaretOffset = OffsetAt(nextPos);
+			nextPos = PointAt(fCaretOffset);
+			_ScrollBy(0, nextPos.y - currentPos.y);
+
+			if (!fEditable && !fSelectable)
+				break;
+
+			if (!shiftKeyDown)
+				selStart = selEnd = fCaretOffset;
+			else if (fCaretOffset != lastClickOffset) {
+				if (fCaretOffset < fSelStart) {
+					// extend selection to the top
+					selStart = fCaretOffset;
+					if (lastClickOffset > fSelStart) {
+						// caret has jumped across "anchor"
+						selEnd = fSelStart;
+					}
+				} else {
+					// shrink selection from the bottom
+					selEnd = fCaretOffset;
+				}
+			}
+
+			break;
+		}
+
+		case keys::kPageDown:
+		{
+			const gfx::Point currentPos = PointAt(fCaretOffset);
+			gfx::Point nextPos{currentPos.x, currentPos.y + Bounds().Height()};
+			fCaretOffset = OffsetAt(nextPos);
+			nextPos = PointAt(fCaretOffset);
+			_ScrollBy(0, nextPos.y - currentPos.y);
+
+			if (!fEditable && !fSelectable)
+				break;
+
+			if (!shiftKeyDown)
+				selStart = selEnd = fCaretOffset;
+			else if (fCaretOffset != lastClickOffset) {
+				if (fCaretOffset > fSelEnd) {
+					// extend selection to the bottom
+					selEnd = fCaretOffset;
+					if (lastClickOffset < fSelEnd) {
+						// caret has jumped across "anchor"
+						selStart = fSelEnd;
+					}
+				} else {
+					// shrink selection from the top
+					selStart = fCaretOffset;
+				}
+			}
+
+			break;
+		}
+
+		default:
+			break;
+	}
+
+	if (fEditable || fSelectable) {
+		if (shiftKeyDown)
+			Select(selStart, selEnd);
+		else
+			Select(fCaretOffset, fCaretOffset);
+
+		ScrollToOffset(fCaretOffset);
+	}
+}
+
+
+void
+BTextView::_HandleAlphaKey(std::string_view bytes)
+{
+	if (!fEditable)
+		return;
+
+	if (fSelStart != fSelEnd) {
+		Highlight(fSelStart, fSelEnd);
+		DeleteText(fSelStart, fSelEnd);
+	}
+
+	// we're only going to handle the first character
+	if (fAutoindent && bytes.size() == 1 && bytes[0] == keys::kEnter) {
+		int32 start;
+		int32 offset;
+		start = offset = OffsetAt(LineAt(fSelStart));
+
+		while (ByteAt(offset) != '\0'
+			&& (ByteAt(offset) == keys::kTab || ByteAt(offset) == keys::kSpace)
+			&& offset < fSelStart) {
+			offset++;
+		}
+
+		_DoInsertText(bytes, fSelStart);
+		if (start != offset) {
+			const std::string indent = GetText(start, offset - start);
+			_DoInsertText(indent, fSelStart);
+		}
+	} else
+		_DoInsertText(bytes, fSelStart);
+
+	fCaretOffset = fSelEnd;
+	ScrollToOffset(fCaretOffset);
+}
+
+
+void
+BTextView::_DoInsertText(std::string_view text, int32 offset)
+{
+	// Don't do any work if the text view is full
+	if (TextLength() + static_cast<int32>(text.size()) > MaxBytes())
+		return;
+
+	if (fSelStart != fSelEnd)
+		Select(fSelStart, fSelStart);
+
+	offset = std::min(offset, TextLength());
+
+	// copy data into buffer
+	InsertText(text, offset);
+
+	// recalc line breaks and draw the text
+	_Refresh();
+}
+
+
+void
+BTextView::_ShowCaret()
+{
+	if (fActive && !fCaretVisible && (fEditable || fSelectable) && fSelStart == fSelEnd) {
+		fCaretVisible = true;
+		_InvalidateCaret();
+		_StartBlinking();
+	}
+}
+
+
+void
+BTextView::_HideCaret()
+{
+	if (fCaretVisible && fSelStart == fSelEnd) {
+		fCaretVisible = false;
+		_InvalidateCaret();
+	}
+}
+
+
+void
+BTextView::_InvalidateCaret()
+{
+	// NewGUI: views are redrawn whole
+	Invalidate();
+}
+
+
+void
+BTextView::_StartBlinking()
+{
+	// NewGUI: the caret changes every 500 ms from now on (Haiku: Pulse(),
+	// 500 ms after fCaretTime)
+	if (Window() == nullptr)
+		return;
+	fCaretRunner = std::make_unique<BMessageRunner>(BMessenger(this),
+		BMessage(kMsgCaretBlink), kCaretBlinkRate);
+}
+
+
+void
+BTextView::_StopMouseTracking()
+{
+	fTrackingMouse.reset();
+}
+
+
+bool
+BTextView::_PerformMouseUp(gfx::Point /*where*/)
+{
+	if (!fTrackingMouse.has_value())
+		return false;
+
+	_StopMouseTracking();
+	return true;
+}
+
+
+bool
+BTextView::_PerformMouseMoved(gfx::Point where)
+{
+	if (!fTrackingMouse.has_value())
+		return false;
+
+	const int32 currentOffset = OffsetAt(where);
+
+	TrackState& tracking = *fTrackingMouse;
+	switch (fClickCount) {
+		case 3:
+			// triple click, extend selection linewise
+			if (currentOffset <= tracking.anchor) {
+				tracking.selStart = OffsetAt(LineAt(currentOffset));
+				tracking.selEnd = tracking.shiftDown ? fSelEnd
+					: OffsetAt(LineAt(tracking.anchor) + 1);
+			} else {
+				tracking.selStart = tracking.shiftDown ? fSelStart
+					: OffsetAt(LineAt(tracking.anchor));
+				tracking.selEnd = OffsetAt(LineAt(currentOffset) + 1);
+			}
+			break;
+
+		case 2:
+			// double click, extend selection wordwise
+			if (currentOffset <= tracking.anchor) {
+				tracking.selStart = _PreviousWordBoundary(currentOffset);
+				tracking.selEnd = tracking.shiftDown ? fSelEnd
+					: _NextWordBoundary(tracking.anchor);
+			} else {
+				tracking.selStart = tracking.shiftDown ? fSelStart
+					: _PreviousWordBoundary(tracking.anchor);
+				tracking.selEnd = _NextWordBoundary(currentOffset);
+			}
+			break;
+
+		default:
+			// new click, extend selection char by char
+			if (currentOffset <= tracking.anchor) {
+				tracking.selStart = currentOffset;
+				tracking.selEnd = tracking.shiftDown ? fSelEnd : tracking.anchor;
+			} else {
+				tracking.selStart = tracking.shiftDown ? fSelStart : tracking.anchor;
+				tracking.selEnd = currentOffset;
+			}
+			break;
+	}
+
+	// position caret to follow the direction of the selection
+	if (tracking.selEnd != fSelEnd)
+		fCaretOffset = tracking.selEnd;
+	else if (tracking.selStart != fSelStart)
+		fCaretOffset = tracking.selStart;
+
+	Select(tracking.selStart, tracking.selEnd);
+	return true;
+}
+
+
+void
+BTextView::_UpdateScrollbars()
+{
+	const gfx::Rect bounds = Bounds();
+	BScrollBar* horizontalScrollBar = ScrollBar(BOrientation::Horizontal);
+	BScrollBar* verticalScrollBar = ScrollBar(BOrientation::Vertical);
+
+	// do we have a horizontal scroll bar?
+	if (horizontalScrollBar != nullptr) {
+		const float viewWidth = bounds.Width();
+		const float dataWidth = std::ceil(_TextWidth());
+
+		const float maxRange = std::max(dataWidth - viewWidth, 0.0f);
+
+		horizontalScrollBar->SetRange(0, maxRange);
+		horizontalScrollBar->SetProportion(viewWidth / dataWidth);
+		horizontalScrollBar->SetSteps(kHorizontalScrollBarStep, dataWidth / 10);
+	}
+
+	// how about a vertical scroll bar?
+	if (verticalScrollBar != nullptr) {
+		const float viewHeight = bounds.Height();
+		const float dataHeight = std::ceil(_TextHeight());
+
+		const float maxRange = std::max(dataHeight - viewHeight, 0.0f);
+
+		verticalScrollBar->SetRange(0, maxRange);
+		verticalScrollBar->SetProportion(viewHeight / dataHeight);
+		verticalScrollBar->SetSteps(kVerticalScrollBarStep, viewHeight);
+	}
+}
+
+
+void
+BTextView::_ScrollBy(float horizontal, float vertical)
+{
+	const gfx::Rect bounds = Bounds();
+	_ScrollTo(bounds.x0 + horizontal, bounds.y0 + vertical);
+}
+
+
+void
+BTextView::_ScrollTo(float x, float y)
+{
+	const gfx::Rect bounds = Bounds();
+	const float viewWidth = bounds.Width();
+	const float viewHeight = bounds.Height();
+
+	const float minWidth = fTextRect.x0 - fLayoutData.leftInset;
+	const float maxWidth = fTextRect.x1 + fLayoutData.rightInset - viewWidth;
+	const float minHeight = fTextRect.y0 - fLayoutData.topInset;
+	const float maxHeight = fTextRect.y1 + fLayoutData.bottomInset - viewHeight;
+
+	if (x > maxWidth)
+		x = maxWidth;
+	if (x < minWidth)
+		x = minWidth;
+	if (y > maxHeight)
+		y = maxHeight;
+	if (y < minHeight)
+		y = minHeight;
+
+	ScrollTo({x, y});
+}
+
+
+void
+BTextView::_Activate()
+{
+	fActive = true;
+
+	if (fSelStart != fSelEnd) {
+		if (fSelectable)
+			Highlight(fSelStart, fSelEnd);
+	} else
+		_ShowCaret();
+
+	BWindow* window = Window();
+	if (window == nullptr)
+		return;
+
+	// The window keeps Command keys for its shortcuts: those the text view
+	// handles come to it as shortcuts, if the window has none of its own.
+	for (const auto& pair : kNavigationShortcuts) {
+		if (window->HasShortcut(pair[0].key, pair[0].modifiers)
+			|| window->HasShortcut(pair[1].key, pair[1].modifiers)) {
+			continue;
+		}
+		for (const NavigationShortcut& shortcut : pair) {
+			auto message = std::make_unique<BMessage>(shortcut.what);
+			(void)message->AddInt32("key", shortcut.key);
+			(void)message->AddInt32("modifiers",
+				static_cast<int32>(shortcut.modifiers.Raw()));
+			window->AddShortcut(shortcut.key, shortcut.modifiers, std::move(message), this);
+			fInstalledShortcuts.emplace_back(shortcut.key, shortcut.modifiers);
+		}
+	}
+}
+
+
+void
+BTextView::_Deactivate()
+{
+	fActive = false;
+	fCaretRunner.reset();
+
+	if (fSelStart != fSelEnd) {
+		if (fSelectable)
+			Highlight(fSelStart, fSelEnd);
+	} else
+		_HideCaret();
+
+	if (BWindow* window = Window()) {
+		for (const auto& [key, modifiers] : fInstalledShortcuts)
+			window->RemoveShortcut(key, modifiers);
+	}
+	fInstalledShortcuts.clear();
+}
+
+
+uint32
+BTextView::_CharClassification(int32 offset) const
+{
+	switch (ByteAt(offset)) {
+		case '\0':
+			return CHAR_CLASS_END_OF_TEXT;
+
+		case keys::kSpace:
+		case keys::kTab:
+		case keys::kEnter:
+			return CHAR_CLASS_WHITESPACE;
+
+		case '=':
+		case '+':
+		case '@':
+		case '#':
+		case '$':
+		case '%':
+		case '^':
+		case '&':
+		case '*':
+		case '\\':
+		case '|':
+		case '<':
+		case '>':
+		case '/':
+		case '~':
+			return CHAR_CLASS_GRAPHICAL;
+
+		case '\'':
+		case '"':
+			return CHAR_CLASS_QUOTE;
+
+		case ',':
+		case '.':
+		case '?':
+		case '!':
+		case ';':
+		case ':':
+		case '-':
+			return CHAR_CLASS_PUNCTUATION;
+
+		case '(':
+		case '[':
+		case '{':
+			return CHAR_CLASS_PARENS_OPEN;
+
+		case ')':
+		case ']':
+		case '}':
+			return CHAR_CLASS_PARENS_CLOSE;
+
+		default:
+			return CHAR_CLASS_DEFAULT;
+	}
+}
+
+
+int32
+BTextView::_NextInitialByte(int32 offset) const
+{
+	// NewGUI: the next grapheme
+	if (offset >= TextLength())
+		return offset;
+	return static_cast<int32>(fLayout.CaretRight(static_cast<std::size_t>(std::max(offset, 0))));
+}
+
+
+int32
+BTextView::_PreviousInitialByte(int32 offset) const
+{
+	// NewGUI: the previous grapheme
+	if (offset <= 0)
+		return 0;
+	return static_cast<int32>(fLayout.CaretLeft(static_cast<std::size_t>(offset)));
+}
+
+
+int32
+BTextView::_PreviousLineStart(int32 offset)
+{
+	if (offset <= 0)
+		return 0;
+
+	while (offset > 0) {
+		offset = _PreviousInitialByte(offset);
+		if (_CharClassification(offset) == CHAR_CLASS_WHITESPACE && ByteAt(offset) == '\n')
+			return offset + 1;
+	}
+
+	return offset;
+}
+
+
+int32
+BTextView::_NextLineEnd(int32 offset)
+{
+	const int32 textLen = TextLength();
+	if (offset >= textLen)
+		return textLen;
+
+	while (offset < textLen) {
+		if (_CharClassification(offset) == CHAR_CLASS_WHITESPACE && ByteAt(offset) == '\n')
+			break;
+		offset = _NextInitialByte(offset);
+	}
+
+	return offset;
+}
+
+
+int32
+BTextView::_PreviousWordBoundary(int32 offset)
+{
+	const uint32 charType = _CharClassification(offset);
+	int32 previous;
+	while (offset > 0) {
+		previous = _PreviousInitialByte(offset);
+		if (_CharClassification(previous) != charType)
+			break;
+		offset = previous;
+	}
+
+	return offset;
+}
+
+
+int32
+BTextView::_NextWordBoundary(int32 offset)
+{
+	const int32 textLen = TextLength();
+	const uint32 charType = _CharClassification(offset);
+	while (offset < textLen) {
+		offset = _NextInitialByte(offset);
+		if (_CharClassification(offset) != charType)
+			break;
+	}
+
+	return offset;
+}
+
+
+int32
+BTextView::_PreviousWordStart(int32 offset)
+{
+	if (offset <= 1)
+		return 0;
+
+	--offset;
+		// need to look at previous char
+	if (_CharClassification(offset) != CHAR_CLASS_DEFAULT) {
+		// skip non-word characters
+		while (offset > 0) {
+			offset = _PreviousInitialByte(offset);
+			if (_CharClassification(offset) == CHAR_CLASS_DEFAULT)
+				break;
+		}
+	}
+	while (offset > 0) {
+		// skip to start of word
+		const int32 previous = _PreviousInitialByte(offset);
+		if (_CharClassification(previous) != CHAR_CLASS_DEFAULT)
+			break;
+		offset = previous;
+	}
+
+	return offset;
+}
+
+
+int32
+BTextView::_NextWordEnd(int32 offset)
+{
+	const int32 textLen = TextLength();
+	if (_CharClassification(offset) != CHAR_CLASS_DEFAULT) {
+		// skip non-word characters
+		while (offset < textLen) {
+			offset = _NextInitialByte(offset);
+			if (_CharClassification(offset) == CHAR_CLASS_DEFAULT)
+				break;
+		}
+	}
+	while (offset < textLen) {
+		// skip to end of word
+		offset = _NextInitialByte(offset);
+		if (_CharClassification(offset) != CHAR_CLASS_DEFAULT)
+			break;
+	}
+
+	return offset;
+}
+
+
+bool
+BTextView::_IsOnEmptyLastLine(int32 offset) const
+{
+	return offset == TextLength() && offset > 0 && ByteAt(offset - 1) == '\n';
+}
+
+
+void
+BTextView::_UpdateInsets(const gfx::Rect& rect)
+{
+	// do not update insets if SetInsets() was called
+	if (fLayoutData.overridden)
+		return;
+
+	const gfx::Rect bounds = Bounds();
+
+	// we disallow negative insets, as they would cause parts of the
+	// text to be hidden
+	fLayoutData.leftInset = rect.x0 >= bounds.x0 ? rect.x0 - bounds.x0 : 0;
+	fLayoutData.topInset = rect.y0 >= bounds.y0 ? rect.y0 - bounds.y0 : 0;
+	fLayoutData.rightInset = bounds.x1 >= rect.x1 ? bounds.x1 - rect.x1 : 0;
+	fLayoutData.bottomInset = bounds.y1 >= rect.y1 ? bounds.y1 - rect.y1 : 0;
+
+	// only add default insets if text rect is set to bounds
+	if (rect == bounds && (fEditable || fSelectable)) {
+		const float hPadding = Look().DefaultLabelSpacing(TextSystem::Default());
+		const float hInset = std::floor(hPadding / 2.0f);
+		const float vInset = 1;
+		fLayoutData.leftInset += hInset;
+		fLayoutData.topInset += vInset;
+		fLayoutData.rightInset += hInset;
+		fLayoutData.bottomInset += vInset;
+	}
+}
+
+
+float
+BTextView::_TextWidth() const
+{
+	return fTextRect.Width() + fLayoutData.leftInset + fLayoutData.rightInset;
+}
+
+
+float
+BTextView::_TextHeight() const
+{
+	return fTextRect.Height() + fLayoutData.topInset + fLayoutData.bottomInset;
+}
+
+
+float
+BTextView::_UneditableTint() const
+{
+	// Haiku's rgb_color::IsLight(): brightness above 127
+	const gfx::Color background = Palette::Default().Get(BColorWhich::DocumentBackground);
+	const float brightness = (background.r * 299 + background.g * 587
+		+ background.b * 114) * 255 / 1000;
+	return brightness > 127 ? kDarken1Tint : 0.853f;
+}
+
+
+} // namespace ngui

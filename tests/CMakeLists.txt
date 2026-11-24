@@ -34,6 +34,7 @@ add_executable(ngui_tests
     PaletteTest.cpp
     SupportDefsTest.cpp
     TextLayoutTest.cpp
+    TextViewTest.cpp
     TruncateStringTest.cpp
     VersionTest.cpp
     ViewTest.cpp
