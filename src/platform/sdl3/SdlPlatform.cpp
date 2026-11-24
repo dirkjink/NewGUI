@@ -59,6 +59,10 @@ struct WindowState {
 	gfx::PixelFormat		format = gfx::PixelFormat::Bgra8Premul;
 	std::vector<gfx::IntRect> dirty;
 	bool					showQueued = false;
+	// The size of SDL's window surface the last frame went into: SDL makes
+	// a new, empty one when the window's size changes.
+	int						surfaceWidth = 0;
+	int						surfaceHeight = 0;
 };
 
 
@@ -145,6 +149,14 @@ ShowFrame(WindowState& state)
 	SDL_Surface* surface = SDL_GetWindowSurface(state.window);
 	if (surface == nullptr)
 		return;
+
+	// A new surface (the window's size changed, under Wayland after the
+	// frame was drawn) holds nothing yet: all of the frame goes into it.
+	if (surface->w != state.surfaceWidth || surface->h != state.surfaceHeight) {
+		state.surfaceWidth = surface->w;
+		state.surfaceHeight = surface->h;
+		state.dirty.assign(1, gfx::IntRect{0, 0, state.width, state.height});
+	}
 
 	const gfx::CpuPixels source{state.width, state.height, state.stride, state.format,
 		state.pixels};
@@ -528,11 +540,15 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 			}
 			if (parentHandle == nullptr)
 				return Failure(ErrorCode::InvalidArgument, "the parent window is closed");
+			// Not focusable: SDL would give a popup menu the keyboard focus
+			// (under Wayland), and the window it belongs to would lose it,
+			// which ends the menus' tracking. The keys go to that window.
 			window = SDL_CreatePopupWindow(parentHandle,
 				static_cast<int>(std::lround(offset.x)), static_cast<int>(std::lround(offset.y)),
 				static_cast<int>(std::lround(spec.frame.Width())),
 				static_cast<int>(std::lround(spec.frame.Height())),
-				SDL_WINDOW_POPUP_MENU | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+				SDL_WINDOW_POPUP_MENU | SDL_WINDOW_NOT_FOCUSABLE | SDL_WINDOW_HIDDEN
+					| SDL_WINDOW_HIGH_PIXEL_DENSITY);
 			if (window == nullptr)
 				return Failure(ErrorCode::NotSupported, std::string("SDL: ") + SDL_GetError());
 		} else {
@@ -613,6 +629,33 @@ SdlPlatform::ProcessEvents()
 	}
 	fData->wakePending = false;
 	fData->RunWork();
+
+	// The window system shows a window anew or at another size: the last
+	// frame goes into it again, whole (SDL's new window surface is empty;
+	// under Wayland the size arrives after the frame was drawn).
+	for (const SDL_Event& shown : events) {
+		if (shown.type != SDL_EVENT_WINDOW_EXPOSED
+			&& shown.type != SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED
+			&& shown.type != SDL_EVENT_WINDOW_RESIZED) {
+			continue;
+		}
+		std::shared_ptr<WindowState> state;
+		{
+			std::scoped_lock guard(fData->lock);
+			const auto found = fData->windows.find(shown.window.windowID);
+			if (found != fData->windows.end())
+				state = found->second.lock();
+		}
+		if (state == nullptr)
+			continue;
+		{
+			std::scoped_lock lock(state->lock);
+			if (state->pixels.empty())
+				continue;
+			state->dirty.assign(1, gfx::IntRect{0, 0, state->width, state->height});
+		}
+		ShowFrame(*state);
+	}
 
 	if (!events.empty()) {
 		sdl3::TranslationContext context;
