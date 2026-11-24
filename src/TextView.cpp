@@ -244,7 +244,7 @@ BTextView::MouseDown(gfx::Point where)
 		return;
 	}
 
-	fTrackingMouse.emplace();
+	fTrackingMouse = TrackState{0, false, 0, 0, 0};
 	fTrackingMouse->clickOffset = OffsetAt(where);
 	fTrackingMouse->shiftDown
 		= BModifierFlags::FromRaw(static_cast<uint32>(modifiers)).Has(BModifier::Shift);

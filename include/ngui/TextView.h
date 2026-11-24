@@ -243,13 +243,14 @@ private:
 	};
 
 	// What MouseDown() starts and MouseMoved() follows (Haiku's
-	// TextTrackState).
+	// TextTrackState). No default member initializers: Clang does not
+	// count a nested class with them as constructible inside BTextView.
 	struct TrackState {
-		int32				clickOffset = 0;
-		bool				shiftDown = false;
-		int32				anchor = 0;
-		int32				selStart = 0;
-		int32				selEnd = 0;
+		int32				clickOffset;
+		bool				shiftDown;
+		int32				anchor;
+		int32				selStart;
+		int32				selEnd;
 	};
 
 			void				_InitObject(gfx::Rect textRect);
