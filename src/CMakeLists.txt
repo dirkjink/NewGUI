@@ -80,9 +80,11 @@ add_library(ngui
     ListItem.cpp
     ListView.cpp
     Palette.cpp
+    Polygon.cpp
     PopUpMenu.cpp
     RadioButton.cpp
     ScrollBar.cpp
+    Shape.cpp
     ScrollView.cpp
     Slider.cpp
     StatusBar.cpp
