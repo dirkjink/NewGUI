@@ -60,6 +60,7 @@ add_library(ngui
     TabView.cpp
     TextLayout.cpp
     TextSystem.cpp
+    TextView.cpp
     TruncateString.cpp
     TwoDimensionalLayout.cpp
     View.cpp

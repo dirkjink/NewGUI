@@ -35,6 +35,7 @@
 #include <ngui/SplitView.h>
 #include <ngui/StatusBar.h>
 #include <ngui/TabView.h>
+#include <ngui/TextView.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/SkiaBackend.h>
@@ -925,6 +926,61 @@ TEST(TextSkiaTest, MenuFieldFormMatchesItsSnapshot)
 		EXPECT_IMAGE_SNAPSHOT(*image, "MenuFieldForm", {.look = "be", .backend = "skia",
 			.scale = scale, .tolerance = Tolerance::Text()});
 	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, TextViewsMatchTheirSnapshots)
+{
+	// What is tested: A focused text view of 160 × 60 in an active window
+	// with "The quick brown fox jumps over the lazy dog", wrapped after
+	// "jumps ": with "quick brown fox jumps ov" selected across the two
+	// lines ("TextViewSelection"),
+	// with the caret after "quick" ("TextViewCaret"), and not editable
+	// without focus ("TextViewReadOnly"); recorded with the bundled font,
+	// rendered by Skia at scale 1 and 2.
+	// Success criteria: Within the text tolerance of 21.2: the text on the
+	// document background, wrapped at the view's width less the insets;
+	// the selection inverted (white on black) from "quick" to the right
+	// edge, the next line from the left edge to "ov"; a one pixel caret
+	// of the line's height; read only, the background a shade darker.
+	// Why it matters: The selection and the caret are drawn as Haiku's
+	// inversions; the text is laid out by TextLayout with the font's
+	// widths.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	BWindow window({0, 0, 300, 200}, "text");
+	auto* view = static_cast<BTextView*>(window.AddChild(std::make_unique<BTextView>(
+		gfx::Rect{0, 0, 160, 60}, "view", gfx::Rect{0, 0, 160, 60})));
+	view->SetText("The quick brown fox jumps over the lazy dog");
+	view->MakeFocus(true);
+	BMessage activated(kWindowActivated);
+	(void)activated.AddBool("active", true);
+	window.DispatchMessage(&activated, &window);
+
+	const auto snapshot = [&](const char* name) {
+		const DisplayListRef list = RecordTree(*view, *text);
+		for (const float scale : {1.0f, 2.0f}) {
+			SkiaBackend backend;
+			for (const FontFile& font : text->Fonts())
+				ASSERT_TRUE(backend.AddFont(font.id, font.data));
+			const auto image = RenderToImage(backend, *list, scale);
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, name, {.look = "be", .backend = "skia",
+				.scale = scale, .tolerance = Tolerance::Text()});
+		}
+	};
+
+	// When / Then
+	view->Select(4, 28);
+	snapshot("TextViewSelection");
+	view->Select(9, 9);
+	snapshot("TextViewCaret");
+	view->MakeFocus(false);
+	view->MakeEditable(false);
+	snapshot("TextViewReadOnly");
 	TextSystem::SetDefault(nullptr);
 }
 
