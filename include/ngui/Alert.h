@@ -24,6 +24,7 @@
 namespace ngui {
 
 
+class BBitmap;
 class BButton;
 class BGroupLayout;
 class BTextView;
@@ -56,9 +57,10 @@ enum class BButtonSpacing : std::uint8_t {
 	BPopUpMenu::Go(): it shows the alert and returns at once, the result
 	arrives through the invoker's message or a callback (Haiku's blocking
 	Go() returned the index). It is static, as the alert is handed to its
-	thread. No type icon yet (icons come as SVG), no sound, no archiving
-	and scripting. The alert is modal to the application
-	(BWindowFeel::ModalApp).
+	thread. The type icons are NewGUI's own SVG icons, drawn by the
+	VectorIconRenderer (none without one) and anew for the window's scale.
+	No sound, no archiving and scripting. The alert is modal to the
+	application (BWindowFeel::ModalApp).
 */
 class BAlert : public BWindow {
 public:
@@ -82,7 +84,16 @@ public:
 			BAlertType			Type() const;
 									/*!< What it is about. */
 			void				SetType(BAlertType type);
-									/*!< What it is about. */
+									/*!< What it is about; its icon, unless SetIcon() gave
+										one. */
+			void				SetIcon(std::unique_ptr<BBitmap> bitmap);
+									/*!< The icon left of the text instead of the type's
+										(Haiku took ownership of the pointer); nullptr
+										brings the type's back. */
+			BBitmap*			Icon() const;
+									/*!< The icon, once shown: SetIcon()'s or the type's;
+										nullptr if none (no type icon without a
+										VectorIconRenderer). */
 			void				SetText(std::string_view text);
 									/*!< Its text. */
 			void				SetButtonSpacing(BButtonSpacing spacing);
@@ -131,6 +142,7 @@ private:
 									BButtonWidth width, BButtonSpacing spacing,
 									BAlertType type);
 			BButton*			_CreateButton(int32 which, std::string_view label);
+			void				_CreateTypeIcon();
 			void				_Prepare(const gfx::Rect* parentFrame);
 			gfx::Point			_AlertPosition(const gfx::Rect& frame) const;
 	static	std::expected<BMessenger, Error> _Go(std::unique_ptr<BAlert> alert);

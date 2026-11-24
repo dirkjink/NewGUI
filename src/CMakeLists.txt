@@ -7,7 +7,31 @@ configure_file(
     "${PROJECT_BINARY_DIR}/include/ngui/Version.h"
     @ONLY)
 
+# NewGUI's system icons (data/icons/), embedded as generated sources; drawn
+# by the vector icon renderer (ngui_svg).
+set(embeddedIcons)
+foreach(icon IN ITEMS
+        "dialog-information|kDialogInformation"
+        "dialog-idea|kDialogIdea"
+        "dialog-warning|kDialogWarning"
+        "dialog-error|kDialogError")
+    string(REPLACE "|" ";" parts "${icon}")
+    list(GET parts 0 file)
+    list(GET parts 1 symbol)
+    set(input "${PROJECT_SOURCE_DIR}/data/icons/${file}.svg")
+    set(output "${CMAKE_CURRENT_BINARY_DIR}/icons/${file}.cpp")
+    add_custom_command(
+        OUTPUT "${output}"
+        COMMAND "${CMAKE_COMMAND}" "-DINPUT=${input}" "-DOUTPUT=${output}"
+            "-DSYMBOL=${symbol}" -P "${PROJECT_SOURCE_DIR}/cmake/NguiEmbedFile.cmake"
+        DEPENDS "${input}" "${PROJECT_SOURCE_DIR}/cmake/NguiEmbedFile.cmake"
+        COMMENT "Embedding ${file}.svg"
+        VERBATIM)
+    list(APPEND embeddedIcons "${output}")
+endforeach()
+
 add_library(ngui
+    ${embeddedIcons}
     AbstractLayout.cpp
     AbstractLayoutItem.cpp
     Alert.cpp
@@ -45,6 +69,7 @@ add_library(ngui
     Font.cpp
     GridLayout.cpp
     GroupLayout.cpp
+    IconUtils.cpp
     LayoutViews.cpp
     Handler.cpp
     Invoker.cpp
@@ -165,6 +190,21 @@ if(NGUI_WITH_TEXT)
             libunibreak::libunibreak)
     target_include_directories(ngui_text PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_text)
+endif()
+
+# Vector icons (module W7): lunasvg draws SVG into bitmaps, its own library:
+# lunasvg headers appear in its sources only.
+if(NGUI_WITH_SVG)
+    find_package(lunasvg CONFIG REQUIRED)
+    add_library(ngui_svg
+        svg/LunaSvgRenderer.cpp)
+    add_library(ngui::svg ALIAS ngui_svg)
+    target_link_libraries(ngui_svg
+        PUBLIC
+            ngui::ngui
+        PRIVATE
+            lunasvg::lunasvg)
+    ngui_configure_target(ngui_svg)
 endif()
 
 # The SDL3 platform (module P2), its own library: SDL headers appear in its

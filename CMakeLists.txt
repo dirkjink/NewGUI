@@ -18,7 +18,8 @@ option(NGUI_FUZZING "Build the libFuzzer executables with sanitizers (Clang)" OF
 option(NGUI_WITH_SKIA "Build with Skia (vcpkg feature skia)" OFF)
 option(NGUI_WITH_SDL3 "Build the SDL3 platform (vcpkg feature sdl3)" OFF)
 option(NGUI_WITH_TEXT "Build the text subsystem (vcpkg feature text)" OFF)
-option(NGUI_BUILD_EXAMPLES "Build the examples (needs Skia, SDL3 and the text subsystem)" OFF)
+option(NGUI_WITH_SVG "Build the vector icon renderer (vcpkg feature svg)" OFF)
+option(NGUI_BUILD_EXAMPLES "Build the examples (needs Skia, SDL3, the text subsystem and SVG)" OFF)
 
 # Minimum compilers (CONVENTIONS.md, section 1). Clang 17 and 18 do get
 # C++23, but not std::expected from libstdc++, so they fail later with less
@@ -52,9 +53,9 @@ if(NGUI_BUILD_TESTS)
 endif()
 
 if(NGUI_BUILD_EXAMPLES)
-    if(NOT NGUI_WITH_SKIA OR NOT NGUI_WITH_SDL3 OR NOT NGUI_WITH_TEXT)
-        message(FATAL_ERROR
-            "NGUI_BUILD_EXAMPLES needs NGUI_WITH_SKIA, NGUI_WITH_SDL3 and NGUI_WITH_TEXT")
+    if(NOT NGUI_WITH_SKIA OR NOT NGUI_WITH_SDL3 OR NOT NGUI_WITH_TEXT OR NOT NGUI_WITH_SVG)
+        message(FATAL_ERROR "NGUI_BUILD_EXAMPLES needs NGUI_WITH_SKIA, NGUI_WITH_SDL3, "
+            "NGUI_WITH_TEXT and NGUI_WITH_SVG")
     endif()
     add_subdirectory(examples)
 endif()

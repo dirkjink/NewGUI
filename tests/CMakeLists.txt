@@ -14,6 +14,9 @@ file(GLOB fuzzTargetSources CONFIGURE_DEPENDS
 if(NOT NGUI_WITH_TEXT)
     list(FILTER fuzzTargetSources EXCLUDE REGEX "/(Text|TextLayout)Fuzz\\.cpp$")
 endif()
+if(NOT NGUI_WITH_SVG)
+    list(FILTER fuzzTargetSources EXCLUDE REGEX "/VectorIconFuzz\\.cpp$")
+endif()
 
 add_executable(ngui_tests
     AlertTest.cpp
@@ -102,6 +105,12 @@ if(NGUI_WITH_TEXT)
     target_link_libraries(ngui_tests PRIVATE ngui::text)
 endif()
 
+# The vector icon renderer (vcpkg feature svg).
+if(NGUI_WITH_SVG)
+    target_sources(ngui_tests PRIVATE AlertIconTest.cpp IconUtilsTest.cpp)
+    target_link_libraries(ngui_tests PRIVATE ngui::svg)
+endif()
+
 ngui_configure_target(ngui_tests)
 
 # Snapshots (specification 20.5): the references are checked in under
@@ -113,9 +122,13 @@ set(snapshotArguments
     "--snapshot-dir=${CMAKE_CURRENT_SOURCE_DIR}/snapshots"
     "--snapshot-report-dir=${PROJECT_BINARY_DIR}/snapshot-report")
 
+# A test that hangs fails after five minutes instead of holding the CI job
+# until its time limit.
+set(testTimeout 300)
 gtest_discover_tests(ngui_tests
     DISCOVERY_MODE PRE_TEST
-    EXTRA_ARGS ${snapshotArguments})
+    EXTRA_ARGS ${snapshotArguments}
+    PROPERTIES TIMEOUT ${testTimeout})
 
 # libFuzzer executables, one per target: ngui_fuzz_<Name>. The list goes to
 # fuzz-targets.txt in the build directory.
@@ -130,6 +143,9 @@ if(NGUI_FUZZING)
         target_include_directories(ngui_fuzz_${name} PRIVATE "${PROJECT_SOURCE_DIR}/src")
         if(NGUI_WITH_TEXT)
             target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::text)
+        endif()
+        if(NGUI_WITH_SVG)
+            target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::svg)
         endif()
         ngui_configure_target(ngui_fuzz_${name})
         target_link_options(ngui_fuzz_${name} PRIVATE -fsanitize=fuzzer)
@@ -160,11 +176,17 @@ if(NGUI_WITH_SKIA)
         target_sources(ngui_skia_tests PRIVATE skia/TextSkiaTest.cpp)
         target_link_libraries(ngui_skia_tests PRIVATE ngui::text)
     endif()
+    # The alert's type icon (vcpkg feature svg).
+    if(NGUI_WITH_SVG)
+        target_link_libraries(ngui_skia_tests PRIVATE ngui::svg)
+        target_compile_definitions(ngui_skia_tests PRIVATE NGUI_TEST_WITH_SVG=1)
+    endif()
     target_include_directories(ngui_skia_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_skia_tests)
     gtest_discover_tests(ngui_skia_tests
         DISCOVERY_MODE PRE_TEST
-        EXTRA_ARGS ${snapshotArguments})
+        EXTRA_ARGS ${snapshotArguments}
+        PROPERTIES TIMEOUT ${testTimeout})
 endif()
 
 # SDL3 (vcpkg feature sdl3): the platform, with SDL's offscreen video driver,
@@ -186,5 +208,5 @@ if(NGUI_WITH_SDL3)
     ngui_configure_target(ngui_sdl3_tests)
     gtest_discover_tests(ngui_sdl3_tests
         DISCOVERY_MODE PRE_TEST
-        PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=offscreen")
+        PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT ${testTimeout})
 endif()

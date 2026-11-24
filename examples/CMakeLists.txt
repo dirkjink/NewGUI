@@ -10,5 +10,6 @@ target_link_libraries(ngui_example_button
     PRIVATE
         ngui::sdl3
         ngui::skia
+        ngui::svg
         ngui::text)
 ngui_configure_target(ngui_example_button)

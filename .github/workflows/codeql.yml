@@ -66,12 +66,12 @@ jobs:
           cache-key: skia-gcc-13
 
       # Configured before CodeQL starts tracing: vcpkg builds or restores
-      # Skia and SDL3 here, and their code is not ours to analyse.
+      # Skia, SDL3 and lunasvg here, and their code is not ours to analyse.
       - name: Configure (dependencies, not analysed)
         if: matrix.build-mode == 'manual'
         run: >-
           cmake --preset skia -DNGUI_BUILD_TESTS=OFF -DNGUI_BUILD_EXAMPLES=OFF
-          -DVCPKG_MANIFEST_FEATURES="text;skia;sdl3"
+          -DVCPKG_MANIFEST_FEATURES="text;svg;skia;sdl3"
 
       # Overlay databases (incremental PR analysis) need build-mode none.
       # For C++ the manual build stays: it is more precise, and a build-less

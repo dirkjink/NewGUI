@@ -149,12 +149,12 @@ jobs:
             mkdir -p "$dir"
             git archive HEAD | tar -x -C "$dir"
             (cd "$dir" \
-              && cmake --preset release -DNGUI_BUILD_TESTS=OFF -DVCPKG_MANIFEST_FEATURES=text \
+              && cmake --preset release -DNGUI_BUILD_TESTS=OFF -DVCPKG_MANIFEST_FEATURES="text;svg" \
               && cmake --build --preset release)
           done
-          # The core library and the text library, whose embedded fonts are
-          # generated during the build.
-          for library in libngui.a libngui_text.a; do
+          # The core library (with its embedded icons), the text library
+          # (embedded fonts) and the icon renderer.
+          for library in libngui.a libngui_text.a libngui_svg.a; do
             sha256sum "$RUNNER_TEMP"/a/NewGUI/build/release/src/$library \
               "$RUNNER_TEMP"/b/other/place/NewGUI/build/release/src/$library | tee hashes.txt
             test "$(cut -d' ' -f1 hashes.txt | sort -u | wc -l)" -eq 1
@@ -264,7 +264,7 @@ jobs:
       # Everything that ships: the default dependencies, the text subsystem,
       # Skia and SDL3, without the test-only "tests" feature.
       - name: Install the shipped dependencies
-        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=text --x-feature=skia --x-feature=sdl3 --x-install-root=build/sbom/vcpkg_installed'
+        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=text --x-feature=svg --x-feature=skia --x-feature=sdl3 --x-install-root=build/sbom/vcpkg_installed'
 
       - name: Generate the SPDX SBOM of the shipped dependencies
         run: python3 .github/scripts/vcpkg-sbom.py build/sbom/vcpkg_installed/x64-linux build/sbom/newgui.spdx.json

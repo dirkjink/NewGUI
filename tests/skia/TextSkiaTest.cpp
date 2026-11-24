@@ -49,6 +49,10 @@
 #include <ngui/TextControl.h>
 #include <ngui/TextView.h>
 #include <ngui/ToolTip.h>
+#if NGUI_TEST_WITH_SVG
+#include <ngui/IconUtils.h>
+#include <ngui/svg/LunaSvgRenderer.h>
+#endif
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/SkiaBackend.h>
@@ -1080,16 +1084,23 @@ TEST(TextSkiaTest, AlertMatchesItsSnapshot)
 	// What is tested: A warning alert "Save changes to the document
 	// \"Untitled\" before closing?" with "Cancel", "Don't save" and "Save",
 	// offset spacing, shown by Go(); its window recorded on its own thread
-	// with the bundled font, rendered by Skia at scale 1 and 2 ("Alert").
+	// with the bundled font and NewGUI's warning icon (lunasvg), rendered by
+	// Skia at scale 1 and 2 ("Alert").
 	// Success criteria: Within the text tolerance of 21.2: Haiku's layout:
-	// the darker stripe on the left and the room of the (later) icon, the
-	// text wrapped beside it on the panel background, the buttons at the
-	// bottom right, "Cancel" apart from the others, "Save" the default
-	// button with its frame.
+	// the darker stripe on the left with the yellow warning triangle over
+	// its edge, the text wrapped beside it on the panel background, the
+	// buttons at the bottom right, "Cancel" apart from the others, "Save"
+	// the default button with its frame.
 	// Why it matters: Alerts are the most common dialog; they are laid out
 	// from Haiku's constants.
 	//
 	// Given
+#if NGUI_TEST_WITH_SVG
+	const svg::LunaSvgRenderer icons;
+	VectorIconRenderer::SetDefault(&icons);
+#else
+	GTEST_SKIP() << "the alert's icon needs the vcpkg feature svg";
+#endif
 	const auto text = std::move(*text::FontTextSystem::CreateBundled());
 	TextSystem::SetDefault(text.get());
 	constexpr std::uint32_t kRecord = FourCharCode("RCRD");
@@ -1143,6 +1154,7 @@ TEST(TextSkiaTest, AlertMatchesItsSnapshot)
 	(void)key.AddString("bytes", "\n");
 	(void)messenger.SendMessage(key);
 	(void)messenger.WaitForLooperQuit(5s);
+	VectorIconRenderer::SetDefault(nullptr);
 	TextSystem::SetDefault(nullptr);
 }
 

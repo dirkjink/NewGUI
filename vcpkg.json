@@ -42,6 +42,12 @@
         "libunibreak"
       ]
     },
+    "svg": {
+      "description": "Vector icons (ngui_svg): lunasvg renders SVG icons into bitmaps, with its rasterizer plutovg; independent of the drawing backend.",
+      "dependencies": [
+        "lunasvg"
+      ]
+    },
     "sdl3": {
       "description": "The SDL3 platform (ngui_sdl3): windows, events and the main thread on Linux (X11 and Wayland, which need the system's development headers) and Windows; without audio, joysticks or IME libraries.",
       "dependencies": [

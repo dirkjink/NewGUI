@@ -5,8 +5,9 @@
  * SPDX-License-Identifier: MIT
  *
  * Ported from Haiku: src/kits/interface/Alert.cpp (commit b1d497bb69),
- * without archiving, scripting, the sound and the type icon (see
- * Alert.h). NewGUI: Go() is static and asynchronous; the key filter reads
+ * without archiving, scripting and the sound (see Alert.h). The type icons
+ * are NewGUI's own SVG icons (BIconUtils::GetSystemIcon()), drawn anew at
+ * the window's scale. NewGUI: Go() is static and asynchronous; the key filter reads
  * the first byte of "bytes" (Haiku: "byte"); B_MODAL_WINDOW is a bordered
  * window with BWindowFeel::ModalApp.
  *
@@ -25,9 +26,11 @@
 #include <utility>
 
 #include <ngui/AppDefs.h>
+#include <ngui/Bitmap.h>
 #include <ngui/Button.h>
 #include <ngui/ControlLook.h>
 #include <ngui/GroupLayout.h>
+#include <ngui/IconUtils.h>
 #include <ngui/Invoker.h>
 #include <ngui/LayoutBuilder.h>
 #include <ngui/LayoutUtils.h>
@@ -91,8 +94,29 @@ ScreenFrame(std::optional<gfx::Point> where = std::nullopt)
 }
 
 
+// The system icon of an alert type (Haiku's _CreateTypeIcon()), empty for
+// none.
+std::string_view
+TypeIconName(BAlertType type)
+{
+	switch (type) {
+		case BAlertType::Info:
+			return "dialog-information";
+		case BAlertType::Idea:
+			return "dialog-idea";
+		case BAlertType::Warning:
+			return "dialog-warning";
+		case BAlertType::Stop:
+			return "dialog-error";
+		case BAlertType::Empty:
+			break;
+	}
+	return {};
+}
+
+
 // The space left of the text (Haiku's TAlertView): a darker stripe and the
-// place of the type icon, which comes later as SVG.
+// icon.
 class AlertIconView : public BView {
 public:
 	AlertIconView()
@@ -102,13 +126,34 @@ public:
 		SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
 	}
 
+	// Haiku's SetBitmap(); \a typeIcon: the system icon \a name, which is
+	// drawn anew for a window scale other than 1.
+	void SetBitmap(std::unique_ptr<BBitmap> icon, std::string_view typeIcon = {})
+	{
+		const bool resized = (fIcon == nullptr) != (icon == nullptr)
+			|| (icon != nullptr && fIcon->Bounds() != icon->Bounds());
+		fIcon = std::move(icon);
+		fTypeIcon = typeIcon;
+		fScaledIcon.reset();
+		if (resized)
+			InvalidateLayout();
+		Invalidate();
+	}
+
+	BBitmap* Bitmap() const
+	{
+		return fIcon.get();
+	}
+
 	void GetPreferredSize(float* width, float* height) override
 	{
 		const float spacing = Look().DefaultLabelSpacing(TextSystem::Default());
+		const gfx::Rect icon = fIcon != nullptr ? fIcon->Bounds()
+			: gfx::Rect{0, 0, LargeIconSize(), LargeIconSize()};
 		if (width != nullptr)
-			*width = spacing * 3 + LargeIconSize();
+			*width = spacing * 3 + icon.Width();
 		if (height != nullptr)
-			*height = spacing + LargeIconSize();
+			*height = spacing + icon.Height();
 	}
 
 	gfx::Size MinSize() override
@@ -141,7 +186,40 @@ public:
 		// Haiku's inclusive right edge
 		context.canvas.FillRect({bounds.x0, bounds.y0, bounds.x0 + stripeRight + 1, bounds.y1},
 			gfx::Paint{.color = stripe});
+
+		if (fIcon == nullptr)
+			return;
+
+		// Haiku draws the bitmap at (3 spacings, 1 spacing), B_OP_ALPHA.
+		const float spacing = Look().DefaultLabelSpacing(context.text);
+		const gfx::Rect iconBounds = fIcon->Bounds();
+		const gfx::Rect target{spacing * 3, spacing, spacing * 3 + iconBounds.Width(),
+			spacing + iconBounds.Height()};
+		const BBitmap* icon = fIcon.get();
+		// NewGUI: a type icon is drawn for the device pixels
+		if (!fTypeIcon.empty() && context.scale != 1) {
+			if (fScaledIcon == nullptr || fScale != context.scale) {
+				auto scaled = std::make_unique<BBitmap>(gfx::Rect{0, 0,
+					std::ceil(iconBounds.Width() * context.scale),
+					std::ceil(iconBounds.Height() * context.scale)}, BColorSpace::RGBA32);
+				if (BIconUtils::GetSystemIcon(fTypeIcon, scaled.get()).has_value()) {
+					fScaledIcon = std::move(scaled);
+					fScale = context.scale;
+				}
+			}
+			if (fScaledIcon != nullptr)
+				icon = fScaledIcon.get();
+		}
+		const gfx::Rect pixels = icon->Bounds();
+		context.canvas.DrawImage(icon->Image(), {0, 0, pixels.Width(), pixels.Height()},
+			target);
 	}
+
+private:
+	std::unique_ptr<BBitmap> fIcon;
+	std::string_view fTypeIcon;
+	std::unique_ptr<BBitmap> fScaledIcon;
+	float fScale = 1;
 };
 
 
@@ -228,6 +306,36 @@ void
 BAlert::SetType(BAlertType type)
 {
 	fType = type;
+}
+
+
+void
+BAlert::SetIcon(std::unique_ptr<BBitmap> bitmap)
+{
+	static_cast<AlertIconView*>(fIconView)->SetBitmap(std::move(bitmap));
+}
+
+
+BBitmap*
+BAlert::Icon() const
+{
+	return static_cast<AlertIconView*>(fIconView)->Bitmap();
+}
+
+
+void
+BAlert::_CreateTypeIcon()
+{
+	// The icons are NewGUI's own SVG icons (Haiku: the app_server's
+	// resources); without a vector icon renderer there is none.
+	const std::string_view name = TypeIconName(fType);
+	if (name.empty())
+		return;
+	const float size = LargeIconSize();
+	auto icon = std::make_unique<BBitmap>(gfx::Rect{0, 0, size, size}, BColorSpace::RGBA32);
+	if (!BIconUtils::GetSystemIcon(name, icon.get()).has_value())
+		return;
+	static_cast<AlertIconView*>(fIconView)->SetBitmap(std::move(icon), name);
 }
 
 
@@ -439,6 +547,10 @@ BAlert::_Prepare(const gfx::Rect* parentFrame)
 {
 	// Tweaks the layout according to the configuration.
 	const float fontFactor = TextSystem::Default().FontSize(FontRole::Plain) / 11.0f;
+
+	auto* iconView = static_cast<AlertIconView*>(fIconView);
+	if (iconView->Bitmap() == nullptr)
+		_CreateTypeIcon();
 
 	if (fButtonWidth == BButtonWidth::AsUsual) {
 		const float usualWidth = kButtonUsualWidth * fontFactor;
