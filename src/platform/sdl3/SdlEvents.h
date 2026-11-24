@@ -26,10 +26,17 @@
 namespace ngui::platform::sdl3 {
 
 
+// A message for the window \a window, or for the application if it is 0
+// (kApplicationEvent).
 struct TranslatedEvent {
 	SDL_WindowID	window;
 	BMessage		message;
 };
+
+
+// The "window" of a message for the application: SDL counts its windows
+// from 1.
+inline constexpr SDL_WindowID kApplicationEvent = 0;
 
 
 // What the translation needs to know beyond the events.

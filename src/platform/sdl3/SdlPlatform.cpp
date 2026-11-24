@@ -23,6 +23,7 @@
 #include <SDL3/SDL.h>
 
 #include <ngui/AppDefs.h>
+#include <ngui/Application.h>
 #include <ngui/LayoutUtils.h>
 #include <ngui/platform/CpuPresenter.h>
 
@@ -615,6 +616,10 @@ SdlPlatform::ProcessEvents()
 			return density > 0 ? density : 1.0f;
 		};
 		for (sdl3::TranslatedEvent& translated : sdl3::Translate(events, context)) {
+			if (translated.window == sdl3::kApplicationEvent) {
+				(void)AppMessenger().SendMessage(translated.message);
+				continue;
+			}
 			std::shared_ptr<WindowState> state;
 			{
 				std::scoped_lock guard(fData->lock);

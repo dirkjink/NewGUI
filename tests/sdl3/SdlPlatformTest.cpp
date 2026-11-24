@@ -8,6 +8,7 @@
 #include <ngui/platform/SdlPlatform.h>
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <future>
@@ -25,6 +26,7 @@
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
 #include <ngui/Clipboard.h>
+#include <ngui/Window.h>
 
 #include "support/RecordingLooper.h"
 
@@ -58,13 +60,14 @@ public:
 			(void)app.UsePlatform(std::move(*platform));
 			started.set_value(raw);
 			(void)app.Run();
+			fEnded = true;
 		});
 		fPlatform = started.get_future().get();
 	}
 
 	~RunningApp()
 	{
-		if (fPlatform != nullptr) {
+		if (fPlatform != nullptr && !fEnded) {
 			const BMessenger app = WaitForApp();
 			(void)app.SendMessage(kQuitRequested);
 		}
@@ -86,6 +89,25 @@ public:
 		return result.get();
 	}
 
+	// Whether the application's Run() returned within \a timeout.
+	bool WaitForEnd(std::chrono::milliseconds timeout)
+	{
+		const auto deadline = std::chrono::steady_clock::now() + timeout;
+		while (!fEnded && std::chrono::steady_clock::now() < deadline)
+			std::this_thread::sleep_for(10ms);
+		return fEnded;
+	}
+
+	// Puts SDL_EVENT_QUIT into SDL's queue, as SIGTERM does.
+	void PushQuit()
+	{
+		(void)OnMain([] {
+			SDL_Event quit{};
+			quit.type = SDL_EVENT_QUIT;
+			return SDL_PushEvent(&quit);
+		});
+	}
+
 private:
 	static BMessenger WaitForApp()
 	{
@@ -97,6 +119,7 @@ private:
 
 	std::thread fThread;
 	SdlPlatform* fPlatform = nullptr;
+	std::atomic<bool> fEnded = false;
 };
 
 
@@ -342,6 +365,57 @@ TEST(SdlPlatformTest, TheSystemClipboardIsSdls)
 	EXPECT_EQ(fromSdl, "from SDL");
 	EXPECT_EQ(bothText, "both");
 	EXPECT_EQ(bothData, "data");
+}
+
+
+// A window that refuses to quit the first time it is asked.
+class ReluctantWindow : public BWindow {
+public:
+	ReluctantWindow()
+		:
+		BWindow({20, 20, 120, 80}, "reluctant")
+	{
+	}
+
+	bool QuitRequested() override
+	{
+		return fAsked++ > 0;
+	}
+
+private:
+	int fAsked = 0;
+};
+
+
+TEST(SdlPlatformTest, AQuitEventAsksTheApplicationToQuit)
+{
+	// What is tested: A running application with the SDL platform and a
+	// window that refuses to quit once; SDL_EVENT_QUIT put into SDL's queue
+	// (as SIGTERM does), then again.
+	// Success criteria: The first time the window refuses, so the
+	// application keeps running; the second time the window agrees, and
+	// the application's Run() returns.
+	// Why it matters: Ctrl+C, kill and the end of the session quit a
+	// program through QuitRequested(), so that windows can save or refuse,
+	// as in Haiku.
+	//
+	// Given
+	RunningApp app;
+	ASSERT_NE(app.Platform(), nullptr);
+	const BMessenger window = *BLooper::Run(std::make_unique<ReluctantWindow>());
+
+	// When
+	app.PushQuit();
+	const bool endedAtFirst = app.WaitForEnd(300ms);
+	const bool windowAtFirst = window.IsValid();
+	app.PushQuit();
+	const bool ended = app.WaitForEnd(5s);
+
+	// Then
+	EXPECT_FALSE(endedAtFirst);
+	EXPECT_TRUE(windowAtFirst);
+	EXPECT_TRUE(ended);
+	EXPECT_FALSE(window.IsValid());
 }
 
 
