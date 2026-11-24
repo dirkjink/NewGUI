@@ -192,6 +192,7 @@ private:
 	friend class BMenuBar;
 	friend class MenuTracker;
 	friend class MenuFieldBar;
+	friend class MenuFrame;
 
 			void				_InitData();
 			bool				_AddItem(std::unique_ptr<BMenuItem> item, int32 index);
@@ -219,7 +220,7 @@ private:
 			void				_SelectItem(BMenuItem* item, bool showSubmenu = true,
 									bool selectFirstItem = false);
 			BMenuItem*			_HitTestItems(gfx::Point where) const;
-			gfx::Rect			_CalcFrame(gfx::Point where);
+			gfx::Rect			_CalcFrame(gfx::Point where, bool* scrollOn = nullptr);
 			BWindow*			_RootWindow() const;
 
 			std::vector<std::unique_ptr<BMenuItem>> fItems;

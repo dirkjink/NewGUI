@@ -274,6 +274,7 @@ private:
 			void				_RootFrameChanged(BView* root);
 			PopupSurface*		_PopupOf(const BView* root) const;
 			void				_PopupEvent(PopupSurface* popup, BMessage* message);
+			void				_WheelToMenus(const BMessage* message);
 			void				_UpdatePopup(PopupSurface& popup,
 									const gfx::Caps& caps, const TextSystem& text);
 			void				_ScheduleUpdate();

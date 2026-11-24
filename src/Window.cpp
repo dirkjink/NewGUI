@@ -662,6 +662,12 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 				fMenuTracking->Tick();
 			return;
 		case kMouseWheelChanged:
+			// While menus are open, to their tracking (Haiku: to the menu
+			// window's view under the mouse).
+			if (fMenuTracking != nullptr) {
+				_WheelToMenus(message);
+				return;
+			}
 			// To the view under the mouse, as Haiku's _DetermineTarget();
 			// it passes the wheel on to its parents if it cannot scroll.
 			if (fMouseView != nullptr)
@@ -881,6 +887,10 @@ BWindow::_PopupEvent(PopupSurface* popup, BMessage* message)
 			_MouseEvent(message, popup->root.get());
 			return;
 		case kMouseWheelChanged:
+			if (fMenuTracking != nullptr) {
+				_WheelToMenus(message);
+				return;
+			}
 			if (fMouseView != nullptr)
 				fMouseView->MessageReceived(message);
 			return;
@@ -953,6 +963,16 @@ BWindow::_SetMouseCapture(BView* view)
 	// MouseDown().
 	if (fButtons != 0)
 		fCapture = view;
+}
+
+
+void
+BWindow::_WheelToMenus(const BMessage* message)
+{
+	const auto modifiers = BModifierFlags::FromRaw(
+		static_cast<std::uint32_t>(message->GetInt32("modifiers", 0)));
+	fMenuTracking->TrackWheel(message->GetFloat("be:wheel_delta_y", 0),
+		modifiers.Has(BModifier::Shift));
 }
 
 

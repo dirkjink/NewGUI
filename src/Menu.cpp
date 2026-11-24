@@ -897,8 +897,15 @@ BMenu::_LayoutItems(int32 index)
 	_ComputeLayout(index, fResizeToFit, true, &width, &height);
 
 	// NewGUI: pixel counts
-	if (fResizeToFit)
-		ResizeTo(width + 1, height + 1);
+	if (fResizeToFit) {
+		auto* menuFrame = dynamic_cast<MenuFrame*>(Parent());
+		if (menuFrame != nullptr && menuFrame->HasScrollers()) {
+			// NewGUI: between the scrollers the menu keeps its height
+			ResizeTo(width + 1, Bounds().Height());
+			menuFrame->ContentResized(height + 1);
+		} else
+			ResizeTo(width + 1, height + 1);
+	}
 }
 
 
@@ -1239,7 +1246,7 @@ ScreenFrameAt(gfx::Point where)
 
 
 gfx::Rect
-BMenu::_CalcFrame(gfx::Point where)
+BMenu::_CalcFrame(gfx::Point where, bool* scrollOn)
 {
 	// Ported from Haiku's _CalcFrame() with inclusive rectangles. NewGUI:
 	// no frameShiftedLeft yet.
@@ -1297,6 +1304,14 @@ BMenu::_CalcFrame(gfx::Point where)
 			frame.OffsetBy(screenFrame.right - frame.right, 0);
 	}
 
+	if (scrollOn != nullptr) {
+		// basically, if this returns false, it means
+		// that the menu frame won't fit completely inside the screen
+		// TODO: Scrolling will currently only work up/down,
+		// not left/right
+		*scrollOn = screenFrame.top > frame.top || screenFrame.bottom < frame.bottom;
+	}
+
 	return compat::FromBRect(frame);
 }
 
@@ -1349,14 +1364,43 @@ BMenu::_Show(bool selectFirstItem, BWindow* window)
 			fFontHeight + fPad.y0 + fPad.y1 + 1);
 	}
 
-	const gfx::Rect frame = _CalcFrame(ScreenLocation());
+	bool scroll = false;
+	gfx::Rect frame = _CalcFrame(ScreenLocation(), &scroll);
+	// we currently only support scrolling for B_ITEMS_IN_COLUMN (Haiku's
+	// _UpdateWindowViewSize())
+	scroll = scroll && CountItems() > 0 && fLayout == BMenuLayout::InColumn;
+	if (scroll) {
+		// Resize the window to fit the screen without overflowing the
+		// frame, and attach scrollers.
+		frame = frame & compat::FromBRect(ScreenFrameAt(ScreenLocation()));
+	}
 	auto popup = std::make_unique<MenuFrame>(gfx::Rect{frame.x0 - 1, frame.y0 - 1,
 		frame.x1 + 1, frame.y1 + 1}, this);
+	MenuFrame* menuFrame = popup.get();
 	std::unique_ptr<BMenu> self = standalone ? std::unique_ptr<BMenu>(this)
 		: std::move(superitem->fOwnedSubmenu);
 	fStandalone = standalone;
 	MoveTo({1, 1});
 	popup->AddChild(std::move(self));
+	if (scroll) {
+		float itemHeight = 0;
+		ItemAt(0)->GetContentSize(nullptr, &itemHeight);
+		menuFrame->SetSmallStep(std::ceil(itemHeight));
+		menuFrame->AttachScrollers();
+
+		BMenuItem* selectedItem = FindMarked();
+		if (selectedItem != nullptr) {
+			// scroll to the selected item
+			if (Supermenu() == nullptr) {
+				(void)menuFrame->TryScrollTo(selectedItem->Frame().y0);
+			} else {
+				const gfx::Point point = ConvertToScreen({0, selectedItem->Frame().y0});
+				const gfx::Point superPoint = Supermenu()->ConvertToScreen(
+					{0, Superitem()->Frame().y0});
+				(void)menuFrame->TryScrollTo(point.y - superPoint.y);
+			}
+		}
+	}
 	fPopup = window->OpenPopup(std::move(popup));
 
 	if (selectFirstItem)
@@ -1379,7 +1423,9 @@ BMenu::_Hide()
 	BView* popup = fPopup;
 	fPopup = nullptr;
 
-	// back to the superitem (or the owner), then the popup closes
+	// back to the superitem (or the owner), then the popup closes;
+	// unscrolled (Haiku's DetachScrollers())
+	ScrollTo({0, 0});
 	std::unique_ptr<BView> self = popup->RemoveChild(this);
 	if (fStandalone)
 		(void)self.release();
@@ -1491,5 +1537,240 @@ MenuFrame::Draw(DrawContext& context)
 	view.StrokeRect(compat::BRect(bounds.x0, bounds.y0, bounds.x1 - 1, bounds.y1 - 1));
 }
 
+
+
+bool
+MenuFrame::HasScrollers() const
+{
+	return fUpperScroller != nullptr && fLowerScroller != nullptr;
+}
+
+
+void
+MenuFrame::AttachScrollers()
+{
+	// Ported from Haiku's BMenuWindow::AttachScrollers(). NewGUI: inside
+	// the border; the menu, laid out at its full height, becomes as high
+	// as the room between the scrollers.
+	if (fMenu == nullptr || HasScrollers())
+		return;
+
+	const gfx::Rect bounds = Bounds();
+	const float width = bounds.Width() - 2;
+	const float height = bounds.Height() - 2;
+
+	fValue = 0;
+	fLimit = std::max(fMenu->Bounds().Height() - (height - 2 * kMenuScrollerHeight), 0.0f);
+
+	fUpperScroller = static_cast<MenuScroller*>(AddChild(std::make_unique<MenuScroller>(
+		gfx::Rect{1, 1, 1 + width, 1 + kMenuScrollerHeight}, true)));
+	fLowerScroller = static_cast<MenuScroller*>(AddChild(std::make_unique<MenuScroller>(
+		gfx::Rect{1, 1 + height - kMenuScrollerHeight, 1 + width, 1 + height}, false)));
+
+	fUpperScroller->SetEnabled(fValue > 0);
+	fLowerScroller->SetEnabled(fValue < fLimit);
+
+	fMenu->MoveTo({1, 1 + kMenuScrollerHeight});
+	fMenu->ResizeTo(width, height - 2 * kMenuScrollerHeight);
+}
+
+
+void
+MenuFrame::ContentResized(float height)
+{
+	// Haiku's AttachScrollers() with scrollers already attached
+	if (!HasScrollers())
+		return;
+
+	const float newLimit = std::max(height - fMenu->Bounds().Height(), 0.0f);
+	if (fValue > newLimit)
+		_ScrollBy(newLimit - fValue);
+
+	fLimit = newLimit;
+	fUpperScroller->SetEnabled(fValue > 0);
+	fLowerScroller->SetEnabled(fValue < fLimit);
+}
+
+
+bool
+MenuFrame::CheckForScrolling(gfx::Point screen)
+{
+	if (!HasScrollers())
+		return false;
+
+	// Haiku's _Scroll(), without its snooze(5000): the tracking asks for a
+	// tick instead.
+	const gfx::Point cursor = ConvertFromScreen(screen);
+	const gfx::Rect lowerFrame = fLowerScroller->Frame();
+	const gfx::Rect upperFrame = fUpperScroller->Frame();
+
+	int32 delta = 0;
+	if (fLowerScroller->IsEnabled() && lowerFrame.Contains(cursor))
+		delta = 1;
+	else if (fUpperScroller->IsEnabled() && upperFrame.Contains(cursor))
+		delta = -1;
+
+	if (delta == 0)
+		return false;
+
+	float smallStep;
+	GetSteps(&smallStep, nullptr);
+	_ScrollBy(smallStep * static_cast<float>(delta));
+
+	return true;
+}
+
+
+bool
+MenuFrame::TryScrollBy(float step)
+{
+	if (!HasScrollers())
+		return false;
+
+	_ScrollBy(step);
+	return true;
+}
+
+
+bool
+MenuFrame::TryScrollTo(float where)
+{
+	if (!HasScrollers())
+		return false;
+
+	_ScrollBy(where - fValue);
+	return true;
+}
+
+
+void
+MenuFrame::SetSmallStep(float step)
+{
+	fScrollStep = step;
+}
+
+
+void
+MenuFrame::GetSteps(float* smallStep, float* largeStep) const
+{
+	if (smallStep != nullptr)
+		*smallStep = fScrollStep;
+	if (largeStep != nullptr) {
+		// Haiku: the menu frame's inclusive height less a small step
+		if (HasScrollers())
+			*largeStep = fMenu->Bounds().Height() - 1 - fScrollStep;
+		else
+			*largeStep = fScrollStep * 2;
+	}
+}
+
+
+void
+MenuFrame::ScrollToShow(float top, float bottom)
+{
+	if (!HasScrollers())
+		return;
+
+	const float visible = fMenu->Bounds().Height();
+	if (top < fValue)
+		(void)TryScrollTo(top);
+	else if (bottom > fValue + visible)
+		(void)TryScrollTo(bottom - visible);
+}
+
+
+void
+MenuFrame::_ScrollBy(float step)
+{
+	if (step > 0) {
+		if (fValue == 0)
+			fUpperScroller->SetEnabled(true);
+
+		if (fValue + step >= fLimit) {
+			// If we reached the limit, only scroll to the end
+			fMenu->ScrollBy(0, fLimit - fValue);
+			fValue = fLimit;
+			fLowerScroller->SetEnabled(false);
+		} else {
+			fMenu->ScrollBy(0, step);
+			fValue += step;
+		}
+	} else if (step < 0) {
+		if (fValue == fLimit)
+			fLowerScroller->SetEnabled(true);
+
+		if (fValue + step <= 0) {
+			fMenu->ScrollBy(0, -fValue);
+			fValue = 0;
+			fUpperScroller->SetEnabled(false);
+		} else {
+			fMenu->ScrollBy(0, step);
+			fValue += step;
+		}
+	}
+}
+
+
+// #pragma mark - MenuScroller
+
+
+MenuScroller::MenuScroller(gfx::Rect frame, bool upper)
+	:
+	BView(frame, "menu scroller", kFollowLeftTop, BViewFlag::WillDraw),
+	fUpper(upper)
+{
+	SetViewColor(Palette::Default().Get(BColorWhich::MenuBackground));
+}
+
+
+bool
+MenuScroller::IsEnabled() const
+{
+	return fEnabled;
+}
+
+
+void
+MenuScroller::SetEnabled(bool enabled)
+{
+	if (enabled == fEnabled)
+		return;
+
+	fEnabled = enabled;
+	Invalidate();
+}
+
+
+void
+MenuScroller::Draw(DrawContext& context)
+{
+	// Haiku's UpperScroller::Draw() and LowerScroller::Draw()
+	using compat::BPoint;
+	compat::CompatView view(context);
+	const compat::rgb_color background
+		= compat::ToRgbColor(context.palette.Get(BColorWhich::MenuBackground));
+	view.SetLowColor(compat::tint_color(background, compat::B_DARKEN_1_TINT));
+
+	const gfx::Rect bounds = Bounds();
+	const compat::BRect frame(0, 0, bounds.Width() - 1, bounds.Height() - 1);
+	const float middle = frame.right / 2;
+
+	if (IsEnabled())
+		view.SetHighColor(0, 0, 0);
+	else
+		view.SetHighColor(compat::tint_color(background, compat::B_DARKEN_2_TINT));
+
+	view.FillRect(frame, compat::B_SOLID_LOW);
+
+	constexpr float half = kMenuScrollerHeight / 2;
+	if (fUpper) {
+		view.FillTriangle(BPoint(middle, half - 3), BPoint(middle + 5, half + 2),
+			BPoint(middle - 5, half + 2));
+	} else {
+		view.FillTriangle(BPoint(middle, frame.bottom - half + 3),
+			BPoint(middle + 5, frame.bottom - half - 2),
+			BPoint(middle - 5, frame.bottom - half - 2));
+	}
+}
 
 } // namespace ngui

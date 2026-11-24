@@ -9,9 +9,12 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <initializer_list>
 #include <memory>
+#include <string>
+#include <thread>
 
 #include <gtest/gtest.h>
 
@@ -19,9 +22,12 @@
 #include <ngui/Box.h>
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
+#include <ngui/Clock.h>
+#include <ngui/InterfaceDefs.h>
 #include <ngui/LayoutBuilder.h>
 #include <ngui/ListView.h>
 #include <ngui/AppDefs.h>
+#include <ngui/Application.h>
 #include <ngui/Menu.h>
 #include <ngui/MenuBar.h>
 #include <ngui/MenuField.h>
@@ -46,6 +52,8 @@
 #include <ngui/test/GTest.h>
 #include <ngui/test/Render.h>
 
+#include "support/FakePlatform.h"
+
 #include "Rendered.h"
 
 
@@ -55,6 +63,7 @@ namespace {
 using namespace ngui;
 using namespace ngui::gfx;
 using namespace ngui::test;
+using namespace std::chrono_literals;
 
 
 // "OK" in the bundled plain font at 12 px, black, its baseline starting at
@@ -516,23 +525,28 @@ TEST(TextSkiaTest, BoxesMatchTheirSnapshots)
 }
 
 
-// \a view and its children as the window records them: the view color,
-// Draw(), then each child at its frame.
+// \a view and its children as the window records them (BView::
+// RecordTree()): the view color, Draw() in its bounds, then each child
+// clipped to its frame, scrolled by its bounds' origin.
 DisplayListRef
 RecordTree(BView& view, const TextSystem& text)
 {
 	const gfx::Rect bounds = view.Bounds();
 	const gfx::Caps caps;
-	Canvas canvas({0, 0, bounds.Width(), bounds.Height()});
-	if (view.ViewColor().has_value()) {
-		canvas.FillRect({0, 0, bounds.Width(), bounds.Height()},
-			gfx::Paint{.color = *view.ViewColor()});
-	}
+	Canvas canvas(bounds);
+	if (view.ViewColor().has_value())
+		canvas.FillRect(bounds, gfx::Paint{.color = *view.ViewColor()});
 	DrawContext context{canvas, caps, Palette::Default(), text, 1};
 	view.Draw(context);
 	for (std::int32_t i = 0; i < view.CountChildren(); i++) {
 		BView* child = view.ChildAt(i);
-		canvas.DrawList(RecordTree(*child, text), {child->Frame().x0, child->Frame().y0});
+		const gfx::Rect frame = child->Frame();
+		const gfx::Rect childBounds = child->Bounds();
+		canvas.Save();
+		canvas.ClipRect(frame);
+		canvas.DrawList(RecordTree(*child, text),
+			{frame.x0 - childBounds.x0, frame.y0 - childBounds.y0});
+		canvas.Restore();
 	}
 	return canvas.Finish();
 }
@@ -1160,6 +1174,95 @@ TEST(TextSkiaTest, OutlineListViewMatchesItsSnapshot)
 		// Then
 		ASSERT_TRUE(image.has_value()) << image.error().message;
 		EXPECT_IMAGE_SNAPSHOT(*image, "OutlineListView", {.look = "be", .backend = "skia",
+			.scale = scale, .tolerance = Tolerance::Text()});
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, ScrollingMenuMatchesItsSnapshot)
+{
+	// What is tested: On a fake screen of 300 × 160, a pop-up menu of 20
+	// items, kept open, opened at (40, 20) from a view of a window; the
+	// mouse moved onto the lower scroller; the popup recorded, with the
+	// bundled font, rendered by Skia at scale 1 and 2
+	// ("MenuPopupScrolling").
+	// Success criteria: Within the text tolerance of 21.2: the popup as
+	// high as the screen (its border one pixel beyond), Haiku's scrollers
+	// above and below the items on the darkened menu background, both
+	// arrows black as both can scroll; the items scrolled by one item.
+	// Why it matters: The scrollers are drawn from Haiku's geometry; the
+	// menu between them shows the part it is scrolled to.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	auto platform = std::make_unique<test::FakePlatform>();
+	platform->displays = {{{0, 0, 300, 160}, 1, true}};
+	BApplication app("application/x-vnd.ngui-scrolling-menu-snapshot");
+	app.SetPulseRate(Clock::Time::zero());
+	ASSERT_TRUE(app.UsePlatform(std::move(platform)).has_value());
+	std::thread runner([&] { (void)app.Run(); });
+	const auto deadline = std::chrono::steady_clock::now() + 5s;
+	while (platform::Current() == nullptr && std::chrono::steady_clock::now() < deadline)
+		std::this_thread::yield();
+	ASSERT_NE(platform::Current(), nullptr);
+
+	// A view that opens the long menu where the mouse is pressed.
+	class OpeningView : public BView {
+	public:
+		OpeningView()
+			:
+			BView({0, 0, 300, 160}, "opening", {}, {}),
+			fMenu(std::make_unique<BPopUpMenu>("long", false, false))
+		{
+			for (int i = 0; i < 20; i++) {
+				fMenu->AddItem(std::make_unique<BMenuItem>("Item " + std::to_string(i),
+					std::make_unique<BMessage>(1)));
+			}
+		}
+
+		void MouseDown(gfx::Point where) override
+		{
+			(void)fMenu->Go(ConvertToScreen(where), {.keepOpen = true});
+		}
+
+	private:
+		std::unique_ptr<BPopUpMenu> fMenu;
+	};
+
+	DisplayListRef recorded;
+	{
+		BWindow window({0, 0, 300, 160}, "menus");
+		window.AddChild(std::make_unique<OpeningView>());
+		const auto mouse = [&](std::uint32_t what, gfx::Point where, std::int32_t buttons) {
+			BMessage message(what);
+			(void)message.AddPoint("where", where);
+			(void)message.AddInt32("buttons", buttons);
+			window.DispatchMessage(&message, &window);
+		};
+
+		// When
+		mouse(kMouseDown, {40, 20}, 1);
+		mouse(kMouseUp, {40, 20}, 0);
+		mouse(kMouseMoved, {60, 155}, 0);
+		ASSERT_EQ(window.CountPopups(), 1);
+		recorded = RecordTree(*window.PopupAt(0), *text);
+		BMessage escape(kKeyDown);
+		(void)escape.AddString("bytes", std::string(1, keys::kEscape));
+		window.DispatchMessage(&escape, &window);
+	}
+	(void)AppMessenger().SendMessage(kQuitRequested);
+	runner.join();
+
+	// Then
+	for (const float scale : {1.0f, 2.0f}) {
+		SkiaBackend backend;
+		for (const FontFile& font : text->Fonts())
+			ASSERT_TRUE(backend.AddFont(font.id, font.data));
+		const auto image = RenderToImage(backend, *recorded, scale);
+		ASSERT_TRUE(image.has_value()) << image.error().message;
+		EXPECT_IMAGE_SNAPSHOT(*image, "MenuPopupScrolling", {.look = "be", .backend = "skia",
 			.scale = scale, .tolerance = Tolerance::Text()});
 	}
 	TextSystem::SetDefault(nullptr);
