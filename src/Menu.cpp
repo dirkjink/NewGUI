@@ -13,6 +13,10 @@
  *   size is Haiku's (pixels - 1); the public sizes are pixel counts.
  * - Draw() lays the items out first if needed and draws them (Haiku
  *   invalidated and drew in the next update).
+ * - A submenu is shown in a popup of its menu bar's window (W3b: popups
+ *   belong to the window, MenuFrame instead of BMenuWindow); while shown,
+ *   the popup's frame owns it, afterwards its superitem again. No
+ *   scrolling menus yet.
  * - The menu font is the plain font of TextSystem::Default(); triggers
  *   are hidden by default, as with Haiku's default menu_info.
  * - Automatic triggers: Unicode case folding and spaces only for ASCII
@@ -41,8 +45,11 @@
 #include <ngui/SeparatorItem.h>
 #include <ngui/TextSystem.h>
 #include <ngui/Window.h>
+#include <ngui/platform/Platform.h>
 
+#include "MenuPrivate.h"
 #include "MenuSymbols.h"
+#include "compat/CompatView.h"
 
 
 namespace ngui {
@@ -701,7 +708,10 @@ BMenu::DrawBackground(DrawContext& context)
 
 	gfx::Rect rect = Bounds();
 	BorderFlags borders = Border::Left | Border::Right;
-	if (Window() != nullptr && Parent() != nullptr) {
+	if (dynamic_cast<MenuFrame*>(Parent()) != nullptr) {
+		// NewGUI: in its popup, which it fills (Haiku: in its menu window)
+		borders |= Border::Top | Border::Bottom;
+	} else if (Window() != nullptr && Parent() != nullptr) {
 		if (Parent()->Frame().y0 == Window()->Bounds().y0)
 			borders |= Border::Top;
 
@@ -1155,6 +1165,291 @@ BMenu::_CalcTriggers()
 				item->SetAutomaticTrigger(index, trigger);
 		}
 	}
+}
+
+
+// #pragma mark - showing (W3b)
+
+
+gfx::Point
+BMenu::ScreenLocation()
+{
+	BMenu* superMenu = Supermenu();
+	BMenuItem* superItem = Superitem();
+
+	// NewGUI: a menu without supermenu opens where it is (Haiku: debugger())
+	if (superMenu == nullptr || superItem == nullptr)
+		return ConvertToScreen({0, 0});
+
+	// Haiku's RightTop() + (1, 1) and LeftBottom() + (1, 1) of the inclusive
+	// frame
+	const gfx::Rect frame = superItem->Frame();
+	gfx::Point point;
+	if (superMenu->Layout() == BMenuLayout::InColumn)
+		point = {frame.x1, frame.y0 + 1};
+	else
+		point = {frame.x0 + 1, frame.y1};
+
+	return superMenu->ConvertToScreen(point);
+}
+
+
+namespace {
+
+
+// The screen \a where is on, as Haiku's inclusive BScreen::Frame().
+compat::BRect
+ScreenFrameAt(gfx::Point where)
+{
+	gfx::Rect frame{0, 0, 65536, 65536};
+	if (platform::Platform* platform = platform::Current()) {
+		const std::vector<platform::DisplayInfo> displays = platform->Displays();
+		if (!displays.empty())
+			frame = displays.front().frame;
+		for (const platform::DisplayInfo& display : displays) {
+			if (display.frame.Contains(where)) {
+				frame = display.frame;
+				break;
+			}
+		}
+	}
+	return compat::BRect(frame.x0, frame.y0, frame.x1 - 1, frame.y1 - 1);
+}
+
+
+} // namespace
+
+
+gfx::Rect
+BMenu::_CalcFrame(gfx::Point where)
+{
+	// Ported from Haiku's _CalcFrame() with inclusive rectangles. NewGUI:
+	// the menu field's menu bar comes with W3c; no frameShiftedLeft yet.
+	using compat::BRect;
+	const gfx::Rect bounds = Bounds();
+	BRect frame(where.x, where.y, where.x + bounds.Width() - 1,
+		where.y + bounds.Height() - 1);
+	const BRect screenFrame = ScreenFrameAt(where);
+
+	BMenu* superMenu = Supermenu();
+	BMenuItem* superItem = Superitem();
+
+	if (superMenu == nullptr || superItem == nullptr) {
+		// just move the window on screen
+		if (frame.bottom > screenFrame.bottom)
+			frame.OffsetBy(0, screenFrame.bottom - frame.bottom);
+		else if (frame.top < screenFrame.top)
+			frame.OffsetBy(0, -frame.top);
+
+		if (frame.right > screenFrame.right)
+			frame.OffsetBy(screenFrame.right - frame.right, 0);
+		else if (frame.left < screenFrame.left)
+			frame.OffsetBy(-frame.left, 0);
+	} else if (superMenu->Layout() == BMenuLayout::InColumn) {
+		const gfx::Rect itemFrame = superItem->Frame();
+		if (frame.right > screenFrame.right)
+			frame.OffsetBy(-(itemFrame.Width() - 1) - frame.Width() - 2, 0);
+
+		if (frame.left < 0)
+			frame.OffsetBy(-frame.left + 6, 0);
+
+		if (frame.bottom > screenFrame.bottom)
+			frame.OffsetBy(0, screenFrame.bottom - frame.bottom);
+	} else {
+		const gfx::Rect itemFrame = superItem->Frame();
+		if (frame.bottom > screenFrame.bottom) {
+			float spaceBelow = screenFrame.bottom - frame.top;
+			float spaceOver = frame.top - screenFrame.top - (itemFrame.Height() - 1);
+			if (spaceOver > spaceBelow)
+				frame.OffsetBy(0, -(itemFrame.Height() - 1) - frame.Height() - 3);
+		}
+
+		if (frame.right > screenFrame.right)
+			frame.OffsetBy(screenFrame.right - frame.right, 0);
+	}
+
+	return compat::FromBRect(frame);
+}
+
+
+BWindow*
+BMenu::_RootWindow() const
+{
+	// The window of the menu bar (or menu) at the top of the hierarchy.
+	const BMenu* menu = this;
+	while (menu->Supermenu() != nullptr)
+		menu = menu->Supermenu();
+	return menu->Window();
+}
+
+
+bool
+BMenu::_Show(bool selectFirstItem)
+{
+	if (fPopup != nullptr || Window() != nullptr)
+		return false;
+
+	// NewGUI: a submenu, lent by its superitem to the popup's frame
+	// (stand-alone pop-up menus come with W3c).
+	BMenuItem* superitem = Superitem();
+	BWindow* window = _RootWindow();
+	if (superitem == nullptr || superitem->fOwnedSubmenu == nullptr || window == nullptr)
+		return false;
+
+	if (fSuper != nullptr) {
+		const gfx::Rect bounds = fSuper->Bounds();
+		const gfx::Point origin = fSuper->ConvertToScreen({bounds.x0, bounds.y0});
+		fSuperbounds = {origin.x, origin.y, origin.x + bounds.Width(),
+			origin.y + bounds.Height()};
+	}
+
+	// lay the items out for the size of the popup (Haiku:
+	// _UpdateWindowViewSize())
+	_CacheFontInfo();
+	fUseCachedMenuLayout = false;
+	_RelayoutIfNeeded();
+	if (CountItems() == 0) {
+		// room for "<empty>"
+		const float width = TextSystem::Default().StringWidth("<empty>", FontRole::Plain);
+		ResizeTo(std::ceil(width + fPad.x0 + fPad.x1) + 1,
+			fFontHeight + fPad.y0 + fPad.y1 + 1);
+	}
+
+	const gfx::Rect frame = _CalcFrame(ScreenLocation());
+	auto popup = std::make_unique<MenuFrame>(gfx::Rect{frame.x0 - 1, frame.y0 - 1,
+		frame.x1 + 1, frame.y1 + 1}, this);
+	std::unique_ptr<BMenu> self = std::move(superitem->fOwnedSubmenu);
+	MoveTo({1, 1});
+	popup->AddChild(std::move(self));
+	fPopup = window->OpenPopup(std::move(popup));
+
+	if (selectFirstItem)
+		_SelectItem(ItemAt(0), false);
+
+	return true;
+}
+
+
+void
+BMenu::_Hide()
+{
+	if (fPopup == nullptr)
+		return;
+
+	if (fSelected != nullptr)
+		_SelectItem(nullptr);
+
+	BWindow* window = Window();
+	BView* popup = fPopup;
+	fPopup = nullptr;
+
+	// back to the superitem, then the popup closes
+	std::unique_ptr<BView> self = popup->RemoveChild(this);
+	if (fSuperitem != nullptr)
+		fSuperitem->fOwnedSubmenu.reset(static_cast<BMenu*>(self.release()));
+	if (window != nullptr)
+		(void)window->ClosePopup(popup);
+}
+
+
+bool
+BMenu::_IsShown() const
+{
+	return fPopup != nullptr;
+}
+
+
+void
+BMenu::_SelectItem(BMenuItem* item, bool showSubmenu, bool selectFirstItem)
+{
+	// Avoid deselecting and reselecting the same item which would cause flickering.
+	if (item != fSelected) {
+		if (fSelected != nullptr) {
+			fSelected->Select(false);
+			BMenu* subMenu = fSelected->Submenu();
+			if (subMenu != nullptr && subMenu->_IsShown())
+				subMenu->_Hide();
+		}
+
+		fSelected = item;
+		if (fSelected != nullptr)
+			fSelected->Select(true);
+	}
+
+	if (fSelected != nullptr && showSubmenu) {
+		BMenu* subMenu = fSelected->Submenu();
+		if (subMenu != nullptr && !subMenu->_IsShown()) {
+			if (!subMenu->_Show(selectFirstItem)) {
+				// something went wrong, deselect the item
+				fSelected->Select(false);
+				fSelected = nullptr;
+			}
+		}
+	}
+}
+
+
+BMenuItem*
+BMenu::_HitTestItems(gfx::Point where) const
+{
+	// if the point doesn't lie within the menu's
+	// bounds, bail out immediately
+	if (!Bounds().Contains(where))
+		return nullptr;
+
+	int32 itemCount = CountItems();
+	for (int32 i = 0; i < itemCount; i++) {
+		BMenuItem* item = ItemAt(i);
+		if (item->Frame().Contains(where)
+			&& dynamic_cast<BSeparatorItem*>(item) == nullptr) {
+			return item;
+		}
+	}
+
+	return nullptr;
+}
+
+
+// #pragma mark - MenuFrame
+
+
+MenuFrame::MenuFrame(gfx::Rect frame, BMenu* menu)
+	:
+	BView(frame, "menu frame", kFollowAll, BViewFlag::WillDraw),
+	fMenu(menu)
+{
+	SetViewColor(Palette::Default().Get(BColorWhich::MenuBackground));
+}
+
+
+void
+MenuFrame::Draw(DrawContext& context)
+{
+	const gfx::Rect bounds = Bounds();
+	if (fMenu != nullptr && fMenu->CountItems() == 0) {
+		// Haiku's BMenuFrame: an empty menu shows "<empty>", disabled
+		gfx::Rect rect = bounds;
+		Look().DrawMenuBackground(context, rect,
+			context.palette.Get(BColorWhich::MenuBackground));
+		float left, top;
+		fMenu->GetItemMargins(&left, &top, nullptr, nullptr);
+		const FontHeight height = context.text.Height(FontRole::Plain);
+		const compat::rgb_color disabled = compat::tint_color(
+			compat::ToRgbColor(context.palette.Get(BColorWhich::MenuBackground)),
+			compat::B_DISABLED_LABEL_TINT);
+		const ShapedText shaped = context.text.Shape("<empty>", FontRole::Plain);
+		context.canvas.DrawGlyphRun(shaped.Run(), {1 + left, 1 + top + height.ascent},
+			gfx::Paint{.color = compat::ToColor(disabled)});
+	}
+
+	// NewGUI: the one pixel border of B_BORDERED_WINDOW_LOOK, which Haiku's
+	// DefaultDecorator draws: the window border color, darkened by
+	// B_DARKEN_3_TINT (its colors[5]).
+	compat::CompatView view(context);
+	view.SetHighColor(compat::tint_color(
+		compat::ToRgbColor(context.palette.Get(BColorWhich::WindowBorder)),
+		compat::B_DARKEN_3_TINT));
+	view.StrokeRect(compat::BRect(bounds.x0, bounds.y0, bounds.x1 - 1, bounds.y1 - 1));
 }
 
 

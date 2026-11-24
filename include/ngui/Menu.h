@@ -35,9 +35,9 @@ enum class BMenuLayout : std::uint8_t {
 	given frames; with check marks (one of them in radio mode), shortcuts,
 	triggers and submenus. It sizes itself to its items.
 
-	This is the first part of the menus (W3a): items, their layout and
-	drawing. Opening a menu in a window of its own and tracking the mouse
-	and keyboard come with BMenuBar (W3b).
+	A submenu opens in a popup of the window its menu bar is in (W3b: popups
+	belong to the window); the menu bar tracks the mouse. Keyboard
+	navigation and shortcuts follow (W3b2b).
 
 	Differences to Haiku: the menu owns its items (AddItem() takes them as
 	std::unique_ptr, RemoveItem() gives them back); no scripting. Sizes are
@@ -165,6 +165,10 @@ public:
 			void				DrawItems(DrawContext& context);
 									/*!< All items. */
 
+	virtual	gfx::Point			ScreenLocation();
+									/*!< Where the menu's left top corner goes when it opens:
+										beside its superitem in a column, below it in a row. */
+
 			void				SortItems(int (*compare)(const BMenuItem*, const BMenuItem*));
 									/*!< Sorts the items, keeping equal ones in order. */
 			bool				SwapItems(int32 indexA, int32 indexB);
@@ -185,6 +189,8 @@ protected:
 
 private:
 	friend class BMenuItem;
+	friend class BMenuBar;
+	friend class MenuTracker;
 
 			void				_InitData();
 			bool				_AddItem(std::unique_ptr<BMenuItem> item, int32 index);
@@ -205,8 +211,21 @@ private:
 			void				_Uninstall();
 			void				_CalcTriggers();
 
+			bool				_Show(bool selectFirstItem = false);
+			void				_Hide();
+			bool				_IsShown() const;
+			void				_SelectItem(BMenuItem* item, bool showSubmenu = true,
+									bool selectFirstItem = false);
+			BMenuItem*			_HitTestItems(gfx::Point where) const;
+			gfx::Rect			_CalcFrame(gfx::Point where);
+			BWindow*			_RootWindow() const;
+
 			std::vector<std::unique_ptr<BMenuItem>> fItems;
 			BMenuItem*			fSelected = nullptr;
+			BView*				fPopup = nullptr;
+									// the frame of the popup while shown (W3b)
+			gfx::Rect			fSuperbounds = {0, 0, 0, 0};
+									// the supermenu on the screen while shown
 			BMenu*				fSuper = nullptr;
 			BMenuItem*			fSuperitem = nullptr;
 			gfx::Rect			fPad;

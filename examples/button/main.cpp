@@ -19,7 +19,9 @@
 // drives a BStatusBar while its thumb moves (its modification message);
 // a BScrollView shows a list of check boxes that is longer than its room;
 // a BSplitView puts both side by side with a splitter to drag, on the
-// first page of a BTabView whose second page says what this is.
+// first page of a BTabView whose second page says what this is. A BMenuBar
+// on top resets the counter, quits, or shows that page (its menus open in
+// popups of the window).
 
 
 #include <cstdint>
@@ -34,6 +36,9 @@
 #include <ngui/CheckBox.h>
 #include <ngui/GroupView.h>
 #include <ngui/LayoutBuilder.h>
+#include <ngui/Menu.h>
+#include <ngui/MenuBar.h>
+#include <ngui/MenuItem.h>
 #include <ngui/ScrollView.h>
 #include <ngui/Slider.h>
 #include <ngui/StatusBar.h>
@@ -54,6 +59,8 @@ using namespace ngui;
 
 constexpr std::uint32_t kClicked = FourCharCode("CLCK");
 constexpr std::uint32_t kProgress = FourCharCode("PRGS");
+constexpr std::uint32_t kReset = FourCharCode("RSET");
+constexpr std::uint32_t kAbout = FourCharCode("ABOT");
 
 
 // The window: counts the clicks of its button in its label; shows the
@@ -116,10 +123,25 @@ public:
 		tabs->AddTab(std::make_unique<BStringView>("About",
 			"NewGUI: Haiku's Interface Kit on SDL3 and Skia"));
 
-		// The label and the button stay centered, the tab view takes the
-		// width; the window cannot become smaller than they and the window
-		// insets.
-		BLayoutBuilder::Group<>(this, BOrientation::Vertical)
+		// The menus.
+		auto menuBar = std::make_unique<BMenuBar>("menu bar");
+		auto file = std::make_unique<BMenu>("File");
+		file->AddItem(std::make_unique<BMenuItem>("Reset", std::make_unique<BMessage>(kReset)));
+		file->AddSeparatorItem();
+		file->AddItem(std::make_unique<BMenuItem>("Quit",
+			std::make_unique<BMessage>(kQuitRequested)));
+		auto help = std::make_unique<BMenu>("Help");
+		help->AddItem(std::make_unique<BMenuItem>("About", std::make_unique<BMessage>(kAbout)));
+		menuBar->AddItem(std::move(file));
+		menuBar->AddItem(std::move(help));
+		fTabs = tabs.get();
+
+		// The menu bar on top, without insets; below it the label and the
+		// button stay centered and the tab view takes the width; the window
+		// cannot become smaller than they and the window insets.
+		BLayoutBuilder::Group<>(this, BOrientation::Vertical, 0)
+			.Add(std::move(menuBar))
+			.AddGroup(BOrientation::Vertical)
 			.SetInsets(kUseWindowInsets)
 			.AddGlue()
 			.AddGroup(BOrientation::Horizontal)
@@ -133,7 +155,8 @@ public:
 				.AddGlue()
 			.End()
 			.AddGlue()
-			.Add(std::move(tabs));
+			.Add(std::move(tabs))
+			.End();
 
 		clickMe->MakeDefault(true);
 	}
@@ -143,6 +166,15 @@ public:
 		if (message->what == kProgress) {
 			const std::int32_t value = fSlider->Value();
 			fStatus->SetTo(static_cast<float>(value), {}, std::to_string(value));
+			return;
+		}
+		if (message->what == kReset) {
+			fClicks = 0;
+			fLabel->SetText("Not clicked yet");
+			return;
+		}
+		if (message->what == kAbout) {
+			fTabs->Select(1);
 			return;
 		}
 		if (message->what != kClicked) {
@@ -158,6 +190,7 @@ private:
 	BStringView* fLabel = nullptr;
 	BSlider* fSlider = nullptr;
 	BStatusBar* fStatus = nullptr;
+	BTabView* fTabs = nullptr;
 	int fClicks = 0;
 };
 

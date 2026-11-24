@@ -18,7 +18,9 @@
 #include <ngui/Box.h>
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
+#include <ngui/AppDefs.h>
 #include <ngui/Menu.h>
+#include <ngui/MenuBar.h>
 #include <ngui/MenuItem.h>
 #include <ngui/Message.h>
 #include <ngui/RadioButton.h>
@@ -731,6 +733,72 @@ TEST(TextSkiaTest, MenusMatchTheirSnapshots)
 				.backend = "skia", .scale = scale, .tolerance = Tolerance::Text()});
 		}
 	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, OpenMenusMatchTheirSnapshots)
+{
+	// What is tested: A window with a menu bar "File" (New, Open, Recent >
+	// a.txt, Quit) and "Edit": the mouse pressed on "File" and moved onto
+	// "Recent"; the bar ("MenuBarOpen") and the File menu's popup
+	// ("MenuPopup") recorded, with the bundled font, rendered by Skia at
+	// scale 1 and 2.
+	// Success criteria: Within the text tolerance of 21.2: the bar with
+	// "File" highlighted; the popup with Haiku's one pixel border, the menu
+	// background and "Recent" highlighted with its submenu arrow.
+	// Why it matters: The tracking selects items, and the selection is
+	// drawn by the look in the bar and in the popups.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	const auto item = [](std::string_view label) {
+		return std::make_unique<BMenuItem>(label, std::make_unique<BMessage>(1));
+	};
+	BWindow window({0, 0, 300, 200}, "menus");
+	auto* bar = static_cast<BMenuBar*>(window.AddChild(std::make_unique<BMenuBar>(
+		gfx::Rect{0, 0, 300, 20}, "bar")));
+	auto file = std::make_unique<BMenu>("File");
+	file->AddItem(item("New"));
+	file->AddItem(item("Open"));
+	auto recent = std::make_unique<BMenu>("Recent");
+	recent->AddItem(item("a.txt"));
+	file->AddItem(std::move(recent));
+	file->AddItem(item("Quit"));
+	bar->AddItem(std::move(file));
+	bar->AddItem(std::make_unique<BMenu>("Edit"));
+	window.Layout(false);
+	const auto mouse = [&](std::uint32_t what, gfx::Point where) {
+		BMessage message(what);
+		(void)message.AddPoint("where", where);
+		(void)message.AddInt32("buttons", 1);
+		window.DispatchMessage(&message, &window);
+	};
+
+	// When
+	mouse(kMouseDown, {10, 8});
+	const gfx::Point recentOnScreen = bar->SubmenuAt(0)->ConvertToScreen(
+		{20, bar->SubmenuAt(0)->ItemAt(2)->Frame().y0 + 5});
+	mouse(kMouseMoved, recentOnScreen);
+	ASSERT_EQ(window.CountPopups(), 2);
+	const DisplayListRef barList = RecordTree(*bar, *text);
+	const DisplayListRef popupList = RecordTree(*window.PopupAt(0), *text);
+
+	// Then
+	for (const auto& [name, list] : {std::pair{"MenuBarOpen", barList},
+			std::pair{"MenuPopup", popupList}}) {
+		for (const float scale : {1.0f, 2.0f}) {
+			SkiaBackend backend;
+			for (const FontFile& font : text->Fonts())
+				ASSERT_TRUE(backend.AddFont(font.id, font.data));
+			const auto image = RenderToImage(backend, *list, scale);
+			ASSERT_TRUE(image.has_value()) << image.error().message;
+			EXPECT_IMAGE_SNAPSHOT(*image, name, {.look = "be", .backend = "skia",
+				.scale = scale, .tolerance = Tolerance::Text()});
+		}
+	}
+	mouse(kMouseUp, {290, 190});
 	TextSystem::SetDefault(nullptr);
 }
 

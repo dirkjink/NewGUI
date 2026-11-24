@@ -16,6 +16,9 @@
 #include <gtest/gtest.h>
 
 #include <ngui/AppDefs.h>
+#include <ngui/Clock.h>
+#include <ngui/InterfaceDefs.h>
+#include <ngui/MenuBar.h>
 #include <ngui/MenuItem.h>
 #include <ngui/Message.h>
 #include <ngui/SeparatorItem.h>
@@ -262,6 +265,281 @@ TEST(MenuTest, InvokingSendsTheMessageToTheWindow)
 	EXPECT_EQ(source, second);
 	EXPECT_TRUE(secondMarked);
 	EXPECT_TRUE(menu->ItemAt(2)->IsMarked());
+}
+
+
+constexpr std::uint32_t kAsk = FourCharCode("ASK ");
+
+
+// A window with a menu bar "File" (New, Open, separator, Recent > a.txt,
+// b.txt, Quit) and "Edit" (Cut) at the top; the items send 1 .. 6 to it. It
+// records what it gets and answers kAsk with the open popups, whether the
+// bar tracks, the frame of the last popup and its menu hooks.
+class MenuWindow : public BWindow {
+public:
+	MenuWindow()
+		:
+		BWindow({0, 0, 400, 300}, "menus")
+	{
+		auto bar = std::make_unique<BMenuBar>(gfx::Rect{0, 0, 400, 20}, "bar");
+		auto file = std::make_unique<BMenu>("File");
+		file->AddItem(Item("New", 1));
+		file->AddItem(Item("Open", 2));
+		file->AddSeparatorItem();
+		auto recent = std::make_unique<BMenu>("Recent");
+		recent->AddItem(Item("a.txt", 3));
+		recent->AddItem(Item("b.txt", 4));
+		file->AddItem(std::move(recent));
+		file->AddItem(Item("Quit", 5));
+		auto edit = std::make_unique<BMenu>("Edit");
+		edit->AddItem(Item("Cut", 6));
+		bar->AddItem(std::move(file));
+		bar->AddItem(std::move(edit));
+		fBar = static_cast<BMenuBar*>(AddChild(std::move(bar)));
+	}
+
+	void MenusBeginning() override
+	{
+		fBeginnings++;
+	}
+
+	void MenusEnded() override
+	{
+		fEnds++;
+	}
+
+	void MessageReceived(BMessage* message) override
+	{
+		if (message->what >= 1 && message->what <= 6) {
+			fChosen.push_back(static_cast<std::int32_t>(message->what));
+			return;
+		}
+		if (message->what != kAsk) {
+			BWindow::MessageReceived(message);
+			return;
+		}
+		BMessage reply(kAsk);
+		(void)reply.AddInt32("popups", CountPopups());
+		(void)reply.AddBool("tracking", fBar->IsTracking());
+		if (CountPopups() > 0)
+			(void)reply.AddRect("last", PopupAt(CountPopups() - 1)->Frame());
+		for (std::int32_t chosen : fChosen)
+			(void)reply.AddInt32("chosen", chosen);
+		(void)reply.AddInt32("beginnings", fBeginnings);
+		(void)reply.AddInt32("ends", fEnds);
+		(void)message->SendReply(reply);
+	}
+
+private:
+	BMenuBar* fBar = nullptr;
+	std::vector<std::int32_t> fChosen;
+	int fBeginnings = 0;
+	int fEnds = 0;
+};
+
+
+// The state a MenuWindow answers.
+struct MenuState {
+	std::int32_t popups = -1;
+	bool tracking = false;
+	gfx::Rect last;
+	std::vector<std::int32_t> chosen;
+	std::int32_t beginnings = 0;
+	std::int32_t ends = 0;
+};
+
+
+class RunningMenus {
+public:
+	RunningMenus()
+		:
+		fWindow(*BLooper::Run(std::make_unique<MenuWindow>()))
+	{
+	}
+
+	~RunningMenus()
+	{
+		(void)fWindow.SendMessage(kQuitRequested);
+		(void)fWindow.WaitForLooperQuit(5s);
+	}
+
+	void Mouse(std::uint32_t what, gfx::Point where, std::int32_t buttons)
+	{
+		BMessage message(what);
+		(void)message.AddPoint("where", where);
+		(void)message.AddInt32("buttons", buttons);
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	void Click(gfx::Point where)
+	{
+		Mouse(kMouseDown, where, 1);
+		Mouse(kMouseUp, where, 0);
+	}
+
+	void Key(char byte)
+	{
+		BMessage message(kKeyDown);
+		(void)message.AddString("bytes", std::string(1, byte));
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	void Deactivate()
+	{
+		BMessage message(kWindowActivated);
+		(void)message.AddBool("active", false);
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	MenuState Ask()
+	{
+		// Twice: messages the window sent itself while handling the events
+		// (a chosen item's) are in its queue before the second question.
+		BMessage reply;
+		EXPECT_TRUE(fWindow.SendMessage(BMessage(kAsk), &reply).has_value());
+		EXPECT_TRUE(fWindow.SendMessage(BMessage(kAsk), &reply).has_value());
+		MenuState state;
+		state.popups = reply.GetInt32("popups", -1);
+		state.tracking = reply.GetBool("tracking", false);
+		state.last = reply.GetRect("last", {});
+		for (std::int32_t i = 0; auto chosen = reply.FindInt32("chosen", i); i++)
+			state.chosen.push_back(*chosen);
+		state.beginnings = reply.GetInt32("beginnings", 0);
+		state.ends = reply.GetInt32("ends", 0);
+		return state;
+	}
+
+private:
+	BMessenger fWindow;
+};
+
+
+TEST(MenuBarTest, PressDragAndReleaseChooses)
+{
+	// What is tested: The menu bar of a running window (placeholder font):
+	// the mouse pressed on "File", dragged onto "Open" and released there.
+	// Success criteria: The bar is 17 high and "File" (0, 0, 46, 17). The
+	// press opens the File menu in a popup below its title, with Haiku's
+	// one pixel border: at (0, 16), 88 × 73 (the menu 86 × 71). Releasing
+	// on "Open" sends its message (2) to the window and closes the popup;
+	// MenusBeginning() and MenusEnded() are called once each.
+	// Why it matters: This is the most common way to use a menu.
+	//
+	// Given
+	RunningMenus menus;
+
+	// When
+	menus.Mouse(kMouseDown, {10, 8}, 1);
+	const MenuState pressed = menus.Ask();
+	menus.Mouse(kMouseMoved, {20, 40}, 1);
+	menus.Mouse(kMouseUp, {20, 40}, 0);
+	const MenuState released = menus.Ask();
+
+	// Then
+	EXPECT_EQ(pressed.popups, 1);
+	EXPECT_TRUE(pressed.tracking);
+	EXPECT_EQ(pressed.last, (gfx::Rect{0, 16, 88, 89}));
+	EXPECT_EQ(released.popups, 0);
+	EXPECT_FALSE(released.tracking);
+	EXPECT_EQ(released.chosen, (std::vector<std::int32_t>{2}));
+	EXPECT_EQ(released.beginnings, 1);
+	EXPECT_EQ(released.ends, 1);
+}
+
+
+TEST(MenuBarTest, StickyModeOpensSubmenusAndClosesOutside)
+{
+	// What is tested: A click (press and release) on "File", the mouse
+	// moved onto "Recent", then a click on "b.txt" of its submenu; again a
+	// click on "File" and one outside the menus; again a click on "File" and
+	// Escape; again and the window deactivated; a click on "File" while its
+	// menu is open.
+	// Success criteria: A click on a title keeps its menu open (sticky
+	// mode). Over "Recent" its submenu opens at once beside it: at (86, 58),
+	// 73 × 32. A click on "b.txt" chooses it (4). A click outside the menus,
+	// Escape, the window becoming inactive and a click on the open menu's
+	// title close the menus without choosing anything.
+	// Why it matters: Click-click navigation and every way to cancel a menu
+	// must work as in Haiku.
+	//
+	// Given
+	RunningMenus menus;
+
+	// When / Then
+	menus.Click({10, 8});
+	EXPECT_TRUE(menus.Ask().tracking);
+	EXPECT_EQ(menus.Ask().popups, 1);
+	menus.Mouse(kMouseMoved, {20, 64}, 0);
+	const MenuState submenu = menus.Ask();
+	EXPECT_EQ(submenu.popups, 2);
+	EXPECT_EQ(submenu.last, (gfx::Rect{86, 58, 159, 90}));
+	menus.Mouse(kMouseMoved, {100, 80}, 0);
+	menus.Click({100, 80});
+	MenuState chosen = menus.Ask();
+	EXPECT_FALSE(chosen.tracking);
+	EXPECT_EQ(chosen.popups, 0);
+	EXPECT_EQ(chosen.chosen, (std::vector<std::int32_t>{4}));
+
+	menus.Click({10, 8});
+	menus.Click({390, 290});
+	EXPECT_FALSE(menus.Ask().tracking);
+
+	menus.Click({10, 8});
+	EXPECT_TRUE(menus.Ask().tracking);
+	menus.Key(keys::kEscape);
+	EXPECT_FALSE(menus.Ask().tracking);
+
+	menus.Click({10, 8});
+	menus.Deactivate();
+	EXPECT_FALSE(menus.Ask().tracking);
+
+	menus.Click({10, 8});
+	menus.Click({10, 8});
+	const MenuState toggled = menus.Ask();
+	EXPECT_FALSE(toggled.tracking);
+	EXPECT_EQ(toggled.popups, 0);
+	EXPECT_EQ(toggled.chosen, (std::vector<std::int32_t>{4}));
+	EXPECT_EQ(toggled.beginnings, 5);
+	EXPECT_EQ(toggled.ends, 5);
+}
+
+
+TEST(MenuBarTest, TheNavigationAreaDelaysSwitching)
+{
+	// What is tested: With a ManualClock: the File menu open (sticky),
+	// "Recent" selected with its submenu, then the mouse moved down onto
+	// "Quit" in the direction of the submenu, (60, 74); the clock advanced
+	// by 0.5 s and then past one second.
+	// Success criteria: In Haiku's navigation area (the triangle towards
+	// the submenu) "Recent" stays selected and its submenu open, also after
+	// 0.5 s; after Haiku's timeout of one second "Quit" is selected and the
+	// submenu closes, though the mouse did not move.
+	// Why it matters: The navigation area lets the user reach a submenu
+	// diagonally without it closing on the way.
+	//
+	// Given
+	ManualClock clock;
+	Clock::SetDefault(&clock);
+	{
+		RunningMenus menus;
+		menus.Click({10, 8});
+		menus.Mouse(kMouseMoved, {20, 64}, 0);
+
+		// When
+		menus.Mouse(kMouseMoved, {60, 74}, 0);
+		const MenuState moved = menus.Ask();
+		clock.Advance(500ms);
+		const MenuState halfway = menus.Ask();
+		clock.Advance(600ms);
+		const MenuState later = menus.Ask();
+
+		// Then
+		EXPECT_EQ(moved.popups, 2);
+		EXPECT_EQ(halfway.popups, 2);
+		EXPECT_EQ(later.popups, 1);
+		EXPECT_TRUE(later.tracking);
+	}
+	Clock::SetDefault(nullptr);
 }
 
 

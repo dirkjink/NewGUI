@@ -28,6 +28,7 @@ namespace ngui {
 
 
 class BButton;
+class MenuTracking;
 
 
 /*!	How a window looks (Haiku's window_look, as far as the platform can
@@ -221,6 +222,10 @@ public:
 	virtual	void				WindowActivated(bool active);
 									/*!< It became active or inactive; then the views'
 										hooks are called. */
+	virtual	void				MenusBeginning();
+									/*!< Hook: a menu of the window is about to open. */
+	virtual	void				MenusEnded();
+									/*!< Hook: the menus of the window have closed. */
 			void				DispatchMessage(BMessage* message, BHandler* handler) override;
 									/*!< The platform's events to the views, then as
 										BLooper's. */
@@ -230,6 +235,7 @@ private:
 	friend class BView;
 
 			class PopupSurface;
+	friend class MenuTracker;
 
 			void				_AddDirty(const gfx::Rect& rect);
 			void				_AddDirty(const BView* root, const gfx::Rect& rect);
@@ -281,6 +287,8 @@ private:
 			gfx::Size			fMaxSize = {kSizeUnlimited, kSizeUnlimited};
 			bool				fActive = false;
 			std::vector<std::unique_ptr<PopupSurface>> fPopups;
+			MenuTracking*		fMenuTracking = nullptr;
+									// the menu tracking that gets the events, while it runs
 			bool				fMainUpdateWanted = true;
 									// The content area needs a frame (not only popups).
 };

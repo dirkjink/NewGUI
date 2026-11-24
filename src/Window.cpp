@@ -21,6 +21,7 @@
 #include <ngui/gfx/BackendRegistry.h>
 
 #include "LooperPort.h"
+#include "MenuPrivate.h"
 
 
 namespace ngui {
@@ -159,6 +160,9 @@ BWindow::~BWindow()
 		std::scoped_lock lock(sWindowsLock);
 		std::erase(sWindows, self);
 	}
+	// Open menus give their popups back before the popups close.
+	if (fMenuTracking != nullptr)
+		fMenuTracking->CancelTracking();
 	while (!fPopups.empty())
 		(void)ClosePopup(fPopups.back()->root.get());
 	fRoot->_Detach();
@@ -548,6 +552,18 @@ BWindow::WindowActivated(bool)
 
 
 void
+BWindow::MenusBeginning()
+{
+}
+
+
+void
+BWindow::MenusEnded()
+{
+}
+
+
+void
 BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 {
 	if (handler != this) {
@@ -589,6 +605,8 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kWindowActivated:
 		{
 			fActive = message->GetBool("active", false);
+			if (!fActive && fMenuTracking != nullptr)
+				fMenuTracking->CancelTracking();
 			WindowActivated(fActive);
 			ForEachView(fRoot.get(), [this](BView* view) { view->WindowActivated(fActive); });
 			return;
@@ -805,9 +823,14 @@ BWindow::_PopupEvent(PopupSurface* popup, BMessage* message)
 			}
 			return;
 		}
+		case kQuitRequested:
+			// The window system closed the popup (Wayland does on a click
+			// elsewhere): the menus end.
+			if (fMenuTracking != nullptr)
+				fMenuTracking->CancelTracking();
+			return;
 		default:
-			// The opener decides when a popup closes (a close request of
-			// the window system, a move ...).
+			// The opener decides when a popup closes.
 			return;
 	}
 }
@@ -861,6 +884,16 @@ BWindow::_MouseEvent(BMessage* message, BView* root)
 	const gfx::Point origin = _SurfaceOrigin(root);
 	const gfx::Point screen = {where.x + origin.x, where.y + origin.y};
 	const bool exited = message->GetBool("be:exited", false);
+
+	// While menus are open, their tracking gets every mouse event.
+	if (fMenuTracking != nullptr) {
+		const auto buttons = static_cast<std::uint32_t>(message->GetInt32("buttons",
+			message->what == kMouseUp ? 0 : static_cast<std::int32_t>(fButtons)));
+		fButtons = buttons;
+		fMenuTracking->TrackMouse(message->what, screen, buttons);
+		return;
+	}
+
 	BView* under = exited ? nullptr : ViewAt(root, root->ConvertFromWindow(where));
 
 	switch (message->what) {
@@ -916,6 +949,9 @@ void
 BWindow::_KeyEvent(BMessage* message)
 {
 	const std::string_view bytes = message->GetString("bytes", "");
+	// While menus are open, their tracking gets the keys first.
+	if (fMenuTracking != nullptr && fMenuTracking->TrackKey(message->what, bytes))
+		return;
 	const auto modifiers = BModifierFlags::FromRaw(
 		static_cast<std::uint32_t>(message->GetInt32("modifiers", 0)));
 	if (message->what == kKeyDown && bytes == "\t" && modifiers.Has(BModifier::Option)) {
