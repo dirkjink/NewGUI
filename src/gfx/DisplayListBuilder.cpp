@@ -179,6 +179,28 @@ DisplayListBuilder::StrokePolyline(std::uint32_t clip, std::span<const Point> po
 
 
 void
+DisplayListBuilder::DrawPath(OpCode code, std::uint32_t clip, const Path& path,
+	const Paint& paint)
+{
+	// The verbs as bytes, padded with zeros to a multiple of 4, then the
+	// points.
+	const std::span<const PathVerb> verbs = path.Verbs();
+	const std::span<const Point> points = path.Points();
+	const std::size_t verbBytes = (verbs.size() + 3) & ~std::size_t(3);
+	const PathRecord record = {PaintRecord::From(paint),
+		static_cast<std::uint32_t>(verbs.size()), static_cast<std::uint32_t>(points.size()),
+		code == OpCode::FillPath ? static_cast<std::uint8_t>(path.Rule()) : std::uint8_t(0),
+		{0, 0, 0}};
+	const std::size_t offset = _BeginOp(code, clip, record, verbBytes + points.size_bytes());
+	std::vector<std::uint8_t> bytes(verbBytes, 0);
+	for (std::size_t i = 0; i < verbs.size(); i++)
+		bytes[i] = static_cast<std::uint8_t>(verbs[i]);
+	_Write(offset, bytes.data(), bytes.size());
+	_Write(offset + verbBytes, points.data(), points.size_bytes());
+}
+
+
+void
 DisplayListBuilder::StrokeArc(std::uint32_t clip, const Rect& oval, float startDeg,
 	float sweepDeg, const Paint& paint)
 {

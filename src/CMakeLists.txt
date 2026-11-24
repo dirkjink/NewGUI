@@ -120,6 +120,7 @@ add_library(ngui
     gfx/DumpBackend.cpp
     gfx/ImageRegistry.cpp
     gfx/LinearGradient.cpp
+    gfx/Path.cpp
     gfx/RRect.cpp
     gfx/Region.cpp
     gfx/RegionSupport.cpp

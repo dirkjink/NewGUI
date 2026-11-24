@@ -158,8 +158,8 @@ WithinBounds(const DisplayList& list)
 NGUI_FUZZ_TARGET(Canvas)
 {
 	// What is tested: Arbitrary sequences of Canvas calls (state, clip and
-	// every drawing operation) with arbitrary arguments, NaN, infinity and
-	// extreme values included.
+	// every drawing operation, paths of the extended profile included) with
+	// arbitrary arguments, NaN, infinity and extreme values included.
 	// Success criteria: No call crashes (checked by the sanitizers); the
 	// finished list is accepted by DisplayList::Deserialize() and serializes
 	// back to the same bytes; every clip lies inside the rounded bounds.
@@ -183,7 +183,7 @@ NGUI_FUZZ_TARGET(Canvas)
 
 	// When
 	for (int step = 0; step < 48 && !reader.AtEnd(); step++) {
-		switch (reader.Byte() % 20) {
+		switch (reader.Byte() % 22) {
 			case 0:
 				canvas.Save();
 				saved++;
@@ -303,6 +303,39 @@ NGUI_FUZZ_TARGET(Canvas)
 				saved++;
 				canvas.ClipRect(reader.NextRect());
 				break;
+			case 20:
+			case 21:
+			{
+				// a path of up to 6 steps (extended profile)
+				Path path;
+				path.SetFillRule(static_cast<FillRule>(reader.Byte() % 2));
+				const int steps = reader.Byte() % 7;
+				for (int i = 0; i < steps; i++) {
+					switch (reader.Byte() % 4) {
+						case 0:
+							path.MoveTo(reader.NextPoint());
+							break;
+						case 1:
+							path.LineTo(reader.NextPoint());
+							break;
+						case 2:
+						{
+							const Point control1 = reader.NextPoint();
+							const Point control2 = reader.NextPoint();
+							path.CubicTo(control1, control2, reader.NextPoint());
+							break;
+						}
+						case 3:
+							path.Close();
+							break;
+					}
+				}
+				if (step % 2 == 0)
+					canvas.FillPath(path, reader.NextPaint());
+				else
+					canvas.StrokePath(path, reader.NextPaint());
+				break;
+			}
 		}
 	}
 	const DisplayListRef list = canvas.Finish();

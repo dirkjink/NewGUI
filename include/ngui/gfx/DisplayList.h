@@ -21,6 +21,7 @@
 #include <ngui/gfx/IntRect.h>
 #include <ngui/gfx/Line.h>
 #include <ngui/gfx/Paint.h>
+#include <ngui/gfx/Path.h>
 #include <ngui/gfx/Point.h>
 #include <ngui/gfx/RRect.h>
 #include <ngui/gfx/Rect.h>
@@ -35,8 +36,9 @@ class DisplayList;
 using DisplayListRef = std::shared_ptr<const DisplayList>;
 
 
-/*!	The operations of the core profile (specification 11.2). The values are
-	part of the binary format and never change. */
+/*!	The operations of the core profile (specification 11.2) and of the
+	extended profile (specification 16). The values are part of the binary
+	format and never change. */
 enum class OpCode : std::uint16_t {
 	FillRect = 1,			/*!< RectRecord */
 	FillRRect = 2,			/*!< RRectRecord */
@@ -50,7 +52,9 @@ enum class OpCode : std::uint16_t {
 	DrawLines = 10,			/*!< LinesRecord, then the lines */
 	DrawImage = 11,			/*!< ImageRecord */
 	DrawGlyphRun = 12,		/*!< GlyphRunRecord, then glyphs, positions, clusters, text */
-	DrawList = 13			/*!< ListRecord */
+	DrawList = 13,			/*!< ListRecord */
+	FillPath = 14,			/*!< PathRecord, then the verbs and points (extended profile) */
+	StrokePath = 15			/*!< PathRecord, then the verbs and points (extended profile) */
 };
 
 
@@ -113,6 +117,17 @@ struct PointsRecord {
 			PaintRecord			paint;	/*!< How to fill or stroke. */
 			std::uint32_t		count;	/*!< Number of points that follow. */
 			std::uint32_t		closed;	/*!< StrokePolyline: 1 if closed; 0 otherwise. */
+};
+
+
+/*!	Payload of FillPath and StrokePath: then follow `verbCount` PathVerb bytes,
+	padded with zeros to a multiple of 4, and `pointCount` points. */
+struct PathRecord {
+			PaintRecord			paint;			/*!< How to fill or stroke. */
+			std::uint32_t		verbCount;		/*!< Number of verbs, at least 1. */
+			std::uint32_t		pointCount;		/*!< Number of points the verbs need. */
+			std::uint8_t		fillRule;		/*!< FillPath: a FillRule; StrokePath: 0. */
+			std::uint8_t		reserved[3];	/*!< Zero. */
 };
 
 
@@ -185,6 +200,12 @@ public:
 
 			std::span<const Point> Points() const;
 									/*!< FillConvexPolygon, StrokePolyline: the points. */
+			std::span<const PathVerb> PathVerbs() const;
+									/*!< FillPath, StrokePath: the verbs. */
+			std::span<const Point> PathPoints() const;
+									/*!< FillPath, StrokePath: the points. */
+			Path				ToPath() const;
+									/*!< FillPath, StrokePath: the path, with its fill rule. */
 			std::span<const Line> Lines() const;
 									/*!< DrawLines: the lines. */
 			std::span<const std::uint32_t> Glyphs() const;
@@ -338,6 +359,7 @@ static_assert(sizeof(RectRecord) == 140);
 static_assert(sizeof(RRectRecord) == 156);
 static_assert(sizeof(RingRecord) == 188);
 static_assert(sizeof(PointsRecord) == 132);
+static_assert(sizeof(PathRecord) == 136);
 static_assert(sizeof(ArcRecord) == 148);
 static_assert(sizeof(LinesRecord) == 12);
 static_assert(sizeof(ImageRecord) == 40);

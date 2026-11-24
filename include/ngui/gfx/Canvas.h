@@ -15,6 +15,7 @@
 #include <ngui/gfx/GlyphRun.h>
 #include <ngui/gfx/Line.h>
 #include <ngui/gfx/Paint.h>
+#include <ngui/gfx/Path.h>
 #include <ngui/gfx/Point.h>
 #include <ngui/gfx/RRect.h>
 #include <ngui/gfx/Rect.h>
@@ -92,6 +93,13 @@ public:
 									/*!< Fills a convex polygon of at least 3 points; debug
 										builds warn about a non-convex one. */
 
+			void				FillPath(const Path& path, const Paint& paint);
+									/*!< Extended profile (Caps::bezierPaths,
+										Caps::concavePolygons): fills \a path by its fill
+										rule, every contour closed. A backend without them
+										fills Path::Flatten(). Dropped if empty or not
+										finite. */
+
 			void				StrokeRect(const Rect& rect, const Paint& paint);
 									/*!< Strokes inside \a rect, the outer edge flush with it. */
 			void				StrokeRRect(const RRect& rrect, const Paint& paint);
@@ -99,6 +107,11 @@ public:
 			void				StrokePolyline(std::span<const Point> points, bool closed,
 									const Paint& paint);
 									/*!< Strokes at least 2 points, centered on the line. */
+			void				StrokePath(const Path& path, const Paint& paint);
+									/*!< Extended profile (Caps::bezierPaths): strokes
+										\a path, centered on its lines, with the paint's
+										width, cap and join. A backend without it strokes
+										Path::Flatten(). */
 			void				StrokeArc(const Rect& oval, float startDeg, float sweepDeg,
 									const Paint& paint);
 									/*!< Strokes an arc of the ellipse inscribed in \a oval;
@@ -151,6 +164,7 @@ private:
 			State				fState;
 			std::vector<State>	fStack;
 			std::vector<Point>	fScratchPoints;
+			Path				fScratchPath;
 			std::vector<Line>	fScratchLines;
 			std::uint32_t		fDiscarded = 0;
 			bool				fRecordGlyphText = true;

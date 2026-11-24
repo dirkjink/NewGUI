@@ -60,8 +60,30 @@ _OpName(OpCode code)
 			return "DrawGlyphRun";
 		case OpCode::DrawList:
 			return "DrawList";
+		case OpCode::FillPath:
+			return "FillPath";
+		case OpCode::StrokePath:
+			return "StrokePath";
 	}
 	return nullptr;
+}
+
+
+// The letter of a path verb, as in SVG path data.
+char
+_VerbLetter(PathVerb verb)
+{
+	switch (verb) {
+		case PathVerb::Move:
+			return 'M';
+		case PathVerb::Line:
+			return 'L';
+		case PathVerb::Cubic:
+			return 'C';
+		case PathVerb::Close:
+			return 'Z';
+	}
+	return '?';
 }
 
 
@@ -363,6 +385,26 @@ TextWriter::_Op(const Op& op)
 			text += std::format(" offset={}", _Point(record.offset));
 			break;
 		}
+		case OpCode::FillPath:
+		case OpCode::StrokePath:
+		{
+			// the verbs as SVG letters, each with its points
+			const PathRecord& record = op.As<PathRecord>();
+			const std::span<const Point> points = op.PathPoints();
+			std::size_t next = 0;
+			text += " path=";
+			for (const PathVerb verb : op.PathVerbs()) {
+				text += _VerbLetter(verb);
+				const std::size_t count = verb == PathVerb::Cubic ? 3
+					: verb == PathVerb::Close ? 0 : 1;
+				for (std::size_t i = 0; i < count; i++)
+					text += _Point(points[next++]);
+			}
+			if (op.Code() == OpCode::FillPath)
+				text += record.fillRule == 0 ? " rule=nonzero" : " rule=evenodd";
+			text += " " + _Paint(record.paint);
+			break;
+		}
 	}
 	return text;
 }
@@ -515,6 +557,29 @@ JsonWriter::_Op(const DisplayList& list, const Op& op)
 			const ListRecord& record = op.As<ListRecord>();
 			fOut += std::format(",\"offset\":{},\"list\":", _Point(record.offset));
 			Write(*list.Children()[record.child]);
+			break;
+		}
+		case OpCode::FillPath:
+		case OpCode::StrokePath:
+		{
+			const PathRecord& record = op.As<PathRecord>();
+			const std::span<const Point> points = op.PathPoints();
+			std::size_t next = 0;
+			fOut += ",\"path\":[";
+			bool firstVerb = true;
+			for (const PathVerb verb : op.PathVerbs()) {
+				fOut += std::format("{}[\"{}\"", firstVerb ? "" : ",", _VerbLetter(verb));
+				firstVerb = false;
+				const std::size_t count = verb == PathVerb::Cubic ? 3
+					: verb == PathVerb::Close ? 0 : 1;
+				for (std::size_t i = 0; i < count; i++)
+					fOut += "," + _Point(points[next++]);
+				fOut += ']';
+			}
+			fOut += ']';
+			if (op.Code() == OpCode::FillPath)
+				fOut += record.fillRule == 0 ? ",\"rule\":\"nonzero\"" : ",\"rule\":\"evenodd\"";
+			fOut += ",\"paint\":" + _Paint(record.paint);
 			break;
 		}
 	}
