@@ -361,6 +361,42 @@ SkiaBackend::Data::Draw(SkCanvas* canvas, const DisplayList& list, const Op& op,
 			underMatrix([&] { canvas->drawPath(path, paint); });
 			break;
 		}
+		case OpCode::FillPath:
+		case OpCode::StrokePath:
+		{
+			// Extended profile: Skia draws paths natively.
+			const PathRecord& record = op.As<PathRecord>();
+			const std::span<const Point> points = op.PathPoints();
+			const bool fill = op.Code() == OpCode::FillPath;
+			SkPathBuilder builder(fill && record.fillRule == 1 ? SkPathFillType::kEvenOdd
+				: SkPathFillType::kWinding);
+			std::size_t next = 0;
+			for (const PathVerb verb : op.PathVerbs()) {
+				switch (verb) {
+					case PathVerb::Move:
+						builder.moveTo(points[next].x, points[next].y);
+						next++;
+						break;
+					case PathVerb::Line:
+						builder.lineTo(points[next].x, points[next].y);
+						next++;
+						break;
+					case PathVerb::Cubic:
+						builder.cubicTo(points[next].x, points[next].y, points[next + 1].x,
+							points[next + 1].y, points[next + 2].x, points[next + 2].y);
+						next += 3;
+						break;
+					case PathVerb::Close:
+						builder.close();
+						break;
+				}
+			}
+			const SkPath path = builder.detach();
+			SkPaint paint = _Paint(record.paint, nullptr);
+			paint.setStyle(fill ? SkPaint::kFill_Style : SkPaint::kStroke_Style);
+			underMatrix([&] { canvas->drawPath(path, paint); });
+			break;
+		}
 		case OpCode::StrokeRect:
 		{
 			// Rule A1: the frame lies inside the rectangle (specification
@@ -569,7 +605,8 @@ SkiaBackend::AddFont(FontId font, std::span<const std::byte> fontFile)
 Caps
 SkiaBackend::Capabilities() const
 {
-	return Caps{};
+	// FillPath and StrokePath (extended profile) are drawn natively.
+	return Caps{.bezierPaths = true, .concavePolygons = true};
 }
 
 

@@ -233,6 +233,38 @@ Canvas::FillConvexPolygon(std::span<const Point> points, const Paint& paint)
 
 
 void
+Canvas::FillPath(const Path& path, const Paint& paint)
+{
+	if (!_CanDraw())
+		return;
+	fScratchPath = path;
+	fScratchPath.Translate(fState.translation.x, fState.translation.y);
+	const Paint movedPaint = _Moved(paint);
+	if (!_Accept(fScratchPath.IsFinite() && movedPaint.IsValid(), "FillPath")
+		|| fScratchPath.IsEmpty()) {
+		return;
+	}
+	fBuilder->DrawPath(OpCode::FillPath, _Clip(), fScratchPath, movedPaint);
+}
+
+
+void
+Canvas::StrokePath(const Path& path, const Paint& paint)
+{
+	if (!_CanDraw())
+		return;
+	fScratchPath = path;
+	fScratchPath.Translate(fState.translation.x, fState.translation.y);
+	const Paint movedPaint = _Moved(paint);
+	if (!_Accept(fScratchPath.IsFinite() && movedPaint.IsValid(), "StrokePath")
+		|| fScratchPath.IsEmpty()) {
+		return;
+	}
+	fBuilder->DrawPath(OpCode::StrokePath, _Clip(), fScratchPath, movedPaint);
+}
+
+
+void
 Canvas::StrokeRect(const Rect& rect, const Paint& paint)
 {
 	const Rect moved = _Moved(rect);

@@ -227,6 +227,31 @@ _IsValidPayload(OpCode code, std::span<const std::byte> payload, std::uint32_t c
 			const auto points = _ReadArray<Point>(payload, sizeof(PointsRecord), record.count);
 			return std::ranges::all_of(points, [](const Point& p) { return p.IsFinite(); });
 		}
+		case OpCode::FillPath:
+		case OpCode::StrokePath:
+		{
+			if (payload.size() < sizeof(PathRecord))
+				return false;
+			const auto record = _Read<PathRecord>(payload.data());
+			const std::uint64_t verbBytes = (std::uint64_t(record.verbCount) + 3) & ~3ull;
+			if (record.verbCount == 0 || record.reserved[0] != 0 || record.reserved[1] != 0
+				|| record.reserved[2] != 0
+				|| record.fillRule > (code == OpCode::FillPath ? 1u : 0u)
+				|| payload.size() != sizeof(PathRecord) + verbBytes
+					+ std::uint64_t(record.pointCount) * 8
+				|| !_IsValid(record.paint)) {
+				return false;
+			}
+			const auto bytes = payload.subspan(sizeof(PathRecord), verbBytes);
+			std::vector<PathVerb> verbs(record.verbCount);
+			for (std::size_t i = 0; i < verbs.size(); i++)
+				verbs[i] = static_cast<PathVerb>(bytes[i]);
+			const auto points = _ReadArray<Point>(payload,
+				sizeof(PathRecord) + static_cast<std::size_t>(verbBytes), record.pointCount);
+			return Path::IsValidSequence(verbs, record.pointCount)
+				&& _AllZero(bytes.subspan(record.verbCount))
+				&& std::ranges::all_of(points, [](const Point& p) { return p.IsFinite(); });
+		}
 		case OpCode::StrokeArc:
 		{
 			if (payload.size() != sizeof(ArcRecord))
@@ -350,6 +375,52 @@ std::span<const Point>
 Op::Points() const
 {
 	return {_Trailing<Point, PointsRecord>(fHeader), As<PointsRecord>().count};
+}
+
+
+std::span<const PathVerb>
+Op::PathVerbs() const
+{
+	return {_Trailing<PathVerb, PathRecord>(fHeader), As<PathRecord>().verbCount};
+}
+
+
+std::span<const Point>
+Op::PathPoints() const
+{
+	const PathRecord& record = As<PathRecord>();
+	const std::size_t verbBytes = (std::size_t(record.verbCount) + 3) & ~std::size_t(3);
+	const auto* points = reinterpret_cast<const Point*>(
+		reinterpret_cast<const std::byte*>(_Trailing<PathVerb, PathRecord>(fHeader)) + verbBytes);
+	return {points, record.pointCount};
+}
+
+
+Path
+Op::ToPath() const
+{
+	Path path;
+	path.SetFillRule(static_cast<FillRule>(As<PathRecord>().fillRule));
+	const std::span<const Point> points = PathPoints();
+	std::size_t next = 0;
+	for (const PathVerb verb : PathVerbs()) {
+		switch (verb) {
+			case PathVerb::Move:
+				path.MoveTo(points[next++]);
+				break;
+			case PathVerb::Line:
+				path.LineTo(points[next++]);
+				break;
+			case PathVerb::Cubic:
+				path.CubicTo(points[next], points[next + 1], points[next + 2]);
+				next += 3;
+				break;
+			case PathVerb::Close:
+				path.Close();
+				break;
+		}
+	}
+	return path;
 }
 
 

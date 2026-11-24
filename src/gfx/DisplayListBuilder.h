@@ -12,6 +12,7 @@
 #include <vector>
 
 #include <ngui/gfx/DisplayList.h>
+#include <ngui/gfx/Path.h>
 #include <ngui/gfx/Region.h>
 
 
@@ -43,6 +44,9 @@ public:
 			void				StrokeRect(std::uint32_t clip, const Rect& rect,
 									const Paint& paint);
 			void				StrokeRRect(std::uint32_t clip, const RRect& rrect,
+									const Paint& paint);
+			// FillPath or StrokePath (\a code).
+			void				DrawPath(OpCode code, std::uint32_t clip, const Path& path,
 									const Paint& paint);
 			void				StrokePolyline(std::uint32_t clip,
 									std::span<const Point> points, bool closed,

@@ -50,6 +50,14 @@ Touch(const DisplayList& list)
 				for (const auto& point : op.Points())
 					sum += point.x != point.y ? 1 : 0;
 				break;
+			case OpCode::FillPath:
+			case OpCode::StrokePath:
+				for (const auto verb : op.PathVerbs())
+					sum += static_cast<std::uint8_t>(verb);
+				for (const auto& point : op.PathPoints())
+					sum += point.x != point.y ? 1 : 0;
+				sum += op.ToPath().Verbs().size();
+				break;
 			case OpCode::DrawLines:
 				for (const auto& line : op.Lines())
 					sum += line.color.a > 0.5f ? 1 : 0;

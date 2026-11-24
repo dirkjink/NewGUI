@@ -8,6 +8,7 @@
 #include <ngui/gfx/SkiaBackend.h>
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -231,6 +232,59 @@ TEST(SkiaBackendTest, ShapesAreAntialiased)
 }
 
 
+TEST(SkiaBackendTest, PathsAreDrawnNatively)
+{
+	// What is tested: The extended profile's paths: a five-pointed star
+	// (one self-crossing contour) filled with the nonzero rule at the left,
+	// with the even-odd rule at the right; a curve (one cubic) stroked 3
+	// wide below them.
+	// Success criteria: The upper arm and the center of the nonzero star
+	// are red; the even-odd star is red in its arm but white in its center
+	// (the pentagon crossed twice). The stroked curve is red in its middle,
+	// white above and below it.
+	// Why it matters: Skia reports Caps::bezierPaths and concavePolygons;
+	// BShape and BPolygon draw with them as Haiku's FillShape() does.
+	//
+	// Given
+	const auto star = [](float cx, FillRule rule) {
+		Path path;
+		path.SetFillRule(rule);
+		for (int i = 0; i < 5; i++) {
+			// every second corner of a pentagon of radius 18
+			const double angle = -1.5707963 + i * 2 * 2 * 3.14159265 / 5;
+			const Point corner = {cx + 18 * static_cast<float>(std::cos(angle)),
+				20 + 18 * static_cast<float>(std::sin(angle))};
+			if (i == 0)
+				path.MoveTo(corner);
+			else
+				path.LineTo(corner);
+		}
+		path.Close();
+		return path;
+	};
+	Path curve;
+	curve.MoveTo({4, 50});
+	curve.CubicTo({24, 40}, {56, 60}, {76, 50});
+	Canvas canvas({0, 0, 80, 60});
+
+	// When
+	canvas.FillPath(star(20, FillRule::NonZero), kRedPaint);
+	canvas.FillPath(star(60, FillRule::EvenOdd), kRedPaint);
+	canvas.StrokePath(curve, {.color = {1, 0, 0, 1}, .strokeWidth = 3});
+	const DisplayListRef list = canvas.Finish();
+	const Rendered rendered(list, {80, 60});
+
+	// Then
+	EXPECT_EQ(rendered.At(20, 20), kRed);
+	EXPECT_EQ(rendered.At(20, 8), kRed);
+	EXPECT_EQ(rendered.At(60, 20), kWhite);
+	EXPECT_EQ(rendered.At(60, 8), kRed);
+	EXPECT_EQ(rendered.At(40, 50), kRed);
+	EXPECT_EQ(rendered.At(40, 55), kWhite);
+	EXPECT_EQ(rendered.At(40, 45), kWhite);
+}
+
+
 TEST(SkiaBackendTest, ImagesComeFromTheRegistry)
 {
 	// What is tested: DrawImage of a 2 × 2 image registered with
@@ -275,7 +329,9 @@ TEST(SkiaBackendTest, SurfacesAndRegistration)
 	// arguments), resizing, and Register().
 	// Success criteria: A surface has the rounded device size, its pixels are
 	// readable as premultiplied 8-bit data; invalid sizes or scales give no
-	// surface; "skia" registers once with a higher priority than "dump".
+	// surface; "skia" registers once with a higher priority than "dump"; it
+	// draws the paths of the extended profile (Caps::bezierPaths,
+	// concavePolygons).
 	// Why it matters: Tests and the CPU presenter read these pixels
 	// (specification 13.3); the registry decides which backend a program
 	// starts with.
@@ -301,7 +357,7 @@ TEST(SkiaBackendTest, SurfacesAndRegistration)
 	EXPECT_TRUE(SkiaBackend::Register(registry));
 	EXPECT_FALSE(SkiaBackend::Register(registry));
 	EXPECT_EQ(registry.Names().front(), "skia");
-	EXPECT_EQ(backend.Capabilities(), Caps{});
+	EXPECT_EQ(backend.Capabilities(), (Caps{.bezierPaths = true, .concavePolygons = true}));
 }
 
 

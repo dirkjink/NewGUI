@@ -63,6 +63,7 @@ add_executable(ngui_tests
     gfx/LinearGradientTest.cpp
     gfx/LineTest.cpp
     gfx/PaintTest.cpp
+    gfx/PathTest.cpp
     gfx/PointTest.cpp
     gfx/RectTest.cpp
     gfx/RRectTest.cpp
