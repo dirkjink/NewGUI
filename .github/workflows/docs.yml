@@ -48,7 +48,9 @@ jobs:
   build:
     name: Build site
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Skia comes from the binary cache of the Build workflow's job "skia"
+    # (same compiler); built from source on a cold cache, 10 to 15 minutes.
+    timeout-minutes: 120
     env:
       # The coverage notes must be read by the gcov of the same compiler.
       CC: gcc-13
@@ -62,7 +64,13 @@ jobs:
       - name: Set up vcpkg
         uses: ./.github/actions/setup-vcpkg
         with:
-          cache-key: docs
+          cache-key: skia-gcc-13
+
+      # The coverage takes in Skia and SDL3, so that the Skia backend, the
+      # platform and the snapshot tests count too. SDL3 builds its X11 and
+      # Wayland support against the system's development headers.
+      - name: Install the window system headers
+        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
 
       # From the signed Ubuntu archive; the version is fixed per Ubuntu
       # release (1.9.8 on 24.04, the minimum cmake/NguiApiDocs.cmake asks for).
@@ -89,8 +97,9 @@ jobs:
       - name: Build, test and generate the API reference
         run: cmake --workflow --preset docs
 
-      # Library code only: the tests and the generated headers in the build
-      # directory are not what the coverage is about.
+      # Library code only, the Skia backend and the SDL3 platform included:
+      # the tests and the generated headers in the build directory are not
+      # what the coverage is about.
       - name: Coverage report
         run: |
           mkdir -p build/docs/coverage

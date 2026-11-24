@@ -12,7 +12,7 @@ Ein plattformübergreifendes UI-Toolkit in C++23. Seine Architektur orientiert s
 | [Abschätzung des Gesamtumfangs](project/toolkit-gesamtumfang.md) | Grundgerüst, Controls, Text-Subsystem und Plattformschicht |
 | [Konventionen](project/CONVENTIONS.md) | Code und Projekt, Port-Phase und Ziel-Phase |
 | [Test-Nachweis](tests/test-evidence.md) | jeder Test des letzten Laufs auf `main`, mit Begründung |
-| [Coverage-Bericht](https://dirkjink.github.io/NewGUI/coverage/) | Zeilen- und Zweig-Coverage der Bibliothek |
+| [Coverage-Bericht](https://dirkjink.github.io/NewGUI/coverage/) | Zeilen- und Zweig-Coverage der Bibliothek, mit Skia-Backend und SDL3-Plattform |
 | [API-Referenz](https://dirkjink.github.io/NewGUI/api/) | mit Doxygen aus den öffentlichen Headern erzeugt |
 
 Test-Nachweis, Coverage-Bericht und API-Referenz erzeugt der Docs-Workflow bei jeder Änderung auf `main` aus einem echten Lauf. Keine dieser Zahlen ist von Hand eingetragen.

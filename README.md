@@ -51,7 +51,7 @@ cmake --workflow --preset ci
 | `debug` | Debug | für die Entwicklung |
 | `release` | Release | optimiert |
 | `ci` | RelWithDebInfo | Warnungen als Fehler |
-| `docs` | Debug | Coverage, JUnit-Ausgabe der Tests, API-Referenz (braucht GCC oder Clang, Doxygen 1.9.8+) |
+| `docs` | Debug | Coverage mit Skia und SDL3, JUnit-Ausgabe der Tests, API-Referenz (braucht GCC oder Clang, Doxygen 1.9.8+, unter Linux die Header für X11 und Wayland) |
 | `fuzz` | RelWithDebInfo | libFuzzer-Programme mit ASan und UBSan (braucht Clang: `CC=clang CXX=clang++`) |
 | `skia` | RelWithDebInfo | mit Skia und SDL3 aus den vcpkg-Ports (Features `skia`, `sdl3`): Skia-Backend (`ngui_skia`), SDL3-Plattform (`ngui_sdl3`) und die Beispiele in `examples/`; der erste Build von Skia dauert lange, danach kommt es aus dem Binär-Cache von vcpkg. Unter Linux braucht SDL3 die Entwicklungs-Header des Fenstersystems: `sudo apt install libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev` |
 

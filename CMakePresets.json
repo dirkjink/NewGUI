@@ -46,10 +46,13 @@
     },
     {
       "name": "docs",
-      "displayName": "Docs (coverage, test results, API reference)",
+      "displayName": "Docs (coverage with Skia and SDL3, test results, API reference)",
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_MANIFEST_FEATURES": "tests;text;skia;sdl3",
+        "NGUI_WITH_SKIA": "ON",
+        "NGUI_WITH_SDL3": "ON",
         "NGUI_COVERAGE": "ON",
         "NGUI_BUILD_API_DOCS": "ON",
         "NGUI_WARNINGS_AS_ERRORS": "ON"
