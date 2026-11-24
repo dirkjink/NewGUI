@@ -11,6 +11,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <optional>
 #include <vector>
 
 #include <ngui/Error.h>
@@ -264,6 +265,7 @@ private:
 			struct Shortcut;
 	friend class MenuTracker;
 	friend class BMenuItem;
+	friend class BPopUpMenu;
 
 			void				_AddDirty(const gfx::Rect& rect);
 			void				_AddDirty(const BView* root, const gfx::Rect& rect);
@@ -274,6 +276,8 @@ private:
 			void				_UpdatePopup(PopupSurface& popup,
 									const gfx::Caps& caps, const TextSystem& text);
 			void				_ScheduleUpdate();
+	static	BWindow*			_DispatchingWindow();
+			void				_DisposeLater(std::unique_ptr<BView> view);
 			bool				_HandleKeyDown(BMessage* event);
 			void				_AddShortcut(std::uint32_t* key, BModifierFlags* modifiers,
 									BMenuItem* item);
@@ -324,6 +328,10 @@ private:
 			std::vector<std::unique_ptr<Shortcut>> fShortcuts;
 			BMenuBar*			fKeyMenuBar = nullptr;
 			bool				fNoQuitShortcut = false;
+			std::optional<gfx::Point> fLastMouse;
+									// on the screen, from the last mouse event
+			std::vector<std::unique_ptr<BView>> fDisposals;
+									// destroyed after the message being dispatched
 			bool				fMainUpdateWanted = true;
 									// The content area needs a frame (not only popups).
 };

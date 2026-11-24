@@ -122,6 +122,11 @@ public:
 };
 
 
+// The window whose message this thread dispatches (Haiku's
+// BLooper::LooperForThread(find_thread(NULL))).
+thread_local BWindow* sDispatchingWindow = nullptr;
+
+
 // A keyboard shortcut (Haiku's BWindow::Shortcut): a key with prepared
 // modifiers and either a menu item or a message for a target.
 struct BWindow::Shortcut {
@@ -214,6 +219,7 @@ BWindow::~BWindow()
 		(void)ClosePopup(fPopups.back()->root.get());
 	fRoot->_Detach();
 	fRoot.reset();
+	fDisposals.clear();
 	fSurface.reset();
 	fPlatformWindow.reset();
 	if (fFlags.Has(BWindowFlag::QuitOnWindowClose))
@@ -613,6 +619,20 @@ BWindow::MenusEnded()
 void
 BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 {
+	// The window dispatching on this thread; what was disposed of while
+	// dispatching goes when the outermost dispatch is done.
+	struct Scope {
+		BWindow* window;
+		BWindow* previous = sDispatchingWindow;
+		explicit Scope(BWindow* self) : window(self) { sDispatchingWindow = self; }
+		~Scope()
+		{
+			sDispatchingWindow = previous;
+			if (previous != window)
+				window->fDisposals.clear();
+		}
+	} scope(this);
+
 	if (handler != this) {
 		BLooper::DispatchMessage(message, handler);
 		return;
@@ -630,6 +650,10 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kKeyDown:
 		case kKeyUp:
 			_KeyEvent(message);
+			return;
+		case kMenuTrackerTick:
+			if (fMenuTracking != nullptr)
+				fMenuTracking->Tick();
 			return;
 		case kMouseWheelChanged:
 			// To the view under the mouse, as Haiku's _DetermineTarget();
@@ -935,6 +959,8 @@ BWindow::_MouseEvent(BMessage* message, BView* root)
 	const gfx::Point origin = _SurfaceOrigin(root);
 	const gfx::Point screen = {where.x + origin.x, where.y + origin.y};
 	const bool exited = message->GetBool("be:exited", false);
+	if (message->HasPoint("where"))
+		fLastMouse = screen;
 
 	// While menus are open, their tracking gets every mouse event.
 	if (fMenuTracking != nullptr) {
@@ -1252,6 +1278,23 @@ BWindow::_UpdatePopup(PopupSurface& popup, const gfx::Caps& caps, const TextSyst
 	if (popup.platformWindow != nullptr)
 		Present(*popup.platformWindow, *popup.surface, popup.dirty, popup.scale);
 	popup.dirty.clear();
+}
+
+
+// #pragma mark - menus
+
+
+BWindow*
+BWindow::_DispatchingWindow()
+{
+	return sDispatchingWindow;
+}
+
+
+void
+BWindow::_DisposeLater(std::unique_ptr<BView> view)
+{
+	fDisposals.push_back(std::move(view));
 }
 
 

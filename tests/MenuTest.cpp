@@ -7,6 +7,7 @@
 
 #include <ngui/Menu.h>
 
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <mutex>
@@ -16,12 +17,13 @@
 #include <gtest/gtest.h>
 
 #include <ngui/AppDefs.h>
-#include <ngui/Clock.h>
 #include <ngui/Button.h>
+#include <ngui/Clock.h>
 #include <ngui/InterfaceDefs.h>
 #include <ngui/MenuBar.h>
 #include <ngui/MenuItem.h>
 #include <ngui/Message.h>
+#include <ngui/PopUpMenu.h>
 #include <ngui/SeparatorItem.h>
 #include <ngui/Window.h>
 
@@ -758,6 +760,304 @@ TEST(MenuBarTest, ItemShortcutsLiveWithTheirItems)
 	EXPECT_FALSE(detachedY);
 	EXPECT_EQ(window.KeyMenuBar(), nullptr);
 	EXPECT_TRUE(window.HasShortcut('W', BModifier::Command));
+}
+
+
+constexpr std::uint32_t kPopUpMode = FourCharCode("PMOD");
+
+
+// Pop-up menus destroyed so far.
+std::atomic<int> sMenusDestroyed = 0;
+
+
+// A pop-up menu that counts its destruction.
+class CountingMenu : public BPopUpMenu {
+public:
+	CountingMenu()
+		:
+		BPopUpMenu("context", false, false)
+	{
+		AddItem(Item("One", 11));
+		AddItem(Item("Two", 12));
+		AddSeparatorItem();
+		auto more = std::make_unique<BMenu>("More");
+		more->AddItem(Item("Three", 13));
+		AddItem(std::move(more));
+		AddItem(Item("Four", 14));
+	}
+
+	~CountingMenu() override
+	{
+		sMenusDestroyed++;
+	}
+};
+
+
+// A view that opens a pop-up menu where the mouse is pressed: its own
+// (mode 0: auto invoke; mode 1: kept open) or a new one it hands over (mode
+// 2, without auto invoke). It records the labels the menus report done
+// ("-" for none).
+class ContextView : public BView {
+public:
+	ContextView()
+		:
+		BView({0, 0, 400, 300}, "context", {}, {}),
+		fMenu(std::make_unique<CountingMenu>())
+	{
+	}
+
+	void MouseDown(gfx::Point where) override
+	{
+		const gfx::Point screen = ConvertToScreen(where);
+		auto done = [this](BMenuItem* item) {
+			fDone.push_back(item != nullptr ? item->Label() : "-");
+		};
+		if (mode == 2) {
+			(void)BPopUpMenu::Go(std::make_unique<CountingMenu>(), screen, {}, done);
+			return;
+		}
+		(void)fMenu->Go(screen, {.autoInvoke = true, .keepOpen = mode == 1}, done);
+	}
+
+	BPopUpMenu* Menu() const
+	{
+		return fMenu.get();
+	}
+
+	const std::vector<std::string>& Done() const
+	{
+		return fDone;
+	}
+
+	int mode = 0;
+
+private:
+	std::unique_ptr<CountingMenu> fMenu;
+	std::vector<std::string> fDone;
+};
+
+
+// A window covered by a ContextView. It records the messages 11 .. 14 and
+// answers kAsk with the open popups, whether its menu tracks, the frame of
+// the last popup, the chosen messages and the labels done.
+class PopUpWindow : public BWindow {
+public:
+	PopUpWindow()
+		:
+		BWindow({0, 0, 400, 300}, "pop-up")
+	{
+		fView = static_cast<ContextView*>(AddChild(std::make_unique<ContextView>()));
+	}
+
+	void MessageReceived(BMessage* message) override
+	{
+		if (message->what >= 11 && message->what <= 14) {
+			fChosen.push_back(static_cast<std::int32_t>(message->what));
+			return;
+		}
+		if (message->what == kPopUpMode) {
+			fView->mode = message->GetInt32("mode", 0);
+			return;
+		}
+		if (message->what != kAsk) {
+			BWindow::MessageReceived(message);
+			return;
+		}
+		BMessage reply(kAsk);
+		(void)reply.AddInt32("popups", CountPopups());
+		(void)reply.AddBool("tracking", fView->Menu()->IsTracking());
+		if (CountPopups() > 0)
+			(void)reply.AddRect("last", PopupAt(CountPopups() - 1)->Frame());
+		for (std::int32_t chosen : fChosen)
+			(void)reply.AddInt32("chosen", chosen);
+		for (const std::string& done : fView->Done())
+			(void)reply.AddString("done", done);
+		(void)message->SendReply(reply);
+	}
+
+private:
+	ContextView* fView = nullptr;
+	std::vector<std::int32_t> fChosen;
+};
+
+
+// The state a PopUpWindow answers.
+struct PopUpState {
+	std::int32_t popups = -1;
+	bool tracking = false;
+	gfx::Rect last;
+	std::vector<std::int32_t> chosen;
+	std::vector<std::string> done;
+};
+
+
+class RunningPopUps {
+public:
+	RunningPopUps()
+		:
+		fWindow(*BLooper::Run(std::make_unique<PopUpWindow>()))
+	{
+	}
+
+	~RunningPopUps()
+	{
+		(void)fWindow.SendMessage(kQuitRequested);
+		(void)fWindow.WaitForLooperQuit(5s);
+	}
+
+	void Mouse(std::uint32_t what, gfx::Point where, std::int32_t buttons)
+	{
+		BMessage message(what);
+		(void)message.AddPoint("where", where);
+		(void)message.AddInt32("buttons", buttons);
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	void Click(gfx::Point where)
+	{
+		Mouse(kMouseDown, where, 1);
+		Mouse(kMouseUp, where, 0);
+	}
+
+	void Key(char byte)
+	{
+		BMessage message(kKeyDown);
+		(void)message.AddString("bytes", std::string(1, byte));
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	void Mode(std::int32_t mode)
+	{
+		BMessage message(kPopUpMode);
+		(void)message.AddInt32("mode", mode);
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	PopUpState Ask()
+	{
+		// Twice, as RunningMenus::Ask().
+		BMessage reply;
+		EXPECT_TRUE(fWindow.SendMessage(BMessage(kAsk), &reply).has_value());
+		EXPECT_TRUE(fWindow.SendMessage(BMessage(kAsk), &reply).has_value());
+		PopUpState state;
+		state.popups = reply.GetInt32("popups", -1);
+		state.tracking = reply.GetBool("tracking", false);
+		state.last = reply.GetRect("last", {});
+		for (std::int32_t i = 0; auto chosen = reply.FindInt32("chosen", i); i++)
+			state.chosen.push_back(*chosen);
+		for (std::int32_t i = 0; auto done = reply.FindString("done", i); i++)
+			state.done.emplace_back(*done);
+		return state;
+	}
+
+private:
+	BMessenger fWindow;
+};
+
+
+TEST(PopUpMenuTest, GoOpensWhereTheMouseIsAndChooses)
+{
+	// What is tested: With a ManualClock: the mouse pressed at (100, 100),
+	// the clock advanced past the click time, the mouse dragged onto "Two"
+	// and released; then a quick click at (100, 100) and a click outside the
+	// menu; then the menu opened kept open and chosen with Down and Enter.
+	// Success criteria: Go() opens the menu with its left top corner at the
+	// point (its popup, with the border, at (99, 99)) and returns at once.
+	// Released on "Two" after the click time, "Two" is invoked (12) and
+	// reported done. Released within the click time the menu stays open;
+	// a click outside closes it with nothing chosen. Kept open, the item
+	// under the mouse ("One") is selected; Down and Enter choose the next,
+	// "Two".
+	// Why it matters: Context menus open where the user clicks and work
+	// with the mouse and the keyboard, as in Haiku.
+	//
+	// Given
+	ManualClock clock;
+	Clock::SetDefault(&clock);
+	{
+		RunningPopUps popUps;
+
+		// When
+		popUps.Mouse(kMouseDown, {100, 100}, 1);
+		const PopUpState opened = popUps.Ask();
+		clock.Advance(1s);
+		popUps.Mouse(kMouseMoved, {120, 123}, 1);
+		popUps.Mouse(kMouseUp, {120, 123}, 0);
+		const PopUpState dragged = popUps.Ask();
+		popUps.Click({100, 100});
+		const PopUpState clicked = popUps.Ask();
+		popUps.Click({390, 290});
+		const PopUpState outside = popUps.Ask();
+		popUps.Mode(1);
+		popUps.Click({100, 100});
+		popUps.Key(keys::kDownArrow);
+		popUps.Key(keys::kEnter);
+		const PopUpState keys = popUps.Ask();
+
+		// Then
+		EXPECT_EQ(opened.popups, 1);
+		EXPECT_TRUE(opened.tracking);
+		EXPECT_EQ(opened.last.x0, 99);
+		EXPECT_EQ(opened.last.y0, 99);
+		EXPECT_EQ(dragged.popups, 0);
+		EXPECT_FALSE(dragged.tracking);
+		EXPECT_EQ(dragged.chosen, (std::vector<std::int32_t>{12}));
+		EXPECT_EQ(dragged.done, (std::vector<std::string>{"Two"}));
+		EXPECT_TRUE(clicked.tracking);
+		EXPECT_EQ(clicked.popups, 1);
+		EXPECT_FALSE(outside.tracking);
+		EXPECT_EQ(outside.popups, 0);
+		EXPECT_EQ(outside.done, (std::vector<std::string>{"Two", "-"}));
+		EXPECT_FALSE(keys.tracking);
+		EXPECT_EQ(keys.chosen, (std::vector<std::int32_t>{12, 12}));
+		EXPECT_EQ(keys.done, (std::vector<std::string>{"Two", "-", "Two"}));
+	}
+	Clock::SetDefault(nullptr);
+}
+
+
+TEST(PopUpMenuTest, AHandedOverMenuDestroysItself)
+{
+	// What is tested: Menus handed over to Go(): one opened with a quick
+	// click and closed by a click on "Four", one opened through the
+	// submenu "More" and left open when the window quits; Go() of a menu
+	// outside any window's message.
+	// Success criteria: The chosen "Four" is reported done but not
+	// invoked (no auto invoke); its menu is destroyed afterwards. The menu
+	// left open is closed and destroyed with the window (three menus in
+	// all, with the view's own). Go() outside a window's message fails and
+	// opens nothing.
+	// Why it matters: A context menu made on the fly must not outlive its
+	// use, nor leave a popup behind (Haiku's SetAsyncAutoDestruct()).
+	//
+	// Given
+	const int destroyedBefore = sMenusDestroyed;
+	CountingMenu standalone;
+	PopUpState chosen;
+	PopUpState submenu;
+
+	// When
+	const bool outsideFails = !standalone.Go({10, 10}).has_value();
+	{
+		RunningPopUps popUps;
+		popUps.Mode(2);
+		popUps.Click({100, 100});
+		popUps.Click({120, 168});
+		chosen = popUps.Ask();
+		popUps.Click({100, 100});
+		popUps.Mouse(kMouseMoved, {120, 147}, 0);
+		submenu = popUps.Ask();
+	}
+	const int destroyed = sMenusDestroyed - destroyedBefore;
+
+	// Then
+	EXPECT_TRUE(outsideFails);
+	EXPECT_FALSE(standalone.IsTracking());
+	EXPECT_EQ(chosen.popups, 0);
+	EXPECT_TRUE(chosen.chosen.empty());
+	EXPECT_EQ(chosen.done, (std::vector<std::string>{"Four"}));
+	EXPECT_EQ(submenu.popups, 2);
+	EXPECT_EQ(destroyed, 3);
 }
 
 

@@ -211,7 +211,7 @@ private:
 			void				_Uninstall();
 			void				_CalcTriggers();
 
-			bool				_Show(bool selectFirstItem = false);
+			bool				_Show(bool selectFirstItem = false, BWindow* window = nullptr);
 			void				_Hide();
 			bool				_IsShown() const;
 			void				_SelectItem(BMenuItem* item, bool showSubmenu = true,
@@ -223,6 +223,8 @@ private:
 			std::vector<std::unique_ptr<BMenuItem>> fItems;
 			BMenuItem*			fSelected = nullptr;
 			BView*				fPopup = nullptr;
+			bool				fStandalone = false;
+									// shown without a superitem, lent by its owner
 									// the frame of the popup while shown (W3b)
 			gfx::Rect			fSuperbounds = {0, 0, 0, 0};
 									// the supermenu on the screen while shown

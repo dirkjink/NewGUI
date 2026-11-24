@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <string_view>
 
+#include <ngui/Message.h>
 #include <ngui/View.h>
 
 
@@ -39,6 +40,11 @@ private:
 
 // What a window gives to the menu tracking while it runs: all mouse events
 // on the screen, from every surface, and the keys.
+// The what of the tick that re-evaluates the mouse while it stands still
+// (the navigation area's timeout); the window passes it to its tracking.
+inline constexpr std::uint32_t kMenuTrackerTick = FourCharCode("_MTT");
+
+
 class MenuTracking {
 public:
 	virtual						~MenuTracking() = default;
@@ -51,6 +57,8 @@ public:
 	virtual	void				CancelTracking() = 0;
 	// \a view leaves the window.
 	virtual	void				ViewDetached(BView* view) = 0;
+	// The tick the tracking asked for (kMenuTrackerTick to the window).
+	virtual	void				Tick() = 0;
 };
 
 
