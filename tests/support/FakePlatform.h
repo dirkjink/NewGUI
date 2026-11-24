@@ -32,7 +32,8 @@ public:
 		fScale(scale),
 		fTarget(spec.target),
 		fParent(spec.parent),
-		fPopup(spec.popup)
+		fPopup(spec.popup),
+		fToolTip(spec.tooltip)
 	{
 	}
 
@@ -46,6 +47,12 @@ public:
 	bool IsPopup() const
 	{
 		return fPopup;
+	}
+
+	// Whether it was made as a tooltip popup.
+	bool IsToolTip() const
+	{
+		return fToolTip;
 	}
 
 	void SetTitle(std::string_view) override
@@ -175,6 +182,7 @@ private:
 	BMessenger fTarget;
 	platform::PlatformWindow* fParent = nullptr;
 	bool fPopup = false;
+	bool fToolTip = false;
 	bool fShown = false;
 	std::vector<std::vector<gfx::IntRect>> fPresented;
 	gfx::Size fPresentedSize{0, 0};

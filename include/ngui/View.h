@@ -35,6 +35,7 @@ class BLayoutContext;
 class BMessage;
 class BScrollBar;
 class BScrollView;
+class BToolTip;
 class BViewLayoutItem;
 class BWindow;
 
@@ -317,6 +318,29 @@ public:
 									/*!< In MouseDown(): \a mask (Pointer) sends it all mouse
 										events until the buttons are up, as Haiku's. */
 
+	// Tooltips (module W6b)
+
+			void				SetToolTip(std::string_view text);
+									/*!< A tooltip of \a text (BTextToolTip), shown when
+										the mouse rests over the view; an empty text
+										removes it. A text tooltip it has takes the new
+										text. */
+			void				SetToolTip(std::shared_ptr<BToolTip> tip);
+									/*!< Its tooltip, which views may share; nullptr
+										removes it (and hides it). */
+			std::shared_ptr<BToolTip> ToolTip() const;
+									/*!< Its tooltip, or nullptr. */
+			void				ShowToolTip(std::shared_ptr<BToolTip> tip);
+									/*!< Shows \a tip near the mouse, in a popup of its
+										window; nothing for nullptr. From the window's
+										thread. */
+			void				HideToolTip();
+									/*!< Hides the tooltip shown for it, after the hide
+										delay. NewGUI: only its own (Haiku hid any). */
+	virtual	bool				GetToolTipAt(gfx::Point point, std::shared_ptr<BToolTip>* tip);
+									/*!< Hook: the tooltip for \a point (its coordinates),
+										false for none. By default ToolTip(). */
+
 	// Layout (module G10)
 
 	virtual	BLayout*			SetLayout(std::unique_ptr<BLayout> layout);
@@ -431,7 +455,9 @@ public:
 			void				MessageReceived(BMessage* message) override;
 									/*!< The mouse wheel (kMouseWheelChanged) scrolls it with
 										its scroll bars; without any, the message goes on
-										to the next handler, its parent. */
+										to the next handler, its parent. A resting mouse
+										(kMouseIdle) shows the tooltip of GetToolTipAt();
+										without one, the message goes to the parent. */
 
 protected:
 			bool				ScrollWithMouseWheelDelta(BScrollBar* scrollBar,
@@ -488,6 +514,7 @@ private:
 			std::vector<std::unique_ptr<BView>> fChildren;
 			gfx::DisplayListRef	fList;
 			gfx::DisplayListRef	fListAfterChildren;
+			std::shared_ptr<BToolTip> fToolTip;
 
 			// Layout, as Haiku's BView::LayoutData
 			gfx::Size			fMinSize = kUnsetSize;

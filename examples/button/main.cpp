@@ -129,12 +129,15 @@ public:
 		auto button = std::make_unique<BButton>("Click me",
 			std::make_unique<BMessage>(kClicked));
 		BButton* clickMe = button.get();
+		// Tooltips show when the mouse rests over a view (W6b).
+		button->SetToolTip("Counts the clicks.\nEnter clicks it too.");
 		auto slider = std::make_unique<BSlider>("slider", "Value",
 			std::make_unique<BMessage>(kProgress), 0, 100, BOrientation::Horizontal);
 		slider->SetModificationMessage(std::make_unique<BMessage>(kProgress));
 		slider->SetLimitLabels("0 %", "100 %");
 		slider->SetHashMarks(BHashMarkLocation::BottomOrRight);
 		slider->SetHashMarkCount(11);
+		slider->SetToolTip("Drag the thumb or use the arrow keys");
 		fSlider = slider.get();
 		// Where the slider's hash marks are, chosen in a menu field.
 		auto marks = std::make_unique<BPopUpMenu>("marks");
@@ -148,8 +151,10 @@ public:
 		}
 		marks->ItemAt(2)->SetMarked(true);
 		auto marksField = std::make_unique<BMenuField>("marks", "Hash marks:", std::move(marks));
+		marksField->SetToolTip("Where the slider draws its marks");
 		auto name = std::make_unique<BTextControl>("name", "Name:", "",
 			std::make_unique<BMessage>(kName));
+		name->SetToolTip("Enter sends the name");
 		fName = name.get();
 		auto status = std::make_unique<BStatusBar>("status", "Progress: ", " %");
 		status->SetTo(0, {}, "0");
@@ -173,8 +178,9 @@ public:
 		BLayoutBuilder::Group<> optionsBuilder(options.get());
 		optionsBuilder.SetInsets(kUseHalfItemInsets);
 		for (int i = 1; i <= 12; i++) {
-			optionsBuilder.Add(std::make_unique<BCheckBox>(
-				"Option " + std::to_string(i), nullptr));
+			auto option = std::make_unique<BCheckBox>("Option " + std::to_string(i), nullptr);
+			option->SetToolTip("Check box " + std::to_string(i) + " of 12");
+			optionsBuilder.Add(std::move(option));
 		}
 		auto scrollView = std::make_unique<BScrollView>("options", std::move(options),
 			BViewFlags{}, false, true);

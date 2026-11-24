@@ -63,6 +63,12 @@ inline constexpr std::uint32_t kMouseUp = FourCharCode("_MUP");
 	the bool "be:exited" when it left the window. */
 inline constexpr std::uint32_t kMouseMoved = FourCharCode("_MMV");
 
+/*!	The mouse rested (B_MOUSE_IDLE): no movement for the tooltip show delay
+	(BToolTipManager::ShowDelay()) since it last moved. BWindow sends it to
+	the view under the mouse, with "where" in the view's coordinates; the
+	view shows its tooltip. Once per rest, as Haiku's app_server. */
+inline constexpr std::uint32_t kMouseIdle = FourCharCode("_MSI");
+
 /*!	The wheel turned (B_MOUSE_WHEEL_CHANGED): the floats "be:wheel_delta_x"
 	and "be:wheel_delta_y", positive to the right and downwards. */
 inline constexpr std::uint32_t kMouseWheelChanged = FourCharCode("_MWC");

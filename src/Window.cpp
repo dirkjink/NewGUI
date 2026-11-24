@@ -19,11 +19,14 @@
 #include <ngui/LookRegistry.h>
 #include <ngui/MenuBar.h>
 #include <ngui/MenuItem.h>
+#include <ngui/MessageRunner.h>
 #include <ngui/TextSystem.h>
+#include <ngui/ToolTip.h>
 #include <ngui/gfx/BackendRegistry.h>
 
 #include "LooperPort.h"
 #include "MenuPrivate.h"
+#include "ToolTipPopup.h"
 
 
 namespace ngui {
@@ -245,9 +248,12 @@ BWindow::~BWindow()
 			return modal.window == this;
 		});
 	}
-	// Open menus give their popups back before the popups close.
+	// Open menus give their popups back before the popups close; so does
+	// the tooltip.
 	if (fMenuTracking != nullptr)
 		fMenuTracking->CancelTracking();
+	fToolTip.reset();
+	fIdleRunner.reset();
 	while (!fPopups.empty())
 		(void)ClosePopup(fPopups.back()->root.get());
 	fRoot->_Detach();
@@ -519,6 +525,8 @@ void
 BWindow::Hide()
 {
 	if (fHideLevel++ == 0) {
+		if (fToolTip != nullptr)
+			fToolTip->Close();
 		if (fPlatformWindow != nullptr)
 			fPlatformWindow->Hide();
 		_UpdateModal();
@@ -763,6 +771,13 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 			if (fMenuTracking != nullptr)
 				fMenuTracking->Tick();
 			return;
+		case kMouseIdleCheck:
+			_MouseIdleCheck();
+			return;
+		case kToolTipClose:
+			if (fToolTip != nullptr)
+				fToolTip->CloseIfHidden();
+			return;
 		case kMouseWheelChanged:
 			// While menus are open, to their tracking (Haiku: to the menu
 			// window's view under the mouse).
@@ -919,6 +934,13 @@ BWindow::_RootFrameChanged(BView* root)
 BView*
 BWindow::OpenPopup(std::unique_ptr<BView> view)
 {
+	return _OpenPopup(std::move(view), false);
+}
+
+
+BView*
+BWindow::_OpenPopup(std::unique_ptr<BView> view, bool tooltip)
+{
 	if (view == nullptr || view->Parent() != nullptr || view->Window() != nullptr)
 		return nullptr;
 
@@ -935,6 +957,7 @@ BWindow::OpenPopup(std::unique_ptr<BView> view)
 			spec.target = BMessenger(popup.get(), this);
 			spec.parent = fPlatformWindow.get();
 			spec.popup = true;
+			spec.tooltip = tooltip;
 			auto window = platform->CreateWindow(spec);
 			if (window.has_value()) {
 				popup->platformWindow = std::move(*window);
@@ -989,6 +1012,17 @@ BWindow::PopupAt(std::int32_t index) const
 void
 BWindow::_PopupEvent(PopupSurface* popup, BMessage* message)
 {
+	// The tooltip takes no input; should the mouse reach it anyway, it
+	// follows or closes (Haiku's ToolTipView::MouseMoved()).
+	if (fToolTip != nullptr && popup->root.get() == fToolTip->Popup()) {
+		if (message->what == kMouseMoved && message->HasPoint("where")) {
+			const gfx::Point where = message->GetPoint("where", {0, 0});
+			const gfx::Point origin = _SurfaceOrigin(popup->root.get());
+			fToolTip->MouseMovedOver({where.x + origin.x, where.y + origin.y});
+		}
+		return;
+	}
+
 	switch (message->what) {
 		case kMouseDown:
 		case kMouseUp:
@@ -1047,6 +1081,8 @@ BWindow::_ViewDetached(BView* view)
 		fKeyMenuBar = nullptr;
 	if (fMenuTracking != nullptr)
 		fMenuTracking->ViewDetached(view);
+	if (fToolTip != nullptr)
+		fToolTip->ViewDetached(view);
 }
 
 
@@ -1086,6 +1122,66 @@ BWindow::_WheelToMenus(const BMessage* message)
 
 
 void
+BWindow::_MouseMovedForToolTip(gfx::Point screen)
+{
+	// Haiku's ToolTipView gets every mouse move: a sticky tip follows, another
+	// one hides.
+	if (fToolTip != nullptr)
+		fToolTip->MouseMoved(screen);
+
+	// Haiku's app_server sends B_MOUSE_IDLE once the mouse has rested for the
+	// show delay; one runner checks, and runs again for the time left.
+	fLastMove = Clock::Default().Now();
+	fIdlePending = true;
+	if (fIdleRunner == nullptr) {
+		fIdleRunner = std::make_unique<BMessageRunner>(BMessenger(this),
+			BMessage(kMouseIdleCheck), BToolTipManager::Manager()->ShowDelay(), 1);
+	}
+}
+
+
+void
+BWindow::_MouseIdleCheck()
+{
+	fIdleRunner.reset();
+	if (!fIdlePending)
+		return;
+	const Clock::Time delay = BToolTipManager::Manager()->ShowDelay();
+	const Clock::Time rested = Clock::Default().Now() - fLastMove;
+	if (rested < delay) {
+		fIdleRunner = std::make_unique<BMessageRunner>(BMessenger(this),
+			BMessage(kMouseIdleCheck), delay - rested, 1);
+		return;
+	}
+	fIdlePending = false;
+
+	// To the view the mouse events go to; not while menus are open.
+	BView* target = fCapture != nullptr ? fCapture : fMouseView;
+	if (fMenuTracking != nullptr || target == nullptr || !fLastMouse.has_value())
+		return;
+	BMessage idle(kMouseIdle);
+	(void)idle.AddPoint("where", target->ConvertFromScreen(*fLastMouse));
+	target->MessageReceived(&idle);
+}
+
+
+void
+BWindow::_CheckToolTipOwner(const BView* under)
+{
+	// The mouse left the view whose tip is shown (Haiku's HideToolTip() on
+	// B_EXITED_VIEW and B_OUTSIDE_VIEW); a view's tip also stays over its
+	// children.
+	if (fToolTip == nullptr || fToolTip->Popup() == nullptr)
+		return;
+	for (const BView* view = under; view != nullptr; view = view->Parent()) {
+		if (view == fToolTip->Owner())
+			return;
+	}
+	fToolTip->Hide();
+}
+
+
+void
 BWindow::_MouseEvent(BMessage* message, BView* root)
 {
 	// NewGUI: the position on the screen, so that a view of another surface
@@ -1107,6 +1203,8 @@ BWindow::_MouseEvent(BMessage* message, BView* root)
 	}
 
 	BView* under = exited ? nullptr : ViewAt(root, root->ConvertFromWindow(where));
+	if (message->what == kMouseMoved)
+		_MouseMovedForToolTip(screen);
 
 	switch (message->what) {
 		case kMouseDown:
@@ -1129,6 +1227,7 @@ BWindow::_MouseEvent(BMessage* message, BView* root)
 		}
 		case kMouseMoved:
 		{
+			_CheckToolTipOwner(under);
 			if (fCapture != nullptr) {
 				const gfx::Point local = fCapture->ConvertFromScreen(screen);
 				fCapture->MouseMoved(local, fCapture->Bounds().Contains(local) && !exited
@@ -1161,6 +1260,9 @@ void
 BWindow::_KeyEvent(BMessage* message)
 {
 	const std::string_view bytes = message->GetString("bytes", "");
+	// A key hides a tooltip that is not sticky (Haiku's ToolTipView::KeyDown()).
+	if (message->what == kKeyDown && fToolTip != nullptr)
+		fToolTip->KeyDown();
 	// While menus are open, their tracking gets the keys first.
 	if (fMenuTracking != nullptr && fMenuTracking->TrackKey(message->what, bytes))
 		return;

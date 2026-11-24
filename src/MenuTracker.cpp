@@ -61,6 +61,8 @@
 #include <ngui/Messenger.h>
 #include <ngui/Window.h>
 
+#include "ToolTipPopup.h"
+
 
 namespace ngui {
 
@@ -218,6 +220,10 @@ MenuTracker::_Begin(BWindow* window, bool sticky, const gfx::Rect* specialRect,
 		fExtraRect.reset();
 
 	window->fMenuTracking = this;
+	// NewGUI: a tooltip closes when menus open (Haiku's stayed until the
+	// mouse moved).
+	if (window->fToolTip != nullptr)
+		window->fToolTip->Close();
 	_SetSticky(sticky);
 }
 

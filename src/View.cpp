@@ -17,9 +17,12 @@
 #include <ngui/LookRegistry.h>
 #include <ngui/Message.h>
 #include <ngui/ScrollBar.h>
+#include <ngui/ToolTip.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/Paint.h>
+
+#include "ToolTipPopup.h"
 
 
 namespace ngui {
@@ -373,6 +376,15 @@ void
 BView::MessageReceived(BMessage* message)
 {
 	// Ported from Haiku: src/kits/interface/View.cpp (commit b1d497bb69).
+	if (message->what == kMouseIdle) {
+		std::shared_ptr<BToolTip> tip;
+		if (GetToolTipAt(message->GetPoint("where", {0, 0}), &tip))
+			ShowToolTip(tip);
+		else
+			BHandler::MessageReceived(message);
+		return;
+	}
+
 	if (message->what != kMouseWheelChanged) {
 		BHandler::MessageReceived(message);
 		return;
@@ -923,6 +935,77 @@ BView::_Detach()
 	fWindow->_ViewDetached(this);
 	fWindow->RemoveHandler(this);
 	fWindow = nullptr;
+}
+
+
+// #pragma mark - Tooltips
+//
+// Ported from Haiku: src/kits/interface/View.cpp (commit b1d497bb69).
+
+
+void
+BView::SetToolTip(std::string_view text)
+{
+	if (text.empty()) {
+		SetToolTip(std::shared_ptr<BToolTip>());
+		return;
+	}
+
+	if (auto* textTip = dynamic_cast<BTextToolTip*>(fToolTip.get()))
+		textTip->SetText(text);
+	else
+		SetToolTip(std::make_shared<BTextToolTip>(text));
+}
+
+
+void
+BView::SetToolTip(std::shared_ptr<BToolTip> tip)
+{
+	if (fToolTip == tip)
+		return;
+	else if (tip == nullptr)
+		HideToolTip();
+
+	fToolTip = std::move(tip);
+}
+
+
+std::shared_ptr<BToolTip>
+BView::ToolTip() const
+{
+	return fToolTip;
+}
+
+
+void
+BView::ShowToolTip(std::shared_ptr<BToolTip> tip)
+{
+	if (tip == nullptr || fWindow == nullptr)
+		return;
+
+	// NewGUI: where the window saw the mouse last (Haiku's GetMouse())
+	const gfx::Point where = fWindow->fLastMouse.value_or(ConvertToScreen(gfx::Point{0, 0}));
+	BToolTipManager::Manager()->ShowTip(std::move(tip), where, this);
+}
+
+
+void
+BView::HideToolTip()
+{
+	// NewGUI: only the tip shown for this view, also one of GetToolTipAt()
+	// (Haiku: "TODO: Only hide if ours is the tooltip that's showing!")
+	if (fWindow != nullptr && fWindow->fToolTip != nullptr
+		&& fWindow->fToolTip->Owner() == this) {
+		fWindow->fToolTip->Hide();
+	}
+}
+
+
+bool
+BView::GetToolTipAt(gfx::Point /*point*/, std::shared_ptr<BToolTip>* tip)
+{
+	*tip = fToolTip;
+	return fToolTip != nullptr;
 }
 
 
