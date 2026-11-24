@@ -11,11 +11,13 @@ add_library(ngui
     AbstractLayout.cpp
     AbstractLayoutItem.cpp
     Alert.cpp
+    Bitmap.cpp
     Application.cpp
     Box.cpp
     Button.cpp
     CardLayout.cpp
     CheckBox.cpp
+    ColorConversion.cpp
     Clipboard.cpp
     Clock.cpp
     Control.cpp
