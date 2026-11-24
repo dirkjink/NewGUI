@@ -14,6 +14,9 @@ file(GLOB fuzzTargetSources CONFIGURE_DEPENDS
 if(NOT NGUI_WITH_TEXT)
     list(FILTER fuzzTargetSources EXCLUDE REGEX "/(Text|TextLayout)Fuzz\\.cpp$")
 endif()
+if(NOT NGUI_WITH_SVG)
+    list(FILTER fuzzTargetSources EXCLUDE REGEX "/VectorIconFuzz\\.cpp$")
+endif()
 
 add_executable(ngui_tests
     AlertTest.cpp
@@ -102,6 +105,12 @@ if(NGUI_WITH_TEXT)
     target_link_libraries(ngui_tests PRIVATE ngui::text)
 endif()
 
+# The vector icon renderer (vcpkg feature svg).
+if(NGUI_WITH_SVG)
+    target_sources(ngui_tests PRIVATE AlertIconTest.cpp IconUtilsTest.cpp)
+    target_link_libraries(ngui_tests PRIVATE ngui::svg)
+endif()
+
 ngui_configure_target(ngui_tests)
 
 # Snapshots (specification 20.5): the references are checked in under
@@ -131,6 +140,9 @@ if(NGUI_FUZZING)
         if(NGUI_WITH_TEXT)
             target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::text)
         endif()
+        if(NGUI_WITH_SVG)
+            target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::svg)
+        endif()
         ngui_configure_target(ngui_fuzz_${name})
         target_link_options(ngui_fuzz_${name} PRIVATE -fsanitize=fuzzer)
         list(APPEND fuzzTargetNames ${name})
@@ -159,6 +171,11 @@ if(NGUI_WITH_SKIA)
     if(NGUI_WITH_TEXT)
         target_sources(ngui_skia_tests PRIVATE skia/TextSkiaTest.cpp)
         target_link_libraries(ngui_skia_tests PRIVATE ngui::text)
+    endif()
+    # The alert's type icon (vcpkg feature svg).
+    if(NGUI_WITH_SVG)
+        target_link_libraries(ngui_skia_tests PRIVATE ngui::svg)
+        target_compile_definitions(ngui_skia_tests PRIVATE NGUI_TEST_WITH_SVG=1)
     endif()
     target_include_directories(ngui_skia_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_skia_tests)

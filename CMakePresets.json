@@ -14,9 +14,10 @@
       "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "VCPKG_MANIFEST_FEATURES": "tests;text",
+        "VCPKG_MANIFEST_FEATURES": "tests;text;svg",
         "NGUI_BUILD_TESTS": "ON",
-        "NGUI_WITH_TEXT": "ON"
+        "NGUI_WITH_TEXT": "ON",
+        "NGUI_WITH_SVG": "ON"
       }
     },
     {
@@ -50,7 +51,7 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "VCPKG_MANIFEST_FEATURES": "tests;text;skia;sdl3",
+        "VCPKG_MANIFEST_FEATURES": "tests;text;svg;skia;sdl3",
         "NGUI_WITH_SKIA": "ON",
         "NGUI_WITH_SDL3": "ON",
         "NGUI_COVERAGE": "ON",
@@ -74,7 +75,7 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "VCPKG_MANIFEST_FEATURES": "tests;text;skia;sdl3",
+        "VCPKG_MANIFEST_FEATURES": "tests;text;svg;skia;sdl3",
         "NGUI_WITH_SKIA": "ON",
         "NGUI_WITH_SDL3": "ON",
         "NGUI_BUILD_EXAMPLES": "ON",

@@ -46,6 +46,7 @@
 #include <ngui/CheckBox.h>
 #include <ngui/Font.h>
 #include <ngui/GroupView.h>
+#include <ngui/IconUtils.h>
 #include <ngui/InterfaceDefs.h>
 #include <ngui/Invoker.h>
 #include <ngui/LayoutBuilder.h>
@@ -69,6 +70,7 @@
 #include <ngui/gfx/BackendRegistry.h>
 #include <ngui/gfx/SkiaBackend.h>
 #include <ngui/platform/SdlPlatform.h>
+#include <ngui/svg/LunaSvgRenderer.h>
 #include <ngui/text/FontTextSystem.h>
 
 
@@ -417,6 +419,9 @@ main(int argc, char** argv)
 		return 1;
 	}
 	TextSystem::SetDefault(fonts->get());
+	// Vector icons (the alerts' type icons) drawn by lunasvg.
+	const svg::LunaSvgRenderer icons;
+	VectorIconRenderer::SetDefault(&icons);
 	auto platform = platform::SdlPlatform::Create();
 	if (!platform.has_value()) {
 		std::fprintf(stderr, "%s\n", platform.error().message.c_str());
@@ -426,6 +431,7 @@ main(int argc, char** argv)
 	if (!app.UsePlatform(std::move(*platform)).has_value())
 		return 1;
 	const int result = app.Run();
+	VectorIconRenderer::SetDefault(nullptr);
 	TextSystem::SetDefault(nullptr);
 	return result;
 }

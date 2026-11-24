@@ -55,6 +55,8 @@ cmake --workflow --preset ci
 | `fuzz` | RelWithDebInfo | libFuzzer-Programme mit ASan und UBSan (braucht Clang: `CC=clang CXX=clang++`) |
 | `skia` | RelWithDebInfo | mit Skia und SDL3 aus den vcpkg-Ports (Features `skia`, `sdl3`): Skia-Backend (`ngui_skia`), SDL3-Plattform (`ngui_sdl3`) und die Beispiele in `examples/`; der erste Build von Skia dauert lange, danach kommt es aus dem Binär-Cache von vcpkg. Unter Linux braucht SDL3 die Entwicklungs-Header des Fenstersystems: `sudo apt install libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev` |
 
+Alle Presets bauen das Text-Subsystem (`ngui_text`, Feature `text`: HarfBuzz, libunibreak und die mitgelieferten Schriften) und die Vektor-Icons (`ngui_svg`, Feature `svg`: lunasvg). Eine Anwendung meldet beide an, mit `TextSystem::SetDefault()` und `VectorIconRenderer::SetDefault()`; ohne Icon-Renderer zeigt `BAlert` kein Typsymbol.
+
 Die CI (`.github/workflows/build.yml`) führt den Workflow `ci` mit GCC 13 und 14, Clang 19 und 20 unter Linux sowie MSVC 2022 unter Windows aus. vcpkg wird dort genau auf dem Commit der `builtin-baseline` ausgecheckt. Der Job `Build` fasst die Ergebnisse zusammen und ist Pflicht-Check für `main`.
 
 Der Build-Workflow prüft außerdem, dass der Build reproduzierbar ist (die Bibliothek wird an zwei Orten gebaut, die Prüfsummen müssen übereinstimmen). Daneben erzeugt er eine SBOM (SPDX 2.3) der ausgelieferten vcpkg-Abhängigkeiten und prüft sie gegen die [OSV-Datenbank](https://osv.dev/), auch wöchentlich ohne neuen Commit. Einzelheiten stehen in [`CONVENTIONS.md`](CONVENTIONS.md), Abschnitt 8.2.
