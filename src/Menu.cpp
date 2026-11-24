@@ -218,7 +218,9 @@ BMenu::AttachedToWindow()
 {
 	BView::AttachedToWindow();
 
-	if (Superitem() == nullptr)
+	// NewGUI: a stand-alone pop-up menu, shown in a popup of the window,
+	// does not install its shortcuts there (Haiku: in its own menu window).
+	if (Superitem() == nullptr && !fStandalone)
 		_Install(Window());
 
 	fUseCachedMenuLayout = false;
@@ -232,7 +234,7 @@ BMenu::DetachedFromWindow()
 {
 	BView::DetachedFromWindow();
 
-	if (Superitem() == nullptr)
+	if (Superitem() == nullptr && !fStandalone)
 		_Uninstall();
 }
 
@@ -1284,16 +1286,21 @@ BMenu::_RootWindow() const
 
 
 bool
-BMenu::_Show(bool selectFirstItem)
+BMenu::_Show(bool selectFirstItem, BWindow* window)
 {
 	if (fPopup != nullptr || Window() != nullptr)
 		return false;
 
-	// NewGUI: a submenu, lent by its superitem to the popup's frame
-	// (stand-alone pop-up menus come with W3c).
+	// NewGUI: a submenu, lent by its superitem to the popup's frame; a menu
+	// without superitem (a BPopUpMenu) lent by its owner, in \a window.
 	BMenuItem* superitem = Superitem();
-	BWindow* window = _RootWindow();
-	if (superitem == nullptr || superitem->fOwnedSubmenu == nullptr || window == nullptr)
+	const bool standalone = superitem == nullptr && fSuper == nullptr;
+	if (!standalone) {
+		window = _RootWindow();
+		if (superitem == nullptr || superitem->fOwnedSubmenu == nullptr)
+			return false;
+	}
+	if (window == nullptr)
 		return false;
 
 	if (fSuper != nullptr) {
@@ -1318,7 +1325,9 @@ BMenu::_Show(bool selectFirstItem)
 	const gfx::Rect frame = _CalcFrame(ScreenLocation());
 	auto popup = std::make_unique<MenuFrame>(gfx::Rect{frame.x0 - 1, frame.y0 - 1,
 		frame.x1 + 1, frame.y1 + 1}, this);
-	std::unique_ptr<BMenu> self = std::move(superitem->fOwnedSubmenu);
+	std::unique_ptr<BMenu> self = standalone ? std::unique_ptr<BMenu>(this)
+		: std::move(superitem->fOwnedSubmenu);
+	fStandalone = standalone;
 	MoveTo({1, 1});
 	popup->AddChild(std::move(self));
 	fPopup = window->OpenPopup(std::move(popup));
@@ -1343,10 +1352,13 @@ BMenu::_Hide()
 	BView* popup = fPopup;
 	fPopup = nullptr;
 
-	// back to the superitem, then the popup closes
+	// back to the superitem (or the owner), then the popup closes
 	std::unique_ptr<BView> self = popup->RemoveChild(this);
-	if (fSuperitem != nullptr)
+	if (fStandalone)
+		(void)self.release();
+	else if (fSuperitem != nullptr)
 		fSuperitem->fOwnedSubmenu.reset(static_cast<BMenu*>(self.release()));
+	fStandalone = false;
 	if (window != nullptr)
 		(void)window->ClosePopup(popup);
 }

@@ -93,17 +93,6 @@ BMenuBar::Draw(DrawContext& context)
 
 
 void
-BMenuBar::MessageReceived(BMessage* message)
-{
-	if (message->what == kMenuTrackerTick) {
-		fTracker->Tick();
-		return;
-	}
-	BMenu::MessageReceived(message);
-}
-
-
-void
 BMenuBar::MouseDown(gfx::Point where)
 {
 	if (fTracker->IsTracking())

@@ -7,12 +7,14 @@
 #pragma once
 
 
-// The tracking of a menu bar's menus (W3b2): Haiku's BMenuBar::_Track(),
-// BMenu::_Track() and BMenu::KeyDown(), driven by the window's events
-// instead of polling the mouse in a thread of their own. Internal.
+// The tracking of a menu bar's menus (W3b2) or of a stand-alone pop-up
+// menu (W3c): Haiku's BMenuBar::_Track(), BMenu::_Track() and
+// BMenu::KeyDown(), driven by the window's events instead of polling the
+// mouse in a thread of their own. Internal.
 
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -35,14 +37,10 @@ class BMenuItem;
 class BView;
 
 
-// The what of the tick that re-evaluates the mouse while it stands still
-// (the navigation area's timeout).
-inline constexpr std::uint32_t kMenuTrackerTick = FourCharCode("_MTT");
-
-
 class MenuTracker : public MenuTracking {
 public:
-	explicit					MenuTracker(BMenuBar* bar);
+	// \a root is a menu bar or a stand-alone pop-up menu.
+	explicit					MenuTracker(BMenu* root);
 								~MenuTracker() override;
 
 			bool				IsTracking() const;
@@ -51,7 +49,14 @@ public:
 			void				Start(int32 menuIndex, bool sticky, bool showMenu,
 									const gfx::Rect* specialRect,
 									std::optional<gfx::Point> screen, std::uint32_t buttons);
-			void				Tick();
+			// Shows the stand-alone root in a popup of \a window and tracks
+			// it (Haiku's BPopUpMenu::_StartTrack()); \a done gets the
+			// chosen item or nullptr. False if it cannot be shown.
+			bool				StartPopUp(BWindow* window, bool sticky,
+									const gfx::Rect* clickToOpen,
+									std::optional<gfx::Point> screen, std::uint32_t buttons,
+									bool autoInvoke, std::function<void(BMenuItem*)> done);
+			void				Tick() override;
 			void				Stop(BMenuItem* chosen);
 
 			void				TrackMouse(std::uint32_t what, gfx::Point screen,
@@ -87,8 +92,20 @@ private:
 									Level& level);
 			void				_ScheduleTick(Clock::Time when);
 
+			void				_Begin(BWindow* window, bool sticky,
+									const gfx::Rect* specialRect,
+									std::optional<gfx::Point> screen, std::uint32_t buttons);
+
+			BMenu*				fRoot;
 			BMenuBar*			fBar;
+									// the root if it is a menu bar
+			BWindow*			fWindow = nullptr;
 			bool				fTracking = false;
+			bool				fAutoInvoke = true;
+			std::function<void(BMenuItem*)> fDone;
+			// the end of the click time of a pop-up menu: released before,
+			// it stays open (Haiku's second Track() in _StartTrack())
+			std::optional<Clock::Time> fClickEnd;
 			bool				fSticky = false;
 			gfx::Point			fWhere = {0, 0};
 			bool				fMouseKnown = false;

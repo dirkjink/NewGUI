@@ -28,6 +28,11 @@
  *   ignore the case of ASCII letters.
  * - _NextItem() also reaches the last item when none is selected.
  * - No scrolling menus (Page Up/Down) and no ObscureCursor().
+ * - A stand-alone pop-up menu (Haiku's BPopUpMenu::_StartTrack() and
+ *   BMenu::Track()) is the root instead of a bar: outside all menus the
+ *   root's rules of BMenu::_Track() apply. Released within the click time
+ *   it stays open (Haiku tracked it a second time, sticky); its window's
+ *   MenusBeginning() and MenusEnded() are not called, as in Haiku.
  *
  * Authors (Haiku):
  *		Stephan Aßmus, superstippi@gmx.de
@@ -64,6 +69,8 @@ namespace {
 
 
 constexpr Clock::Time kNavigationAreaTimeout = 1s;
+// Haiku's default click speed (get_click_speed())
+constexpr Clock::Time kClickSpeed = 500ms;
 constexpr float kNavAreaThreshold = 8;
 
 
@@ -114,9 +121,10 @@ TriggerOf(std::string_view bytes)
 } // namespace
 
 
-MenuTracker::MenuTracker(BMenuBar* bar)
+MenuTracker::MenuTracker(BMenu* root)
 	:
-	fBar(bar)
+	fRoot(root),
+	fBar(dynamic_cast<BMenuBar*>(root))
 {
 }
 
@@ -138,11 +146,55 @@ void
 MenuTracker::Start(int32 menuIndex, bool sticky, bool /*showMenu*/,
 	const gfx::Rect* specialRect, std::optional<gfx::Point> screen, std::uint32_t buttons)
 {
-	BWindow* window = fBar->Window();
-	if (fTracking || window == nullptr)
+	BWindow* window = fBar != nullptr ? fBar->Window() : nullptr;
+	if (fTracking || window == nullptr || window->fMenuTracking != nullptr)
 		return;
 
+	fAutoInvoke = true;
+	fDone = nullptr;
+	fClickEnd.reset();
+	window->MenusBeginning();
+	_Begin(window, sticky, specialRect, screen, buttons);
+
+	if (menuIndex != -1)
+		fBar->_SelectItem(fBar->ItemAt(menuIndex), true, false);
+
+	if (fMouseKnown)
+		_Evaluate(false);
+}
+
+
+bool
+MenuTracker::StartPopUp(BWindow* window, bool sticky, const gfx::Rect* clickToOpen,
+	std::optional<gfx::Point> screen, std::uint32_t buttons, bool autoInvoke,
+	std::function<void(BMenuItem*)> done)
+{
+	if (fTracking || fBar != nullptr || window == nullptr || window->fMenuTracking != nullptr)
+		return false;
+
+	// Show the menu's window
+	if (!fRoot->_Show(false, window))
+		return false;
+
+	fAutoInvoke = autoInvoke;
+	fDone = std::move(done);
+	// Determine when mouse-down-up will be taken as a 'press',
+	// rather than a 'click'
+	fClickEnd = Clock::Default().Now() + kClickSpeed;
+	_Begin(window, sticky, clickToOpen, screen, buttons);
+
+	if (fMouseKnown)
+		_Evaluate(false);
+	return true;
+}
+
+
+void
+MenuTracker::_Begin(BWindow* window, bool sticky, const gfx::Rect* specialRect,
+	std::optional<gfx::Point> screen, std::uint32_t buttons)
+{
 	fTracking = true;
+	fWindow = window;
 	fLevels.clear();
 	fSticky = false;
 	fKeyNavigation = false;
@@ -154,15 +206,8 @@ MenuTracker::Start(int32 menuIndex, bool sticky, bool /*showMenu*/,
 	else
 		fExtraRect.reset();
 
-	window->MenusBeginning();
 	window->fMenuTracking = this;
 	_SetSticky(sticky);
-
-	if (menuIndex != -1)
-		fBar->_SelectItem(fBar->ItemAt(menuIndex), true, false);
-
-	if (fMouseKnown)
-		_Evaluate(false);
 }
 
 
@@ -182,24 +227,40 @@ MenuTracker::Stop(BMenuItem* chosen)
 
 	fTracking = false;
 	fTicker.reset();
-	BWindow* window = fBar->Window();
+	BWindow* window = fWindow;
 
-	if (fBar->fSelected != nullptr)
-		fBar->_SelectItem(nullptr);
+	if (fBar != nullptr) {
+		if (fBar->fSelected != nullptr)
+			fBar->_SelectItem(nullptr);
+	} else {
+		// deselects, closes the submenus and gives the menu back
+		fRoot->_Hide();
+	}
 	if (window != nullptr && window->fMenuTracking == this)
 		window->fMenuTracking = nullptr;
 
 	fLevels.clear();
 	fExtraRect.reset();
 	fKeyNavigation = false;
+	fClickEnd.reset();
+	std::function<void(BMenuItem*)> done = std::move(fDone);
+	fDone = nullptr;
 
-	if (chosen != nullptr)
+	if (chosen != nullptr && fAutoInvoke) {
+		// NewGUI: the items of a pop-up menu are not installed; without a
+		// target they go to the window (Haiku: to the menu's own window)
+		if (fBar == nullptr && !chosen->Messenger().IsValid() && window != nullptr)
+			(void)chosen->SetTarget(BMessenger(window));
 		(void)chosen->Invoke();
+	}
 
 	_RestoreFocus();
 	fSticky = false;
 
-	if (window != nullptr)
+	if (done)
+		done(chosen);
+
+	if (window != nullptr && fBar != nullptr)
 		window->MenusEnded();
 }
 
@@ -226,7 +287,10 @@ MenuTracker::TrackKey(std::uint32_t what, std::string_view bytes)
 
 	if (what == kKeyDown && !bytes.empty()) {
 		BMenu* menu = _DeepestShownMenu();
-		_KeyDown(menu != nullptr ? menu : fBar, bytes[0], bytes);
+		if (menu == nullptr)
+			menu = fBar;
+		if (menu != nullptr)
+			_KeyDown(menu, bytes[0], bytes);
 	}
 
 	// The keys belong to the menus while they are open.
@@ -255,7 +319,9 @@ MenuTracker::ViewDetached(BView* view)
 BMenu*
 MenuTracker::_DeepestShownMenu() const
 {
-	BMenu* menu = fBar;
+	BMenu* menu = fRoot;
+	if (fBar == nullptr && !fRoot->_IsShown())
+		return nullptr;
 	while (menu->fSelected != nullptr && menu->fSelected->Submenu() != nullptr
 		&& menu->fSelected->Submenu()->_IsShown()) {
 		menu = menu->fSelected->Submenu();
@@ -297,6 +363,15 @@ MenuTracker::_Evaluate(bool buttonsChanged)
 			// over a separator: as outside the menu
 			level->_SelectItem(nullptr);
 		}
+	} else if (fBar == nullptr) {
+		// Haiku's BMenu::_Track() of the root: mouse pointer outside menu:
+		// if there's no other submenu opened, deselect the current
+		// selected item
+		if (deepest != nullptr && !fKeyNavigation && deepest->fSelected != nullptr
+			&& (deepest->fSelected->Submenu() == nullptr
+				|| !deepest->fSelected->Submenu()->_IsShown())) {
+			deepest->_SelectItem(nullptr);
+		}
 	} else {
 		const gfx::Point local = fBar->ConvertFromScreen(fWhere);
 		const bool overBar = fBar->Bounds().Contains(local);
@@ -321,6 +396,9 @@ MenuTracker::_Evaluate(bool buttonsChanged)
 	if (!fTracking || !buttonsChanged)
 		return;
 
+	if (level == nullptr && fBar == nullptr)
+		level = fRoot;
+
 	if (level != nullptr) {
 		// Haiku's BMenu::_UpdateStateClose()
 		if (fButtons != 0 && fSticky) {
@@ -330,7 +408,12 @@ MenuTracker::_Evaluate(bool buttonsChanged)
 			}
 			_SetSticky(false);
 		} else if (fButtons == 0 && !fSticky) {
-			if (fExtraRect.has_value() && fExtraRect->Contains(fWhere)) {
+			if (fClickEnd.has_value() && Clock::Default().Now() <= *fClickEnd) {
+				// If it was a click, keep the menu open and tracking
+				// (Haiku: BPopUpMenu::_StartTrack())
+				fClickEnd.reset();
+				_SetSticky(true);
+			} else if (fExtraRect.has_value() && fExtraRect->Contains(fWhere)) {
 				_SetSticky(true);
 				fExtraRect.reset();
 			} else {
@@ -388,7 +471,7 @@ MenuTracker::_StealFocus()
 	if (fFocusStolen)
 		return;
 
-	BWindow* window = fBar->Window();
+	BWindow* window = fBar != nullptr ? fBar->Window() : nullptr;
 	if (window == nullptr)
 		return;
 
@@ -402,7 +485,7 @@ MenuTracker::_StealFocus()
 void
 MenuTracker::_RestoreFocus()
 {
-	if (fBar->Window() != nullptr && fFocusStolen) {
+	if (fBar != nullptr && fBar->Window() != nullptr && fFocusStolen) {
 		if (fPrevFocus != nullptr)
 			fPrevFocus->MakeFocus();
 		else if (fBar->IsFocus())
@@ -440,7 +523,7 @@ MenuTracker::_KeyDown(BMenu* menu, char key, std::string_view bytes)
 		case keys::kDownArrow:
 			if (menu->Layout() == BMenuLayout::InColumn) {
 				(void)_SelectNextItem(menu, menu->fSelected, key == keys::kDownArrow);
-			} else if (menu == fBar && menu->fSelected != nullptr
+			} else if (fBar != nullptr && menu == fBar && menu->fSelected != nullptr
 				&& menu->fSelected->Submenu() != nullptr) {
 				// NewGUI: Haiku's bar tracked the menu of its selected
 				// item (MENU_STATE_KEY_TO_SUBMENU); here it opens.
@@ -454,7 +537,7 @@ MenuTracker::_KeyDown(BMenu* menu, char key, std::string_view bytes)
 			} else if (menu->Superitem() != nullptr) {
 				// this case has to be handled a bit specially.
 				BMenu* super = menu->Supermenu();
-				if (super == fBar) {
+				if (fBar != nullptr && super == fBar) {
 					// If we're at the top menu below the menu bar, pass
 					// the keypress to the menu bar so we can move to
 					// another top level menu.
@@ -475,7 +558,7 @@ MenuTracker::_KeyDown(BMenu* menu, char key, std::string_view bytes)
 				(void)_SelectNextItem(menu, menu->fSelected, true);
 			} else if (menu->fSelected != nullptr && menu->fSelected->Submenu() != nullptr) {
 				menu->_SelectItem(menu->fSelected, true, true);
-			} else if (menu->Supermenu() == fBar) {
+			} else if (fBar != nullptr && menu->Supermenu() == fBar) {
 				// if we have no submenu and we're an
 				// item in the top menu below the menubar,
 				// pass the keypress to the menubar
@@ -705,7 +788,7 @@ MenuTracker::_ScheduleTick(Clock::Time when)
 {
 	const Clock::Time now = Clock::Default().Now();
 	const Clock::Time delay = std::max(when - now, Clock::Time(1ms));
-	fTicker = std::make_unique<BMessageRunner>(BMessenger(fBar), BMessage(kMenuTrackerTick),
+	fTicker = std::make_unique<BMessageRunner>(BMessenger(fWindow), BMessage(kMenuTrackerTick),
 		delay, 1);
 }
 

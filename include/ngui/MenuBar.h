@@ -69,8 +69,6 @@ public:
 									/*!< Closes its menus; is no longer the key menu bar. */
 			void				Draw(DrawContext& context) override;
 									/*!< Border, background and items. */
-			void				MessageReceived(BMessage* message) override;
-									/*!< The tick of its tracking. */
 			void				MouseDown(gfx::Point where) override;
 									/*!< Starts tracking the menus. */
 
