@@ -372,7 +372,7 @@ TEST(ScrollBarTest, DoubleArrowsSitAtBothEnds)
 	const BScrollBarInfo saved = GetScrollBarInfo();
 	BScrollBarInfo info = saved;
 	info.doubleArrows = true;
-	SetScrollBarInfo(info);
+	ASSERT_TRUE(SetScrollBarInfo(info).has_value());
 	auto owned = std::make_unique<ScrollWindow>();
 	BView* target = owned->AddChild(std::make_unique<BView>(gfx::Rect{0, 20, 200, 120},
 		"target", kFollowLeftTop, BViewFlag::WillDraw));
@@ -385,7 +385,7 @@ TEST(ScrollBarTest, DoubleArrowsSitAtBothEnds)
 	shortOwned->AddChild(std::make_unique<BScrollBar>(gfx::Rect{0, 0, 90, 15}, "bar",
 		shortTarget, 0.0f, 100.0f, BOrientation::Horizontal));
 	const BMessenger shortWindow = *BLooper::Run(std::move(shortOwned));
-	SetScrollBarInfo(saved);
+	ASSERT_TRUE(SetScrollBarInfo(saved).has_value());
 	const auto click = [](const BMessenger& to, float x) {
 		EXPECT_TRUE(to.SendMessage(Event(kMouseDown, {x, 7}, 1)).has_value());
 		EXPECT_TRUE(to.SendMessage(Event(kMouseUp, {x, 7})).has_value());
