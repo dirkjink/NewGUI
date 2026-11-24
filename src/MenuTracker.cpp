@@ -77,11 +77,14 @@ constexpr Clock::Time kNavigationAreaTimeout = 1s;
 // Haiku's default click speed (get_click_speed())
 constexpr Clock::Time kClickSpeed = 500ms;
 constexpr float kNavAreaThreshold = 8;
+// While the mouse is over a scroller, a step every 5 ms (Haiku's
+// snooze(5000) in BMenuWindow::_Scroll())
+constexpr Clock::Time kScrollInterval = 5ms;
 
 
 // \a menu on the screen, as Haiku's ConvertToScreen(Bounds()).
 BRect
-ScreenBounds(const BMenu* menu)
+ScreenBounds(const BView* menu)
 {
 	const gfx::Rect bounds = menu->Bounds();
 	const gfx::Point origin = menu->ConvertToScreen({bounds.x0, bounds.y0});
@@ -228,6 +231,36 @@ MenuTracker::Tick()
 
 
 void
+MenuTracker::TrackWheel(float deltaY, bool shift)
+{
+	// Haiku's BMenu::MessageReceived(B_MOUSE_WHEEL_CHANGED) of the menu
+	// under the mouse
+	if (!fTracking || !fMouseKnown || deltaY == 0)
+		return;
+
+	for (BMenu* menu = _DeepestShownMenu(); menu != nullptr && menu != fBar;
+		menu = menu->Supermenu()) {
+		MenuFrame* frame = _FrameOf(menu);
+		if (frame == nullptr || !ScreenBounds(frame).Contains(BPoint(fWhere.x, fWhere.y)))
+			continue;
+
+		float largeStep;
+		float smallStep;
+		frame->GetSteps(&smallStep, &largeStep);
+
+		// pressing the shift key scrolls faster
+		if (shift)
+			deltaY *= largeStep;
+		else
+			deltaY *= smallStep;
+
+		(void)frame->TryScrollBy(deltaY);
+		return;
+	}
+}
+
+
+void
 MenuTracker::Stop(BMenuItem* chosen)
 {
 	if (!fTracking)
@@ -350,9 +383,24 @@ MenuTracker::_OnScreen(const BMenu* menu, gfx::Point screen) const
 void
 MenuTracker::_Evaluate(bool buttonsChanged)
 {
+	// Haiku's CheckForScrolling() at the top of BMenu::_Track(): over an
+	// enabled scroller of the menu under the mouse, the menu scrolls, and
+	// again after a while as long as the mouse stays there.
+	BMenu* deepest = _DeepestShownMenu();
+	for (BMenu* menu = deepest; menu != nullptr && menu != fBar; menu = menu->Supermenu()) {
+		MenuFrame* frame = _FrameOf(menu);
+		if (frame == nullptr)
+			continue;
+		if (frame->CheckForScrolling(fWhere)) {
+			_ScheduleTick(Clock::Default().Now() + kScrollInterval);
+			return;
+		}
+		if (ScreenBounds(frame).Contains(BPoint(fWhere.x, fWhere.y)))
+			break;
+	}
+
 	// The order of the checks is Haiku's: first the open submenus, deepest
 	// first, then the bar.
-	BMenu* deepest = _DeepestShownMenu();
 	BMenu* level = nullptr;
 	for (BMenu* menu = deepest; menu != nullptr && menu != fBar; menu = menu->Supermenu()) {
 		if (_OnScreen(menu, fWhere)) {
@@ -587,6 +635,21 @@ MenuTracker::_KeyDown(BMenu* menu, char key, std::string_view bytes)
 				(void)_OpenOrChoose(menu, menu->fSelected);
 			break;
 
+		case keys::kPageUp:
+		case keys::kPageDown:
+		{
+			MenuFrame* frame = _FrameOf(menu);
+			if (frame == nullptr || !frame->HasScrollers())
+				break;
+
+			const float deltaY = key == keys::kPageUp ? -1.0f : 1.0f;
+
+			float largeStep;
+			frame->GetSteps(nullptr, &largeStep);
+			(void)frame->TryScrollBy(deltaY * largeStep);
+			break;
+		}
+
 		case keys::kEscape:
 			Stop(nullptr);
 			break;
@@ -621,6 +684,13 @@ MenuTracker::_SelectNextItem(BMenu* menu, BMenuItem* item, bool forward)
 		return false;
 
 	menu->_SelectItem(nextItem, menu == fBar);
+
+	// NewGUI: the item comes into view in a menu that scrolls (Haiku left
+	// it where it was)
+	if (MenuFrame* frame = _FrameOf(menu); frame != nullptr && menu->fSelected == nextItem) {
+		const gfx::Rect itemFrame = nextItem->Frame();
+		frame->ScrollToShow(itemFrame.y0, itemFrame.y1);
+	}
 	return true;
 }
 
@@ -794,6 +864,13 @@ MenuTracker::_UpdateNavigationArea(BMenu* menu, gfx::Point screen, Level& level)
 		level.navAreaRectAbove = BRect();
 		level.navAreaRectBelow = BRect();
 	}
+}
+
+
+MenuFrame*
+MenuTracker::_FrameOf(const BMenu* menu)
+{
+	return dynamic_cast<MenuFrame*>(menu->fPopup);
 }
 
 

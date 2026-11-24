@@ -57,6 +57,7 @@ public:
 									std::optional<gfx::Point> screen, std::uint32_t buttons,
 									bool autoInvoke, std::function<void(BMenuItem*)> done);
 			void				Tick() override;
+			void				TrackWheel(float deltaY, bool shift) override;
 			void				Stop(BMenuItem* chosen);
 
 			void				TrackMouse(std::uint32_t what, gfx::Point screen,
@@ -91,6 +92,7 @@ private:
 			void				_UpdateNavigationArea(BMenu* menu, gfx::Point position,
 									Level& level);
 			void				_ScheduleTick(Clock::Time when);
+	static	MenuFrame*			_FrameOf(const BMenu* menu);
 			void				_InvalidateField();
 
 			void				_Begin(BWindow* window, bool sticky,

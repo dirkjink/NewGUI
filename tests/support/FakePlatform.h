@@ -208,10 +208,12 @@ public:
 	}
 
 	float windowScale = 1;
+	// The screens it reports; set before the application runs.
+	std::vector<platform::DisplayInfo> displays = {{{0, 0, 800, 600}, 1, true}};
 
 	std::vector<platform::DisplayInfo> Displays() const override
 	{
-		return {{{0, 0, 800, 600}, 1, true}};
+		return displays;
 	}
 
 	void ProcessEvents() override
