@@ -162,7 +162,10 @@ BMenuItem::BMenuItem(std::unique_ptr<BMenu> menu, std::unique_ptr<BMessage> mess
 BMenuItem::~BMenuItem()
 {
 	// NewGUI: the menu owns its items, so an item is destroyed after it was
-	// taken out (Haiku removed it here).
+	// taken out (Haiku removed it here). A submenu that is shown is in its
+	// popup; hiding it gives it back.
+	if (fSubmenu != nullptr && fOwnedSubmenu == nullptr)
+		fSubmenu->_Hide();
 }
 
 
@@ -297,7 +300,7 @@ BMenuItem::Shortcut(BModifierFlags* modifiers) const
 BMenu*
 BMenuItem::Submenu() const
 {
-	return fSubmenu.get();
+	return fSubmenu;
 }
 
 
@@ -553,7 +556,8 @@ BMenuItem::SetAutomaticTrigger(int32 index, uint32 trigger)
 void
 BMenuItem::_InitMenuData(std::unique_ptr<BMenu> menu)
 {
-	fSubmenu = std::move(menu);
+	fOwnedSubmenu = std::move(menu);
+	fSubmenu = fOwnedSubmenu.get();
 
 	fSubmenu->fSuperitem = this;
 

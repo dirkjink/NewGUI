@@ -23,8 +23,10 @@ add_library(ngui
     Looper.cpp
     LooperPort.cpp
     Menu.cpp
+    MenuBar.cpp
     MenuItem.cpp
     MenuSymbols.cpp
+    MenuTracker.cpp
     Message.cpp
     MessageFilter.cpp
     MessageRunner.cpp

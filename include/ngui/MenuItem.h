@@ -114,6 +114,8 @@ protected:
 
 private:
 	friend class BMenu;
+	friend class BMenuBar;
+	friend class MenuTracker;
 
 			void				Install(BWindow* window);
 			void				Uninstall();
@@ -128,7 +130,9 @@ private:
 			void				_DrawSubmenuSymbol(DrawContext& context);
 
 			std::string			fLabel;
-			std::unique_ptr<BMenu> fSubmenu;
+			BMenu*				fSubmenu = nullptr;
+			std::unique_ptr<BMenu> fOwnedSubmenu;
+									// null while the submenu is shown (its popup has it)
 			BWindow*			fWindow = nullptr;
 			BMenu*				fSuper = nullptr;
 			gfx::Rect			fBounds = {0, 0, -1, -1};
