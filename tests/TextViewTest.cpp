@@ -146,6 +146,21 @@ public:
 		EXPECT_TRUE(fWindow.SendMessage(BMessage(what)).has_value());
 	}
 
+	void Compose(std::string_view text, bool confirmed = false)
+	{
+		BMessage message(kInputMethodEvent);
+		if (text.empty() && !confirmed) {
+			(void)message.AddInt32("be:opcode", kInputMethodStopped);
+		} else {
+			(void)message.AddInt32("be:opcode", kInputMethodChanged);
+			(void)message.AddString("be:string", text);
+			(void)message.AddBool("be:confirmed", confirmed);
+			(void)message.AddInt32("be:selection", 0);
+			(void)message.AddInt32("be:selection", static_cast<std::int32_t>(text.size()));
+		}
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
 	void SetText(std::string_view text)
 	{
 		BMessage message(kSetText);
@@ -406,6 +421,46 @@ TEST(TextViewTest, TheClipboardAndUndo)
 	EXPECT_EQ(text.Ask().text, "");
 	text.Send(kUndo);
 	EXPECT_EQ(text.Ask().text, "abc");
+}
+
+
+TEST(TextViewTest, InputMethodsComposeInline)
+{
+	// What is tested: After typing "a": an input method's composition
+	// "ni", then "nih"; Backspace while composing; the composition
+	// confirmed as "日本"; a new composition "x" stopped; a composition "y"
+	// ended by the key event of its final text "Y".
+	// Success criteria: The composed text stands at the caret in the text
+	// and is replaced as it changes; the input method's Backspace leaves
+	// the text alone; confirmed, it is typed (the caret after it); stopped,
+	// the composition goes; a typed text replaces a composition.
+	// Why it matters: Japanese, Chinese and Korean are typed this way, and
+	// so are many composed characters (Haiku's B_INPUT_METHOD_EVENT).
+	//
+	// Given
+	RunningText text;
+	text.Type("a");
+
+	// When / Then
+	text.Compose("ni");
+	EXPECT_EQ(text.Ask().text, "ani");
+	text.Compose("nih");
+	const TextState composing = text.Ask();
+	EXPECT_EQ(composing.text, "anih");
+	EXPECT_EQ(composing.start, 4);
+	text.Key("\x08");
+	EXPECT_EQ(text.Ask().text, "anih");
+	text.Compose("\xE6\x97\xA5\xE6\x9C\xAC", true);
+	const TextState confirmed = text.Ask();
+	EXPECT_EQ(confirmed.text, "a\xE6\x97\xA5\xE6\x9C\xAC");
+	EXPECT_EQ(confirmed.start, 7);
+	text.Compose("x");
+	EXPECT_EQ(text.Ask().text, "a\xE6\x97\xA5\xE6\x9C\xAC" "x");
+	text.Compose("");
+	EXPECT_EQ(text.Ask().text, "a\xE6\x97\xA5\xE6\x9C\xAC");
+	text.Compose("y");
+	text.Key("Y");
+	EXPECT_EQ(text.Ask().text, "a\xE6\x97\xA5\xE6\x9C\xAC" "Y");
 }
 
 

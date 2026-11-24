@@ -52,9 +52,11 @@ enum class BUndoState : std::uint8_t {
 	buffer). The selection and the caret are drawn by Draw() (Haiku
 	inverted them on the screen); the caret blinks on a timer of its own
 	(Haiku: Pulse()). CountLines() counts the empty line after a final line
-	break. Not yet: input methods, drag and drop of text, the context menu,
-	styles and run arrays, HideTyping(), MakeResizable(), auto scrolling
-	while selecting and the I-beam cursor.
+	break. Input methods (kInputMethodEvent) compose their text inline,
+	on Haiku's colors; the window's platform shows their candidates at the
+	caret. Not yet: drag and drop of text, the context menu, styles and run
+	arrays, HideTyping(), MakeResizable(), auto scrolling while selecting
+	and the I-beam cursor.
 */
 class BTextView : public BView {
 public:
@@ -91,8 +93,8 @@ public:
 			void				MakeFocus(bool focus = true) override;
 			void				MessageReceived(BMessage* message) override;
 									/*!< kCut, kCopy, kPaste (the system clipboard),
-										kUndo, kSelectAll, and the navigation shortcuts it
-										installs while active. */
+										kUndo, kSelectAll, kInputMethodEvent, and the
+										navigation shortcuts it installs while active. */
 
 			void				SetText(std::string_view text);
 									/*!< Replaces the text; the caret goes to 0. */
@@ -281,6 +283,17 @@ private:
 		bool				valid = false;
 	};
 
+	// The text an input method composes (Haiku's InlineInput). No default
+	// member initializers, see TrackState.
+	struct InlineInput {
+		int32				offset;
+		int32				length;
+		int32				selectionOffset;
+		int32				selectionLength;
+		bool				active;
+		std::vector<std::pair<int32, int32>> clauses;
+	};
+
 			class UndoBuffer;
 			class CutUndoBuffer;
 			class PasteUndoBuffer;
@@ -311,6 +324,10 @@ private:
 			void				_DoInsertText(std::string_view text, int32 offset);
 			std::string			_FilterDisallowedChars(std::string_view text) const;
 			TypingUndoBuffer*	_TypingUndo();
+			void				_HandleInputMethodChanged(BMessage* message);
+			void				_RemoveInlineInput();
+			void				_CancelInputMethod();
+			void				_UpdateTextInputArea();
 			void				_ShowCaret();
 			void				_HideCaret();
 			void				_InvalidateCaret();
@@ -363,6 +380,7 @@ private:
 			std::unique_ptr<BMessageRunner> fCaretRunner;
 			std::unique_ptr<UndoBuffer> fUndo;
 			std::optional<gfx::Color> fTextColor;
+			std::unique_ptr<InlineInput> fInline;
 			std::vector<std::pair<uint32, BModifierFlags>> fInstalledShortcuts;
 };
 

@@ -266,6 +266,7 @@ private:
 	friend class MenuTracker;
 	friend class BMenuItem;
 	friend class BPopUpMenu;
+	friend class BTextView;
 
 			void				_AddDirty(const gfx::Rect& rect);
 			void				_AddDirty(const BView* root, const gfx::Rect& rect);
@@ -277,6 +278,8 @@ private:
 									const gfx::Caps& caps, const TextSystem& text);
 			void				_ScheduleUpdate();
 	static	BWindow*			_DispatchingWindow();
+			void				_SetTextInputArea(gfx::Rect rect, int32 cursor);
+			void				_ClearComposition();
 			void				_DisposeLater(std::unique_ptr<BView> view);
 			bool				_HandleKeyDown(BMessage* event);
 			void				_AddShortcut(std::uint32_t* key, BModifierFlags* modifiers,

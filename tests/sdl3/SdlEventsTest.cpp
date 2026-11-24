@@ -251,6 +251,49 @@ TEST(SdlEventsTest, ShortcutKeysCarryTheirCharacter)
 }
 
 
+TEST(SdlEventsTest, CompositionBecomesInputMethodEvents)
+{
+	// What is tested: SDL_EVENT_TEXT_EDITING with "にほん" (three
+	// characters of three bytes each), its cursor at character 1 and two
+	// characters selected; one without a selection; one with empty text.
+	// Success criteria: Each becomes Haiku's B_INPUT_METHOD_EVENT: the
+	// first two B_INPUT_METHOD_CHANGED with "be:string", not confirmed, the
+	// selection in bytes (3, 9) and, without one, (3, 3); empty text
+	// B_INPUT_METHOD_STOPPED.
+	// Why it matters: Text views show what an input method composes inline,
+	// as in Haiku; SDL counts characters, Haiku bytes.
+	//
+	// Given
+	const auto editing = [](const char* text, std::int32_t start, std::int32_t length) {
+		SDL_Event event{};
+		event.type = SDL_EVENT_TEXT_EDITING;
+		event.edit.windowID = kWindow;
+		event.edit.text = text;
+		event.edit.start = start;
+		event.edit.length = length;
+		return event;
+	};
+	const char* japanese = "\xE3\x81\xAB\xE3\x81\xBB\xE3\x82\x93";
+	const std::vector<SDL_Event> events = {editing(japanese, 1, 2), editing(japanese, 1, 0),
+		editing("", 0, 0)};
+
+	// When
+	const std::vector<TranslatedEvent> messages = Translate(events, Context());
+
+	// Then
+	ASSERT_EQ(messages.size(), 3u);
+	const BMessage& changed = messages[0].message;
+	EXPECT_EQ(changed.what, kInputMethodEvent);
+	EXPECT_EQ(changed.GetInt32("be:opcode", -1), kInputMethodChanged);
+	EXPECT_EQ(changed.GetString("be:string", "?"), japanese);
+	EXPECT_FALSE(changed.GetBool("be:confirmed", true));
+	EXPECT_EQ(changed.GetInt32("be:selection", -1), 3);
+	EXPECT_EQ(*changed.FindInt32("be:selection", 1), 9);
+	EXPECT_EQ(*messages[1].message.FindInt32("be:selection", 1), 3);
+	EXPECT_EQ(messages[2].message.GetInt32("be:opcode", -1), kInputMethodStopped);
+}
+
+
 TEST(SdlEventsTest, WindowEventsAndModifiers)
 {
 	// What is tested: A resize to 640 × 480, a move, focus gained and lost,

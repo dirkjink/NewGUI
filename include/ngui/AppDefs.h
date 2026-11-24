@@ -115,5 +115,23 @@ inline constexpr std::uint32_t kSelectAll = FourCharCode("SALL");
 /*!	B_UNDO: undo (or redo) the last change, e.g. of a text view. */
 inline constexpr std::uint32_t kUndo = FourCharCode("UNDO");
 
+/*!	B_INPUT_METHOD_EVENT: an input method composes text; to the focus view.
+	"be:opcode" (int32) is one of kInputMethodStarted ...; with
+	kInputMethodChanged "be:string" (the text composed so far),
+	"be:confirmed" (bool, whether it is final), "be:selection" (two int32,
+	byte offsets of the part the input method works on) and optionally pairs
+	of "be:clause_start" and "be:clause_end". */
+inline constexpr std::uint32_t kInputMethodEvent = FourCharCode("IMEV");
+
+/*!	B_INPUT_METHOD_STARTED: composition begins. */
+inline constexpr std::int32_t kInputMethodStarted = 0;
+/*!	B_INPUT_METHOD_STOPPED: composition ends; the final text, if any, came
+	confirmed or as key events. */
+inline constexpr std::int32_t kInputMethodStopped = 1;
+/*!	B_INPUT_METHOD_CHANGED: the composed text changed. */
+inline constexpr std::int32_t kInputMethodChanged = 2;
+/*!	B_INPUT_METHOD_LOCATION_REQUEST: the input method asks where the text is. */
+inline constexpr std::int32_t kInputMethodLocationRequest = 3;
+
 
 } // namespace ngui

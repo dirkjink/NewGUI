@@ -273,6 +273,29 @@ public:
 		});
 	}
 
+	void SetTextInputArea(gfx::Rect rect, int32 cursor) override
+	{
+		_Main([state = fState, rect, cursor] {
+			std::scoped_lock lock(state->lock);
+			if (state->window == nullptr)
+				return;
+			const SDL_Rect area{static_cast<int>(std::lround(rect.x0)),
+				static_cast<int>(std::lround(rect.y0)),
+				static_cast<int>(std::lround(rect.Width())),
+				static_cast<int>(std::lround(rect.Height()))};
+			(void)SDL_SetTextInputArea(state->window, &area, cursor);
+		});
+	}
+
+	void ClearComposition() override
+	{
+		_Main([state = fState] {
+			std::scoped_lock lock(state->lock);
+			if (state->window != nullptr)
+				(void)SDL_ClearComposition(state->window);
+		});
+	}
+
 	void SetTitle(std::string_view title) override
 	{
 		_Main([state = fState, text = std::string(title)] {

@@ -299,6 +299,18 @@ AppMessenger()
 
 
 
+void
+platform::PlatformWindow::SetTextInputArea(gfx::Rect /*rect*/, int32 /*cursor*/)
+{
+}
+
+
+void
+platform::PlatformWindow::ClearComposition()
+{
+}
+
+
 std::expected<void, Error>
 platform::Platform::SetClipboard(const ClipboardData& /*data*/)
 {

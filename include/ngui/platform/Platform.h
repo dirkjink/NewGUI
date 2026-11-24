@@ -17,6 +17,7 @@
 
 #include <ngui/Error.h>
 #include <ngui/Messenger.h>
+#include <ngui/SupportDefs.h>
 #include <ngui/gfx/Backend.h>
 #include <ngui/gfx/IntRect.h>
 #include <ngui/gfx/NativeWindow.h>
@@ -92,6 +93,13 @@ public:
 									/*!< For Backend::CreateWindowSurface(). */
 	virtual	void				SetTarget(BMessenger target) = 0;
 									/*!< Where its events go from now on. */
+	virtual	void				SetTextInputArea(gfx::Rect rect, int32 cursor);
+									/*!< Where text is typed, in window coordinates, and the
+										cursor's offset in it: input methods show their
+										candidates there. Nothing by default. */
+	virtual	void				ClearComposition();
+									/*!< Ends an input method's composition, dropping its
+										text. Nothing by default. */
 	virtual	std::expected<void, Error> Present(const gfx::CpuPixels& pixels,
 									std::span<const gfx::IntRect> dirty) = 0;
 									/*!< Shows the \a dirty device-pixel areas of \a pixels,
