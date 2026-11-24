@@ -47,6 +47,8 @@ add_library(ngui
     LayoutContext.cpp
     LayoutItem.cpp
     LayoutUtils.cpp
+    ListItem.cpp
+    ListView.cpp
     Palette.cpp
     PopUpMenu.cpp
     RadioButton.cpp
@@ -57,6 +59,7 @@ add_library(ngui
     SpaceLayoutItem.cpp
     SplitLayout.cpp
     SplitView.cpp
+    StringItem.cpp
     StringView.cpp
     TabView.cpp
     TextControl.cpp

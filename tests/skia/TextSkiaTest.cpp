@@ -20,6 +20,7 @@
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
 #include <ngui/LayoutBuilder.h>
+#include <ngui/ListView.h>
 #include <ngui/AppDefs.h>
 #include <ngui/Menu.h>
 #include <ngui/MenuBar.h>
@@ -34,6 +35,7 @@
 #include <ngui/Slider.h>
 #include <ngui/SplitView.h>
 #include <ngui/StatusBar.h>
+#include <ngui/StringItem.h>
 #include <ngui/TabView.h>
 #include <ngui/TextControl.h>
 #include <ngui/TextView.h>
@@ -1057,6 +1059,56 @@ TEST(TextSkiaTest, TextControlsMatchTheirSnapshots)
 			EXPECT_IMAGE_SNAPSHOT(*image, names[i], {.look = "be", .backend = "skia",
 				.scale = scale, .tolerance = Tolerance::Text()});
 		}
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, ListViewMatchesItsSnapshot)
+{
+	// What is tested: A list view of 140 × 80 in a scroll view with a
+	// vertical bar and a fancy border, in an active window, with six string
+	// items; "Deskbar" selected, "Terminal" disabled; with the bundled
+	// font, rendered by Skia at scale 1 and 2 ("ListView").
+	// Success criteria: Within the text tolerance of 21.2: the items one
+	// below the other on the list background, the label spacing left of
+	// each text; the selected item on the selection background, the
+	// disabled one's text lightened; the scroll bar's thumb shows the part
+	// of the list that is visible.
+	// Why it matters: The list, its items and the scroll view are drawn
+	// together; all must fit.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	BWindow window({0, 0, 300, 200}, "lists");
+	auto owned = std::make_unique<BListView>(gfx::Rect{0, 0, 140, 80}, "list");
+	BListView& list = *owned;
+	auto& scrollView = static_cast<BScrollView&>(*window.AddChild(std::make_unique<BScrollView>(
+		"scroll", std::move(owned), kFollowLeftTop, BViewFlags{}, false, true)));
+	for (const char* name : {"Tracker", "Deskbar", "Terminal", "StyledEdit", "Icon-O-Matic",
+		"People"}) {
+		list.AddItem(std::make_unique<BStringItem>(name));
+	}
+	list.ItemAt(2)->SetEnabled(false);
+	list.Select(1);
+	BMessage activated(kWindowActivated);
+	(void)activated.AddBool("active", true);
+	window.DispatchMessage(&activated, &window);
+	scrollView.MoveTo({0, 0});
+	const DisplayListRef recorded = RecordTree(scrollView, *text);
+
+	for (const float scale : {1.0f, 2.0f}) {
+		// When
+		SkiaBackend backend;
+		for (const FontFile& font : text->Fonts())
+			ASSERT_TRUE(backend.AddFont(font.id, font.data));
+		const auto image = RenderToImage(backend, *recorded, scale);
+
+		// Then
+		ASSERT_TRUE(image.has_value()) << image.error().message;
+		EXPECT_IMAGE_SNAPSHOT(*image, "ListView", {.look = "be", .backend = "skia",
+			.scale = scale, .tolerance = Tolerance::Text()});
 	}
 	TextSystem::SetDefault(nullptr);
 }
