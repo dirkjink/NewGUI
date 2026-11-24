@@ -11,8 +11,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <future>
+#include <initializer_list>
 #include <memory>
+#include <span>
+#include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL.h>
@@ -20,6 +24,7 @@
 
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
+#include <ngui/Clipboard.h>
 
 #include "support/RecordingLooper.h"
 
@@ -278,6 +283,65 @@ TEST(SdlPlatformTest, PopupsArePlacedRelativeToTheirParent)
 	EXPECT_EQ(before, (std::array<int, 3>{15, 15, 1}));
 	EXPECT_EQ(after, (std::array<int, 3>{20, 20, 1}));
 	EXPECT_EQ(movedFrame, (gfx::Rect{30, 40, 50, 50}));
+}
+
+
+TEST(SdlPlatformTest, TheSystemClipboardIsSdls)
+{
+	// What is tested: The system clipboard of an application with the SDL
+	// platform: "text/plain" "Grüße" committed; then plain text set through
+	// SDL itself; then text and "application/x-ngui-test" committed
+	// together.
+	// Success criteria: SDL's clipboard text is what was committed, and
+	// BClipboard reads back text SDL set; data of other MIME types travels
+	// with the text and comes back as committed.
+	// Why it matters: Copy and paste between NewGUI and other applications
+	// go through the window system's clipboard.
+	//
+	// Given
+	RunningApp app;
+	ASSERT_NE(app.Platform(), nullptr);
+	BClipboard& clipboard = BClipboard::System();
+	const auto commit = [&](std::initializer_list<std::pair<const char*, std::string_view>>
+			items) {
+		ASSERT_TRUE(clipboard.Lock());
+		ASSERT_TRUE(clipboard.Clear().has_value());
+		for (const auto& [mime, data] : items) {
+			ASSERT_TRUE(clipboard.Data()->AddData(mime, BTypeCode::Mime,
+				std::as_bytes(std::span(data.data(), data.size()))).has_value());
+		}
+		ASSERT_TRUE(clipboard.Commit().has_value());
+		clipboard.Unlock();
+	};
+	const auto read = [&](const char* mime) {
+		std::string text;
+		if (clipboard.Lock()) {
+			if (auto data = clipboard.Data()->FindData(mime, BTypeCode::Mime))
+				text.assign(reinterpret_cast<const char*>(data->data()), data->size());
+			clipboard.Unlock();
+		}
+		return text;
+	};
+
+	// When
+	commit({{"text/plain", "Gr\xC3\xBC\xC3\x9F" "e"}});
+	const std::string sdlText = app.OnMain([] {
+		char* text = SDL_GetClipboardText();
+		std::string copy = text != nullptr ? text : "";
+		SDL_free(text);
+		return copy;
+	});
+	app.OnMain([] { (void)SDL_SetClipboardText("from SDL"); });
+	const std::string fromSdl = read("text/plain");
+	commit({{"text/plain", "both"}, {"application/x-ngui-test", "data"}});
+	const std::string bothText = read("text/plain");
+	const std::string bothData = read("application/x-ngui-test");
+
+	// Then
+	EXPECT_EQ(sdlText, "Gr\xC3\xBC\xC3\x9F" "e");
+	EXPECT_EQ(fromSdl, "from SDL");
+	EXPECT_EQ(bothText, "both");
+	EXPECT_EQ(bothData, "data");
 }
 
 

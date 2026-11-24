@@ -6,11 +6,13 @@
 #pragma once
 
 
+#include <cstddef>
 #include <expected>
 #include <memory>
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <ngui/Error.h>
@@ -99,6 +101,11 @@ public:
 };
 
 
+/*!	What the system clipboard holds: data per MIME type, e.g. "text/plain"
+	with UTF-8 text. */
+using ClipboardData = std::vector<std::pair<std::string, std::vector<std::byte>>>;
+
+
 /*!	The window system (module P1): windows, screens and the events of the
 	main thread. BApplication::UsePlatform() hands it to the application,
 	whose loop then waits for the platform's events and its own messages
@@ -128,6 +135,13 @@ public:
 									/*!< Blocks until there is an event or Wake() is called. */
 	virtual	void				Wake() = 0;
 									/*!< Ends WaitForEvents() early; from any thread. */
+
+	virtual	std::expected<void, Error> SetClipboard(const ClipboardData& data);
+									/*!< Puts \a data on the system clipboard; from any
+										thread. NotSupported by default. */
+	virtual	std::expected<ClipboardData, Error> Clipboard() const;
+									/*!< What the system clipboard holds; from any thread.
+										NotSupported by default. */
 };
 
 

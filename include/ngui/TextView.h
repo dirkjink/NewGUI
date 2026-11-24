@@ -23,7 +23,19 @@
 namespace ngui {
 
 
+class BClipboard;
 class BMessageRunner;
+
+
+/*!	What BTextView::Undo() would undo (Haiku's undo_state). */
+enum class BUndoState : std::uint8_t {
+	Unavailable,	/*!< B_UNDO_UNAVAILABLE: nothing. */
+	Typing,			/*!< B_UNDO_TYPING */
+	Cut,			/*!< B_UNDO_CUT */
+	Paste,			/*!< B_UNDO_PASTE */
+	Clear,			/*!< B_UNDO_CLEAR */
+	Drop			/*!< B_UNDO_DROP */
+};
 
 
 /*!	A view that shows and edits text (Haiku's BTextView, module W5): lines
@@ -40,10 +52,9 @@ class BMessageRunner;
 	buffer). The selection and the caret are drawn by Draw() (Haiku
 	inverted them on the screen); the caret blinks on a timer of its own
 	(Haiku: Pulse()). CountLines() counts the empty line after a final line
-	break. Not yet: the clipboard (Cut(), Copy(), Paste()), Undo(), input
-	methods, drag and drop of text, the context menu, styles and run
-	arrays, HideTyping(), MakeResizable(), auto scrolling while selecting
-	and the I-beam cursor.
+	break. Not yet: input methods, drag and drop of text, the context menu,
+	styles and run arrays, HideTyping(), MakeResizable(), auto scrolling
+	while selecting and the I-beam cursor.
 */
 class BTextView : public BView {
 public:
@@ -79,7 +90,8 @@ public:
 			void				FrameResized(float newWidth, float newHeight) override;
 			void				MakeFocus(bool focus = true) override;
 			void				MessageReceived(BMessage* message) override;
-									/*!< kSelectAll and the navigation shortcuts it
+									/*!< kCut, kCopy, kPaste (the system clipboard),
+										kUndo, kSelectAll, and the navigation shortcuts it
 										installs while active. */
 
 			void				SetText(std::string_view text);
@@ -110,9 +122,30 @@ public:
 			void				GoToLine(int32 lineNumber);
 									/*!< Puts the caret at the start of a line. */
 
+	virtual	void				Cut(BClipboard* clipboard);
+									/*!< Copies the selection to \a clipboard and deletes
+										it. */
+	virtual	void				Copy(BClipboard* clipboard);
+									/*!< Puts the selection on \a clipboard as
+										"text/plain". */
+	virtual	void				Paste(BClipboard* clipboard);
+									/*!< Replaces the selection with the "text/plain" of
+										\a clipboard, without disallowed characters. */
 			void				Clear();
-									/*!< Deletes the selection (Haiku: as B_CLEAR, for
-										undo). */
+									/*!< Deletes the selection, to be undone as such. */
+	virtual	bool				AcceptsPaste(BClipboard* clipboard);
+									/*!< Whether \a clipboard has text to paste here. */
+
+	virtual	void				Undo(BClipboard* clipboard);
+									/*!< Undoes the last change, or redoes what was
+										undone. */
+			BUndoState			UndoState(bool* isRedo) const;
+									/*!< What Undo() would undo; \a isRedo tells whether it
+										would redo. */
+			void				SetDoesUndo(bool undo);
+									/*!< Whether changes can be undone (by default). */
+			bool				DoesUndo() const;
+									/*!< Whether changes can be undone. */
 	virtual	void				Select(int32 startOffset, int32 endOffset);
 									/*!< Selects the text between the offsets; equal
 										offsets place the caret. */
@@ -242,6 +275,12 @@ private:
 		bool				valid = false;
 	};
 
+			class UndoBuffer;
+			class CutUndoBuffer;
+			class PasteUndoBuffer;
+			class ClearUndoBuffer;
+			class TypingUndoBuffer;
+
 	// What MouseDown() starts and MouseMoved() follows (Haiku's
 	// TextTrackState). No default member initializers: Clang does not
 	// count a nested class with them as constructible inside BTextView.
@@ -264,6 +303,8 @@ private:
 			void				_HandlePageKey(uint8 pageKey, int32 modifiers = -1);
 			void				_HandleAlphaKey(std::string_view bytes);
 			void				_DoInsertText(std::string_view text, int32 offset);
+			std::string			_FilterDisallowedChars(std::string_view text) const;
+			TypingUndoBuffer*	_TypingUndo();
 			void				_ShowCaret();
 			void				_HideCaret();
 			void				_InvalidateCaret();
@@ -314,6 +355,7 @@ private:
 			LayoutData			fLayoutData;
 			int32				fLastClickOffset = -1;
 			std::unique_ptr<BMessageRunner> fCaretRunner;
+			std::unique_ptr<UndoBuffer> fUndo;
 			std::vector<std::pair<uint32, BModifierFlags>> fInstalledShortcuts;
 };
 

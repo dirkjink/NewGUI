@@ -64,6 +64,8 @@ enum class BTypeCode : std::uint32_t {
 											rgb_color */
 	Pointer = FourCharCode("PNTR"),		/*!< B_POINTER_TYPE, not flattenable */
 	Message = FourCharCode("MSGG"),		/*!< B_MESSAGE_TYPE */
+	Mime = FourCharCode("MIME"),		/*!< B_MIME_TYPE: data named by its MIME type
+											(clipboard, drag and drop) */
 	Raw = FourCharCode("RAWT")			/*!< B_RAW_TYPE: bytes without a meaning */
 };
 

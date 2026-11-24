@@ -6,8 +6,9 @@
  *
  * Ported from Haiku: src/kits/interface/TextView.cpp (commit b1d497bb69),
  * the single-style core: text, selection, caret, keyboard, mouse,
- * scrolling and layout; without archiving, scripting, styles, the
- * clipboard, undo, input methods, drag and drop and the offscreen bitmap.
+ * scrolling, layout, the clipboard and undo (with
+ * textview_support/UndoBuffer.cpp); without archiving, scripting, styles,
+ * input methods, drag and drop and the offscreen bitmap.
  * NewGUI (see TextView.h):
  * - TextLayout breaks the lines and answers PointAt() and OffsetAt();
  *   _Refresh() lays out all of the text again.
@@ -23,6 +24,8 @@
  * - ScrollToOffset() does not realign a text that does not wrap.
  * - Sizes are pixel counts; Haiku's inclusive rectangles become
  *   half-open ones with the same edges.
+ * - Typing undo erases and restores graphemes (Haiku: code points), as
+ *   Backspace and Delete remove them.
  *
  * Authors (Haiku):
  *		Hiroshi Lockheimer (BTextView is based on his STEngine)
@@ -41,9 +44,11 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <span>
 #include <utility>
 
 #include <ngui/AppDefs.h>
+#include <ngui/Clipboard.h>
 #include <ngui/Clock.h>
 #include <ngui/ControlLook.h>
 #include <ngui/LayoutUtils.h>
@@ -130,7 +135,252 @@ Inverted(const gfx::Color& color)
 }
 
 
+// The clipboard's text as bytes.
+std::span<const std::byte>
+Bytes(std::string_view text)
+{
+	return std::as_bytes(std::span(text.data(), text.size()));
+}
+
+
 } // namespace
+
+
+// #pragma mark - UndoBuffer
+
+
+// Ported from Haiku: src/kits/interface/textview_support/UndoBuffer.cpp
+// (commit b1d497bb69), with std::string; without the run arrays and the
+// DropUndoBuffer.
+class BTextView::UndoBuffer {
+public:
+	UndoBuffer(BTextView* textView, BUndoState state)
+		:
+		fTextView(textView),
+		fState(state)
+	{
+		fTextView->GetSelection(&fStart, &fEnd);
+		fTextData = fTextView->GetText(fStart, fEnd - fStart);
+	}
+
+	virtual ~UndoBuffer() = default;
+
+	void Undo(BClipboard* clipboard)
+	{
+		fRedo ? RedoSelf(clipboard) : UndoSelf(clipboard);
+
+		fRedo = !fRedo;
+	}
+
+	BUndoState State(bool* isRedo) const
+	{
+		if (isRedo != nullptr)
+			*isRedo = fRedo;
+
+		return fState;
+	}
+
+protected:
+	virtual void UndoSelf(BClipboard* /*clipboard*/)
+	{
+		fTextView->Select(fStart, fStart);
+		fTextView->Insert(fTextData);
+		fTextView->Select(fStart, fStart);
+	}
+
+	virtual void RedoSelf(BClipboard* /*clipboard*/)
+	{
+	}
+
+	BTextView*			fTextView;
+	int32				fStart = 0;
+	int32				fEnd = 0;
+	std::string			fTextData;
+	bool				fRedo = false;
+
+private:
+	BUndoState			fState;
+};
+
+
+class BTextView::CutUndoBuffer : public BTextView::UndoBuffer {
+public:
+	explicit CutUndoBuffer(BTextView* textView)
+		:
+		UndoBuffer(textView, BUndoState::Cut)
+	{
+	}
+
+protected:
+	void RedoSelf(BClipboard* clipboard) override
+	{
+		fTextView->Select(fStart, fStart);
+		fTextView->Delete(fStart, fEnd);
+		if (clipboard->Lock()) {
+			(void)clipboard->Clear();
+			if (BMessage* clip = clipboard->Data()) {
+				(void)clip->AddData("text/plain", BTypeCode::Mime, Bytes(fTextData));
+				(void)clipboard->Commit();
+			}
+			clipboard->Unlock();
+		}
+	}
+};
+
+
+class BTextView::PasteUndoBuffer : public BTextView::UndoBuffer {
+public:
+	PasteUndoBuffer(BTextView* textView, std::string_view text)
+		:
+		UndoBuffer(textView, BUndoState::Paste),
+		fPasteText(text)
+	{
+	}
+
+protected:
+	void UndoSelf(BClipboard* /*clipboard*/) override
+	{
+		fTextView->Select(fStart, fStart);
+		fTextView->Delete(fStart, fStart + static_cast<int32>(fPasteText.size()));
+		fTextView->Insert(fTextData);
+		fTextView->Select(fStart, fEnd);
+	}
+
+	void RedoSelf(BClipboard* /*clipboard*/) override
+	{
+		fTextView->Select(fStart, fStart);
+		fTextView->Delete(fStart, fEnd);
+		fTextView->Insert(fPasteText);
+		const int32 end = fStart + static_cast<int32>(fPasteText.size());
+		fTextView->Select(end, end);
+	}
+
+private:
+	std::string			fPasteText;
+};
+
+
+class BTextView::ClearUndoBuffer : public BTextView::UndoBuffer {
+public:
+	explicit ClearUndoBuffer(BTextView* textView)
+		:
+		UndoBuffer(textView, BUndoState::Clear)
+	{
+	}
+
+protected:
+	void RedoSelf(BClipboard* /*clipboard*/) override
+	{
+		fTextView->Select(fStart, fStart);
+		fTextView->Delete(fStart, fEnd);
+	}
+};
+
+
+class BTextView::TypingUndoBuffer : public BTextView::UndoBuffer {
+public:
+	explicit TypingUndoBuffer(BTextView* textView)
+		:
+		UndoBuffer(textView, BUndoState::Typing),
+		fTypedStart(fStart),
+		fTypedEnd(fEnd)
+	{
+	}
+
+	void InputCharacter(int32 length)
+	{
+		int32 start;
+		int32 end;
+		fTextView->GetSelection(&start, &end);
+
+		if (start != fTypedEnd || end != fTypedEnd)
+			_Reset();
+
+		fTypedEnd += length;
+	}
+
+	void BackwardErase()
+	{
+		int32 start;
+		int32 end;
+		fTextView->GetSelection(&start, &end);
+
+		// NewGUI: the grapheme Backspace removes
+		const int32 charLen = start - fTextView->_PreviousInitialByte(start);
+
+		if (start != fTypedEnd || end != fTypedEnd) {
+			_Reset();
+			// if we've got a selection, we're already done
+			if (start != end)
+				return;
+		}
+
+		fTypedStart = start - charLen;
+		fTextData.insert(0, fTextView->GetText(fTypedStart, charLen));
+		fTypedEnd -= charLen;
+	}
+
+	void ForwardErase()
+	{
+		// TODO: Cleanup
+		int32 start;
+		int32 end;
+		fTextView->GetSelection(&start, &end);
+
+		// NewGUI: the grapheme Delete removes
+		const int32 charLen = fTextView->_NextInitialByte(start) - start;
+
+		if (start != fTypedEnd || end != fTypedEnd || fUndone > 0) {
+			_Reset();
+			// if we've got a selection, we're already done
+			if (fStart == fEnd)
+				fTextData = fTextView->GetText(start, charLen);
+		} else
+			fTextData += fTextView->GetText(start, charLen);
+	}
+
+protected:
+	void UndoSelf(BClipboard* /*clipboard*/) override
+	{
+		fTypedText = fTextView->GetText(fTypedStart, fTypedEnd - fTypedStart);
+
+		fTextView->Select(fTypedStart, fTypedStart);
+		fTextView->Delete(fTypedStart, fTypedEnd);
+		fTextView->Insert(fTextData);
+		fTextView->Select(fStart, fEnd);
+		fUndone++;
+	}
+
+	void RedoSelf(BClipboard* /*clipboard*/) override
+	{
+		fTextView->Select(fTypedStart, fTypedStart);
+		fTextView->Delete(fTypedStart, fTypedStart + static_cast<int32>(fTextData.size()));
+		fTextView->Insert(fTypedText);
+		fUndone--;
+	}
+
+private:
+	void _Reset()
+	{
+		fTextView->GetSelection(&fStart, &fEnd);
+		fTextData = fTextView->GetText(fStart, fEnd - fStart);
+		fTypedStart = fStart;
+		fTypedEnd = fStart;
+
+		fTypedText.clear();
+
+		fRedo = false;
+		fUndone = 0;
+	}
+
+	std::string			fTypedText;
+	int32				fTypedStart;
+	int32				fTypedEnd;
+	int32				fUndone = 0;
+};
+
+
+// #pragma mark - BTextView
 
 
 BTextView::BTextView(gfx::Rect frame, std::string_view name, gfx::Rect textRect,
@@ -438,6 +688,22 @@ void
 BTextView::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
+		case kCut:
+			Cut(&BClipboard::System());
+			break;
+
+		case kCopy:
+			Copy(&BClipboard::System());
+			break;
+
+		case kPaste:
+			Paste(&BClipboard::System());
+			break;
+
+		case kUndo:
+			Undo(&BClipboard::System());
+			break;
+
 		case kSelectAll:
 			SelectAll();
 			break;
@@ -626,9 +892,120 @@ BTextView::GoToLine(int32 index)
 
 
 void
+BTextView::Cut(BClipboard* clipboard)
+{
+	if (!fEditable)
+		return;
+
+	if (fUndo)
+		fUndo = std::make_unique<CutUndoBuffer>(this);
+
+	Copy(clipboard);
+	Delete();
+}
+
+
+void
+BTextView::Copy(BClipboard* clipboard)
+{
+	if (clipboard->Lock()) {
+		(void)clipboard->Clear();
+
+		if (BMessage* clip = clipboard->Data()) {
+			const std::string text = GetText(fSelStart, fSelEnd - fSelStart);
+			(void)clip->AddData("text/plain", BTypeCode::Mime, Bytes(text));
+			(void)clipboard->Commit();
+		}
+		clipboard->Unlock();
+	}
+}
+
+
+void
+BTextView::Paste(BClipboard* clipboard)
+{
+	if (!fEditable || !clipboard->Lock())
+		return;
+
+	if (BMessage* clip = clipboard->Data()) {
+		if (auto data = clip->FindData("text/plain", BTypeCode::Mime)) {
+			const std::string text = _FilterDisallowedChars(std::string_view(
+				reinterpret_cast<const char*>(data->data()), data->size()));
+			if (text.empty()) {
+				// NewGUI: no beep()
+				clipboard->Unlock();
+				return;
+			}
+
+			if (fUndo)
+				fUndo = std::make_unique<PasteUndoBuffer>(this, text);
+
+			if (fSelStart != fSelEnd)
+				Delete();
+
+			Insert(text);
+			ScrollToOffset(fSelEnd);
+		}
+	}
+
+	clipboard->Unlock();
+}
+
+
+void
 BTextView::Clear()
 {
+	if (fUndo)
+		fUndo = std::make_unique<ClearUndoBuffer>(this);
+
 	Delete();
+}
+
+
+bool
+BTextView::AcceptsPaste(BClipboard* clipboard)
+{
+	bool result = false;
+
+	if (fEditable && clipboard != nullptr && clipboard->Lock()) {
+		BMessage* data = clipboard->Data();
+		result = data != nullptr && data->HasData("text/plain", BTypeCode::Mime);
+		clipboard->Unlock();
+	}
+
+	return result;
+}
+
+
+void
+BTextView::Undo(BClipboard* clipboard)
+{
+	if (fUndo)
+		fUndo->Undo(clipboard);
+}
+
+
+BUndoState
+BTextView::UndoState(bool* isRedo) const
+{
+	return fUndo == nullptr ? BUndoState::Unavailable : fUndo->State(isRedo);
+}
+
+
+void
+BTextView::SetDoesUndo(bool undo)
+{
+	if (undo && fUndo == nullptr)
+		fUndo = std::make_unique<UndoBuffer>(this, BUndoState::Unavailable);
+	else if (!undo && fUndo != nullptr)
+		fUndo.reset();
+}
+
+
+bool
+BTextView::DoesUndo() const
+{
+	return fUndo != nullptr;
 }
 
 
@@ -1365,6 +1742,7 @@ BTextView::_InitObject(gfx::Rect textRect)
 	fTextRect = textRect;
 	_UpdateInsets(textRect);
 	AdoptSystemColors();
+	SetDoesUndo(true);
 	_Relayout();
 }
 
@@ -1516,6 +1894,9 @@ BTextView::_HandleBackspace(int32 modifiers)
 		fSelStart = _PreviousWordStart(fCaretOffset - 1);
 		fSelEnd = fCaretOffset;
 	}
+
+	if (TypingUndoBuffer* undoBuffer = _TypingUndo())
+		undoBuffer->BackwardErase();
 
 	if (fSelStart == fSelEnd) {
 		if (fSelStart != 0)
@@ -1722,6 +2103,9 @@ BTextView::_HandleDelete(int32 modifiers)
 		fSelEnd = _NextInitialByte(_NextWordEnd(fCaretOffset));
 	}
 
+	if (TypingUndoBuffer* undoBuffer = _TypingUndo())
+		undoBuffer->ForwardErase();
+
 	if (fSelStart == fSelEnd) {
 		if (fSelEnd != TextLength())
 			fSelEnd = _NextInitialByte(fSelEnd);
@@ -1914,6 +2298,9 @@ BTextView::_HandleAlphaKey(std::string_view bytes)
 	if (!fEditable)
 		return;
 
+	if (TypingUndoBuffer* undoBuffer = _TypingUndo())
+		undoBuffer->InputCharacter(static_cast<int32>(bytes.size()));
+
 	if (fSelStart != fSelEnd) {
 		Highlight(fSelStart, fSelEnd);
 		DeleteText(fSelStart, fSelEnd);
@@ -1961,6 +2348,38 @@ BTextView::_DoInsertText(std::string_view text, int32 offset)
 
 	// recalc line breaks and draw the text
 	_Refresh();
+}
+
+
+std::string
+BTextView::_FilterDisallowedChars(std::string_view text) const
+{
+	// Haiku's _FilterDisallowedChars(), byte by byte
+	std::string filtered;
+	filtered.reserve(text.size());
+	for (const char c : text) {
+		if (std::find(fDisallowedChars.begin(), fDisallowedChars.end(),
+				static_cast<uint32>(static_cast<unsigned char>(c))) == fDisallowedChars.end()) {
+			filtered.push_back(c);
+		}
+	}
+	return filtered;
+}
+
+
+BTextView::TypingUndoBuffer*
+BTextView::_TypingUndo()
+{
+	if (fUndo == nullptr)
+		return nullptr;
+
+	auto* undoBuffer = dynamic_cast<TypingUndoBuffer*>(fUndo.get());
+	if (undoBuffer == nullptr) {
+		auto typing = std::make_unique<TypingUndoBuffer>(this);
+		undoBuffer = typing.get();
+		fUndo = std::move(typing);
+	}
+	return undoBuffer;
 }
 
 

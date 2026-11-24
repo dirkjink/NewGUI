@@ -12,10 +12,13 @@
 #include <deque>
 #include <future>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include <SDL3/SDL.h>
 
@@ -636,6 +639,121 @@ SdlPlatform::RunOnMainThread(std::function<void()> work)
 		work();
 	else
 		fData->Queue(std::move(work));
+}
+
+
+namespace {
+
+
+// SDL's names of plain text, besides Haiku's "text/plain".
+bool
+IsTextMimeType(std::string_view mime)
+{
+	return mime.starts_with("text/plain") || mime == "UTF8_STRING" || mime == "TEXT"
+		|| mime == "STRING";
+}
+
+
+// What SDL_SetClipboardData() serves: the data, and the MIME types in the
+// form SDL wants them.
+struct ClipboardOffer {
+	ClipboardData			data;
+	std::vector<std::string> mimeTypes;
+
+	static const void* Serve(void* userdata, const char* mimeType, std::size_t* size)
+	{
+		const auto* offer = static_cast<const ClipboardOffer*>(userdata);
+		std::string_view wanted = mimeType != nullptr ? mimeType : "";
+		if (IsTextMimeType(wanted))
+			wanted = "text/plain";
+		for (const auto& [mime, bytes] : offer->data) {
+			if (mime == wanted) {
+				*size = bytes.size();
+				return bytes.data();
+			}
+		}
+		*size = 0;
+		return nullptr;
+	}
+
+	static void Cleanup(void* userdata)
+	{
+		delete static_cast<ClipboardOffer*>(userdata);
+	}
+};
+
+
+} // namespace
+
+
+std::expected<void, Error>
+SdlPlatform::SetClipboard(const ClipboardData& data)
+{
+	return fData->OnMain([&data]() -> std::expected<void, Error> {
+		bool done = false;
+		if (data.empty())
+			done = SDL_ClearClipboardData();
+		else if (data.size() == 1 && data.front().first == "text/plain") {
+			const std::vector<std::byte>& bytes = data.front().second;
+			const std::string text(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+			done = SDL_SetClipboardText(text.c_str());
+		} else {
+			auto offer = std::make_unique<ClipboardOffer>();
+			offer->data = data;
+			for (const auto& entry : data) {
+				offer->mimeTypes.push_back(entry.first);
+				if (entry.first == "text/plain")
+					offer->mimeTypes.emplace_back("text/plain;charset=utf-8");
+			}
+			std::vector<const char*> mimeTypes;
+			for (const std::string& mime : offer->mimeTypes)
+				mimeTypes.push_back(mime.c_str());
+			ClipboardOffer* raw = offer.release();
+			done = SDL_SetClipboardData(&ClipboardOffer::Serve, &ClipboardOffer::Cleanup, raw,
+				mimeTypes.data(), mimeTypes.size());
+			if (!done)
+				ClipboardOffer::Cleanup(raw);
+		}
+		if (!done)
+			return Failure(ErrorCode::IoError, SDL_GetError());
+		return {};
+	});
+}
+
+
+std::expected<ClipboardData, Error>
+SdlPlatform::Clipboard() const
+{
+	return fData->OnMain([]() -> std::expected<ClipboardData, Error> {
+		ClipboardData result;
+		if (SDL_HasClipboardText()) {
+			char* text = SDL_GetClipboardText();
+			if (text != nullptr) {
+				const std::string_view view(text);
+				const auto* bytes = reinterpret_cast<const std::byte*>(view.data());
+				result.emplace_back("text/plain",
+					std::vector<std::byte>(bytes, bytes + view.size()));
+				SDL_free(text);
+			}
+		}
+
+		std::size_t count = 0;
+		char** mimeTypes = SDL_GetClipboardMimeTypes(&count);
+		for (std::size_t i = 0; mimeTypes != nullptr && i < count; i++) {
+			const std::string_view mime(mimeTypes[i]);
+			if (IsTextMimeType(mime))
+				continue;
+			std::size_t size = 0;
+			void* data = SDL_GetClipboardData(mimeTypes[i], &size);
+			if (data == nullptr)
+				continue;
+			const auto* bytes = static_cast<const std::byte*>(data);
+			result.emplace_back(std::string(mime), std::vector<std::byte>(bytes, bytes + size));
+			SDL_free(data);
+		}
+		SDL_free(mimeTypes);
+		return result;
+	});
 }
 
 

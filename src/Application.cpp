@@ -298,6 +298,20 @@ AppMessenger()
 }
 
 
+
+std::expected<void, Error>
+platform::Platform::SetClipboard(const ClipboardData& /*data*/)
+{
+	return Failure(ErrorCode::NotSupported, "no clipboard");
+}
+
+
+std::expected<platform::ClipboardData, Error>
+platform::Platform::Clipboard() const
+{
+	return Failure(ErrorCode::NotSupported, "no clipboard");
+}
+
 platform::Platform*
 platform::Current()
 {

@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <ngui/AppDefs.h>
+#include <ngui/Clipboard.h>
 #include <ngui/Clock.h>
 #include <ngui/InterfaceDefs.h>
 #include <ngui/Message.h>
@@ -55,6 +56,11 @@ public:
 	{
 		if (message->what == kSetText) {
 			fView->SetText(message->GetString("text", ""));
+			return;
+		}
+		if (message->what == kUndo) {
+			// as a menu item targeting the focus would
+			fView->MessageReceived(message);
 			return;
 		}
 		if (message->what != kAsk) {
@@ -133,6 +139,11 @@ public:
 	{
 		Mouse(kMouseDown, where, 1, modifiers);
 		Mouse(kMouseUp, where, 0, modifiers);
+	}
+
+	void Send(std::uint32_t what)
+	{
+		EXPECT_TRUE(fWindow.SendMessage(BMessage(what)).has_value());
 	}
 
 	void SetText(std::string_view text)
@@ -331,6 +342,70 @@ TEST(TextViewTest, LimitsWrappingAndGeometry)
 	EXPECT_EQ(full, "abcde");
 	EXPECT_EQ(end.x, 97);
 	TextSystem::SetDefault(nullptr);
+}
+
+
+// The "text/plain" of the system clipboard.
+std::string
+ClipboardText()
+{
+	BClipboard& clipboard = BClipboard::System();
+	std::string text;
+	if (clipboard.Lock()) {
+		if (auto data = clipboard.Data()->FindData("text/plain", BTypeCode::Mime))
+			text.assign(reinterpret_cast<const char*>(data->data()), data->size());
+		clipboard.Unlock();
+	}
+	return text;
+}
+
+
+TEST(TextViewTest, TheClipboardAndUndo)
+{
+	// What is tested: In a focused text view: "Hello world" typed, "world"
+	// selected with Shift+Left and copied (Command+C), the caret moved to
+	// the end, pasted (Command+V), undone and redone (kUndo); then all
+	// selected and cut (Command+X), undone; then "abc" typed, undone and
+	// redone.
+	// Success criteria: Command+C puts "world" on the system clipboard as
+	// "text/plain"; Command+V inserts it at the caret; undo restores the
+	// text before the paste and the caret, redo pastes again. Cutting
+	// empties the text and puts it on the clipboard; undo brings it back.
+	// Typing is undone as one change and redone.
+	// Why it matters: Cut, copy, paste and undo are what users expect of
+	// every text field (Haiku's UndoBuffer).
+	//
+	// Given
+	RunningText text;
+	text.Type("Hello world");
+
+	// When / Then
+	for (int i = 0; i < 5; i++)
+		text.Key("\x1c", BModifier::Shift);
+	text.Key("c", BModifier::Command);
+	EXPECT_EQ(text.Ask().end, 11);
+	EXPECT_EQ(ClipboardText(), "world");
+	text.Key("\x1d");
+	text.Key("v", BModifier::Command);
+	EXPECT_EQ(text.Ask().text, "Hello worldworld");
+	text.Send(kUndo);
+	const TextState undone = text.Ask();
+	EXPECT_EQ(undone.text, "Hello world");
+	EXPECT_EQ(undone.start, 11);
+	text.Send(kUndo);
+	EXPECT_EQ(text.Ask().text, "Hello worldworld");
+	text.Key("a", BModifier::Command);
+	text.Key("x", BModifier::Command);
+	EXPECT_EQ(text.Ask().text, "");
+	EXPECT_EQ(ClipboardText(), "Hello worldworld");
+	text.Send(kUndo);
+	EXPECT_EQ(text.Ask().text, "Hello worldworld");
+	text.SetText("");
+	text.Type("abc");
+	text.Send(kUndo);
+	EXPECT_EQ(text.Ask().text, "");
+	text.Send(kUndo);
+	EXPECT_EQ(text.Ask().text, "abc");
 }
 
 

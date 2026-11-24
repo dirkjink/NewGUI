@@ -112,5 +112,8 @@ inline constexpr std::uint32_t kPaste = FourCharCode("PSTE");
 /*!	B_SELECT_ALL: select everything (Command+A). */
 inline constexpr std::uint32_t kSelectAll = FourCharCode("SALL");
 
+/*!	B_UNDO: undo (or redo) the last change, e.g. of a text view. */
+inline constexpr std::uint32_t kUndo = FourCharCode("UNDO");
+
 
 } // namespace ngui
