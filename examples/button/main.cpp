@@ -47,6 +47,7 @@
 #include <ngui/MenuBar.h>
 #include <ngui/MenuField.h>
 #include <ngui/MenuItem.h>
+#include <ngui/OutlineListView.h>
 #include <ngui/PopUpMenu.h>
 #include <ngui/ScrollView.h>
 #include <ngui/Slider.h>
@@ -196,7 +197,26 @@ public:
 		fKits = kits.get();
 		auto kitsScroll = std::make_unique<BScrollView>("kits scroll", std::move(kits),
 			BViewFlags{}, false, true);
-		tabs->AddTab(std::move(kitsScroll));
+		// Beside it an outline of the classes: the latches or Right and
+		// Left expand and collapse.
+		auto classes = std::make_unique<BOutlineListView>("classes");
+		const std::pair<const char*, std::uint32_t> outline[] = {
+			{"Interface Kit", 0}, {"Controls", 1}, {"BButton", 2}, {"BCheckBox", 2},
+			{"BSlider", 2}, {"Lists", 1}, {"BListView", 2}, {"BOutlineListView", 2},
+			{"Text", 1}, {"BTextView", 2}, {"BTextControl", 2},
+			{"Application Kit", 0}, {"BLooper", 1}, {"BMessage", 1}};
+		for (const auto& [name, level] : outline)
+			classes->AddItem(std::make_unique<BStringItem>(name, level));
+		classes->Collapse(classes->FullListItemAt(8));
+		classes->SetInvocationMessage(std::make_unique<BMessage>(kChosen));
+		fClasses = classes.get();
+		auto classesScroll = std::make_unique<BScrollView>("classes scroll",
+			std::move(classes), BViewFlags{}, false, true);
+		auto lists = std::make_unique<BSplitView>(BOrientation::Horizontal);
+		BLayoutBuilder::Split<>(lists.get())
+			.Add(std::move(kitsScroll), 1.0f)
+			.Add(std::move(classesScroll), 1.0f);
+		tabs->AddTab(std::move(lists));
 		tabs->TabAt(2)->SetLabel("Lists");
 		tabs->AddTab(std::make_unique<BStringView>("About",
 			"NewGUI: Haiku's Interface Kit on SDL3 and Skia"));
@@ -252,8 +272,12 @@ public:
 			return;
 		}
 		if (message->what == kChosen) {
+			// the list or the outline
+			const BListView* source = fKits;
+			if (message->GetPointer("source", nullptr) == static_cast<const BListView*>(fClasses))
+				source = fClasses;
 			const auto* item = dynamic_cast<const BStringItem*>(
-				fKits->ItemAt(message->GetInt32("index", -1)));
+				source->ItemAt(message->GetInt32("index", -1)));
 			if (item != nullptr)
 				fLabel->SetText("Chosen: " + item->Text());
 			return;
@@ -284,6 +308,7 @@ private:
 	BStringView* fLabel = nullptr;
 	BSlider* fSlider = nullptr;
 	BListView* fKits = nullptr;
+	BOutlineListView* fClasses = nullptr;
 	BStatusBar* fStatus = nullptr;
 	BTabView* fTabs = nullptr;
 	BTextControl* fName = nullptr;

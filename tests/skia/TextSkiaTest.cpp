@@ -27,6 +27,7 @@
 #include <ngui/MenuField.h>
 #include <ngui/MenuItem.h>
 #include <ngui/Message.h>
+#include <ngui/OutlineListView.h>
 #include <ngui/Palette.h>
 #include <ngui/PopUpMenu.h>
 #include <ngui/RadioButton.h>
@@ -1108,6 +1109,57 @@ TEST(TextSkiaTest, ListViewMatchesItsSnapshot)
 		// Then
 		ASSERT_TRUE(image.has_value()) << image.error().message;
 		EXPECT_IMAGE_SNAPSHOT(*image, "ListView", {.look = "be", .backend = "skia",
+			.scale = scale, .tolerance = Tolerance::Text()});
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, OutlineListViewMatchesItsSnapshot)
+{
+	// What is tested: An outline list view of 160 × 120 in a scroll view
+	// with a vertical bar, in an active window: Kits (expanded) with
+	// Interface (expanded, with BView and BWindow) and Storage (collapsed,
+	// with BFile), then Apps; BWindow selected; with the bundled font,
+	// rendered by Skia at scale 1 and 2 ("OutlineListView").
+	// Success criteria: Within the text tolerance of 21.2: each level
+	// indented by the item spacing; a latch pointing down left of Kits and
+	// Interface, one pointing right left of Storage, none for the other
+	// items, whose text still leaves room for it; BWindow on the selection
+	// background from its text on; BFile hidden.
+	// Why it matters: The latch, the indentation and the items are drawn
+	// together; all must fit.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	BWindow window({0, 0, 300, 200}, "lists");
+	auto owned = std::make_unique<BOutlineListView>(gfx::Rect{0, 0, 160, 120}, "outline");
+	BOutlineListView& list = *owned;
+	auto& scrollView = static_cast<BScrollView&>(*window.AddChild(std::make_unique<BScrollView>(
+		"scroll", std::move(owned), kFollowLeftTop, BViewFlags{}, false, true)));
+	const std::pair<const char*, uint32> items[] = {{"Kits", 0}, {"Interface", 1},
+		{"BView", 2}, {"BWindow", 2}, {"Storage", 1}, {"BFile", 2}, {"Apps", 0}};
+	for (const auto& [name, level] : items)
+		list.AddItem(std::make_unique<BStringItem>(name, level));
+	list.Collapse(list.FullListItemAt(4));
+	list.Select(3);
+	BMessage activated(kWindowActivated);
+	(void)activated.AddBool("active", true);
+	window.DispatchMessage(&activated, &window);
+	scrollView.MoveTo({0, 0});
+	const DisplayListRef recorded = RecordTree(scrollView, *text);
+
+	for (const float scale : {1.0f, 2.0f}) {
+		// When
+		SkiaBackend backend;
+		for (const FontFile& font : text->Fonts())
+			ASSERT_TRUE(backend.AddFont(font.id, font.data));
+		const auto image = RenderToImage(backend, *recorded, scale);
+
+		// Then
+		ASSERT_TRUE(image.has_value()) << image.error().message;
+		EXPECT_IMAGE_SNAPSHOT(*image, "OutlineListView", {.look = "be", .backend = "skia",
 			.scale = scale, .tolerance = Tolerance::Text()});
 	}
 	TextSystem::SetDefault(nullptr);

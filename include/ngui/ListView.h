@@ -99,11 +99,11 @@ public:
 	virtual	bool				AddList(std::vector<std::unique_ptr<BListItem>> items,
 									int32 atIndex);
 									/*!< Inserts \a items at \a atIndex. */
-			bool				AddList(std::vector<std::unique_ptr<BListItem>> items);
+	virtual	bool				AddList(std::vector<std::unique_ptr<BListItem>> items);
 									/*!< Appends \a items. */
 	virtual	std::unique_ptr<BListItem> RemoveItem(int32 index);
 									/*!< Takes item \a index out and gives it back. */
-			std::unique_ptr<BListItem> RemoveItem(BListItem* item);
+	virtual	std::unique_ptr<BListItem> RemoveItem(BListItem* item);
 									/*!< Takes \a item out and gives it back. */
 	virtual	bool				RemoveItems(int32 index, int32 count);
 									/*!< Takes \a count items out and destroys them. */
@@ -178,7 +178,7 @@ public:
 	virtual	void				SelectionChanged();
 									/*!< Hook: the selection changed. */
 
-			void				SortItems(int (*compare)(const BListItem*, const BListItem*));
+	virtual	void				SortItems(int (*compare)(const BListItem*, const BListItem*));
 									/*!< Sorts the items by \a compare (less than 0: the
 										first comes first); deselects all. */
 			bool				SwapItems(int32 a, int32 b);
