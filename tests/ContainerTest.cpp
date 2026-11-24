@@ -7,6 +7,7 @@
 
 #include <ngui/Box.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <memory>
@@ -26,6 +27,7 @@
 #include <ngui/ScrollView.h>
 #include <ngui/SplitView.h>
 #include <ngui/TabView.h>
+#include <ngui/TextSystem.h>
 #include <ngui/View.h>
 #include <ngui/Window.h>
 
@@ -650,6 +652,104 @@ TEST(SplitViewTest, DraggingMovesAndCollapses)
 }
 
 
+TEST(SplitViewTest, TheOtherPaneCollapsesAndMaximaHold)
+{
+	// What is tested: The split view of 300 × 100 with panes of minimum
+	// width 50 and 30: the splitter dragged far right and released, then
+	// dragged back to the middle; the first pane given a maximum width of
+	// 100 and the splitter dragged right again.
+	// Success criteria: Dragged far right, the second pane (smaller than
+	// half its minimum) collapses: it is hidden and the first pane takes
+	// all but the splitter and a spacing, 283. Dragged back, the second
+	// pane is shown again beside the first. With its maximum, the first
+	// pane stops at 100 and the second takes the rest after the splitter
+	// and both spacings, from 128.
+	// Why it matters: Haiku's splitter rules cover collapsing either side
+	// and the panes' maxima; a split view must never break them.
+	//
+	// Given
+	BWindow window({0, 0, 400, 200}, "split");
+	auto* split = static_cast<BSplitView*>(window.AddChild(
+		std::make_unique<BSplitView>(BOrientation::Horizontal)));
+	BView* a = split->AddChild(Pane("a", 50), 1.0f)->View();
+	BView* b = split->AddChild(Pane("b", 30), 1.0f)->View();
+	split->ResizeTo(300, 100);
+	split->Layout(true);
+	const auto drag = [&](float from, float to) {
+		split->MouseDown({from, 50});
+		split->MouseMoved({to, 50}, BMouseTransit::Inside, nullptr);
+		split->MouseUp({to, 50});
+		split->Layout(true);
+	};
+
+	// When
+	drag(150, 298);
+	const bool collapsed = split->IsItemCollapsed(1);
+	const bool hidden = b->IsHidden();
+	const gfx::Rect aAlone = a->Frame();
+	// the splitter after the first pane's spacing (at 294 .. 300)
+	drag(aAlone.x1 + 11 + 3, 150);
+	const bool collapsedAgain = split->IsItemCollapsed(1);
+	const bool shown = !b->IsHidden();
+	a->SetExplicitMaxSize({100, kSizeUnlimited});
+	split->Layout(true);
+	drag(a->Frame().x1 + 14, 250);
+	const gfx::Rect aLimited = a->Frame();
+	const gfx::Rect bRest = b->Frame();
+
+	// Then
+	EXPECT_TRUE(collapsed);
+	EXPECT_TRUE(hidden);
+	EXPECT_EQ(aAlone, (gfx::Rect{0, 0, 283, 100}));
+	EXPECT_FALSE(collapsedAgain);
+	EXPECT_TRUE(shown);
+	EXPECT_LT(a->Frame().x1, b->Frame().x0);
+	EXPECT_EQ(aLimited, (gfx::Rect{0, 0, 100, 100}));
+	EXPECT_EQ(bRest, (gfx::Rect{128, 0, 300, 100}));
+}
+
+
+TEST(SplitViewTest, SettersChangeTheSizes)
+{
+	// What is tested: A horizontal split view with panes of minimum width
+	// 50 and 30: SetSpacing(5), SetSplitterSize(10), SetInsets(4),
+	// SetItemCollapsed(0) and back, SetOrientation(Vertical).
+	// Success criteria: The minimum width is the panes' minima plus the
+	// splitter, two spacings and the insets: 50 + 30 + 10 + 10 + 8 = 108
+	// with the new values; a collapsed pane is hidden and shown again when
+	// uncollapsed; vertical, the minimum adds the heights (20 + 20 + 10 +
+	// 10 + 8) and takes the widest pane plus the insets (58).
+	// Why it matters: Applications tune split views; the layout follows
+	// at once.
+	//
+	// Given
+	BSplitView split(BOrientation::Horizontal);
+	BView* a = split.AddChild(Pane("a", 50), 1.0f)->View();
+	(void)split.AddChild(Pane("b", 30), 1.0f);
+
+	// When
+	split.SetSpacing(5);
+	split.SetSplitterSize(10);
+	split.SetInsets(4);
+	const gfx::Size horizontal = split.MinSize();
+	split.SetItemCollapsed(0, true);
+	const bool hidden = a->IsHidden();
+	split.SetItemCollapsed(0, false);
+	const bool shown = !a->IsHidden();
+	split.SetOrientation(BOrientation::Vertical);
+	const gfx::Size vertical = split.MinSize();
+
+	// Then
+	EXPECT_FLOAT_EQ(split.Spacing(), 5);
+	EXPECT_FLOAT_EQ(split.SplitterSize(), 10);
+	EXPECT_EQ(horizontal, (gfx::Size{108, 28}));
+	EXPECT_TRUE(hidden);
+	EXPECT_TRUE(shown);
+	EXPECT_EQ(split.Orientation(), BOrientation::Vertical);
+	EXPECT_EQ(vertical, (gfx::Size{58, 68}));
+}
+
+
 TEST(SplitViewTest, TheBuilderNestsSplitViews)
 {
 	// What is tested: BLayoutBuilder::Group with AddSplit(), into which a
@@ -761,6 +861,67 @@ TEST(TabViewTest, GeometryIsHaikus)
 	EXPECT_EQ(tabs->ContainerView()->Frame(), (gfx::Rect{3, 22, 297, 197}));
 	EXPECT_EQ(tabs->Selection(), 0);
 	EXPECT_EQ(tabs->TabAt(1)->Label(), "Advanced");
+}
+
+
+TEST(TabViewTest, TabsSitOnEverySideInEveryWidth)
+{
+	// What is tested: The tab view of the previous test at 300 × 200:
+	// TabFrame() of both tabs for tab widths as usual, as wide as their
+	// labels and as the widest; each on the top, the bottom, the left and
+	// the right side.
+	// Success criteria: As usual, a tab is five paddings wide (100),
+	// starting at the window spacing 11; from the label, it is the label
+	// plus a padding (20) and the second starts after the first; the
+	// widest makes both as wide as "General" plus a padding (77.6). At the
+	// bottom the tabs end at the bounds' bottom, at the left and right they
+	// run downwards with the tab height as their width. Frames are Haiku's
+	// inclusive ones, one pixel more each way.
+	// Why it matters: Haiku's tab views put their tabs on any side; clicks
+	// and drawing take these frames.
+	//
+	// Given
+	BWindow window({0, 0, 400, 300}, "tabs");
+	auto* tabs = static_cast<BTabView*>(window.AddChild(std::make_unique<BTabView>("tabs")));
+	tabs->AddTab(Page("General", {100, 50}));
+	tabs->AddTab(Page("Advanced", {80, 60}));
+	tabs->ResizeTo(300, 200);
+	tabs->Layout(true);
+	const float general = TextSystem::Default().StringWidth("General", FontRole::Plain);
+	const float advanced = TextSystem::Default().StringWidth("Advanced", FontRole::Plain);
+	// a tab from \a start to \a end along its side
+	const auto onSide = [](BTabSide side, float start, float end) {
+		switch (side) {
+			case BTabSide::Top:
+				return gfx::Rect{start, 0, end + 1, 21};
+			case BTabSide::Bottom:
+				return gfx::Rect{start, 179, end + 1, 200};
+			case BTabSide::Left:
+				return gfx::Rect{0, start, 21, end + 1};
+			case BTabSide::Right:
+				return gfx::Rect{279, start, 300, end + 1};
+		}
+		return gfx::Rect{};
+	};
+
+	// When / Then
+	for (BTabSide side : {BTabSide::Top, BTabSide::Bottom, BTabSide::Left, BTabSide::Right}) {
+		tabs->SetTabSide(side);
+		EXPECT_EQ(tabs->TabSide(), side);
+		tabs->SetTabWidth(BButtonWidth::AsUsual);
+		EXPECT_TRUE(RectNear(tabs->TabFrame(0), onSide(side, 11, 111)));
+		EXPECT_TRUE(RectNear(tabs->TabFrame(1), onSide(side, 111, 211)));
+		tabs->SetTabWidth(BButtonWidth::FromLabel);
+		EXPECT_EQ(tabs->TabWidth(), BButtonWidth::FromLabel);
+		EXPECT_TRUE(RectNear(tabs->TabFrame(0), onSide(side, 11, 11 + general + 20)));
+		EXPECT_TRUE(RectNear(tabs->TabFrame(1),
+			onSide(side, 11 + general + 20, 11 + general + 20 + advanced + 20)));
+		tabs->SetTabWidth(BButtonWidth::FromWidest);
+		const float widest = std::max(general, advanced) + 20;
+		EXPECT_TRUE(RectNear(tabs->TabFrame(0), onSide(side, 11, 11 + widest)));
+		EXPECT_TRUE(RectNear(tabs->TabFrame(1), onSide(side, 11 + widest, 11 + 2 * widest)));
+	}
+	EXPECT_EQ(tabs->TabFrame(-1), gfx::Rect{});
 }
 
 
