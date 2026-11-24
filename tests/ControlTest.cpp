@@ -694,6 +694,66 @@ TEST(SliderTest, DraggingAndKeysSendModificationsThenTheValue)
 }
 
 
+TEST(SliderTest, ArrowKeysStepWithinTheLimits)
+{
+	// What is tested: A slider from 0 to 100 at 50 with a key increment
+	// of 30: Right, Up, Left three times, Down, an unrelated key; then
+	// disabled, Right. Its bar thickness set to 10, 0.3 and 6.6, its
+	// snooze amount to 5 and 2 000 000.
+	// Success criteria: Right and Up add 30, stopping at 100; Left and Down
+	// subtract it, stopping at 0; another key changes nothing; a disabled
+	// slider ignores keys. The thickness is rounded and at least 1: 10,
+	// 1, 7; the minimum height follows it (12 + thickness + a row of 16).
+	// The snooze amount stays within 10 000 .. 1 000 000 microseconds.
+	// Why it matters: Sliders are worked with the keyboard as in Haiku;
+	// their settings stay within Haiku's bounds.
+	//
+	// Given
+	BSlider slider({0, 0, 200, 35}, "volume", "Volume", nullptr, 0, 100);
+	slider.SetValue(50);
+	slider.SetKeyIncrementValue(30);
+	std::vector<std::int32_t> values;
+	const auto press = [&](char key) {
+		slider.KeyDown(std::string(1, key));
+		values.push_back(slider.Value());
+	};
+
+	// When
+	press(keys::kRightArrow);
+	press(keys::kUpArrow);
+	press(keys::kLeftArrow);
+	press(keys::kLeftArrow);
+	press(keys::kLeftArrow);
+	press(keys::kLeftArrow);
+	press(keys::kUpArrow);
+	press(keys::kDownArrow);
+	press('x');
+	slider.SetEnabled(false);
+	press(keys::kRightArrow);
+	slider.SetBarThickness(10);
+	const float thick = slider.BarThickness();
+	const gfx::Size thickMin = slider.MinSize();
+	slider.SetBarThickness(0.3f);
+	const float thin = slider.BarThickness();
+	slider.SetBarThickness(6.6f);
+	const float rounded = slider.BarThickness();
+	slider.SetSnoozeAmount(5);
+	const int32 shortest = slider.SnoozeAmount();
+	slider.SetSnoozeAmount(2'000'000);
+	const int32 longest = slider.SnoozeAmount();
+
+	// Then
+	EXPECT_EQ(slider.KeyIncrementValue(), 30);
+	EXPECT_EQ(values, (std::vector<std::int32_t>{80, 100, 70, 40, 10, 0, 30, 0, 0, 0}));
+	EXPECT_FLOAT_EQ(thick, 10);
+	EXPECT_EQ(thickMin.h, 39);
+	EXPECT_FLOAT_EQ(thin, 1);
+	EXPECT_FLOAT_EQ(rounded, 7);
+	EXPECT_EQ(shortest, 10'000);
+	EXPECT_EQ(longest, 1'000'000);
+}
+
+
 TEST(StatusBarTest, SizesFollowHaikusFormula)
 {
 	// What is tested: The sizes of status bars with the placeholder font

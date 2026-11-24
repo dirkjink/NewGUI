@@ -351,6 +351,63 @@ TEST(ScrollBarTest, ClicksAndDragsChangeTheValue)
 }
 
 
+TEST(ScrollBarTest, DoubleArrowsSitAtBothEnds)
+{
+	// What is tested: With double arrows in the scroll bar settings, a
+	// horizontal scroll bar 200 × 15 from 0 to 100 in a running window:
+	// clicks on the second arrow from the left, the second from the right,
+	// the last one and the first one. A second bar of 90 × 15, too short
+	// for double arrows, clicked where the second arrow from the right
+	// would be.
+	// Success criteria: Inside the border the buttons are 13 wide: at the
+	// left (1 .. 14) left and (14 .. 27) right, at the right (172 .. 185)
+	// left and (185 .. 198) right. The clicks give 1, 0, 1, 0. The short
+	// bar (90 is not more than 4 · 16 + 2 · 15 = 94) has single arrows:
+	// the click at 66 (the left arrow at 62 .. 75 with double arrows) hits
+	// the empty area right of the thumb and pages by the large step 10.
+	// Why it matters: Haiku users can turn on double arrows; clicks must
+	// hit what the scroll bar draws.
+	//
+	// Given
+	const BScrollBarInfo saved = GetScrollBarInfo();
+	BScrollBarInfo info = saved;
+	info.doubleArrows = true;
+	ASSERT_TRUE(SetScrollBarInfo(info).has_value());
+	auto owned = std::make_unique<ScrollWindow>();
+	BView* target = owned->AddChild(std::make_unique<BView>(gfx::Rect{0, 20, 200, 120},
+		"target", kFollowLeftTop, BViewFlag::WillDraw));
+	owned->AddChild(std::make_unique<BScrollBar>(gfx::Rect{0, 0, 200, 15}, "bar", target,
+		0.0f, 100.0f, BOrientation::Horizontal));
+	const BMessenger window = *BLooper::Run(std::move(owned));
+	auto shortOwned = std::make_unique<ScrollWindow>();
+	BView* shortTarget = shortOwned->AddChild(std::make_unique<BView>(
+		gfx::Rect{0, 20, 90, 120}, "target", kFollowLeftTop, BViewFlag::WillDraw));
+	shortOwned->AddChild(std::make_unique<BScrollBar>(gfx::Rect{0, 0, 90, 15}, "bar",
+		shortTarget, 0.0f, 100.0f, BOrientation::Horizontal));
+	const BMessenger shortWindow = *BLooper::Run(std::move(shortOwned));
+	ASSERT_TRUE(SetScrollBarInfo(saved).has_value());
+	const auto click = [](const BMessenger& to, float x) {
+		EXPECT_TRUE(to.SendMessage(Event(kMouseDown, {x, 7}, 1)).has_value());
+		EXPECT_TRUE(to.SendMessage(Event(kMouseUp, {x, 7})).has_value());
+		return AskValue(to);
+	};
+
+	// When
+	std::vector<float> values;
+	for (float x : {20.0f, 178.0f, 190.0f, 7.0f})
+		values.push_back(click(window, x));
+	const float paged = click(shortWindow, 66);
+
+	// Then
+	EXPECT_EQ(values, (std::vector<float>{1, 0, 1, 0}));
+	EXPECT_FLOAT_EQ(paged, 10);
+	for (const BMessenger& running : {window, shortWindow}) {
+		ASSERT_TRUE(running.SendMessage(kQuitRequested).has_value());
+		ASSERT_TRUE(running.WaitForLooperQuit(5s).has_value());
+	}
+}
+
+
 TEST(ScrollBarTest, AHeldArrowRepeatsAfterTheDelay)
 {
 	// What is tested: The down arrow of a scroll bar in a running window
@@ -473,6 +530,54 @@ TEST(ScrollViewTest, AtAFrameItSurroundsTheTarget)
 	EXPECT_EQ(vertical->Frame(), (gfx::Rect{202, 1, 217, 103}));
 	EXPECT_EQ(horizontal->Target(), target);
 	EXPECT_EQ(target->ScrollBar(BOrientation::Vertical), vertical);
+}
+
+
+TEST(ScrollViewTest, ANewBorderGivesTheFramesOfThatBorder)
+{
+	// What is tested: Scroll views at a frame around a target at (0, 0,
+	// 200, 100), with both bars, only the vertical one and only the
+	// horizontal one: each made with one border style (plain, fancy, none)
+	// and then given another with SetBorder().
+	// Success criteria: Afterwards the scroll view, its target and its bars
+	// have exactly the frames of a scroll view made with the new border
+	// style from the start; Border() reports it.
+	// Why it matters: Haiku moves and resizes the scroll view and its bars
+	// by the border's difference, with a gap of a pixel where a border
+	// meets a bar; done wrong, the target slides under a bar.
+	//
+	// Given
+	const BBorderStyle styles[] = {BBorderStyle::Plain, BBorderStyle::Fancy,
+		BBorderStyle::None};
+	const std::pair<bool, bool> barSets[] = {{true, true}, {false, true}, {true, false}};
+	const auto make = [](BBorderStyle border, std::pair<bool, bool> bars) {
+		auto target = std::make_unique<BView>(gfx::Rect{0, 0, 200, 100}, "target",
+			kFollowLeftTop, BViewFlag::WillDraw);
+		return std::make_unique<BScrollView>("scroll", std::move(target), kFollowLeftTop,
+			BViewFlags{}, bars.first, bars.second, border);
+	};
+	const auto frames = [](const BScrollView& view) {
+		std::vector<gfx::Rect> all{view.Frame(), view.Target()->Frame()};
+		for (BOrientation orientation : {BOrientation::Horizontal, BOrientation::Vertical}) {
+			if (const BScrollBar* bar = view.ScrollBar(orientation))
+				all.push_back(bar->Frame());
+		}
+		return all;
+	};
+
+	// When / Then
+	for (const std::pair<bool, bool>& bars : barSets) {
+		for (BBorderStyle from : styles) {
+			for (BBorderStyle to : styles) {
+				std::unique_ptr<BScrollView> changed = make(from, bars);
+				changed->SetBorder(to);
+				SCOPED_TRACE(testing::Message() << "bars " << bars.first << bars.second
+					<< " from " << static_cast<int>(from) << " to " << static_cast<int>(to));
+				EXPECT_EQ(changed->Border(), to);
+				EXPECT_EQ(frames(*changed), frames(*make(to, bars)));
+			}
+		}
+	}
 }
 
 
