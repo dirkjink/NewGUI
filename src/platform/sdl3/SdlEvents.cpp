@@ -318,6 +318,12 @@ Translate(std::span<const SDL_Event> events, const TranslationContext& context)
 			case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
 				translated.push_back({event.window.windowID, Stamped(kQuitRequested, context)});
 				break;
+			case SDL_EVENT_QUIT:
+				// SIGINT, SIGTERM or the session ending: the application is
+				// asked to quit (Haiku: B_QUIT_REQUESTED to be_app), and with
+				// it its windows
+				translated.push_back({kApplicationEvent, Stamped(kQuitRequested, context)});
+				break;
 			default:
 				break;
 		}

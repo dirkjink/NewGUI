@@ -336,4 +336,30 @@ TEST(SdlEventsTest, WindowEventsAndModifiers)
 }
 
 
+TEST(SdlEventsTest, QuitAsksTheApplication)
+{
+	// What is tested: SDL_EVENT_QUIT, which SDL sends for SIGINT and
+	// SIGTERM and when the session ends.
+	// Success criteria: It becomes kQuitRequested with "when" for the
+	// application (kApplicationEvent), not for a window.
+	// Why it matters: A program ends cleanly when the system or the
+	// terminal asks it to (Haiku: B_QUIT_REQUESTED to be_app); before, the
+	// request was dropped.
+	//
+	// Given
+	SDL_Event quit{};
+	quit.type = SDL_EVENT_QUIT;
+	const std::vector<SDL_Event> events = {quit};
+
+	// When
+	const std::vector<TranslatedEvent> messages = Translate(events, Context());
+
+	// Then
+	ASSERT_EQ(messages.size(), 1u);
+	EXPECT_EQ(messages[0].window, kApplicationEvent);
+	EXPECT_EQ(messages[0].message.what, kQuitRequested);
+	EXPECT_TRUE(messages[0].message.HasInt64("when"));
+}
+
+
 } // namespace
