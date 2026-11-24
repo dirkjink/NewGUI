@@ -195,6 +195,23 @@ public:
 			void				UpdateIfNeeded();
 									/*!< Draws a frame now if one is due, as Haiku's. */
 
+	// Popups (NewGUI): menus and tooltips of the window
+
+			BView*				OpenPopup(std::unique_ptr<BView> view);
+									/*!< Shows \a view in a popup of the window, at its frame,
+										which is on the screen: a surface without frame
+										above the window that gets no keyboard focus. It
+										is drawn and gets its mouse events in the
+										window's thread; moving or resizing \a view moves
+										or resizes the popup. From the window's thread. */
+			std::unique_ptr<BView> ClosePopup(BView* view);
+									/*!< Closes the popup of \a view and gives the view back;
+										nullptr if \a view has no popup. */
+			std::int32_t		CountPopups() const;
+									/*!< The open popups. */
+			BView*				PopupAt(std::int32_t index) const;
+									/*!< The view of popup \a index, or nullptr. */
+
 	// Hooks
 
 	virtual	void				FrameMoved(gfx::Point newPosition);
@@ -212,12 +229,22 @@ private:
 	friend class BApplication;
 	friend class BView;
 
+			class PopupSurface;
+
 			void				_AddDirty(const gfx::Rect& rect);
+			void				_AddDirty(const BView* root, const gfx::Rect& rect);
+			gfx::Point			_SurfaceOrigin(const BView* root) const;
+			void				_RootFrameChanged(BView* root);
+			PopupSurface*		_PopupOf(const BView* root) const;
+			void				_PopupEvent(PopupSurface* popup, BMessage* message);
+			void				_UpdatePopup(PopupSurface& popup,
+									const gfx::Caps& caps, const TextSystem& text);
+			void				_ScheduleUpdate();
 			void				_ViewDetached(BView* view);
 			void				_SetFocus(BView* view);
 			void				_SetMouseCapture(BView* view);
 			void				_Update();
-			void				_MouseEvent(BMessage* message);
+			void				_MouseEvent(BMessage* message, BView* root);
 			void				_KeyEvent(BMessage* message);
 			void				_KeyboardNavigation();
 			BView*				_FindNextNavigable(BView* focus, BViewFlags flags) const;
@@ -253,6 +280,9 @@ private:
 			gfx::Size			fMinSize = {0, 0};
 			gfx::Size			fMaxSize = {kSizeUnlimited, kSizeUnlimited};
 			bool				fActive = false;
+			std::vector<std::unique_ptr<PopupSurface>> fPopups;
+			bool				fMainUpdateWanted = true;
+									// The content area needs a frame (not only popups).
 };
 
 

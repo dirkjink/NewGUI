@@ -30,8 +30,22 @@ public:
 		:
 		fFrame(spec.frame),
 		fScale(scale),
-		fTarget(spec.target)
+		fTarget(spec.target),
+		fParent(spec.parent),
+		fPopup(spec.popup)
 	{
+	}
+
+	// The window a popup belongs to (WindowSpec::parent).
+	platform::PlatformWindow* Parent() const
+	{
+		return fParent;
+	}
+
+	// Whether it was made as a popup.
+	bool IsPopup() const
+	{
+		return fPopup;
 	}
 
 	void SetTitle(std::string_view) override
@@ -159,6 +173,8 @@ private:
 	gfx::Size fMaxSize = {0, 0};
 	float fScale;
 	BMessenger fTarget;
+	platform::PlatformWindow* fParent = nullptr;
+	bool fPopup = false;
 	bool fShown = false;
 	std::vector<std::vector<gfx::IntRect>> fPresented;
 	gfx::Size fPresentedSize{0, 0};

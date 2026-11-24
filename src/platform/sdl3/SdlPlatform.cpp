@@ -39,6 +39,8 @@ struct WindowState {
 	std::mutex				lock;
 	SDL_Window*				window = nullptr;
 	SDL_WindowID			id = 0;
+	// The window a popup belongs to; SDL places popups relative to it.
+	std::weak_ptr<WindowState> parent;
 	BMessenger				target;
 	gfx::Rect				frame = {0, 0, 0, 0};
 	float					scale = 1;
@@ -94,6 +96,12 @@ UpdateGeometry(WindowState& state)
 	int width = 0;
 	int height = 0;
 	SDL_GetWindowPosition(state.window, &x, &y);
+	// A popup's position is relative to its parent's content area.
+	if (const std::shared_ptr<WindowState> parent = state.parent.lock()) {
+		std::scoped_lock lock(parent->lock);
+		x += static_cast<int>(std::lround(parent->frame.x0));
+		y += static_cast<int>(std::lround(parent->frame.y0));
+	}
 	SDL_GetWindowSize(state.window, &width, &height);
 	const float density = SDL_GetWindowPixelDensity(state.window);
 	state.scale = density > 0 ? density : 1;
@@ -295,8 +303,14 @@ public:
 			std::scoped_lock lock(state->lock);
 			if (state->window == nullptr)
 				return;
-			SDL_SetWindowPosition(state->window, static_cast<int>(std::lround(where.x)),
-				static_cast<int>(std::lround(where.y)));
+			// A popup is placed relative to its parent's content area.
+			gfx::Point position = where;
+			if (const std::shared_ptr<WindowState> parent = state->parent.lock()) {
+				std::scoped_lock parentLock(parent->lock);
+				position = {where.x - parent->frame.x0, where.y - parent->frame.y0};
+			}
+			SDL_SetWindowPosition(state->window, static_cast<int>(std::lround(position.x)),
+				static_cast<int>(std::lround(position.y)));
 			UpdateGeometry(*state);
 		});
 	}
@@ -345,6 +359,12 @@ public:
 	{
 		std::scoped_lock lock(fState->lock);
 		return fState->native;
+	}
+
+	// What the platform keeps of the window.
+	const std::shared_ptr<WindowState>& State() const
+	{
+		return fState;
 	}
 
 	void SetTarget(BMessenger target) override
@@ -451,21 +471,52 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 	const std::shared_ptr<sdl3::PlatformState> data = fData;
 	return fData->OnMain([data, spec]()
 		-> std::expected<std::unique_ptr<PlatformWindow>, Error> {
-		SDL_WindowFlags flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-		if (spec.resizable)
-			flags |= SDL_WINDOW_RESIZABLE;
-		if (!spec.decorated)
-			flags |= SDL_WINDOW_BORDERLESS;
-		SDL_Window* window = SDL_CreateWindow(spec.title.c_str(),
-			static_cast<int>(std::lround(spec.frame.Width())),
-			static_cast<int>(std::lround(spec.frame.Height())), flags);
-		if (window == nullptr)
-			return Failure(ErrorCode::NotSupported, std::string("SDL: ") + SDL_GetError());
-		SDL_SetWindowPosition(window, static_cast<int>(std::lround(spec.frame.x0)),
-			static_cast<int>(std::lround(spec.frame.y0)));
-		SDL_StartTextInput(window);
+		std::shared_ptr<WindowState> parent;
+		if (spec.popup) {
+			const auto* parentWindow = dynamic_cast<const SdlWindow*>(spec.parent);
+			if (parentWindow == nullptr)
+				return Failure(ErrorCode::InvalidArgument, "a popup needs an SDL parent window");
+			parent = parentWindow->State();
+		}
+
+		SDL_Window* window = nullptr;
+		if (parent != nullptr) {
+			// SDL places a popup relative to its parent's content area; it
+			// gets no keyboard focus.
+			gfx::Point offset;
+			SDL_Window* parentHandle = nullptr;
+			{
+				std::scoped_lock lock(parent->lock);
+				parentHandle = parent->window;
+				offset = {spec.frame.x0 - parent->frame.x0, spec.frame.y0 - parent->frame.y0};
+			}
+			if (parentHandle == nullptr)
+				return Failure(ErrorCode::InvalidArgument, "the parent window is closed");
+			window = SDL_CreatePopupWindow(parentHandle,
+				static_cast<int>(std::lround(offset.x)), static_cast<int>(std::lround(offset.y)),
+				static_cast<int>(std::lround(spec.frame.Width())),
+				static_cast<int>(std::lround(spec.frame.Height())),
+				SDL_WINDOW_POPUP_MENU | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+			if (window == nullptr)
+				return Failure(ErrorCode::NotSupported, std::string("SDL: ") + SDL_GetError());
+		} else {
+			SDL_WindowFlags flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+			if (spec.resizable)
+				flags |= SDL_WINDOW_RESIZABLE;
+			if (!spec.decorated)
+				flags |= SDL_WINDOW_BORDERLESS;
+			window = SDL_CreateWindow(spec.title.c_str(),
+				static_cast<int>(std::lround(spec.frame.Width())),
+				static_cast<int>(std::lround(spec.frame.Height())), flags);
+			if (window == nullptr)
+				return Failure(ErrorCode::NotSupported, std::string("SDL: ") + SDL_GetError());
+			SDL_SetWindowPosition(window, static_cast<int>(std::lround(spec.frame.x0)),
+				static_cast<int>(std::lround(spec.frame.y0)));
+			SDL_StartTextInput(window);
+		}
 
 		auto state = std::make_shared<WindowState>();
+		state->parent = parent;
 		state->window = window;
 		state->id = SDL_GetWindowID(window);
 		state->target = spec.target;
@@ -510,15 +561,22 @@ SdlPlatform::Displays() const
 void
 SdlPlatform::ProcessEvents()
 {
-	fData->RunWork();
-	fData->wakePending = false;
-
+	// The order matters (a lost wake-up hung the main thread): first take
+	// all events, the wake events among them; then reset the flag, so that
+	// any Wake() from now on pushes a wake event again; only then look at
+	// the work here and, in the looper, at its messages. Work or a message
+	// that comes after that check has its wake event in the queue, and
+	// WaitForEvents() returns at once. (Resetting the flag before taking
+	// the events left it set after its wake event was taken, and later
+	// Wake()s pushed nothing.)
 	std::vector<SDL_Event> events;
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
 		if (event.type != fData->wakeEvent)
 			events.push_back(event);
 	}
+	fData->wakePending = false;
+	fData->RunWork();
 
 	if (!events.empty()) {
 		sdl3::TranslationContext context;

@@ -385,6 +385,150 @@ TEST(WindowTest, ChangedAreasReachThePresenter)
 }
 
 
+constexpr std::uint32_t kOpenPopup = FourCharCode("OPOP");
+constexpr std::uint32_t kMovePopup = FourCharCode("MPOP");
+constexpr std::uint32_t kInvalidatePopup = FourCharCode("IPOP");
+constexpr std::uint32_t kClosePopup = FourCharCode("CPOP");
+
+
+// A window that opens, moves, invalidates and closes a popup with an
+// EventView "P" at (120, 130, 180, 170) on the screen when asked, in its own
+// thread; kAsk also answers the number of popups and P's screen origin.
+class PopupWindow : public TestWindow {
+public:
+	PopupWindow(gfx::Rect frame, std::shared_ptr<LooperRecord> record)
+		:
+		TestWindow(frame),
+		fRecord(std::move(record))
+	{
+	}
+
+	void MessageReceived(BMessage* message) override
+	{
+		switch (message->what) {
+			case kOpenPopup:
+			{
+				auto view = std::make_unique<EventView>(gfx::Rect{120, 130, 180, 170}, "P",
+					fRecord);
+				view->trackMouse = true;
+				(void)OpenPopup(std::move(view));
+				return;
+			}
+			case kMovePopup:
+				PopupAt(0)->MoveTo({140, 130});
+				return;
+			case kInvalidatePopup:
+				PopupAt(0)->Invalidate();
+				return;
+			case kClosePopup:
+				fClosed = ClosePopup(PopupAt(0));
+				return;
+			case kAsk:
+			{
+				UpdateIfNeeded();
+				BMessage reply(kReply);
+				(void)reply.AddInt32("popups", CountPopups());
+				if (CountPopups() > 0)
+					(void)reply.AddPoint("origin", PopupAt(0)->ConvertToScreen({0, 0}));
+				(void)reply.AddBool("closed", fClosed != nullptr);
+				(void)message->SendReply(reply);
+				return;
+			}
+			default:
+				TestWindow::MessageReceived(message);
+		}
+	}
+
+private:
+	std::shared_ptr<LooperRecord> fRecord;
+	std::unique_ptr<BView> fClosed;
+};
+
+
+TEST(WindowTest, PopupsAreSurfacesOfTheWindow)
+{
+	// What is tested: A window at (50, 60) on a fake platform opens a popup
+	// with a view P at (120, 130, 180, 170) on the screen; the mouse moves
+	// into the popup and presses P, which tracks the mouse, moves over the
+	// window and is released there; the popup is moved, P invalidated, the
+	// popup closed.
+	// Success criteria: The popup is a platform popup of the window's
+	// platform window at P's frame, shown and presented whole (60 × 40). P
+	// gets the popup's events in its coordinates; while it tracks, the
+	// window's events reach it too: (20, 20) in the window is (-50, -50)
+	// for P. Moving P moves the platform popup; invalidating P presents
+	// only the popup, not the window again. Closing gives P back.
+	// Why it matters: Menus and tooltips are popups of their window (the
+	// W3b decision): drawn and fed in its thread, across surfaces.
+	//
+	// Given
+	auto platform = std::make_unique<FakePlatform>();
+	FakePlatform* fake = platform.get();
+	BApplication app("application/x-vnd.ngui-popup-test");
+	app.SetPulseRate(Clock::Time::zero());
+	ASSERT_TRUE(app.UsePlatform(std::move(platform)).has_value());
+	std::thread runner([&] { (void)app.Run(); });
+	const auto deadline = std::chrono::steady_clock::now() + 5s;
+	while (platform::Current() == nullptr && std::chrono::steady_clock::now() < deadline)
+		std::this_thread::yield();
+	ASSERT_NE(platform::Current(), nullptr);
+
+	auto record = std::make_shared<LooperRecord>();
+	auto owned = std::make_unique<PopupWindow>(gfx::Rect{50, 60, 250, 160}, record);
+	ASSERT_TRUE(owned->UseBackend(std::make_unique<PixelBackend>()).has_value());
+	owned->Show();
+	const BMessenger window = *BLooper::Run(std::move(owned));
+	FakeWindow* main = fake->Windows()[0];
+	ASSERT_TRUE(main->WaitForPresents(1));
+
+	// When
+	ASSERT_TRUE(window.SendMessage(kOpenPopup).has_value());
+	const BMessage opened = Ask(window);
+	ASSERT_EQ(fake->Windows().size(), 2u);
+	FakeWindow* popup = fake->Windows()[1];
+	ASSERT_TRUE(popup->WaitForPresents(1));
+	const std::size_t mainPresents = main->Presented().size();
+	popup->Send(Mouse(kMouseMoved, {10, 10}, 0));
+	popup->Send(Mouse(kMouseDown, {10, 10}, 1));
+	main->Send(Mouse(kMouseMoved, {20, 20}, 1));
+	main->Send(Mouse(kMouseUp, {20, 20}, 0));
+	ASSERT_TRUE(window.SendMessage(kMovePopup).has_value());
+	const BMessage moved = Ask(window);
+	const gfx::Rect movedFrame = popup->Frame();
+	ASSERT_TRUE(window.SendMessage(kInvalidatePopup).has_value());
+	ASSERT_TRUE(popup->WaitForPresents(3));
+	(void)Ask(window);
+	const bool popupIsPopup = popup->IsPopup();
+	const bool parentIsMain = popup->Parent() == main;
+	const bool popupShown = popup->IsShown();
+	const auto popupPresented = popup->Presented();
+	// The popup's platform window dies with the popup: read it before.
+	ASSERT_TRUE(window.SendMessage(kClosePopup).has_value());
+	const BMessage closed = Ask(window);
+	const std::size_t mainPresentsAfter = main->Presented().size();
+	ASSERT_TRUE(window.SendMessage(kQuitRequested).has_value());
+	ASSERT_TRUE(window.WaitForLooperQuit(5s).has_value());
+	(void)AppMessenger().SendMessage(kQuitRequested);
+	runner.join();
+
+	// Then
+	EXPECT_EQ(opened.GetInt32("popups", -1), 1);
+	EXPECT_EQ(opened.GetPoint("origin", {}), (gfx::Point{120, 130}));
+	EXPECT_TRUE(popupIsPopup);
+	EXPECT_TRUE(parentIsMain);
+	EXPECT_TRUE(popupShown);
+	ASSERT_GE(popupPresented.size(), 3u);
+	EXPECT_EQ(popupPresented[0], (std::vector<gfx::IntRect>{{0, 0, 60, 40}}));
+	EXPECT_EQ(movedFrame, (gfx::Rect{140, 130, 200, 170}));
+	EXPECT_EQ(moved.GetPoint("origin", {}), (gfx::Point{140, 130}));
+	EXPECT_EQ(mainPresentsAfter, mainPresents);
+	EXPECT_EQ(closed.GetInt32("popups", -1), 0);
+	EXPECT_TRUE(closed.GetBool("closed", false));
+	EXPECT_EQ(record->Received(), (std::vector<std::string>{"P attached", "P entered 10,10",
+		"P down 10,10", "P outside -50,-50", "P up -50,-50"}));
+}
+
+
 // A text system with fixed metrics and two fonts of the given ids.
 class FontsTextSystem : public FixedTextSystem {
 public:
