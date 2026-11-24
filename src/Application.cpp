@@ -300,6 +300,12 @@ AppMessenger()
 
 
 void
+platform::PlatformWindow::Activate()
+{
+}
+
+
+void
 platform::PlatformWindow::SetTextInputArea(gfx::Rect /*rect*/, int32 /*cursor*/)
 {
 }

@@ -93,6 +93,10 @@ public:
 									/*!< For Backend::CreateWindowSurface(). */
 	virtual	void				SetTarget(BMessenger target) = 0;
 									/*!< Where its events go from now on. */
+	virtual	void				Activate();
+									/*!< Raises it and gives it the focus, as far as the
+										window system lets a program do that. Nothing by
+										default. */
 	virtual	void				SetTextInputArea(gfx::Rect rect, int32 cursor);
 									/*!< Where text is typed, in window coordinates, and the
 										cursor's offset in it: input methods show their

@@ -16,6 +16,7 @@ if(NOT NGUI_WITH_TEXT)
 endif()
 
 add_executable(ngui_tests
+    AlertTest.cpp
     ApplicationTest.cpp
     ClipboardTest.cpp
     ClockTest.cpp
