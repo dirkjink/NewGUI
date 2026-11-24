@@ -49,6 +49,8 @@ public:
 	virtual	bool				TrackKey(std::uint32_t what, std::string_view bytes) = 0;
 	// The window was deactivated or a popup closed by the window system.
 	virtual	void				CancelTracking() = 0;
+	// \a view leaves the window.
+	virtual	void				ViewDetached(BView* view) = 0;
 };
 
 

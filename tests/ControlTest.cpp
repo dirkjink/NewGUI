@@ -313,10 +313,11 @@ TEST(ButtonTest, AClickInsideInvokesOnce)
 TEST(ButtonTest, EnterGoesToTheDefaultButton)
 {
 	// What is tested: A window with buttons a and b; a made the default
-	// button, b given the focus; Enter, space and Command+Enter sent to the
+	// button, b given the focus; Enter, space and Shift+Enter sent to the
 	// window; then b made the default button; the window activated.
 	// Success criteria: Enter invokes a, the default button; space invokes
-	// b, the focus; Command+Enter goes to the focus as well. Making b the
+	// b, the focus; Shift+Enter goes to the focus as well (the window keeps
+	// Command keys for its shortcuts). Making b the
 	// default takes it from a. b has the Focused flag only once the window
 	// is active.
 	// Why it matters: Dialogs are confirmed with Enter, whatever has the
@@ -341,8 +342,8 @@ TEST(ButtonTest, EnterGoesToTheDefaultButton)
 	window.DispatchMessage(&enter, &window);
 	BMessage space = Key(" ");
 	window.DispatchMessage(&space, &window);
-	BMessage commandEnter = Key("\n", BModifier::Command);
-	window.DispatchMessage(&commandEnter, &window);
+	BMessage shiftEnter = Key("\n", BModifier::Shift);
+	window.DispatchMessage(&shiftEnter, &window);
 	BButton* defaultBefore = window.DefaultButton();
 	b->MakeDefault(true);
 	BMessage activated(kWindowActivated);

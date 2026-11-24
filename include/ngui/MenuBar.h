@@ -35,10 +35,18 @@ enum class BMenuBarBorder : std::uint8_t {
 	the menus open and click again (sticky mode). A click outside, Escape or
 	the window becoming inactive closes them.
 
+	Keyboard: Command+Escape opens the first menu of the window's key menu
+	bar (the last one attached, see BWindow::SetKeyMenuBar()). The arrow
+	keys move through the items and menus, Enter or Space chooses, a
+	trigger chooses its item if triggers are enabled. In sticky mode the
+	bar takes the focus and gives it back when the menus close. The
+	shortcuts of the items work while the menus are closed (see
+	BWindow::AddShortcut()).
+
 	Differences to Haiku: tracking runs on the window's thread, driven by
 	events (Haiku: a thread of its own that polls the mouse); the window
-	hands it all mouse events and the keys while it runs. Keyboard
-	navigation, triggers and shortcuts follow (W3b2b).
+	hands it all mouse events and the keys while it runs. Enter, Space and
+	triggers open an item's submenu instead of closing the menus.
 */
 class BMenuBar : public BMenu {
 public:
@@ -55,8 +63,10 @@ public:
 								~BMenuBar() override;
 									/*!< Closes its menus and destroys it. */
 
+			void				AttachedToWindow() override;
+									/*!< Becomes the window's key menu bar. */
 			void				DetachedFromWindow() override;
-									/*!< Closes its menus. */
+									/*!< Closes its menus; is no longer the key menu bar. */
 			void				Draw(DrawContext& context) override;
 									/*!< Border, background and items. */
 			void				MessageReceived(BMessage* message) override;
@@ -81,6 +91,7 @@ public:
 
 private:
 	friend class MenuTracker;
+	friend class BWindow;
 
 			void				_InitData();
 			void				StartMenuBar(int32 menuIndex, bool sticky = true,

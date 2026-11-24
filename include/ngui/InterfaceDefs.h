@@ -114,7 +114,10 @@ enum class BModifier : std::uint32_t {
 	CapsLock = 1u << 3,		/*!< B_CAPS_LOCK */
 	ScrollLock = 1u << 4,	/*!< B_SCROLL_LOCK */
 	NumLock = 1u << 5,		/*!< B_NUM_LOCK */
-	Option = 1u << 6		/*!< B_OPTION_KEY: Windows or Super key, Option on a Mac. */
+	Option = 1u << 6,		/*!< B_OPTION_KEY: Windows or Super key, Option on a Mac. */
+	NoCommand = 1u << 30	/*!< B_NO_COMMAND_KEY: only for shortcuts (BWindow::
+								AddShortcut(), BMenuItem), which otherwise always
+								need Command. */
 };
 NGUI_FLAG_ENUM(BModifier)
 

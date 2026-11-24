@@ -21,7 +21,8 @@
 // a BSplitView puts both side by side with a splitter to drag, on the
 // first page of a BTabView whose second page says what this is. A BMenuBar
 // on top resets the counter, quits, or shows that page (its menus open in
-// popups of the window).
+// popups of the window; Alt+Escape opens them from the keyboard, Alt+R
+// resets).
 
 
 #include <cstdint>
@@ -126,10 +127,11 @@ public:
 		// The menus.
 		auto menuBar = std::make_unique<BMenuBar>("menu bar");
 		auto file = std::make_unique<BMenu>("File");
-		file->AddItem(std::make_unique<BMenuItem>("Reset", std::make_unique<BMessage>(kReset)));
+		file->AddItem(std::make_unique<BMenuItem>("Reset", std::make_unique<BMessage>(kReset),
+			'R', BModifier::Command));
 		file->AddSeparatorItem();
 		file->AddItem(std::make_unique<BMenuItem>("Quit",
-			std::make_unique<BMessage>(kQuitRequested)));
+			std::make_unique<BMessage>(kQuitRequested), 'Q', BModifier::Command));
 		auto help = std::make_unique<BMenu>("Help");
 		help->AddItem(std::make_unique<BMenuItem>("About", std::make_unique<BMessage>(kAbout)));
 		menuBar->AddItem(std::move(file));

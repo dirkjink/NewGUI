@@ -6,8 +6,7 @@
  *
  * Ported from Haiku: src/kits/interface/MenuBar.cpp (commit b1d497bb69),
  * without archiving and scripting; the tracking is MenuTracker (see
- * MenuBar.h). Keyboard activation (SetKeyMenuBar()) and the focus that
- * Haiku steals in sticky mode come with W3b2b.
+ * MenuBar.h); MenuTracker steals and restores the focus.
  *
  * Authors (Haiku):
  *		Marc Flerackers (mflerackers@androme.be)
@@ -17,6 +16,8 @@
 
 
 #include <ngui/MenuBar.h>
+
+#include <optional>
 
 #include <ngui/LayoutUtils.h>
 #include <ngui/Message.h>
@@ -57,9 +58,20 @@ BMenuBar::~BMenuBar()
 
 
 void
+BMenuBar::AttachedToWindow()
+{
+	Window()->SetKeyMenuBar(this);
+	BMenu::AttachedToWindow();
+}
+
+
+void
 BMenuBar::DetachedFromWindow()
 {
 	fTracker->Stop(nullptr);
+	// NewGUI: Haiku's window kept the pointer.
+	if (Window()->KeyMenuBar() == this)
+		Window()->SetKeyMenuBar(nullptr);
 	BMenu::DetachedFromWindow();
 }
 
@@ -155,10 +167,14 @@ BMenuBar::StartMenuBar(int32 menuIndex, bool sticky, bool showMenu, gfx::Rect* s
 	if (fTracker->IsTracking() || Window() == nullptr)
 		return;
 
+	// NewGUI: the mouse position of the current event, if it has one (Haiku:
+	// GetMouse()); the keyboard starts without.
 	const BMessage* current = Window()->CurrentMessage();
-	const gfx::Point where = current != nullptr
-		? ConvertFromWindow(current->GetPoint("where", {0, 0})) : gfx::Point{0, 0};
-	fTracker->Start(menuIndex, sticky, showMenu, specialRect, ConvertToScreen(where), 0);
+	std::optional<gfx::Point> screen;
+	if (current != nullptr && current->HasPoint("where"))
+		screen = ConvertToScreen(ConvertFromWindow(current->GetPoint("where", {0, 0})));
+	fTracker->Start(menuIndex, sticky, showMenu, specialRect, screen,
+		static_cast<std::uint32_t>(current != nullptr ? current->GetInt32("buttons", 0) : 0));
 }
 
 

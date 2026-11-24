@@ -13,8 +13,6 @@
  * - The trigger index is a byte offset into the UTF-8 label (Haiku: a
  *   character index from SetTrigger(), a byte offset from the menu's
  *   automatic triggers); the underline is measured by the text system.
- * - The shortcut of an installed item reaches the window with BMenuBar
- *   (W3b); Install() only sets the window as the default target.
  *
  * Authors (Haiku):
  *		Stefano Ceccherini, stefano.ceccherini@gmail.com
@@ -166,6 +164,9 @@ BMenuItem::~BMenuItem()
 	// popup; hiding it gives it back.
 	if (fSubmenu != nullptr && fOwnedSubmenu == nullptr)
 		fSubmenu->_Hide();
+	// NewGUI: an item destroyed while installed takes its shortcut along.
+	if (fShortcut != 0 && fWindow != nullptr)
+		fWindow->RemoveShortcut(fShortcut, fModifiers);
 }
 
 
@@ -242,7 +243,12 @@ BMenuItem::SetTrigger(char trigger)
 void
 BMenuItem::SetShortcut(uint32 shortcut, BModifierFlags modifiers)
 {
-	// NewGUI: the window's shortcuts come with W3b.
+	if (fShortcut != 0 && fWindow != nullptr)
+		fWindow->RemoveShortcut(fShortcut, fModifiers);
+
+	if (shortcut != 0 && fWindow != nullptr)
+		fWindow->_AddShortcut(&shortcut, &modifiers, this);
+
 	fShortcut = shortcut;
 	fModifiers = (fShortcut != 0 ? modifiers : BModifierFlags());
 
@@ -503,7 +509,15 @@ BMenuItem::Install(BWindow* window)
 
 	fWindow = window;
 
-	// NewGUI: shortcuts come with W3b.
+	uint32 shortcut = fShortcut;
+	BModifierFlags modifiers = fModifiers;
+
+	if (shortcut != 0 && fWindow != nullptr)
+		fWindow->_AddShortcut(&shortcut, &modifiers, this);
+
+	fShortcut = shortcut;
+	fModifiers = (fShortcut != 0 ? modifiers : BModifierFlags());
+
 	if (!Messenger().IsValid() && fWindow != nullptr)
 		SetTarget(fWindow);
 }
@@ -517,6 +531,9 @@ BMenuItem::Uninstall()
 
 	if (fWindow != nullptr && Messenger() == BMessenger(fWindow))
 		SetTarget(BMessenger());
+
+	if (fShortcut != 0 && fWindow != nullptr)
+		fWindow->RemoveShortcut(fShortcut, fModifiers);
 
 	fWindow = nullptr;
 }
