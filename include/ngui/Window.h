@@ -305,6 +305,18 @@ public:
 			void				DispatchMessage(BMessage* message, BHandler* handler) override;
 									/*!< The platform's events to the views, then as
 										BLooper's. */
+			void				MessageReceived(BMessage* message) override;
+									/*!< Answers its scripting properties "Active", "Frame",
+										"Hidden" and "Title" (get and set); otherwise as
+										BLooper's. */
+			BHandler*			ResolveSpecifier(BMessage* message, std::int32_t index,
+									const BMessage& specifier, std::uint32_t form,
+									std::string_view property) override;
+									/*!< Its properties; "View" leads to the root view, whose
+										children are the top views (Haiku: the top view),
+										without taking the specifier. */
+			std::expected<void, Error> GetSupportedSuites(BMessage* data) override;
+									/*!< "suite/vnd.Be-window" and BLooper's. */
 
 private:
 	friend class BApplication;

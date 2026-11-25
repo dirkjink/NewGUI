@@ -10,19 +10,23 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include <ngui/AppDefs.h>
 #include <ngui/Cursor.h>
 #include <ngui/LayoutContext.h>
 #include <ngui/LookRegistry.h>
 #include <ngui/Message.h>
+#include <ngui/PropertyInfo.h>
 #include <ngui/ScrollBar.h>
 #include <ngui/ToolTip.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/Paint.h>
 
+#include "ScriptingSupport.h"
 #include "ToolTipPopup.h"
 
 
@@ -373,10 +377,73 @@ BView::TargetedByScrollView(BScrollView* /*scrollView*/)
 }
 
 
+namespace {
+
+
+// Ported from Haiku: src/kits/interface/View.cpp (commit b1d497bb69),
+// sViewPropInfo without "Shelf" and with "Name" (specification 20.7); the
+// indices are those of BView::MessageReceived().
+const std::vector<BPropertyInfoEntry> kViewProperties = {
+	{"Frame", {kGetProperty, kSetProperty}, {kDirectSpecifier},
+		"Its frame in its parent.", 0, {BTypeCode::Rect}},
+	{"Hidden", {kGetProperty, kSetProperty}, {kDirectSpecifier}, "Whether it is hidden.", 0,
+		{BTypeCode::Bool}},
+	{"Name", {kGetProperty}, {kDirectSpecifier}, "Its name.", 0, {BTypeCode::String}},
+	{"View", {kCountProperties}, {kDirectSpecifier}, "How many children it has.", 0,
+		{BTypeCode::Int32}},
+	{"View", {}, {kIndexSpecifier, kReverseIndexSpecifier, kNameSpecifier},
+		"A child by index or a descendant by name; leads on to its properties.", 0, {}},
+};
+
+
+} // namespace
+
+
 void
 BView::MessageReceived(BMessage* message)
 {
 	// Ported from Haiku: src/kits/interface/View.cpp (commit b1d497bb69).
+	if (message->HasSpecifiers()) {
+		const auto specifier = message->GetCurrentSpecifier();
+		const std::int32_t match = specifier.has_value()
+			? BPropertyInfo(kViewProperties).FindMatch(*message, specifier->index,
+				specifier->form, specifier->property)
+			: -1;
+		if (match >= 0 && match <= 3) {
+			const bool get = message->what == kGetProperty;
+			BMessage reply(kReply);
+			std::expected<void, Error> result;
+			if (match == 0 && get)
+				result = reply.AddRect("result", Frame());
+			else if (match == 0) {
+				const auto frame = message->FindRect("data");
+				if (frame.has_value()) {
+					MoveTo({frame->x0, frame->y0});
+					ResizeTo(frame->Width(), frame->Height());
+				}
+				result = frame.has_value() ? std::expected<void, Error>()
+					: std::unexpected(frame.error());
+			} else if (match == 1 && get)
+				result = reply.AddBool("result", IsHidden());
+			else if (match == 1) {
+				const auto hide = message->FindBool("data");
+				if (hide.has_value()) {
+					if (*hide)
+						Hide();
+					else
+						Show();
+				}
+				result = hide.has_value() ? std::expected<void, Error>()
+					: std::unexpected(hide.error());
+			} else if (match == 2)
+				result = reply.AddString("result", Name());
+			else
+				result = reply.AddInt32("result", CountChildren());
+			detail::SendScriptingReply(*message, std::move(reply), result);
+			return;
+		}
+	}
+
 	if (message->what == kMouseIdle) {
 		std::shared_ptr<BToolTip> tip;
 		if (GetToolTipAt(message->GetPoint("where", {0, 0}), &tip))
@@ -1475,6 +1542,49 @@ BView::_DropLayout()
 		fLayout.reset();
 		EnableLayoutInvalidation();
 	}
+}
+
+
+BHandler*
+BView::ResolveSpecifier(BMessage* message, std::int32_t index, const BMessage& specifier,
+	std::uint32_t form, std::string_view property)
+{
+	// Ported from Haiku: src/kits/interface/View.cpp (commit b1d497bb69).
+	const std::int32_t match = BPropertyInfo(kViewProperties).FindMatch(*message, index, form,
+		property);
+	if (match >= 0 && match <= 3)
+		return this;
+	if (match != 4)
+		return BHandler::ResolveSpecifier(message, index, specifier, form, property);
+	BView* child = nullptr;
+	if (form == kNameSpecifier)
+		child = FindView(specifier.GetString("name", ""));
+	else
+		child = ChildAt(detail::SpecifiedIndex(specifier, form, CountChildren()));
+	if (child == nullptr) {
+		ReplyScriptingError(*message, form == kNameSpecifier
+			? Error{ErrorCode::NotFound, "no view \"" + std::string(specifier.GetString("name",
+				"")) + "\""}
+			: Error{ErrorCode::OutOfRange, "view index out of range"});
+		return nullptr;
+	}
+	(void)message->PopSpecifier();
+	return child;
+}
+
+
+std::expected<void, Error>
+BView::GetSupportedSuites(BMessage* data)
+{
+	if (data == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "no message for the suites");
+	if (auto added = data->AddString("suites", "suite/vnd.Be-view"); !added)
+		return added;
+	if (auto added = data->AddMessage("messages", BPropertyInfo(kViewProperties).ToMessage());
+			!added) {
+		return added;
+	}
+	return BHandler::GetSupportedSuites(data);
 }
 
 

@@ -11,16 +11,20 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <ngui/AppDefs.h>
 #include <ngui/Cursor.h>
 #include <ngui/LookRegistry.h>
+#include <ngui/PropertyInfo.h>
 #include <ngui/Window.h>
 #include <ngui/platform/PlatformRegistry.h>
 
 #include "CursorState.h"
 #include "Environment.h"
 #include "LooperPort.h"
+#include "ScriptingSupport.h"
+#include "WindowList.h"
 
 
 namespace ngui {
@@ -434,6 +438,118 @@ platform::Current()
 {
 	std::scoped_lock lock(sLock);
 	return sPlatform;
+}
+
+
+// #pragma mark - Scripting
+
+
+namespace {
+
+
+// Ported from Haiku: src/kits/app/Application.cpp (commit b1d497bb69),
+// sPropertyInfo without the loopers and the messenger lists, which cannot
+// be flattened for remote control.
+enum : std::uint32_t {
+	kWindowByIndex = 1,
+	kWindowByName,
+	kApplicationItself
+};
+
+const std::vector<BPropertyInfoEntry> kApplicationProperties = {
+	{"Window", {}, {kIndexSpecifier, kReverseIndexSpecifier},
+		"A window by index; leads on to its properties.", kWindowByIndex, {}},
+	{"Window", {}, {kNameSpecifier}, "A window by title; leads on to its properties.",
+		kWindowByName, {}},
+	{"Name", {kGetProperty}, {kDirectSpecifier}, "The application's signature.",
+		kApplicationItself, {BTypeCode::String}},
+	{"Window", {kCountProperties}, {kDirectSpecifier}, "How many windows it has.",
+		kApplicationItself, {BTypeCode::Int32}},
+};
+
+
+} // namespace
+
+
+void
+BApplication::MessageReceived(BMessage* message)
+{
+	if (message->HasSpecifiers()) {
+		const auto specifier = message->GetCurrentSpecifier();
+		if (specifier.has_value()) {
+			const std::int32_t match = BPropertyInfo(kApplicationProperties).FindMatch(*message,
+				specifier->index, specifier->form, specifier->property);
+			BMessage reply(kReply);
+			if (match == 2) {
+				detail::SendScriptingReply(*message, reply, reply.AddString("result", fSignature));
+				return;
+			}
+			if (match == 3) {
+				detail::SendScriptingReply(*message, reply,
+					reply.AddInt32("result", CountWindows()));
+				return;
+			}
+		}
+	}
+	BLooper::MessageReceived(message);
+}
+
+
+BHandler*
+BApplication::ResolveSpecifier(BMessage* message, std::int32_t index, const BMessage& specifier,
+	std::uint32_t form, std::string_view property)
+{
+	std::uint32_t data = 0;
+	if (BPropertyInfo(kApplicationProperties).FindMatch(*message, 0, form, property, &data) < 0)
+		return BLooper::ResolveSpecifier(message, index, specifier, form, property);
+	if (data == kApplicationItself)
+		return this;
+
+	// The window is another looper: the message goes there itself, with
+	// its reply still owed to the sender.
+	const std::vector<detail::WindowEntry> windows = detail::WindowEntries();
+	std::optional<BMessenger> window;
+	if (data == kWindowByIndex) {
+		const std::int32_t at = detail::SpecifiedIndex(specifier, form,
+			static_cast<std::int32_t>(windows.size()));
+		if (at >= 0 && static_cast<std::size_t>(at) < windows.size())
+			window = windows[static_cast<std::size_t>(at)].messenger;
+	} else {
+		const std::string_view title = specifier.GetString("name", "");
+		for (const detail::WindowEntry& entry : windows) {
+			if (entry.title == title) {
+				window = entry.messenger;
+				break;
+			}
+		}
+	}
+	if (!window.has_value()) {
+		ReplyScriptingError(*message, data == kWindowByIndex
+			? Error{ErrorCode::OutOfRange, "window index out of range"}
+			: Error{ErrorCode::NotFound, "no window \"" + std::string(specifier.GetString("name",
+				"")) + "\""});
+		return nullptr;
+	}
+	(void)message->PopSpecifier();
+	std::unique_ptr<BMessage> forwarded = DetachCurrentMessage();
+	if (forwarded != nullptr)
+		(void)window->ForwardMessage(std::move(forwarded));
+	return nullptr;
+}
+
+
+std::expected<void, Error>
+BApplication::GetSupportedSuites(BMessage* data)
+{
+	if (data == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "no message for the suites");
+	if (auto added = data->AddString("suites", "suite/vnd.Be-application"); !added)
+		return added;
+	if (auto added = data->AddMessage("messages",
+			BPropertyInfo(kApplicationProperties).ToMessage()); !added) {
+		return added;
+	}
+	return BLooper::GetSupportedSuites(data);
 }
 
 

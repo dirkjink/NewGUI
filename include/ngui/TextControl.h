@@ -96,6 +96,15 @@ public:
 			void				SetEnabled(bool enable) override;
 									/*!< Enables or disables the field too. */
 			void				WindowActivated(bool active) override;
+			void				MessageReceived(BMessage* message) override;
+									/*!< Scripting: gets and sets the text as "Value"
+										(Haiku) or "Text"; otherwise as BControl's. */
+			BHandler*			ResolveSpecifier(BMessage* message, std::int32_t index,
+									const BMessage& specifier, std::uint32_t form,
+									std::string_view property) override;
+									/*!< Its scripting properties; otherwise as BControl's. */
+			std::expected<void, Error> GetSupportedSuites(BMessage* data) override;
+									/*!< "suite/vnd.Be-text-control" and BControl's. */
 
 			void				GetPreferredSize(float* width, float* height) override;
 			void				ResizeToPreferred() override;

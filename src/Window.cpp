@@ -17,6 +17,7 @@
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
 #include <ngui/Palette.h>
+#include <ngui/PropertyInfo.h>
 #include <ngui/Button.h>
 #include <ngui/Cursor.h>
 #include <ngui/LookRegistry.h>
@@ -32,6 +33,7 @@
 #include "CursorState.h"
 #include "MenuPrivate.h"
 #include "ToolTipPopup.h"
+#include "ScriptingSupport.h"
 #include "WindowList.h"
 
 
@@ -54,6 +56,8 @@ constexpr std::uint32_t kActivateRequest = FourCharCode("_ACQ");
 // application (Haiku's looper list).
 std::mutex sWindowsLock;
 std::vector<BMessenger> sWindows;
+// their titles, in the same order (WindowEntries())
+std::vector<std::string> sWindowTitles;
 
 // The shown windows with BWindowFeel::ModalApp, under sWindowsLock.
 struct ModalWindow {
@@ -202,6 +206,7 @@ BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWin
 	{
 		std::scoped_lock lock(sWindowsLock);
 		sWindows.push_back(BMessenger(this));
+		sWindowTitles.push_back(fTitle);
 	}
 	fLook = LookRegistry::DefaultLook();
 	fRoot = std::make_unique<BView>(Bounds(), "root", kFollowAll, BViewFlags());
@@ -249,7 +254,11 @@ BWindow::~BWindow()
 	{
 		const BMessenger self(this);
 		std::scoped_lock lock(sWindowsLock);
-		std::erase(sWindows, self);
+		const auto found = std::ranges::find(sWindows, self);
+		if (found != sWindows.end()) {
+			sWindowTitles.erase(sWindowTitles.begin() + (found - sWindows.begin()));
+			sWindows.erase(found);
+		}
 		std::erase_if(sModalWindows, [this](const ModalWindow& modal) {
 			return modal.window == this;
 		});
@@ -631,6 +640,13 @@ void
 BWindow::SetTitle(std::string_view title)
 {
 	fTitle = title;
+	{
+		const BMessenger self(this);
+		std::scoped_lock lock(sWindowsLock);
+		const auto found = std::ranges::find(sWindows, self);
+		if (found != sWindows.end())
+			sWindowTitles[static_cast<std::size_t>(found - sWindows.begin())] = fTitle;
+	}
 	if (fPlatformWindow != nullptr)
 		fPlatformWindow->SetTitle(title);
 }
@@ -1568,6 +1584,17 @@ BWindow::_Windows()
 }
 
 
+std::vector<detail::WindowEntry>
+detail::WindowEntries()
+{
+	std::scoped_lock lock(sWindowsLock);
+	std::vector<WindowEntry> entries;
+	for (std::size_t i = 0; i < sWindows.size(); i++)
+		entries.push_back({sWindows[i], sWindowTitles[i]});
+	return entries;
+}
+
+
 void
 detail::PostToWindows(std::uint32_t what)
 {
@@ -2125,6 +2152,135 @@ BWindow::_HandleKeyDown(BMessage* event)
 
 	// we always eat the event if the command key was pressed
 	return modifiers.Has(BModifier::Command);
+}
+
+
+// #pragma mark - Scripting
+
+
+namespace {
+
+
+// Ported from Haiku: src/kits/interface/Window.cpp (commit b1d497bb69),
+// sWindowPropInfo with the properties NewGUI's windows have; the indices
+// are those of MessageReceived().
+const std::vector<BPropertyInfoEntry> kWindowProperties = {
+	{"Active", {kGetProperty, kSetProperty}, {kDirectSpecifier},
+		"Whether it is the active window.", 0, {BTypeCode::Bool}},
+	{"Frame", {kGetProperty, kSetProperty}, {kDirectSpecifier},
+		"Its content area on the screen.", 0, {BTypeCode::Rect}},
+	{"Hidden", {kGetProperty, kSetProperty}, {kDirectSpecifier}, "Whether it is hidden.", 0,
+		{BTypeCode::Bool}},
+	{"Title", {kGetProperty, kSetProperty}, {kDirectSpecifier}, "Its title.", 0,
+		{BTypeCode::String}},
+	{"View", {kCountProperties}, {kDirectSpecifier}, "How many top views it has.", 0,
+		{BTypeCode::Int32}},
+	{"View", {}, {}, "A view by index or name; leads on to its properties.", 0, {}},
+};
+
+
+} // namespace
+
+
+void
+BWindow::MessageReceived(BMessage* message)
+{
+	const auto specifier = message->HasSpecifiers() ? message->GetCurrentSpecifier()
+		: std::expected<BSpecifier, Error>(std::unexpected(Error{ErrorCode::BadScriptSyntax, ""}));
+	if (!specifier.has_value()) {
+		BLooper::MessageReceived(message);
+		return;
+	}
+	const bool get = message->what == kGetProperty;
+	const bool set = message->what == kSetProperty;
+	BMessage reply(kReply);
+	std::expected<void, Error> result;
+	switch (BPropertyInfo(kWindowProperties).FindMatch(*message, specifier->index,
+		specifier->form, specifier->property)) {
+		case 0:
+			if (get)
+				result = reply.AddBool("result", IsActive());
+			else if (set) {
+				const auto active = message->FindBool("data");
+				if (active.has_value())
+					Activate(*active);
+				result = active.has_value() ? std::expected<void, Error>()
+					: std::unexpected(active.error());
+			}
+			break;
+		case 1:
+			if (get)
+				result = reply.AddRect("result", Frame());
+			else if (set) {
+				const auto frame = message->FindRect("data");
+				if (frame.has_value()) {
+					MoveTo({frame->x0, frame->y0});
+					ResizeTo(frame->Width(), frame->Height());
+				}
+				result = frame.has_value() ? std::expected<void, Error>()
+					: std::unexpected(frame.error());
+			}
+			break;
+		case 2:
+			if (get)
+				result = reply.AddBool("result", IsHidden());
+			else if (set) {
+				const auto hide = message->FindBool("data");
+				if (hide.has_value()) {
+					if (*hide && !IsHidden())
+						Hide();
+					else if (!*hide && IsHidden())
+						Show();
+				}
+				result = hide.has_value() ? std::expected<void, Error>()
+					: std::unexpected(hide.error());
+			}
+			break;
+		case 3:
+			if (get)
+				result = reply.AddString("result", Title());
+			else if (set) {
+				const auto title = message->FindString("data");
+				if (title.has_value())
+					SetTitle(*title);
+				result = title.has_value() ? std::expected<void, Error>()
+					: std::unexpected(title.error());
+			}
+			break;
+		default:
+			BLooper::MessageReceived(message);
+			return;
+	}
+	detail::SendScriptingReply(*message, std::move(reply), result);
+}
+
+
+BHandler*
+BWindow::ResolveSpecifier(BMessage* message, std::int32_t index, const BMessage& specifier,
+	std::uint32_t form, std::string_view property)
+{
+	if (BPropertyInfo(kWindowProperties).FindMatch(*message, index, form, property) >= 0) {
+		// the root view resolves the same specifier among its children
+		if (property == "View")
+			return fRoot.get();
+		return this;
+	}
+	return BLooper::ResolveSpecifier(message, index, specifier, form, property);
+}
+
+
+std::expected<void, Error>
+BWindow::GetSupportedSuites(BMessage* data)
+{
+	if (data == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "no message for the suites");
+	if (auto added = data->AddString("suites", "suite/vnd.Be-window"); !added)
+		return added;
+	if (auto added = data->AddMessage("messages", BPropertyInfo(kWindowProperties).ToMessage());
+			!added) {
+		return added;
+	}
+	return BLooper::GetSupportedSuites(data);
 }
 
 

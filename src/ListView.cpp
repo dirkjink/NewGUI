@@ -39,17 +39,20 @@
 #include <chrono>
 #include <cmath>
 #include <utility>
+#include <vector>
 
 #include <ngui/AppDefs.h>
 #include <ngui/LayoutUtils.h>
 #include <ngui/Message.h>
 #include <ngui/Palette.h>
+#include <ngui/PropertyInfo.h>
 #include <ngui/ScrollBar.h>
 #include <ngui/ScrollView.h>
 #include <ngui/TextSystem.h>
 #include <ngui/Window.h>
 
 #include "compat/InterfaceDefs.h"
+#include "ScriptingSupport.h"
 
 
 namespace ngui {
@@ -1532,5 +1535,169 @@ BListView::_Modifiers() const
 		current != nullptr ? current->GetInt32("modifiers", 0) : 0));
 }
 
+
+// #pragma mark - Scripting
+
+
+namespace {
+
+
+// Ported from Haiku: src/kits/interface/ListView.cpp (commit b1d497bb69),
+// sProperties; the indices are those of BListView::MessageReceived().
+const std::vector<BPropertyInfoEntry> kListViewProperties = {
+	{"Item", {kCountProperties}, {kDirectSpecifier},
+		"Returns the number of BListItems currently in the list.", 0, {BTypeCode::Int32}},
+	{"Item", {kExecuteProperty}, {kIndexSpecifier, kReverseIndexSpecifier, kRangeSpecifier,
+		kReverseRangeSpecifier},
+		"Select and invoke the specified items, first removing any existing selection.", 0,
+		{}},
+	{"Selection", {kCountProperties}, {kDirectSpecifier},
+		"Returns int32 count of items in the selection.", 0, {BTypeCode::Int32}},
+	{"Selection", {kExecuteProperty}, {kDirectSpecifier}, "Invoke items in selection.", 0, {}},
+	{"Selection", {kGetProperty}, {kDirectSpecifier},
+		"Returns int32 indices of all items in the selection.", 0, {BTypeCode::Int32}},
+	{"Selection", {kSetProperty}, {kIndexSpecifier, kReverseIndexSpecifier, kRangeSpecifier,
+		kReverseRangeSpecifier},
+		"Extends current selection or deselects specified items. Boolean field \"data\" "
+		"chooses selection or deselection.", 0, {BTypeCode::Bool}},
+	{"Selection", {kSetProperty}, {kDirectSpecifier},
+		"Select or deselect all items in the selection. Boolean field \"data\" chooses "
+		"selection or deselection.", 0, {BTypeCode::Bool}},
+};
+
+
+// The items an index or range specifier names: [first, last); empty if
+// they are not all in the list (Haiku: B_BAD_INDEX).
+std::pair<std::int32_t, std::int32_t>
+SpecifiedItems(const BMessage& specifier, std::uint32_t form, std::int32_t count)
+{
+	const std::int32_t first = detail::SpecifiedIndex(specifier, form, count);
+	if (form == kIndexSpecifier || form == kReverseIndexSpecifier) {
+		if (first < 0 || first >= count)
+			return {0, 0};
+		return {first, first + 1};
+	}
+	const std::int32_t range = specifier.GetInt32("range", -1);
+	const std::int32_t end = first + range;
+	// Haiku: beg >= 0 && beg <= end && end < CountItems()
+	if (range < 0 || first < 0 || end >= count)
+		return {0, 0};
+	return {first, end};
+}
+
+
+} // namespace
+
+
+void
+BListView::MessageReceived(BMessage* message)
+{
+	// Ported from Haiku: src/kits/interface/ListView.cpp (commit b1d497bb69).
+	const auto specifier = message->HasSpecifiers() ? message->GetCurrentSpecifier()
+		: std::expected<BSpecifier, Error>(std::unexpected(Error{ErrorCode::BadScriptSyntax, ""}));
+	const std::int32_t match = specifier.has_value()
+		? BPropertyInfo(kListViewProperties).FindMatch(*message, specifier->index,
+			specifier->form, specifier->property)
+		: -1;
+	if (match < 0) {
+		BView::MessageReceived(message);
+		return;
+	}
+	BMessage reply(kReply);
+	std::expected<void, Error> result;
+	const auto badIndex = std::unexpected(Error{ErrorCode::OutOfRange, "no such items"});
+	switch (match) {
+		case 0:
+			result = reply.AddInt32("result", CountItems());
+			break;
+		case 1:
+		{
+			const auto [first, end] = SpecifiedItems(specifier->specifier, specifier->form,
+				CountItems());
+			if (first >= end)
+				result = badIndex;
+			else if (fListType != BListViewType::MultipleSelection && end - first > 1)
+				result = std::unexpected(Error{ErrorCode::InvalidArgument,
+					"a single selection list selects one item"});
+			else {
+				Select(first, end - 1, false);
+				result = Invoke();
+			}
+			break;
+		}
+		case 2:
+		{
+			std::int32_t count = 0;
+			for (std::int32_t i = 0; i < CountItems(); i++)
+				count += ItemAt(i)->IsSelected() ? 1 : 0;
+			result = reply.AddInt32("result", count);
+			break;
+		}
+		case 3:
+			result = Invoke();
+			break;
+		case 4:
+			for (std::int32_t i = 0; result.has_value() && i < CountItems(); i++) {
+				if (ItemAt(i)->IsSelected())
+					result = reply.AddInt32("result", i);
+			}
+			break;
+		case 5:
+		{
+			const auto select = message->FindBool("data");
+			const auto [first, end] = SpecifiedItems(specifier->specifier, specifier->form,
+				CountItems());
+			if (!select.has_value())
+				result = std::unexpected(select.error());
+			else if (first >= end)
+				result = badIndex;
+			else if (*select) {
+				Select(first, end - 1, fListType == BListViewType::MultipleSelection);
+			} else {
+				for (std::int32_t i = first; i < end; i++)
+					Deselect(i);
+			}
+			break;
+		}
+		case 6:
+		{
+			const auto select = message->FindBool("data");
+			if (!select.has_value())
+				result = std::unexpected(select.error());
+			else if (*select)
+				Select(0, CountItems() - 1, false);
+			else
+				DeselectAll();
+			break;
+		}
+		default:
+			break;
+	}
+	detail::SendScriptingReply(*message, std::move(reply), result);
+}
+
+
+BHandler*
+BListView::ResolveSpecifier(BMessage* message, std::int32_t index, const BMessage& specifier,
+	std::uint32_t form, std::string_view property)
+{
+	if (BPropertyInfo(kListViewProperties).FindMatch(*message, 0, form, property) >= 0)
+		return this;
+	return BView::ResolveSpecifier(message, index, specifier, form, property);
+}
+
+std::expected<void, Error>
+BListView::GetSupportedSuites(BMessage* data)
+{
+	if (data == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "no message for the suites");
+	if (auto added = data->AddString("suites", "suite/vnd.Be-list-view"); !added)
+		return added;
+	if (auto added = data->AddMessage("messages", BPropertyInfo(kListViewProperties).ToMessage());
+			!added) {
+		return added;
+	}
+	return BView::GetSupportedSuites(data);
+}
 
 } // namespace ngui

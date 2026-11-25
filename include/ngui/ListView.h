@@ -168,6 +168,17 @@ public:
 			std::expected<void, Error> Invoke(const BMessage* message = nullptr) override;
 									/*!< Sends \a message (or the invocation message) with
 										"when", "source" and the selected "index"es. */
+			void				MessageReceived(BMessage* message) override;
+									/*!< Scripting: counts "Item" and invokes items by
+										index or range; counts, gets, sets and invokes the
+										"Selection" (Haiku's properties); otherwise as
+										BView's. */
+			BHandler*			ResolveSpecifier(BMessage* message, std::int32_t index,
+									const BMessage& specifier, std::uint32_t form,
+									std::string_view property) override;
+									/*!< Its scripting properties; otherwise as BView's. */
+			std::expected<void, Error> GetSupportedSuites(BMessage* data) override;
+									/*!< "suite/vnd.Be-list-view" and BView's. */
 
 			void				DeselectAll();
 									/*!< Deselects all items. */

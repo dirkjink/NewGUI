@@ -498,7 +498,17 @@ public:
 										its scroll bars; without any, the message goes on
 										to the next handler, its parent. A resting mouse
 										(kMouseIdle) shows the tooltip of GetToolTipAt();
-										without one, the message goes to the parent. */
+										without one, the message goes to the parent.
+										Scripting: gets and sets "Frame" and "Hidden", gets
+										"Name", counts "View". */
+			BHandler*			ResolveSpecifier(BMessage* message, std::int32_t index,
+									const BMessage& specifier, std::uint32_t form,
+									std::string_view property) override;
+									/*!< Its scripting properties "Frame", "Hidden", "Name"
+										and the count of "View"; "View" by index, reverse
+										index or name (FindView()) leads to that view. */
+			std::expected<void, Error> GetSupportedSuites(BMessage* data) override;
+									/*!< "suite/vnd.Be-view" and BHandler's. */
 
 protected:
 			bool				ScrollWithMouseWheelDelta(BScrollBar* scrollBar,

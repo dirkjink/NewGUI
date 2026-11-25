@@ -29,15 +29,18 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
+#include <vector>
 
 #include <ngui/AbstractLayoutItem.h>
 #include <ngui/LayoutUtils.h>
 #include <ngui/Palette.h>
+#include <ngui/PropertyInfo.h>
 #include <ngui/TextSystem.h>
 #include <ngui/TextView.h>
 #include <ngui/Window.h>
 
 #include "TextInput.h"
+#include "ScriptingSupport.h"
 #include "compat/InterfaceDefs.h"
 
 
@@ -910,5 +913,73 @@ BTextControl::_ValidateLayoutData()
 	ResetLayoutInvalidation();
 }
 
+
+// #pragma mark - Scripting
+
+
+namespace {
+
+
+// Ported from Haiku: src/kits/interface/TextControl.cpp (commit
+// b1d497bb69): the text as "Value"; "Text" as the specification names it
+// (20.7).
+const std::vector<BPropertyInfoEntry> kTextControlProperties = {
+	{"Value", {kGetProperty, kSetProperty}, {kDirectSpecifier}, "Its text.", 0,
+		{BTypeCode::String}},
+	{"Text", {kGetProperty, kSetProperty}, {kDirectSpecifier}, "Its text.", 0,
+		{BTypeCode::String}},
+};
+
+
+} // namespace
+
+
+void
+BTextControl::MessageReceived(BMessage* message)
+{
+	if ((message->what == kGetProperty || message->what == kSetProperty)
+		&& message->HasSpecifiers()) {
+		const auto specifier = message->GetCurrentSpecifier();
+		if (specifier.has_value()
+			&& (specifier->property == "Value" || specifier->property == "Text")) {
+			BMessage reply(kReply);
+			if (message->what == kGetProperty) {
+				const auto added = reply.AddString("result", Text());
+				detail::SendScriptingReply(*message, std::move(reply), added);
+				return;
+			}
+			if (const auto text = message->FindString("data")) {
+				SetText(*text);
+				detail::SendScriptingReply(*message, std::move(reply), {});
+				return;
+			}
+		}
+	}
+	BControl::MessageReceived(message);
+}
+
+
+BHandler*
+BTextControl::ResolveSpecifier(BMessage* message, std::int32_t index, const BMessage& specifier,
+	std::uint32_t form, std::string_view property)
+{
+	if (BPropertyInfo(kTextControlProperties).FindMatch(*message, 0, form, property) >= 0)
+		return this;
+	return BControl::ResolveSpecifier(message, index, specifier, form, property);
+}
+
+std::expected<void, Error>
+BTextControl::GetSupportedSuites(BMessage* data)
+{
+	if (data == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "no message for the suites");
+	if (auto added = data->AddString("suites", "suite/vnd.Be-text-control"); !added)
+		return added;
+	if (auto added = data->AddMessage("messages",
+			BPropertyInfo(kTextControlProperties).ToMessage()); !added) {
+		return added;
+	}
+	return BControl::GetSupportedSuites(data);
+}
 
 } // namespace ngui

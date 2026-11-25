@@ -65,6 +65,18 @@ BMessenger::_Send(std::unique_ptr<BMessage> message) const
 
 
 std::expected<void, Error>
+BMessenger::ForwardMessage(std::unique_ptr<BMessage> message) const
+{
+	if (message == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "no message to forward");
+	// its reply token stays; the new looper delivers it anew
+	if (message->fDelivery != nullptr)
+		message->fDelivery->delivered = false;
+	return _Send(std::move(message));
+}
+
+
+std::expected<void, Error>
 BMessenger::SendMessage(std::uint32_t command, BHandler* replyTo) const
 {
 	return SendMessage(BMessage(command), replyTo != nullptr ? BMessenger(replyTo) : BMessenger());
