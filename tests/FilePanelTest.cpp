@@ -10,6 +10,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -215,10 +216,11 @@ TEST(FilePanelTest, ASavePanelSendsFolderAndName)
 	// What is tested: A save panel with its own message (what 'SVME'),
 	// starting in /tmp/x and suggesting "out.txt": answered with a path;
 	// shown again and cancelled; shown again and failing.
-	// Success criteria: The dialog is Save, not many, at /tmp/x/out.txt.
-	// The choice comes in the panel's message with "directory" /tmp/x/sub
-	// and "name" out.txt, then kCancel with "old_what" 'SVME'. A cancelled
-	// dialog sends only kCancel; a failing one kCancel with "error".
+	// Success criteria: The dialog is Save, not many, at /tmp/x and
+	// out.txt, joined with the system's separator. The choice comes in the
+	// panel's message with "directory" /tmp/x/sub and "name" out.txt, then
+	// kCancel with "old_what" 'SVME'. A cancelled dialog sends only kCancel;
+	// a failing one kCancel with "error".
 	// Why it matters: Saving goes through B_SAVE_REQUESTED's fields, as in
 	// Haiku; a program learns that the panel closed either way.
 	//
@@ -245,7 +247,8 @@ TEST(FilePanelTest, ASavePanelSendsFolderAndName)
 	ASSERT_EQ(dialogs.size(), 3u);
 	EXPECT_EQ(dialogs[0].kind, platform::FileDialogSpec::Kind::Save);
 	EXPECT_FALSE(dialogs[0].many);
-	EXPECT_EQ(dialogs[0].location, "/tmp/x/out.txt");
+	// joined with the system's separator (a backslash under Windows)
+	EXPECT_EQ(dialogs[0].location, (std::filesystem::path("/tmp/x") / "out.txt").string());
 	ASSERT_EQ(received.size(), 4u);
 	EXPECT_EQ(received[0].what, kSaveMe);
 	EXPECT_EQ(received[0].GetString("directory", ""), "/tmp/x/sub");
