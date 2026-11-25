@@ -18,6 +18,12 @@
 #include <ngui/gfx/Point.h>
 
 
+namespace ngui::gfx {
+class Canvas;
+struct Paint;
+} // namespace ngui::gfx
+
+
 namespace ngui {
 
 
@@ -111,13 +117,26 @@ struct FontFile {
 			FontRole			role;	/*!< The role it serves. */
 			std::span<const std::byte> data;
 									/*!< The font file; valid as long as the text system. */
+			std::uint32_t		faceIndex = 0;
+									/*!< The face in a collection (.ttc); 0 otherwise. */
 };
 
 
-/*!	Shaped text that owns its glyphs, positions, text and clusters; Run()
-	views it as the GlyphRun the Canvas draws. */
+/*!	A stretch of the glyphs of a ShapedText in one font (module X1). */
+struct ShapedFontRun {
+			gfx::FontId			font = 0;	/*!< The font of the stretch. */
+			std::size_t			end = 0;	/*!< The glyph after it; it begins where the
+												stretch before it ends. */
+};
+
+
+/*!	Shaped text that owns its glyphs, positions, text and clusters; Runs()
+	views it as the GlyphRuns the Canvas draws, one per font, and Draw()
+	draws them. Characters the font asked for does not have come in the
+	fonts of a fallback (module X1). */
 struct ShapedText {
-			gfx::FontId			font = 0;	/*!< The font of the run. */
+			gfx::FontId			font = 0;	/*!< The font asked for; the glyphs are in it
+												unless #fontRuns says otherwise. */
 			float				sizePx = 0;	/*!< Font size in logical pixels. */
 			std::vector<std::uint32_t> glyphs;
 									/*!< Glyph indices of the font file. */
@@ -127,11 +146,22 @@ struct ShapedText {
 			std::vector<std::uint32_t> clusters;
 									/*!< Per glyph the byte offset of its cluster in #text. */
 			float				advance = 0;
-									/*!< Width of the whole run. */
+									/*!< Width of the whole text. */
+			std::vector<ShapedFontRun> fontRuns;
+									/*!< The fonts of the glyphs, in order, if not all are
+										in #font; empty if they are. */
 
-			gfx::GlyphRun		Run() const;
-									/*!< A view of this text as GlyphRun; valid as long as
-										this object is not changed. */
+			std::vector<gfx::GlyphRun> Runs() const;
+									/*!< Views of this text as GlyphRuns, one per stretch in
+										a font (none without glyphs); valid as long as this
+										object is not changed. Clusters stay offsets in the
+										whole #text. */
+			void				Draw(gfx::Canvas& canvas, gfx::Point origin,
+									const gfx::Paint& paint) const;
+									/*!< Draws all runs at \a origin (the start of the
+										baseline). */
+			gfx::FontId			FontOf(std::size_t glyph) const;
+									/*!< The font of glyph \a glyph. */
 };
 
 
@@ -198,10 +228,14 @@ public:
 			std::vector<float>	CaretPositions(std::string_view text,
 									const FontSpec& font) const;
 									/*!< CaretPositions() in \a font. */
-	virtual	std::span<const FontFile> Fonts() const;
+	virtual	std::vector<FontFile> Fonts() const;
 									/*!< The font files of the glyph runs of Shape(), for the
 										backends; none by default, for text systems whose
-										runs are not drawn (the placeholder, test doubles). */
+										runs are not drawn (the placeholder, test doubles).
+										A text system may load fonts while shaping (a
+										fallback); it only appends them, so a caller
+										that has handed the first n to a backend hands
+										the rest. */
 
 	static	const TextSystem&	Default();
 									/*!< The text system of the process: the one given to

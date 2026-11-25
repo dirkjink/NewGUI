@@ -312,6 +312,7 @@ private:
 			void				_ViewCursorChanged(const BView* view);
 			void				_UpdatePopup(PopupSurface& popup,
 									const gfx::Caps& caps, const TextSystem& text);
+			void				_AddFonts(const TextSystem& text);
 			void				_ScheduleUpdate();
 	static	BWindow*			_DispatchingWindow();
 			void				_SetTextInputArea(gfx::Rect rect, int32 cursor);
@@ -347,6 +348,7 @@ private:
 			std::unique_ptr<gfx::Backend> fBackend;
 			gfx::SurfaceRef		fSurface;
 			const TextSystem*	fFontsOf = nullptr;
+			std::size_t			fFontsAdded = 0;
 									// The text system whose fonts fBackend has.
 			gfx::Rect			fFrame;
 			float				fScale = 1;

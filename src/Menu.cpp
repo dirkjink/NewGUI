@@ -1498,7 +1498,7 @@ MenuFrame::Draw(DrawContext& context)
 			compat::ToRgbColor(context.palette.Get(BColorWhich::MenuBackground)),
 			compat::B_DISABLED_LABEL_TINT);
 		const ShapedText shaped = context.text.Shape("<empty>", FontRole::Plain);
-		context.canvas.DrawGlyphRun(shaped.Run(), {1 + left, 1 + top + height.ascent},
+		shaped.Draw(context.canvas, {1 + left, 1 + top + height.ascent},
 			gfx::Paint{.color = compat::ToColor(disabled)});
 	}
 

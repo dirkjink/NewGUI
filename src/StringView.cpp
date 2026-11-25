@@ -197,7 +197,7 @@ BStringView::Draw(DrawContext& context)
 		}
 
 		const ShapedText shaped = text.Shape(line, FontRole::Plain);
-		context.canvas.DrawGlyphRun(shaped.Run(), {x, y}, paint);
+		shaped.Draw(context.canvas, {x, y}, paint);
 	}
 }
 

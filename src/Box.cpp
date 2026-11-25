@@ -231,7 +231,7 @@ BBox::Draw(DrawContext& context)
 
 		const gfx::Paint paint{.color = context.palette.Get(BColorWhich::PanelText)};
 		const ShapedText shaped = context.text.Shape(fLabel, FontRole::Bold);
-		canvas.DrawGlyphRun(shaped.Run(), {10.0f, fontHeight.ascent - yOffset}, paint);
+		shaped.Draw(canvas, {10.0f, fontHeight.ascent - yOffset}, paint);
 	}
 }
 

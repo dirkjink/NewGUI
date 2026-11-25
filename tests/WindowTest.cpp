@@ -7,7 +7,7 @@
 
 #include <ngui/Window.h>
 
-#include <array>
+#include <mutex>
 #include <memory>
 #include <span>
 #include <string>
@@ -18,6 +18,7 @@
 
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
+#include <ngui/StringView.h>
 #include <ngui/TextSystem.h>
 #include <ngui/gfx/Dump.h>
 
@@ -529,51 +530,71 @@ TEST(WindowTest, PopupsAreSurfacesOfTheWindow)
 }
 
 
-// A text system with fixed metrics and two fonts of the given ids.
+// A text system with fixed metrics and two fonts of the given ids; with
+// a third id, it loads that font as it shapes text for the first time,
+// as a fallback.
 class FontsTextSystem : public FixedTextSystem {
 public:
-	FontsTextSystem(gfx::FontId first, gfx::FontId second)
+	FontsTextSystem(gfx::FontId first, gfx::FontId second, gfx::FontId loaded = 0)
 		:
 		fFonts{FontFile{first, FontRole::Plain, std::as_bytes(std::span(kBytes))},
-			FontFile{second, FontRole::Bold, std::as_bytes(std::span(kBytes))}}
+			FontFile{second, FontRole::Bold, std::as_bytes(std::span(kBytes))}},
+		fLoaded(loaded)
 	{
 	}
 
-	std::span<const FontFile> Fonts() const override
+	std::vector<FontFile> Fonts() const override
 	{
+		std::scoped_lock lock(fLock);
 		return fFonts;
+	}
+
+	ShapedText Shape(std::string_view text, FontRole role) const override
+	{
+		{
+			std::scoped_lock lock(fLock);
+			if (fLoaded != 0 && fFonts.size() == 2)
+				fFonts.push_back({fLoaded, FontRole::Plain, std::as_bytes(std::span(kBytes))});
+		}
+		return FixedTextSystem::Shape(text, role);
 	}
 
 private:
 	static constexpr char kBytes[] = "font";
-	std::array<FontFile, 2> fFonts;
+	mutable std::mutex fLock;
+	mutable std::vector<FontFile> fFonts;
+	gfx::FontId fLoaded;
 };
 
 
 TEST(WindowTest, TheBackendGetsTheFontsOfTheTextSystem)
 {
 	// What is tested: A window with a backend that records AddFont(): its
-	// first frame with a default text system of the fonts 1 and 2, a second
-	// frame, and a frame after the default has been replaced by one with
-	// the fonts 7 and 8.
-	// Success criteria: The fonts 1 and 2 are added before the first frame,
-	// not again for the second; after the replacement 7 and 8 are added.
+	// first frame with a default text system of the fonts 1 and 2 that
+	// loads font 9 as it shapes the label of a BStringView, as a fallback; a
+	// second frame, and a frame after the default has been replaced by one
+	// with the fonts 7 and 8.
+	// Success criteria: The fonts 1, 2 and 9 are added before the first
+	// frame is rendered, 9 although it came while the frame was recorded;
+	// none again for the second; after the replacement 7 and 8 are added.
 	// Why it matters: The backend draws the glyph runs the text system
 	// shapes, so it must have the same font files (specification 13.4); a
 	// run in a font it does not know is not drawn.
 	//
 	// Given
-	const FontsTextSystem first(1, 2);
+	const FontsTextSystem first(1, 2, 9);
 	const FontsTextSystem second(7, 8);
 	TextSystem::SetDefault(&first);
 	auto added = std::make_shared<std::vector<gfx::FontId>>();
 	auto backend = std::make_unique<PixelBackend>();
 	backend->addedFonts = added;
+	backend->markRenders = true;
 	auto record = std::make_shared<LooperRecord>();
 	auto owned = std::make_unique<TestWindow>(gfx::Rect{0, 0, 100, 50});
 	ASSERT_TRUE(owned->UseBackend(std::move(backend)).has_value());
 	const BMessenger toView(owned->AddChild(std::make_unique<EventView>(
 		gfx::Rect{0, 0, 10, 10}, "v", record)));
+	owned->AddChild(std::make_unique<BStringView>(gfx::Rect{0, 20, 60, 40}, "label", "Label"));
 	const BMessenger window = *BLooper::Run(std::move(owned));
 
 	// When
@@ -590,7 +611,7 @@ TEST(WindowTest, TheBackendGetsTheFontsOfTheTextSystem)
 	// Then
 	EXPECT_EQ(secondFrame.GetInt64("frames", 0), 2);
 	EXPECT_EQ(thirdFrame.GetInt64("frames", 0), 3);
-	EXPECT_EQ(*added, (std::vector<gfx::FontId>{1, 2, 7, 8}));
+	EXPECT_EQ(*added, (std::vector<gfx::FontId>{1, 2, 9, 0, 0, 7, 8, 0}));
 }
 
 

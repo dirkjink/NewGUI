@@ -346,7 +346,7 @@ TextLayout::Draw(gfx::Canvas& canvas, gfx::Point origin, const gfx::Color& color
 			if (segment.shaped.glyphs.empty())
 				continue;
 			const gfx::Color runColor = segment.color.value_or(color);
-			canvas.DrawGlyphRun(segment.shaped.Run(), {x + segment.x, y},
+			segment.shaped.Draw(canvas, {x + segment.x, y},
 				gfx::Paint{.color = map != nullptr ? map(runColor) : runColor});
 		}
 	}

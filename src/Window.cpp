@@ -1570,14 +1570,7 @@ BWindow::_Update()
 			return;
 		fBackend = std::move(*backend);
 	}
-	// The backend draws the glyph runs of the text system, so it needs its
-	// fonts; again whenever the default text system has been replaced.
 	const TextSystem& text = TextSystem::Default();
-	if (fFontsOf != &text) {
-		for (const FontFile& font : text.Fonts())
-			(void)fBackend->AddFont(font.id, font.data);
-		fFontsOf = &text;
-	}
 	const gfx::Caps caps = fBackend->Capabilities();
 
 	if (drawMain) {
@@ -1598,6 +1591,7 @@ BWindow::_Update()
 
 		const DrawEnvironment environment{caps, Palette::Default(), text, fScale};
 		fLastFrame = fRoot->RecordTree(environment);
+		_AddFonts(text);
 		fFrameCount++;
 		fBackend->BeginFrame(*fSurface, Palette::Default().Get(BColorWhich::PanelBackground));
 		fBackend->Render(*fLastFrame, {0, 0});
@@ -1634,6 +1628,7 @@ BWindow::_UpdatePopup(PopupSurface& popup, const gfx::Caps& caps, const TextSyst
 
 	const DrawEnvironment environment{caps, Palette::Default(), text, popup.scale};
 	popup.lastFrame = popup.root->RecordTree(environment);
+	_AddFonts(text);
 	fBackend->BeginFrame(*popup.surface, Palette::Default().Get(BColorWhich::MenuBackground));
 	fBackend->Render(*popup.lastFrame, {0, 0});
 	fBackend->EndFrame(*popup.surface);
@@ -1641,6 +1636,23 @@ BWindow::_UpdatePopup(PopupSurface& popup, const gfx::Caps& caps, const TextSyst
 	if (popup.platformWindow != nullptr)
 		Present(*popup.platformWindow, *popup.surface, popup.dirty, popup.scale);
 	popup.dirty.clear();
+}
+
+
+// The backend draws the glyph runs of the text system, so it needs its
+// fonts: all of them for a new text system, then those it has loaded
+// since (fallbacks found while recording the frame).
+void
+BWindow::_AddFonts(const TextSystem& text)
+{
+	if (fFontsOf != &text) {
+		fFontsOf = &text;
+		fFontsAdded = 0;
+	}
+	const std::vector<FontFile> fonts = text.Fonts();
+	for (std::size_t i = fFontsAdded; i < fonts.size(); i++)
+		(void)fBackend->AddFont(fonts[i].id, fonts[i].data, fonts[i].faceIndex);
+	fFontsAdded = fonts.size();
 }
 
 

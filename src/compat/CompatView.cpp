@@ -379,7 +379,7 @@ CompatView::DrawString(const char* string, BPoint where)
 		position.x *= scale;
 		position.y *= scale;
 	}
-	fContext.canvas.DrawGlyphRun(shaped.Run(), {where.x, where.y}, _Paint(B_SOLID_HIGH));
+	shaped.Draw(fContext.canvas, {where.x, where.y}, _Paint(B_SOLID_HIGH));
 	fState.pen = BPoint(where.x + shaped.advance * scale, where.y);
 }
 

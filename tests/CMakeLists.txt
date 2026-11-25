@@ -96,7 +96,8 @@ target_include_directories(ngui_tests
 
 target_compile_definitions(ngui_tests
     PRIVATE
-        NGUI_FUZZ_CORPUS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fuzz/corpus")
+        NGUI_FUZZ_CORPUS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fuzz/corpus"
+        NGUI_TEST_FONTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/fonts")
 
 target_link_libraries(ngui_tests
     PRIVATE
@@ -106,7 +107,7 @@ target_link_libraries(ngui_tests
 
 # The text subsystem with its bundled fonts (vcpkg feature text).
 if(NGUI_WITH_TEXT)
-    target_sources(ngui_tests PRIVATE text/FontTextSystemTest.cpp)
+    target_sources(ngui_tests PRIVATE text/FontTextSystemTest.cpp text/FontFallbackTest.cpp)
     target_link_libraries(ngui_tests PRIVATE ngui::text)
 endif()
 
@@ -187,6 +188,8 @@ if(NGUI_WITH_SKIA)
         target_compile_definitions(ngui_skia_tests PRIVATE NGUI_TEST_WITH_SVG=1)
     endif()
     target_include_directories(ngui_skia_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_definitions(ngui_skia_tests
+        PRIVATE NGUI_TEST_FONTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/fonts")
     ngui_configure_target(ngui_skia_tests)
     gtest_discover_tests(ngui_skia_tests
         DISCOVERY_MODE PRE_TEST
