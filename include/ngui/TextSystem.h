@@ -101,6 +101,26 @@ NGUI_FLAG_ENUM(TextBoundary)
 using TextBoundaryFlags = Flags<TextBoundary>;
 
 
+/*!	The direction of a run of text (module X3). */
+enum class TextDirection : std::uint8_t {
+	LeftToRight,	/*!< Latin, Greek, Cyrillic, CJK, numbers ... */
+	RightToLeft		/*!< Arabic, Hebrew ... */
+};
+
+
+/*!	A stretch of a line in one direction (UAX #9): its byte offsets, in the
+	visual order of the line's runs. */
+struct DirectionRun {
+			std::size_t			start = 0;	/*!< Offset of its first byte. */
+			std::size_t			end = 0;	/*!< Offset after its last byte. */
+			TextDirection		direction = TextDirection::LeftToRight;
+											/*!< Its direction. */
+
+			bool				operator==(const DirectionRun&) const = default;
+									/*!< The same stretch and direction. */
+};
+
+
 /*!	Where TextSystem::Truncate() cuts, as Haiku's B_TRUNCATE_* modes. */
 enum class TruncationMode : std::uint8_t {
 	End,		/*!< B_TRUNCATE_END: "Long te…" */
@@ -134,7 +154,8 @@ struct ShapedFontRun {
 /*!	Shaped text that owns its glyphs, positions, text and clusters; Runs()
 	views it as the GlyphRuns the Canvas draws, one per font, and Draw()
 	draws them. Characters the font asked for does not have come in the
-	fonts of a fallback (module X1). */
+	fonts of a fallback (module X1). The glyphs are in visual order, left to
+	right; in right-to-left parts (module X3) the clusters decrease. */
 struct ShapedText {
 			gfx::FontId			font = 0;	/*!< The font asked for; the glyphs are in it
 												unless #fontRuns says otherwise. */
@@ -234,6 +255,33 @@ public:
 			std::vector<float>	CaretPositions(std::string_view text,
 									const FontSpec& font) const;
 									/*!< CaretPositions() in \a font. */
+
+			ShapedText			ShapeRun(std::string_view text, const FontSpec& font,
+									TextDirection direction) const;
+									/*!< \a text shaped as one run in \a direction, without
+										the bidirectional algorithm (DoShapeRun()): for a
+										layout that orders its runs itself. The glyphs
+										are in visual order, left to right; a right-to-left
+										run's clusters decrease. */
+			std::vector<float>	CaretPositions(std::string_view text,
+									const FontSpec& font, TextDirection direction) const;
+									/*!< CaretPositions() of the run ShapeRun() gives: x
+										relative to the run's left edge. A caret before a
+										character of a right-to-left run stands at its
+										right edge, so the first value is the run's width
+										and the last 0. */
+	virtual	std::vector<DirectionRun> VisualRuns(std::string_view paragraph,
+									std::size_t lineStart, std::size_t lineEnd) const;
+									/*!< The runs of the line from \a lineStart to
+										\a lineEnd of \a paragraph (offsets in it), in
+										visual order (UAX #9 with rule L1 and L2). By
+										default one left-to-right run; the text subsystem
+										follows Unicode with SheenBidi, the paragraph's
+										direction from its first strong character. */
+	virtual	TextDirection		ParagraphDirection(std::string_view paragraph) const;
+									/*!< The direction of \a paragraph: that of its first
+										strong character (UAX #9, rules P2 and P3), left to
+										right without one. By default left to right. */
 	virtual	std::vector<FontFile> Fonts() const;
 									/*!< The font files of the glyph runs of Shape(), for the
 										backends; none by default, for text systems whose
@@ -269,9 +317,17 @@ protected:
 	virtual	ShapedText			DoShape(std::string_view text, const FontSpec& font) const;
 									/*!< Shape() in a FontSpec; by default the role's run,
 										scaled. */
+	virtual	ShapedText			DoShapeRun(std::string_view text, const FontSpec& font,
+									TextDirection direction) const;
+									/*!< ShapeRun(); by default DoShape(), which is left to
+										right in the defaults. */
 	static	FontRole			RoleOf(gfx::FontId font);
 									/*!< The role of font 1, 2 or 3 (others: Plain), for
 										the defaults. */
+
+private:
+			std::vector<float>	CaretsOf(std::string_view text, const ShapedText& shaped,
+									bool rightToLeft, const FontSpec& font) const;
 };
 
 

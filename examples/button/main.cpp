@@ -211,7 +211,10 @@ public:
 			"a word, a triple click a line. The Text menu styles the selection.\n"
 			"Characters the bundled Noto Sans lacks come from the system's fonts: "
 			"\u2192 \u65e5\u672c\u8a9e \ud55c\uad6d\uc5b4 \u0e44\u0e17\u0e22 "
-			"\u0395\u03bb\u03bb\u03b7\u03bd\u03b9\u03ba\u03ac\n");
+			"\u0395\u03bb\u03bb\u03b7\u03bd\u03b9\u03ba\u03ac\n"
+			"Right to left: \u05e9\u05dc\u05d5\u05dd (123) "
+			"\u0645\u0631\u062d\u0628\u0627\n"
+			"\u05e9\u05dc\u05d5\u05dd \u05e2\u05d5\u05dc\u05dd!\n");
 		fNotes = notes.get();
 		auto notesScroll = std::make_unique<BScrollView>("notes scroll", std::move(notes),
 			BViewFlags{}, false, true);

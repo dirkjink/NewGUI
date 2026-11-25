@@ -543,48 +543,85 @@ TextLayout::_Measure(const TextSystem& system, std::size_t from, std::size_t to,
 	if (carets != nullptr)
 		carets->assign(to - from + 1, x);
 
-	float position = x;
-	std::size_t i = from;
-	while (i < to) {
-		if (fText[i] == '\t') {
-			// Haiku's _ActualTabWidth(), from the line's start
-			float tabWidth = 0;
-			if (fOptions.tabWidth > 0) {
-				tabWidth = fOptions.tabWidth - std::fmod(position, fOptions.tabWidth);
-				if (std::round(tabWidth) == 0)
-					tabWidth = fOptions.tabWidth;
+	// A line that is drawn goes in the visual order of its runs (UAX #9,
+	// in its paragraph: up to the line breaks around it); widths do not
+	// depend on the order.
+	std::vector<DirectionRun> runs{{from, to, TextDirection::LeftToRight}};
+	if (segments != nullptr && to > from) {
+		const std::size_t paragraphStart = from == 0 ? 0 : fText.rfind('\n', from - 1) + 1;
+		std::size_t paragraphEnd = fText.find('\n', from);
+		if (paragraphEnd == std::string::npos)
+			paragraphEnd = fText.size();
+		const std::string_view paragraph(fText.data() + paragraphStart,
+			paragraphEnd - paragraphStart);
+		std::vector<DirectionRun> visual = system.VisualRuns(paragraph, from - paragraphStart,
+			std::min(to, paragraphEnd) - paragraphStart);
+		if (!visual.empty()) {
+			for (DirectionRun& run : visual) {
+				run.start += paragraphStart;
+				run.end += paragraphStart;
 			}
-			if (carets != nullptr)
-				(*carets)[i - from] = position;
-			position += tabWidth;
-			i++;
-			continue;
+			runs = std::move(visual);
 		}
-		if (fText[i] == '\n') {
-			if (carets != nullptr)
-				(*carets)[i - from] = position;
-			i++;
-			continue;
+	}
+
+	float position = x;
+	for (const DirectionRun& run : runs) {
+		const bool rightToLeft = run.direction == TextDirection::RightToLeft;
+		// Its pieces: a tab, a line break, or text without them in one
+		// style run; a right-to-left run's last first.
+		std::vector<std::pair<std::size_t, std::size_t>> pieces;
+		for (std::size_t i = run.start; i < run.end;) {
+			if (fText[i] == '\t' || fText[i] == '\n') {
+				pieces.emplace_back(i, i + 1);
+				i++;
+				continue;
+			}
+			const std::size_t runEnd = std::min(_RunEnd(i), run.end);
+			std::size_t j = i;
+			while (j < runEnd && fText[j] != '\t' && fText[j] != '\n')
+				j++;
+			pieces.emplace_back(i, j);
+			i = j;
 		}
+		if (rightToLeft)
+			std::ranges::reverse(pieces);
 
-		// a piece without tabs and line breaks in one run
-		const std::size_t runEnd = std::min(_RunEnd(i), to);
-		std::size_t j = i;
-		while (j < runEnd && fText[j] != '\t' && fText[j] != '\n')
-			j++;
+		for (const auto& [i, j] : pieces) {
+			if (fText[i] == '\t') {
+				// Haiku's _ActualTabWidth(), from the line's start
+				float tabWidth = 0;
+				if (fOptions.tabWidth > 0) {
+					tabWidth = fOptions.tabWidth - std::fmod(position, fOptions.tabWidth);
+					if (std::round(tabWidth) == 0)
+						tabWidth = fOptions.tabWidth;
+				}
+				if (carets != nullptr)
+					(*carets)[i - from] = rightToLeft ? position + tabWidth : position;
+				position += tabWidth;
+				continue;
+			}
+			if (fText[i] == '\n') {
+				if (carets != nullptr)
+					(*carets)[i - from] = position;
+				continue;
+			}
 
-		const std::string_view piece(fText.data() + i, j - i);
-		const TextStyleRun& run = _RunAt(i);
-		const std::vector<float> pieceCarets = system.CaretPositions(piece, run.font);
-		if (carets != nullptr) {
-			for (std::size_t k = 0; k < piece.size(); k++)
-				(*carets)[i - from + k] = position + pieceCarets[k];
+			const std::string_view piece(fText.data() + i, j - i);
+			const TextStyleRun& style = _RunAt(i);
+			const std::vector<float> pieceCarets = system.CaretPositions(piece, style.font,
+				run.direction);
+			if (carets != nullptr) {
+				for (std::size_t k = 0; k < piece.size(); k++)
+					(*carets)[i - from + k] = position + pieceCarets[k];
+			}
+			if (segments != nullptr) {
+				segments->push_back({position, system.ShapeRun(piece, style.font, run.direction),
+					style.color});
+			}
+			// the run's width: the caret after it, or before it right to left
+			position += rightToLeft ? pieceCarets.front() : pieceCarets.back();
 		}
-		if (segments != nullptr)
-			segments->push_back({position, system.Shape(piece, run.font), run.color});
-
-		position += pieceCarets.back();
-		i = j;
 	}
 
 	if (carets != nullptr)

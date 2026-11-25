@@ -192,47 +192,78 @@ TextSystem::CaretPositions(std::string_view text, FontRole role) const
 std::vector<float>
 TextSystem::CaretPositions(std::string_view text, const FontSpec& font) const
 {
+	return CaretsOf(text, Shape(text, font), false, font);
+}
+
+
+std::vector<float>
+TextSystem::CaretPositions(std::string_view text, const FontSpec& font,
+	TextDirection direction) const
+{
+	return CaretsOf(text, ShapeRun(text, font, direction),
+		direction == TextDirection::RightToLeft, font);
+}
+
+
+// The x of the caret before each byte of \a text and after it, from its
+// glyphs \a shaped: a caret stands at the leading edge of its character,
+// the left one left to right, the right one right to left (\a rightToLeft,
+// then the clusters decrease from left to right).
+std::vector<float>
+TextSystem::CaretsOf(std::string_view text, const ShapedText& shaped, bool rightToLeft,
+	const FontSpec& font) const
+{
 	const std::size_t size = text.size();
 	std::vector<float> carets(size + 1, 0.0f);
 	if (size == 0)
 		return carets;
 
 	const std::vector<std::size_t> starts = CodePointStarts(text);
-	const ShapedText shaped = Shape(text, font);
 	if (shaped.clusters.size() == shaped.glyphs.size() && !shaped.clusters.empty()) {
-		// The x where each cluster begins: its leftmost glyph (left to
-		// right, clusters in order).
-		std::vector<std::pair<std::size_t, float>> clusters;
+		// The clusters in visual order, from their leftmost glyph to the
+		// next cluster's (the last to the advance).
+		struct Span {
+			std::size_t		cluster;
+			float			left;
+			float			right;
+		};
+		std::vector<Span> spans;
 		for (std::size_t g = 0; g < shaped.glyphs.size(); g++) {
 			const std::size_t cluster = std::min<std::size_t>(shaped.clusters[g], size);
-			if (clusters.empty() || clusters.back().first != cluster)
-				clusters.push_back({cluster, shaped.positions[g].x});
+			if (spans.empty() || spans.back().cluster != cluster)
+				spans.push_back({cluster, shaped.positions[g].x, 0});
 		}
-		if (clusters.front().first != 0)
-			clusters.insert(clusters.begin(), {0, 0.0f});
-		clusters.push_back({size, shaped.advance});
+		for (std::size_t v = 0; v < spans.size(); v++)
+			spans[v].right = v + 1 < spans.size() ? spans[v + 1].left : shaped.advance;
+		// in logical order; bytes before the first cluster belong to it
+		std::ranges::stable_sort(spans, {}, &Span::cluster);
+		spans.front().cluster = 0;
 
-		// The code points of a cluster share its width evenly.
+		// The code points of a cluster share its width evenly, from its
+		// leading edge.
 		std::size_t point = 0;
-		for (std::size_t c = 0; c + 1 < clusters.size(); c++) {
-			const auto [begin, x0] = clusters[c];
-			const auto [end, x1] = clusters[c + 1];
-			std::size_t first = point;
+		for (std::size_t c = 0; c < spans.size(); c++) {
+			const std::size_t end = c + 1 < spans.size() ? spans[c + 1].cluster : size;
+			const std::size_t first = point;
 			while (point < starts.size() && starts[point] < end)
 				point++;
 			const std::size_t count = point - first;
+			const float width = spans[c].right - spans[c].left;
 			for (std::size_t k = first; k < point; k++) {
-				const float share = count > 0
-					? static_cast<float>(k - first) / static_cast<float>(count) : 0.0f;
-				carets[starts[k]] = x0 + (x1 - x0) * share;
+				const float share = static_cast<float>(k - first) / static_cast<float>(count);
+				carets[starts[k]] = rightToLeft ? spans[c].right - width * share
+					: spans[c].left + width * share;
 			}
-			(void)begin;
 		}
+		carets[size] = rightToLeft ? spans.back().left : shaped.advance;
 	} else {
-		for (const std::size_t start : starts)
-			carets[start] = StringWidth(text.substr(0, start), font);
+		const float width = StringWidth(text, font);
+		for (const std::size_t start : starts) {
+			const float before = StringWidth(text.substr(0, start), font);
+			carets[start] = rightToLeft ? width - before : before;
+		}
+		carets[size] = rightToLeft ? 0.0f : width;
 	}
-	carets[size] = shaped.clusters.empty() ? StringWidth(text, font) : shaped.advance;
 
 	// bytes inside a code point: the value of its start
 	for (std::size_t i = 1; i < size; i++) {
@@ -240,6 +271,35 @@ TextSystem::CaretPositions(std::string_view text, const FontSpec& font) const
 			carets[i] = carets[i - 1];
 	}
 	return carets;
+}
+
+
+ShapedText
+TextSystem::ShapeRun(std::string_view text, const FontSpec& font,
+	TextDirection direction) const
+{
+	return DoShapeRun(text, font, direction);
+}
+
+
+ShapedText
+TextSystem::DoShapeRun(std::string_view text, const FontSpec& font, TextDirection) const
+{
+	return DoShape(text, font);
+}
+
+
+std::vector<DirectionRun>
+TextSystem::VisualRuns(std::string_view, std::size_t lineStart, std::size_t lineEnd) const
+{
+	return {{lineStart, lineEnd, TextDirection::LeftToRight}};
+}
+
+
+TextDirection
+TextSystem::ParagraphDirection(std::string_view) const
+{
+	return TextDirection::LeftToRight;
 }
 
 
