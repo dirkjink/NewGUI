@@ -81,6 +81,10 @@ add_library(ngui
     LayoutUtils.cpp
     ListItem.cpp
     ListView.cpp
+    locale/Catalog.cpp
+    locale/Languages.cpp
+    locale/LocaleRoster.cpp
+    locale/PluralForms.cpp
     Palette.cpp
     Polygon.cpp
     PopUpMenu.cpp

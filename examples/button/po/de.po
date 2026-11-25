@@ -1,0 +1,189 @@
+# German translation of the NewGUI demo (examples/button/main.cpp).
+# Copyright 2026, The NewGUI Authors. All rights reserved.
+# Distributed under the terms of the MIT License.
+# SPDX-License-Identifier: MIT
+#
+# Built into ../locale/de/LC_MESSAGES/newgui-demo.mo with
+#   msgfmt -c -o ../locale/de/LC_MESSAGES/newgui-demo.mo de.po
+msgid ""
+msgstr ""
+"Project-Id-Version: NewGUI demo\n"
+"PO-Revision-Date: 2026-11-25 12:00+0100\n"
+"Last-Translator: The NewGUI Authors\n"
+"Language-Team: German\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "Demo"
+msgid "Not clicked yet"
+msgstr "Noch nicht geklickt"
+
+msgctxt "Demo"
+msgid "Reset"
+msgstr "Zurücksetzen"
+
+msgctxt "Demo"
+msgid "About"
+msgstr "Über"
+
+msgctxt "Demo"
+msgid "Click me"
+msgstr "Klick mich"
+
+msgctxt "Demo"
+msgid "Counts the clicks.\nEnter clicks it too."
+msgstr "Zählt die Klicks.\nDie Eingabetaste klickt auch."
+
+msgctxt "Demo"
+msgid "Value"
+msgstr "Wert"
+
+msgctxt "Demo"
+msgid "Drag the thumb or use the arrow keys"
+msgstr "Den Regler ziehen oder die Pfeiltasten benutzen"
+
+msgctxt "Demo"
+msgid "None"
+msgstr "Keine"
+
+msgctxt "Demo"
+msgid "Top"
+msgstr "Oben"
+
+msgctxt "Demo"
+msgid "Bottom"
+msgstr "Unten"
+
+msgctxt "Demo"
+msgid "Both"
+msgstr "Beide"
+
+msgctxt "Demo"
+msgid "Hash marks:"
+msgstr "Skalenstriche:"
+
+msgctxt "Demo"
+msgid "Where the slider draws its marks"
+msgstr "Wo der Schieberegler seine Striche zeichnet"
+
+msgctxt "Demo"
+msgid "Name:"
+msgstr "Name:"
+
+msgctxt "Demo"
+msgid "Enter sends the name"
+msgstr "Die Eingabetaste sendet den Namen"
+
+msgctxt "Demo"
+msgid "Progress: "
+msgstr "Fortschritt: "
+
+msgctxt "Demo"
+msgid "Progress"
+msgstr "Fortschritt"
+
+msgctxt "Demo"
+msgid "Panels"
+msgstr "Bedienelemente"
+
+msgctxt "Demo"
+msgid "Notes"
+msgstr "Notizen"
+
+msgctxt "Demo"
+msgid "Lists"
+msgstr "Listen"
+
+msgctxt "Demo"
+msgid "File"
+msgstr "Datei"
+
+msgctxt "Demo"
+msgid "Open…"
+msgstr "Öffnen…"
+
+msgctxt "Demo"
+msgid "Quit"
+msgstr "Beenden"
+
+msgctxt "Demo"
+msgid "Text"
+msgstr "Text"
+
+msgctxt "Demo"
+msgid "Plain"
+msgstr "Normal"
+
+msgctxt "Demo"
+msgid "Bold"
+msgstr "Fett"
+
+msgctxt "Demo"
+msgid "Large"
+msgstr "Groß"
+
+msgctxt "Demo"
+msgid "Red"
+msgstr "Rot"
+
+msgctxt "Demo"
+msgid "Help"
+msgstr "Hilfe"
+
+msgctxt "Demo"
+msgid "Hello, "
+msgstr "Hallo, "
+
+msgctxt "Demo"
+msgid "Chosen: "
+msgstr "Gewählt: "
+
+msgctxt "Demo"
+msgid "Reset the click counter?"
+msgstr "Den Klickzähler zurücksetzen?"
+
+msgctxt "Demo"
+msgid "Cancel"
+msgstr "Abbrechen"
+
+msgctxt "Demo"
+msgid "Open files"
+msgstr "Dateien öffnen"
+
+msgctxt "Demo"
+msgid "All files"
+msgstr "Alle Dateien"
+
+msgctxt "Demo"
+msgid "Open"
+msgstr "Öffnen"
+
+msgctxt "Demo"
+msgid "OK"
+msgstr "OK"
+
+msgctxt "Demo"
+msgid "Chosen:"
+msgstr "Gewählt:"
+
+msgctxt "Demo"
+msgid "Dropped:"
+msgstr "Abgelegt:"
+
+msgctxt "Demo"
+msgid "Drop"
+msgstr "Ablegen"
+
+msgctxt "Demo"
+msgid "NewGUI\n\nHaiku's Interface Kit on SDL3 and Skia."
+msgstr "NewGUI\n\nHaikus Interface Kit auf SDL3 und Skia."
+
+#, c-format
+msgctxt "Demo"
+msgid "Clicked %d time"
+msgid_plural "Clicked %d times"
+msgstr[0] "%d-mal geklickt"
+msgstr[1] "%d-mal geklickt"

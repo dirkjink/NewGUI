@@ -22,6 +22,7 @@ add_executable(ngui_tests
     AlertTest.cpp
     ApplicationTest.cpp
     BitmapTest.cpp
+    CatalogTest.cpp
     ClipboardTest.cpp
     ClockTest.cpp
     ContainerTest.cpp
@@ -98,7 +99,8 @@ target_compile_definitions(ngui_tests
     PRIVATE
         NGUI_FUZZ_CORPUS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fuzz/corpus"
         NGUI_TEST_FONTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/fonts"
-        NGUI_BUNDLED_FONTS_DIR="${PROJECT_SOURCE_DIR}/data/fonts")
+        NGUI_BUNDLED_FONTS_DIR="${PROJECT_SOURCE_DIR}/data/fonts"
+        NGUI_DEMO_CATALOG="${PROJECT_SOURCE_DIR}/examples/button/locale/de/LC_MESSAGES/newgui-demo.mo")
 
 target_link_libraries(ngui_tests
     PRIVATE
