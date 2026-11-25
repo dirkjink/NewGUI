@@ -8,9 +8,12 @@
 #include <ngui/gfx/BackendRegistry.h>
 
 #include <algorithm>
+#include <string>
 #include <utility>
 
 #include <ngui/gfx/DumpBackend.h>
+
+#include "Environment.h"
 
 
 namespace ngui::gfx {
@@ -79,11 +82,15 @@ std::expected<std::unique_ptr<Backend>, Error>
 BackendRegistry::CreatePreferred(std::string_view preferred) const
 {
 	std::string name;
+	// the user's choice, as NGUI_PLATFORM for the platform
+	std::string wanted(preferred);
+	if (wanted.empty())
+		wanted = detail::EnvironmentVariable("NGUI_BACKEND").value_or("");
 	{
 		const std::scoped_lock lock(fLock);
 		if (fEntries.empty())
 			return Failure(ErrorCode::NotFound, "no backend registered");
-		const auto found = std::ranges::find(fEntries, preferred, &Entry::name);
+		const auto found = std::ranges::find(fEntries, wanted, &Entry::name);
 		name = found != fEntries.end() ? found->name : fEntries.front().name;
 	}
 	return Create(name);

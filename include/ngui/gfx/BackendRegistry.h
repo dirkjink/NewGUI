@@ -54,8 +54,9 @@ public:
 			std::expected<std::unique_ptr<Backend>, Error> CreatePreferred(
 									std::string_view preferred) const;
 									/*!< The backend \a preferred if it is registered (for a
-										setting or an environment variable), otherwise the one
-										with the highest priority. */
+										setting); without one, the backend the environment
+										variable NGUI_BACKEND names if it is registered;
+										otherwise the one with the highest priority. */
 
 private:
 			struct Entry {

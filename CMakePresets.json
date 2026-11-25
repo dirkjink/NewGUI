@@ -51,8 +51,9 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "VCPKG_MANIFEST_FEATURES": "tests;text;svg;skia;sdl3",
+        "VCPKG_MANIFEST_FEATURES": "tests;text;svg;skia;sdl3;blend2d",
         "NGUI_WITH_SKIA": "ON",
+        "NGUI_WITH_BLEND2D": "ON",
         "NGUI_WITH_SDL3": "ON",
         "NGUI_COVERAGE": "ON",
         "NGUI_BUILD_API_DOCS": "ON",
@@ -75,8 +76,9 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "VCPKG_MANIFEST_FEATURES": "tests;text;svg;skia;sdl3",
+        "VCPKG_MANIFEST_FEATURES": "tests;text;svg;skia;sdl3;blend2d",
         "NGUI_WITH_SKIA": "ON",
+        "NGUI_WITH_BLEND2D": "ON",
         "NGUI_WITH_SDL3": "ON",
         "NGUI_BUILD_EXAMPLES": "ON",
         "NGUI_WARNINGS_AS_ERRORS": "ON"

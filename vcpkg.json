@@ -43,6 +43,12 @@
         "sheenbidi"
       ]
     },
+    "blend2d": {
+      "description": "Blend2D backend (specification 14): a second, independent CPU backend that proves the canvas layer is exchangeable (conformance level C1x); with its JIT pipelines (AsmJit).",
+      "dependencies": [
+        "blend2d"
+      ]
+    },
     "svg": {
       "description": "Vector icons (ngui_svg): lunasvg renders SVG icons into bitmaps, with its rasterizer plutovg; independent of the drawing backend.",
       "dependencies": [
