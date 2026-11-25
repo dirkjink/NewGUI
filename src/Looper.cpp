@@ -9,15 +9,38 @@
 
 #include <algorithm>
 #include <cassert>
+#include <string_view>
+#include <vector>
 #include <utility>
 
 #include <ngui/AppDefs.h>
 #include <ngui/Autolock.h>
+#include <ngui/PropertyInfo.h>
 
 #include "LooperPort.h"
 
 
 namespace ngui {
+
+
+namespace {
+
+
+// The properties of every looper (Haiku's sLooperPropInfo, without
+// "Handlers": its messengers cannot be flattened for remote control).
+constexpr std::uint32_t kProcessInternally = 1;
+constexpr std::uint32_t kHandlerByIndex = 2;
+constexpr std::int32_t kCountHandlersEntry = 1;
+
+const std::vector<BPropertyInfoEntry> kLooperProperties = {
+	{"Handler", {}, {kIndexSpecifier, kReverseIndexSpecifier},
+		"The handler at an index; leads on to its properties.", kHandlerByIndex, {}},
+	{"Handler", {kCountProperties}, {kDirectSpecifier}, "How many handlers it has.",
+		kProcessInternally, {BTypeCode::Int32}},
+};
+
+
+} // namespace
 
 
 BLooper::BLooper(std::string_view name)
@@ -138,6 +161,9 @@ BLooper::_Dispatch(std::unique_ptr<BMessage> message)
 		return;
 	}
 	BHandler* handler = _FilteredTarget(fCurrent.get(), _Target(*fCurrent));
+	// a scripting message goes to the handler its specifiers name
+	if (handler != nullptr && fCurrent->HasSpecifiers())
+		handler = _ResolveSpecifier(handler, fCurrent.get());
 	// A message for a handler that left the looper is dropped; its waiting
 	// sender gets kNoReply.
 	if (handler != nullptr)
@@ -277,7 +303,85 @@ BLooper::DispatchMessage(BMessage* message, BHandler* handler)
 void
 BLooper::MessageReceived(BMessage* message)
 {
+	// Ported from Haiku: src/kits/app/Looper.cpp (commit b1d497bb69).
+	if (message->what == kCountProperties && message->HasSpecifiers()) {
+		const auto specifier = message->GetCurrentSpecifier();
+		const BPropertyInfo properties(kLooperProperties);
+		if (specifier.has_value() && properties.FindMatch(*message, specifier->index,
+				specifier->form, specifier->property) == kCountHandlersEntry) {
+			BMessage reply(kReply);
+			(void)reply.AddInt32("result", CountHandlers());
+			(void)reply.AddInt32("error", 0);
+			(void)message->SendReply(reply);
+			return;
+		}
+	}
 	BHandler::MessageReceived(message);
+}
+
+
+BHandler*
+BLooper::ResolveSpecifier(BMessage* message, std::int32_t index, const BMessage& specifier,
+	std::uint32_t form, std::string_view property)
+{
+	const BPropertyInfo properties(kLooperProperties);
+	std::uint32_t data = 0;
+	if (properties.FindMatch(*message, index, form, property, &data) < 0)
+		return BHandler::ResolveSpecifier(message, index, specifier, form, property);
+	if (data == kProcessInternally)
+		return this;
+	// kHandlerByIndex
+	std::int32_t handlerIndex = specifier.GetInt32("index", -1);
+	if (form == kReverseIndexSpecifier)
+		handlerIndex = CountHandlers() - handlerIndex;
+	BHandler* target = HandlerAt(handlerIndex);
+	if (target == nullptr) {
+		ReplyScriptingError(*message, {ErrorCode::OutOfRange, "handler index out of range"});
+		return nullptr;
+	}
+	(void)message->PopSpecifier();
+	return target;
+}
+
+
+std::expected<void, Error>
+BLooper::GetSupportedSuites(BMessage* data)
+{
+	if (data == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "no message for the suites");
+	if (auto added = data->AddString("suites", "suite/vnd.Be-looper"); !added)
+		return added;
+	if (auto added = data->AddMessage("messages", BPropertyInfo(kLooperProperties).ToMessage());
+			!added) {
+		return added;
+	}
+	return BHandler::GetSupportedSuites(data);
+}
+
+
+// Haiku's BLooper::resolve_specifier(): each handler turns the current
+// specifier into the next one, until one keeps the message or none is
+// left; nullptr if a handler replied an error or left the looper.
+BHandler*
+BLooper::_ResolveSpecifier(BHandler* target, BMessage* message)
+{
+	BHandler* next = target;
+	do {
+		const auto specifier = message->GetCurrentSpecifier();
+		if (!specifier.has_value()) {
+			BMessage reply(kReply);
+			(void)reply.AddInt32("error", ScriptingStatus(std::unexpected(specifier.error())));
+			(void)reply.AddString("message", specifier.error().message);
+			(void)message->SendReply(reply);
+			return nullptr;
+		}
+		target = next;
+		next = target->ResolveSpecifier(message, specifier->index, specifier->specifier,
+			specifier->form, specifier->property);
+		if (next == nullptr || IndexOf(next) < 0)
+			return nullptr;
+	} while (next != target && message->CurrentSpecifierIndex() >= 0);
+	return next;
 }
 
 

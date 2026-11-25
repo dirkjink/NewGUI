@@ -27,6 +27,13 @@ namespace ngui {
 namespace {
 
 
+// The fields of scripting (Haiku: B_SPECIFIER_ENTRY, B_PROPERTY_ENTRY,
+// B_PROPERTY_NAME_ENTRY).
+constexpr std::string_view kSpecifierField = "specifiers";
+constexpr std::string_view kPropertyField = "property";
+constexpr std::string_view kNameField = "name";
+
+
 // The type of the items a typed method stores.
 template<typename T>
 constexpr BTypeCode
@@ -447,7 +454,8 @@ BMessage::BMessage(const BMessage& other)
 	:
 	what(other.what),
 	fFields(other.fFields),
-	fDropPoint(other.fDropPoint)
+	fDropPoint(other.fDropPoint),
+	fCurrentSpecifier(other.fCurrentSpecifier)
 {
 }
 
@@ -466,6 +474,7 @@ BMessage::operator=(const BMessage& other)
 		fFields = other.fFields;
 		fDelivery.reset();
 		fDropPoint = other.fDropPoint;
+		fCurrentSpecifier = other.fCurrentSpecifier;
 	}
 	return *this;
 }
@@ -629,6 +638,7 @@ void
 BMessage::MakeEmpty()
 {
 	fFields.clear();
+	fCurrentSpecifier = -1;
 }
 
 
@@ -894,7 +904,7 @@ BMessage::Flatten() const
 std::expected<void, Error>
 BMessage::Unflatten(std::span<const std::byte> data)
 {
-	std::expected<BMessage, Error> message = MessageFlattener::Read(data, 0);
+	std::expected<BMessage, Error> message = FromFlattened(data);
 	if (!message.has_value())
 		return std::unexpected(message.error());
 	*this = std::move(*message);
@@ -905,7 +915,134 @@ BMessage::Unflatten(std::span<const std::byte> data)
 std::expected<BMessage, Error>
 BMessage::FromFlattened(std::span<const std::byte> data)
 {
-	return MessageFlattener::Read(data, 0);
+	std::expected<BMessage, Error> message = MessageFlattener::Read(data, 0);
+	// a new scripting message: its last specifier is the current one
+	if (message.has_value()) {
+		const Field* specifiers = message->_FindField(kSpecifierField);
+		if (specifiers != nullptr && specifiers->type == BTypeCode::Message)
+			message->fCurrentSpecifier = static_cast<std::int32_t>(specifiers->items.size()) - 1;
+	}
+	return message;
+}
+
+
+// #pragma mark - Specifiers
+
+
+// Ported from Haiku: src/kits/app/Message.cpp (commit b1d497bb69).
+
+
+std::expected<void, Error>
+BMessage::AddSpecifier(std::string_view property)
+{
+	if (property.empty())
+		return Failure(ErrorCode::InvalidArgument, "a specifier needs a property");
+	BMessage message(kDirectSpecifier);
+	(void)message.AddString(kPropertyField, property);
+	return AddSpecifier(message);
+}
+
+
+std::expected<void, Error>
+BMessage::AddSpecifier(std::string_view property, std::int32_t index)
+{
+	if (property.empty())
+		return Failure(ErrorCode::InvalidArgument, "a specifier needs a property");
+	BMessage message(kIndexSpecifier);
+	(void)message.AddString(kPropertyField, property);
+	(void)message.AddInt32("index", index);
+	return AddSpecifier(message);
+}
+
+
+std::expected<void, Error>
+BMessage::AddSpecifier(std::string_view property, std::int32_t index, std::int32_t range)
+{
+	if (range < 0)
+		return Failure(ErrorCode::InvalidArgument, "a range must not be negative");
+	if (property.empty())
+		return Failure(ErrorCode::InvalidArgument, "a specifier needs a property");
+	BMessage message(kRangeSpecifier);
+	(void)message.AddString(kPropertyField, property);
+	(void)message.AddInt32("index", index);
+	(void)message.AddInt32("range", range);
+	return AddSpecifier(message);
+}
+
+
+std::expected<void, Error>
+BMessage::AddSpecifier(std::string_view property, std::string_view name)
+{
+	if (property.empty())
+		return Failure(ErrorCode::InvalidArgument, "a specifier needs a property");
+	BMessage message(kNameSpecifier);
+	(void)message.AddString(kPropertyField, property);
+	(void)message.AddString(kNameField, name);
+	return AddSpecifier(message);
+}
+
+
+std::expected<void, Error>
+BMessage::AddSpecifier(const BMessage& specifier)
+{
+	if (auto added = AddMessage(kSpecifierField, specifier); !added)
+		return added;
+	fCurrentSpecifier++;
+	return {};
+}
+
+
+std::expected<void, Error>
+BMessage::SetCurrentSpecifier(std::int32_t index)
+{
+	const Field* specifiers = _FindField(kSpecifierField);
+	if (index < 0 || specifiers == nullptr
+		|| index >= static_cast<std::int32_t>(specifiers->items.size())) {
+		return Failure(ErrorCode::OutOfRange, "no such specifier");
+	}
+	fCurrentSpecifier = index;
+	return {};
+}
+
+
+std::expected<BSpecifier, Error>
+BMessage::GetCurrentSpecifier() const
+{
+	if (fCurrentSpecifier < 0 || !WasDelivered())
+		return Failure(ErrorCode::BadScriptSyntax, "no specifier to resolve");
+	auto specifier = FindMessage(kSpecifierField, fCurrentSpecifier);
+	if (!specifier.has_value())
+		return Failure(ErrorCode::BadScriptSyntax, "no specifier to resolve");
+	const auto property = specifier->FindString(kPropertyField);
+	if (!property.has_value())
+		return Failure(ErrorCode::BadScriptSyntax, "the specifier names no property");
+	const std::string name(*property);
+	const std::uint32_t form = specifier->what;
+	return BSpecifier{fCurrentSpecifier, std::move(*specifier), form, name};
+}
+
+
+std::int32_t
+BMessage::CurrentSpecifierIndex() const
+{
+	return fCurrentSpecifier;
+}
+
+
+bool
+BMessage::HasSpecifiers() const
+{
+	return _FindField(kSpecifierField) != nullptr;
+}
+
+
+std::expected<void, Error>
+BMessage::PopSpecifier()
+{
+	if (fCurrentSpecifier < 0 || !WasDelivered())
+		return Failure(ErrorCode::InvalidArgument, "no specifier to pop");
+	fCurrentSpecifier--;
+	return {};
 }
 
 

@@ -30,7 +30,10 @@ enum class ErrorCode : std::uint8_t {
 	IoError,			/*!< Reading or writing failed (B_IO_ERROR). */
 	TimedOut,			/*!< A wait ended before it succeeded (B_TIMED_OUT,
 							B_WOULD_BLOCK). */
-	BadType				/*!< A value has another type than asked for (B_BAD_TYPE). */
+	BadType,			/*!< A value has another type than asked for (B_BAD_TYPE). */
+	BadScriptSyntax		/*!< A scripting message has no specifier where one is needed,
+							or one its target does not understand
+							(B_BAD_SCRIPT_SYNTAX, specification 20.7). */
 };
 
 

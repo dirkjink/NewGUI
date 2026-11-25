@@ -10,8 +10,13 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <string>
+#include <vector>
 
+#include <ngui/AppDefs.h>
 #include <ngui/Looper.h>
+#include <ngui/Message.h>
+#include <ngui/PropertyInfo.h>
 
 
 namespace ngui {
@@ -47,13 +52,99 @@ BHandler::~BHandler()
 }
 
 
+namespace {
+
+
+// The properties of every handler (Haiku's sHandlerPropInfo, without
+// "Messenger": a BMessenger cannot be flattened, and remote control
+// (specification 20.7) gets nothing from it).
+const std::vector<BPropertyInfoEntry> kHandlerProperties = {
+	{"Suites", {kGetProperty}, {kDirectSpecifier},
+		"The suites and properties it understands.", 0, {}},
+	{"InternalName", {kGetProperty}, {kDirectSpecifier}, "Its name.", 0,
+		{BTypeCode::String}},
+};
+
+
+// A command of scripting: without specifiers Haiku answers it with the
+// handler's messenger, which NewGUI leaves out, so it is not understood.
+bool
+IsScriptingCommand(std::uint32_t what)
+{
+	return what == kGetProperty || what == kSetProperty || what == kCreateProperty
+		|| what == kDeleteProperty || what == kCountProperties || what == kExecuteProperty;
+}
+
+
+} // namespace
+
+
 void
 BHandler::MessageReceived(BMessage* message)
 {
-	// Unhandled: on to the next handler. Haiku answers scripting messages
-	// with B_MESSAGE_NOT_UNDERSTOOD here; that comes with scripting.
+	// Ported from Haiku: src/kits/app/Handler.cpp (commit b1d497bb69).
+	switch (message->what) {
+		case kGetProperty:
+		{
+			const auto specifier = message->GetCurrentSpecifier();
+			if (!specifier.has_value())
+				break;
+			BMessage reply(kReply);
+			std::expected<void, Error> result;
+			if (specifier->property == "Suites")
+				result = GetSupportedSuites(&reply);
+			else if (specifier->property == "InternalName")
+				result = reply.AddString("result", Name());
+			else
+				break;
+			(void)reply.AddInt32("error", ScriptingStatus(result));
+			(void)message->SendReply(reply);
+			return;
+		}
+		case kGetSupportedSuites:
+		{
+			BMessage reply(kReply);
+			(void)reply.AddInt32("error", ScriptingStatus(GetSupportedSuites(&reply)));
+			(void)message->SendReply(reply);
+			return;
+		}
+		default:
+			break;
+	}
+
+	// Unhandled: on to the next handler; at the end of the chain a
+	// scripting message is answered (B_MESSAGE_NOT_UNDERSTOOD).
 	if (fNextHandler != nullptr)
 		fNextHandler->MessageReceived(message);
+	else if (message->HasSpecifiers() || IsScriptingCommand(message->what)) {
+		ReplyScriptingError(*message, {ErrorCode::BadScriptSyntax,
+			"\"" + Name() + "\" does not understand the message"});
+	}
+}
+
+
+BHandler*
+BHandler::ResolveSpecifier(BMessage* message, std::int32_t index, const BMessage& /*specifier*/,
+	std::uint32_t form, std::string_view property)
+{
+	// Straight from the BeBook, as Haiku says.
+	const BPropertyInfo properties(kHandlerProperties);
+	if (properties.FindMatch(*message, index, form, property) >= 0)
+		return this;
+	ReplyScriptingError(*message, {ErrorCode::BadScriptSyntax,
+		"\"" + Name() + "\" has no property \"" + std::string(property) + "\""});
+	return nullptr;
+}
+
+
+std::expected<void, Error>
+BHandler::GetSupportedSuites(BMessage* data)
+{
+	if (data == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "no message for the suites");
+	if (auto added = data->AddString("suites", "suite/vnd.Be-handler"); !added)
+		return added;
+	return data->AddMessage("messages", BPropertyInfo(kHandlerProperties).ToMessage());
 }
 
 
