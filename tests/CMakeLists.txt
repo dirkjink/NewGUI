@@ -84,6 +84,7 @@ add_executable(ngui_tests
     platform/CpuPresenterTest.cpp
     platform/HeadlessPlatformTest.cpp
     platform/PlatformTest.cpp
+    test/DriverTest.cpp
     test/ImageCompareTest.cpp
     test/ImageTest.cpp
     test/SnapshotTest.cpp

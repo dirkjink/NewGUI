@@ -12,6 +12,7 @@
 // carries: its target handler and whom to reply to.
 
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -21,6 +22,8 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
+#include <vector>
 #include <thread>
 
 #include <ngui/Error.h>
@@ -31,9 +34,16 @@
 namespace ngui {
 
 
+class BLooper;
+
+
 // Quits a looper without asking QuitRequested() (Haiku's _QUIT_); the
 // application sends it to the windows left when it ends.
 inline constexpr std::uint32_t kQuitNow = FourCharCode("_QIT");
+
+// Runs a function on the looper's thread (its "work" pointer, a
+// std::function<void()>) and replies; for RunOnLooper().
+inline constexpr std::uint32_t kRunOnLooper = FourCharCode("_RUN");
 
 
 // The queue of a looper. Push() from any thread, Pop() only on the looper
@@ -41,6 +51,24 @@ inline constexpr std::uint32_t kQuitNow = FourCharCode("_QIT");
 // ones are destroyed, which answers waiting senders with kNoReply.
 class LooperPort {
 public:
+	// What a looper is doing, for the test kit's WaitForIdle().
+	struct State {
+		std::string					name;
+		std::size_t					queued = 0;
+		bool						dispatching = false;
+		std::uint32_t				handling = 0;	// the what in hand while dispatching
+		std::vector<std::uint32_t>	waiting;	// the what of each queued message
+	};
+
+	// A new port, known to States() while it lives.
+	static std::shared_ptr<LooperPort> Create();
+	// The open ports, of loopers running or about to.
+	static std::vector<State> States();
+	// Grows with every message pushed and every one dispatched: unchanged
+	// over a look at all States(), nothing happened in between.
+	static std::uint64_t Activity();
+
+	void SetName(std::string name);
 	std::expected<void, Error> Push(std::unique_ptr<BMessage> message);
 	std::unique_ptr<BMessage> Pop();
 	// The next message, or nullptr at once if there is none.
@@ -60,11 +88,19 @@ public:
 	bool WaitFinished(std::chrono::microseconds timeout);
 
 private:
+	// Ends the dispatching of the last message popped; under fLock.
+	void _Dispatched();
+
+	static inline std::atomic<std::uint64_t> sActivity{0};
+
 	mutable std::mutex fLock;
 	std::condition_variable fAvailable;
 	std::condition_variable fFinished;
 	std::deque<std::unique_ptr<BMessage>> fQueue;
 	std::thread::id fThread;
+	std::string fName;
+	bool fDispatching = false;
+	std::uint32_t fHandling = 0;
 	std::function<void()> fWaker;
 	std::condition_variable fWakersDone;
 	int fWakersRunning = 0;
@@ -116,6 +152,19 @@ struct MessageDelivery {
 	bool isReply = false;
 	bool delivered = false;
 };
+
+
+// Runs \a work on the thread of \a looper, with the looper, locked, and
+// waits for it, at most
+// \a timeout; NotFound if the looper is gone (or goes first), TimedOut if
+// it is busy for longer. For the test kit, whose queries read views on
+// their window's thread.
+std::expected<void, Error> RunOnLooper(const BMessenger& looper,
+	std::function<void(BLooper&)> work, std::chrono::microseconds timeout);
+
+// Runs the work of a kRunOnLooper message and replies; false for other
+// messages. BLooper calls it before dispatching.
+bool RunRequestedWork(BLooper& looper, BMessage& message);
 
 
 } // namespace ngui

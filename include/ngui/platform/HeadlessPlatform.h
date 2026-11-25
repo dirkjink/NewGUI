@@ -196,6 +196,12 @@ public:
 										nullptr: as cancelled. */
 			std::vector<FileDialogSpec> FileDialogs() const;
 									/*!< The file dialogs asked for so far. */
+			bool				IsIdle() const;
+									/*!< No posted work waits or runs (for the test
+										driver's WaitForIdle()). */
+			std::uint64_t		Activity() const;
+									/*!< Grows with every work posted and run: unchanged
+										over a look, nothing happened. */
 
 private:
 	friend class HeadlessWindow;

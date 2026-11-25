@@ -23,6 +23,8 @@ struct HeadlessWindow::Shared {
 	std::condition_variable				changed;
 	std::deque<std::function<void()>>	work;
 	bool								woken = false;
+	bool								processing = false;
+	std::uint64_t						activity = 0;
 	std::vector<HeadlessWindow*>		windows;
 	HeadlessWindow*						active = nullptr;
 	ClipboardData						clipboard;
@@ -309,10 +311,16 @@ HeadlessPlatform::ProcessEvents()
 	std::deque<std::function<void()>> work;
 	{
 		std::scoped_lock lock(fShared->lock);
+		if (fShared->work.empty())
+			return;
 		work.swap(fShared->work);
+		fShared->processing = true;
 	}
 	for (std::function<void()>& item : work)
 		item();
+	std::scoped_lock lock(fShared->lock);
+	fShared->processing = false;
+	fShared->activity++;
 }
 
 
@@ -395,6 +403,7 @@ HeadlessPlatform::Post(std::function<void()> work)
 	{
 		std::scoped_lock lock(fShared->lock);
 		fShared->work.push_back(std::move(work));
+		fShared->activity++;
 	}
 	fShared->changed.notify_all();
 }
@@ -445,6 +454,22 @@ HeadlessPlatform::FileDialogs() const
 {
 	std::scoped_lock lock(fShared->lock);
 	return fShared->dialogs;
+}
+
+
+bool
+HeadlessPlatform::IsIdle() const
+{
+	std::scoped_lock lock(fShared->lock);
+	return fShared->work.empty() && !fShared->processing;
+}
+
+
+std::uint64_t
+HeadlessPlatform::Activity() const
+{
+	std::scoped_lock lock(fShared->lock);
+	return fShared->activity;
 }
 
 
