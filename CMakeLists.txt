@@ -20,6 +20,7 @@ option(NGUI_WITH_BLEND2D "Build with Blend2D (vcpkg feature blend2d)" OFF)
 option(NGUI_WITH_SDL3 "Build the SDL3 platform (vcpkg feature sdl3)" OFF)
 option(NGUI_WITH_TEXT "Build the text subsystem (vcpkg feature text)" OFF)
 option(NGUI_WITH_SVG "Build the vector icon renderer (vcpkg feature svg)" OFF)
+option(NGUI_BUILD_TOOLS "Build the command-line tools (ngui-hey)" ${PROJECT_IS_TOP_LEVEL})
 option(NGUI_BUILD_EXAMPLES "Build the examples (needs Skia, SDL3, the text subsystem and SVG)" OFF)
 
 # Minimum compilers (CONVENTIONS.md, section 1). Clang 17 and 18 do get
@@ -43,6 +44,11 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 include(NguiCompilerOptions)
 
 add_subdirectory(src)
+
+# before the tests, which run ngui-hey
+if(NGUI_BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
 
 if(NGUI_BUILD_API_DOCS)
     include(NguiApiDocs)

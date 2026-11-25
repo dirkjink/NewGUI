@@ -44,6 +44,7 @@ add_executable(ngui_tests
     MessageFilterTest.cpp
     MessageRunnerTest.cpp
     MessageTest.cpp
+    HeyTest.cpp
     RemoteControlTest.cpp
     ScriptingPropertiesTest.cpp
     ScriptingTest.cpp
@@ -101,6 +102,11 @@ add_executable(ngui_tests
 
 # The tests of internal classes (DisplayListBuilder ...) include their
 # private headers from src/; shared test helpers come from tests/support/.
+# The end-to-end test of ngui-hey runs the built tool.
+if(TARGET ngui_hey)
+    add_dependencies(ngui_tests ngui_hey)
+    target_compile_definitions(ngui_tests PRIVATE NGUI_TEST_HEY="$<TARGET_FILE:ngui_hey>")
+endif()
 target_include_directories(ngui_tests
     PRIVATE
         "${PROJECT_SOURCE_DIR}/src"
