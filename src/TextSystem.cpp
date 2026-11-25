@@ -443,4 +443,26 @@ TextSystem::Fonts() const
 }
 
 
+namespace {
+
+thread_local TextSystem::TruncationObserver sTruncationObserver;
+
+} // namespace
+
+
+void
+TextSystem::SetTruncationObserver(TruncationObserver observer)
+{
+	sTruncationObserver = std::move(observer);
+}
+
+
+void
+TextSystem::ReportTruncation(std::string_view text, std::string_view shown)
+{
+	if (sTruncationObserver && shown != text)
+		sTruncationObserver(text, shown);
+}
+
+
 } // namespace ngui

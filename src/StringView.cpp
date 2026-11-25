@@ -174,7 +174,9 @@ BStringView::Draw(DrawContext& context)
 		if (fTruncation.has_value() && width > boundsWidth) {
 			// The string needs to be truncated
 			// TODO: we should cache this
+			const std::string original = line;
 			line = text.Truncate(line, boundsWidth, *fTruncation, FontRole::Plain);
+			TextSystem::ReportTruncation(original, line);
 			width = text.StringWidth(line, FontRole::Plain);
 		}
 
