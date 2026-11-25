@@ -73,6 +73,15 @@ public:
 			std::expected<void, Error> Invoke(const BMessage* message = nullptr) override;
 									/*!< Sends a copy of \a message (Message() by default)
 										with "when", "source" and "be:value". */
+			void				MessageReceived(BMessage* message) override;
+									/*!< Scripting: gets and sets "Enabled", "Label" and
+										"Value"; otherwise as BView's. */
+			BHandler*			ResolveSpecifier(BMessage* message, std::int32_t index,
+									const BMessage& specifier, std::uint32_t form,
+									std::string_view property) override;
+									/*!< Its scripting properties; otherwise as BView's. */
+			std::expected<void, Error> GetSupportedSuites(BMessage* data) override;
+									/*!< "suite/vnd.Be-control" and BView's. */
 
 protected:
 			bool				IsFocusChanging() const;

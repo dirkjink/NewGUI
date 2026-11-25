@@ -68,6 +68,14 @@ public:
 										kNoReply if the message is destroyed unanswered.
 										TimedOut after \a replyTimeout; InvalidArgument on
 										the target's own thread, where it would deadlock. */
+			std::expected<void, Error> ForwardMessage(std::unique_ptr<BMessage> message) const;
+									/*!< Sends \a message itself, a delivered one whose reply
+										is still owed: the reply goes to its sender (Haiku
+										forwards so with SendMessage(BMessage*)); e.g. the
+										application passes a scripting message on to a window
+										(BLooper::DetachCurrentMessage()). NotFound if the
+										looper is gone: the message is destroyed, a waiting
+										sender gets kNoReply. */
 
 			std::expected<void, Error> WaitForLooperQuit(
 									std::chrono::microseconds timeout = kInfiniteTimeout)

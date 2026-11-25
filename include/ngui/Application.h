@@ -145,6 +145,20 @@ public:
 									/*!< The system commands of AppDefs.h, then as
 										BLooper's. */
 
+	// Scripting (specification 20.7)
+
+			void				MessageReceived(BMessage* message) override;
+									/*!< Answers "Name" (its signature) and the count of
+										"Window"; otherwise as BLooper's. */
+			BHandler*			ResolveSpecifier(BMessage* message, std::int32_t index,
+									const BMessage& specifier, std::uint32_t form,
+									std::string_view property) override;
+									/*!< "Window" by index, reverse index or title passes the
+										message on to that window (Haiku forwards it so);
+										otherwise as BLooper's. */
+			std::expected<void, Error> GetSupportedSuites(BMessage* data) override;
+									/*!< "suite/vnd.Be-application" and BLooper's. */
+
 private:
 			class PlatformEvents;
 

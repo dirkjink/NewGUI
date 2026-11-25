@@ -59,6 +59,8 @@ Alle Presets bauen das Text-Subsystem (`ngui_text`, Feature `text`: HarfBuzz, li
 
 Gezeichnet wird mit Skia; Blend2D ist ein zweites, unabhängiges Backend (vcpkg-Feature `blend2d`, `NGUI_WITH_BLEND2D`), mit dem `NGUI_BACKEND=blend2d` jede Anwendung startet. Achsparallele Primitive zeichnen beide Pixel für Pixel gleich (Konformitätsstufe C1×), geglättete Kanten weichen nur im Rahmen ihrer Rasterer ab.
 
+Anwendungen lassen sich wie unter Haiku per Scripting-Nachrichten steuern (`kGetProperty`, `kSetProperty`, `kCountProperties`, `kExecuteProperty` mit Specifiern, z. B. „`Value` of View `check` of Window `Settings`“): Anwendung, Fenster, Views, Controls, Textfelder und Listen haben Haikus Standardeigenschaften, eigene Klassen ergänzen ihre mit `BPropertyInfo` und `ResolveSpecifier()`.
+
 `gfx::ExportSvg()` schreibt eine DisplayList als SVG (`SvgExportBackend`): deterministisch, mit Verläufen, Clipping und eingebetteten Bildern, Text als Glyph-Umrisse oder als auswählbarer `<text>`; `EXPECT_SVG_SNAPSHOT` vergleicht das Ergebnis mit einer Referenzdatei.
 
 Zwei Looks sind eingebaut, beide 1:1 aus Haiku portiert: `be` (BeOS, die Voreinstellung) und `haiku` (Haikus Standard-Look mit Verläufen). `NGUI_CONTROL_LOOK=haiku` startet eine Anwendung im Haiku-Look; ein Look, den das Backend nicht zeichnen kann, fällt auf `be` zurück. Zur Laufzeit wechselt `LookRegistry::Default().SetCurrent("haiku")` den Look aller Fenster (in der Demo das Menü „Look“); `BWindow::SetControlLook()` gibt einem einzelnen Fenster einen eigenen Look, etwa für eine Vorschau.

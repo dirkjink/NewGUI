@@ -17,10 +17,16 @@
 
 #include <ngui/Control.h>
 
+#include <optional>
+#include <vector>
+
 #include <ngui/Clock.h>
 #include <ngui/Message.h>
 #include <ngui/Palette.h>
+#include <ngui/PropertyInfo.h>
 #include <ngui/Window.h>
+
+#include "ScriptingSupport.h"
 
 
 namespace ngui {
@@ -227,5 +233,90 @@ BControl::_InitData()
 	fWantsNav = Flags().Has(BViewFlag::Navigable);
 }
 
+
+// #pragma mark - Scripting
+
+
+namespace {
+
+
+// Ported from Haiku: src/kits/interface/Control.cpp (commit b1d497bb69).
+const std::vector<BPropertyInfoEntry> kControlProperties = {
+	{"Enabled", {kGetProperty, kSetProperty}, {kDirectSpecifier},
+		"Whether it takes input.", 0, {BTypeCode::Bool}},
+	{"Label", {kGetProperty, kSetProperty}, {kDirectSpecifier}, "Its label.", 0,
+		{BTypeCode::String}},
+	{"Value", {kGetProperty, kSetProperty}, {kDirectSpecifier}, "Its value.", 0,
+		{BTypeCode::Int32}},
+};
+
+
+} // namespace
+
+
+void
+BControl::MessageReceived(BMessage* message)
+{
+	if ((message->what == kGetProperty || message->what == kSetProperty)
+		&& message->HasSpecifiers()) {
+		const auto specifier = message->GetCurrentSpecifier();
+		if (specifier.has_value()) {
+			const bool get = message->what == kGetProperty;
+			BMessage reply(kReply);
+			std::optional<std::expected<void, Error>> result;
+			if (specifier->property == "Label") {
+				if (get)
+					result = reply.AddString("result", Label());
+				else if (const auto label = message->FindString("data")) {
+					SetLabel(*label);
+					result = std::expected<void, Error>();
+				}
+			} else if (specifier->property == "Value") {
+				if (get)
+					result = reply.AddInt32("result", Value());
+				else if (const auto value = message->FindInt32("data")) {
+					SetValue(*value);
+					result = std::expected<void, Error>();
+				}
+			} else if (specifier->property == "Enabled") {
+				if (get)
+					result = reply.AddBool("result", IsEnabled());
+				else if (const auto enabled = message->FindBool("data")) {
+					SetEnabled(*enabled);
+					result = std::expected<void, Error>();
+				}
+			}
+			if (result.has_value()) {
+				detail::SendScriptingReply(*message, std::move(reply), *result);
+				return;
+			}
+		}
+	}
+	BView::MessageReceived(message);
+}
+
+
+BHandler*
+BControl::ResolveSpecifier(BMessage* message, std::int32_t index, const BMessage& specifier,
+	std::uint32_t form, std::string_view property)
+{
+	if (BPropertyInfo(kControlProperties).FindMatch(*message, 0, form, property) >= 0)
+		return this;
+	return BView::ResolveSpecifier(message, index, specifier, form, property);
+}
+
+std::expected<void, Error>
+BControl::GetSupportedSuites(BMessage* data)
+{
+	if (data == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "no message for the suites");
+	if (auto added = data->AddString("suites", "suite/vnd.Be-control"); !added)
+		return added;
+	if (auto added = data->AddMessage("messages", BPropertyInfo(kControlProperties).ToMessage());
+			!added) {
+		return added;
+	}
+	return BView::GetSupportedSuites(data);
+}
 
 } // namespace ngui
