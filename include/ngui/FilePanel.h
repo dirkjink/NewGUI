@@ -68,17 +68,18 @@ using BNodeFlavors = Flags<BNodeFlavor>;
 	  it is hidden.
 
 	Differences to Haiku: the dialog is the system's (with SDL: Windows'
-	and macOS' own, under Linux zenity), so there is no BRefFilter,
-	Window() or SelectionChanged(), no Rewind() or GetNextSelectedRef();
-	filters by file name pattern (AddFilter()) take the place of
-	BRefFilter. A dialog cannot be closed by the program: after Hide() its
-	result is dropped. The dialog always closes when done (hideWhenDone is
-	kept for the API). An open panel whose only flavor is
-	BNodeFlavor::Directory picks folders. The panel may be destroyed while
-	its dialog shows; the result then still goes to the target. Show()
-	returns NotSupported without a platform that has file dialogs; a
-	system without one (Linux without zenity) answers with kCancel and
-	"error". Thread-safe.
+	and macOS' own, under Linux the xdg-desktop-portal's, without a
+	portal zenity's), so there is no BRefFilter, Window() or
+	SelectionChanged(), no Rewind() or GetNextSelectedRef(); filters by
+	file name pattern (AddFilter()) take the place of BRefFilter. A
+	dialog cannot be closed by the program: after Hide() its result is
+	dropped. The dialog always closes when done (hideWhenDone is kept
+	for the API). An open panel whose only flavor is
+	BNodeFlavor::Directory picks folders. The panel may be destroyed
+	while its dialog shows; the result then still goes to the target.
+	Show() returns NotSupported without a platform that has file
+	dialogs; a system without one (Linux without portal and zenity)
+	answers with kCancel and "error". Thread-safe.
 */
 class BFilePanel {
 public:

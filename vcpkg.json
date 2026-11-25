@@ -49,7 +49,7 @@
       ]
     },
     "sdl3": {
-      "description": "The SDL3 platform (ngui_sdl3): windows, events and the main thread on Linux (X11 and Wayland, which need the system's development headers) and Windows; without audio, joysticks or IME libraries.",
+      "description": "The SDL3 platform (ngui_sdl3): windows, events and the main thread on Linux (X11 and Wayland, which need the system's development headers) and Windows; without audio, joysticks or IME libraries. Under Linux with D-Bus, for the file dialogs of the xdg-desktop-portal (SDL loads the system's libdbus at run time and needs only the headers to build); D-Bus is listed directly to switch off its default feature systemd, as with FreeType.",
       "dependencies": [
         {
           "name": "sdl3",
@@ -62,8 +62,17 @@
             {
               "name": "wayland",
               "platform": "linux"
+            },
+            {
+              "name": "dbus",
+              "platform": "linux"
             }
           ]
+        },
+        {
+          "name": "dbus",
+          "default-features": false,
+          "platform": "linux"
         }
       ]
     }
