@@ -47,8 +47,9 @@ struct LookSelection {
 
 	Current() is read atomically and may be called from any thread; a
 	window takes a snapshot at the start of each layout and drawing cycle
-	(L10). SetCurrent() replaces it; notifying the windows (LOOK_CHANGED,
-	18.5) comes with module M17b.
+	(L10). SetCurrent() replaces it; the registry of the process then tells
+	every window (kLookChanged, 18.5, module M17b), and a window without a
+	look of its own (BWindow::SetControlLook()) lays out and draws anew.
 */
 class LookRegistry {
 public:
@@ -92,6 +93,12 @@ public:
 									/*!< The looks compatible with \a caps (L9). A look whose
 										factory fails is left out. */
 
+			std::expected<std::shared_ptr<const ControlLook>, Error> Find(
+									std::string_view id, const gfx::Caps& caps) const;
+									/*!< The look \a id for a backend with \a caps: NotFound
+										if it is not registered, NotSupported if it is
+										incompatible with \a caps (L9) or its factory fails or
+										makes a look with another id. */
 			std::shared_ptr<const ControlLook> Current() const;
 									/*!< The current look, atomically; nullptr until one is
 										selected. */
@@ -104,7 +111,8 @@ public:
 										registered, NotSupported if it is incompatible with
 										BackendCaps() (L9) or its factory fails or makes a
 										look with another id. The current look is unchanged
-										on failure. */
+										on failure. In Default(), a change is sent to every
+										window as kLookChanged (18.5). */
 			std::expected<LookSelection, Error> SelectAtStart(std::string_view setting);
 									/*!< The selection at start (18.4): the look named by
 										the setting, kFallbackId if it is empty. If that
@@ -124,6 +132,8 @@ private:
 	mutable	std::vector<Entry>	fEntries;
 			gfx::Caps			fCaps;
 			std::atomic<std::shared_ptr<const ControlLook>> fCurrent;
+			bool				fTellsWindows = false;
+									// Default(): SetCurrent() sends kLookChanged.
 };
 
 

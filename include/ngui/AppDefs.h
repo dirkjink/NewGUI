@@ -95,6 +95,11 @@ inline constexpr std::uint32_t kWindowMoved = FourCharCode("_WMV");
 	"active". */
 inline constexpr std::uint32_t kWindowActivated = FourCharCode("_ACT");
 
+/*!	The current look changed (LOOK_CHANGED, specification 18.5): sent by
+	LookRegistry::SetCurrent() to every window; a window without a look of
+	its own lays out and draws anew with the new look (L11). */
+inline constexpr std::uint32_t kLookChanged = FourCharCode("_LKC");
+
 
 /*!	Files chosen to open (B_REFS_RECEIVED), e.g. in a BFilePanel: their
 	paths as UTF-8 strings in "paths" (NewGUI; Haiku: entry_refs in

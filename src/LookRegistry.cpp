@@ -10,9 +10,12 @@
 #include <algorithm>
 #include <utility>
 
+#include <ngui/AppDefs.h>
 #include <ngui/BeLook.h>
 #include <ngui/HaikuLook.h>
 
+
+#include "WindowList.h"
 
 namespace ngui {
 
@@ -47,7 +50,10 @@ LookRegistry::Default()
 		// The built-in looks (18.6).
 		registry.Register(std::string(kFallbackId), CreateBeLook);
 		registry.Register("haiku", CreateHaikuLook);
-		return registry.SetCurrent(kFallbackId).has_value();
+		const bool selected = registry.SetCurrent(kFallbackId).has_value();
+		// from now on, changes reach the windows
+		registry.fTellsWindows = true;
+		return selected;
 	}();
 	(void)initialized;
 	return registry;
@@ -148,27 +154,37 @@ LookRegistry::DefaultLook()
 }
 
 
+std::expected<std::shared_ptr<const ControlLook>, Error>
+LookRegistry::Find(std::string_view id, const gfx::Caps& caps) const
+{
+	std::lock_guard lock(fLock);
+	const auto entry = std::find_if(fEntries.begin(), fEntries.end(),
+		[&](const Entry& candidate) { return candidate.id == id; });
+	if (entry == fEntries.end())
+		return Failure(ErrorCode::NotFound, "no look \"" + std::string(id) + "\"");
+	std::shared_ptr<const ControlLook> look = _Look(*entry);
+	if (look == nullptr) {
+		return Failure(ErrorCode::NotSupported,
+			"the look \"" + std::string(id) + "\" cannot be made");
+	}
+	if (!IsCompatible(look->Info(), caps)) {
+		return Failure(ErrorCode::NotSupported, "the look \"" + std::string(id)
+			+ "\" needs capabilities the backend does not have");
+	}
+	return look;
+}
+
+
 std::expected<void, Error>
 LookRegistry::SetCurrent(std::string_view id)
 {
-	std::shared_ptr<const ControlLook> look;
-	{
-		std::lock_guard lock(fLock);
-		const auto entry = std::find_if(fEntries.begin(), fEntries.end(),
-			[&](const Entry& candidate) { return candidate.id == id; });
-		if (entry == fEntries.end())
-			return Failure(ErrorCode::NotFound, "no look \"" + std::string(id) + "\"");
-		look = _Look(*entry);
-		if (look == nullptr) {
-			return Failure(ErrorCode::NotSupported,
-				"the look \"" + std::string(id) + "\" cannot be made");
-		}
-		if (!IsCompatible(look->Info(), fCaps)) {
-			return Failure(ErrorCode::NotSupported, "the look \"" + std::string(id)
-				+ "\" needs capabilities the backend does not have");
-		}
-	}
-	fCurrent.store(std::move(look));
+	auto look = Find(id, BackendCaps());
+	if (!look.has_value())
+		return std::unexpected(look.error());
+	const std::shared_ptr<const ControlLook> previous = fCurrent.exchange(std::move(*look));
+	// 18.5, step 3: the windows lay out and draw anew (L11)
+	if (fTellsWindows && previous != fCurrent.load())
+		detail::PostToWindows(kLookChanged);
 	return {};
 }
 
