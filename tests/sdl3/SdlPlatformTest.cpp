@@ -9,6 +9,7 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <future>
@@ -63,6 +64,14 @@ public:
 			fEnded = true;
 		});
 		fPlatform = started.get_future().get();
+		// Run() makes the platform the current one only after the thread
+		// has signalled; the system clipboard, cursors and dialogs reach
+		// it through platform::Current().
+		const auto deadline = std::chrono::steady_clock::now() + 5s;
+		while (fPlatform != nullptr && platform::Current() != fPlatform
+			&& std::chrono::steady_clock::now() < deadline) {
+			std::this_thread::yield();
+		}
 	}
 
 	~RunningApp()
