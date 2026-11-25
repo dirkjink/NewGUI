@@ -81,6 +81,9 @@
 #include <ngui/Window.h>
 #include <ngui/gfx/BackendRegistry.h>
 #include <ngui/gfx/SkiaBackend.h>
+#ifdef NGUI_DEMO_WITH_BLEND2D
+#include <ngui/gfx/Blend2DBackend.h>
+#endif
 #include <ngui/platform/SdlPlatform.h>
 #include <ngui/svg/LunaSvgRenderer.h>
 #include <ngui/text/FontSource.h>
@@ -511,6 +514,10 @@ int
 main(int argc, char** argv)
 {
 	gfx::SkiaBackend::Register(gfx::BackendRegistry::Default());
+#ifdef NGUI_DEMO_WITH_BLEND2D
+	// the second backend: NGUI_BACKEND=blend2d draws with it
+	gfx::Blend2DBackend::Register(gfx::BackendRegistry::Default());
+#endif
 	// The text system of all windows; it lives until the end of main(). The
 	// bundled fonts, with the system's (fontconfig, DirectWrite) for what
 	// they lack.

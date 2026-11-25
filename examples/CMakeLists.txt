@@ -13,6 +13,11 @@ target_link_libraries(ngui_example_button
         ngui::svg
         ngui::text)
 ngui_configure_target(ngui_example_button)
+# Blend2D as a second backend to choose with NGUI_BACKEND=blend2d.
+if(NGUI_WITH_BLEND2D)
+    target_link_libraries(ngui_example_button PRIVATE ngui::blend2d)
+    target_compile_definitions(ngui_example_button PRIVATE NGUI_DEMO_WITH_BLEND2D=1)
+endif()
 # Its translations beside it, where BLocaleRoster::LoadCatalog() looks
 # (button/po/*.po, compiled with msgfmt into button/locale).
 add_custom_command(TARGET ngui_example_button POST_BUILD

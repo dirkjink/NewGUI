@@ -171,6 +171,21 @@ if(NGUI_WITH_SKIA)
     ngui_configure_target(ngui_skia)
 endif()
 
+# The Blend2D backend (specification 14), its own library like Skia's:
+# Blend2D headers appear in its sources only.
+if(NGUI_WITH_BLEND2D)
+    find_package(blend2d CONFIG REQUIRED)
+    add_library(ngui_blend2d
+        gfx/blend2d/Blend2DBackend.cpp)
+    add_library(ngui::blend2d ALIAS ngui_blend2d)
+    target_link_libraries(ngui_blend2d
+        PUBLIC
+            ngui::ngui
+        PRIVATE
+            blend2d::blend2d)
+    ngui_configure_target(ngui_blend2d)
+endif()
+
 # The text subsystem (modules X1 to X5), its own library: HarfBuzz, SheenBidi,
 # libunibreak, and the bundled fonts embedded as generated sources
 # (data/fonts/).

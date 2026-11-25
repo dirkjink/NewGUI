@@ -215,6 +215,29 @@ if(NGUI_WITH_SKIA)
         PROPERTIES TIMEOUT ${testTimeout})
 endif()
 
+# Blend2D (vcpkg feature blend2d): the backend's own tests, and with Skia the
+# comparison of both (conformance level C1x).
+if(NGUI_WITH_BLEND2D)
+    add_executable(ngui_blend2d_tests
+        blend2d/Blend2DBackendTest.cpp)
+    target_link_libraries(ngui_blend2d_tests
+        PRIVATE
+            ngui::blend2d
+            ngui::testkit
+            ngui::testkit_main)
+    if(NGUI_WITH_SKIA AND NGUI_WITH_TEXT)
+        target_sources(ngui_blend2d_tests PRIVATE blend2d/CrossBackendTest.cpp)
+        target_link_libraries(ngui_blend2d_tests PRIVATE ngui::skia ngui::text)
+    endif()
+    target_include_directories(ngui_blend2d_tests
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/src")
+    ngui_configure_target(ngui_blend2d_tests)
+    gtest_discover_tests(ngui_blend2d_tests
+        DISCOVERY_MODE PRE_TEST
+        EXTRA_ARGS ${snapshotArguments}
+        PROPERTIES TIMEOUT ${testTimeout})
+endif()
+
 # SDL3 (vcpkg feature sdl3): the platform, with SDL's offscreen video driver,
 # so that it runs without a display.
 if(NGUI_WITH_SDL3)

@@ -17,6 +17,8 @@
 #include <ngui/gfx/BackendRegistry.h>
 #include <ngui/gfx/Canvas.h>
 
+#include "support/ScopedEnvironment.h"
+
 
 namespace {
 
@@ -134,6 +136,46 @@ TEST(BackendRegistryTest, SelectsByNameAndPriority)
 	EXPECT_EQ(created, 4);
 	const std::vector<std::string> defaults = BackendRegistry::Default().Names();
 	EXPECT_NE(std::find(defaults.begin(), defaults.end(), "dump"), defaults.end());
+}
+
+
+TEST(BackendRegistryTest, TheEnvironmentChoosesTheBackend)
+{
+	// What is tested: CreatePreferred() without a preference while
+	// NGUI_BACKEND names a registered backend, an unknown one, and with a
+	// preference of its own.
+	// Success criteria: The named backend is made; an unknown name falls
+	// back to the highest priority; a preference passed in wins over the
+	// variable.
+	// Why it matters: As NGUI_PLATFORM for the platform, NGUI_BACKEND lets a
+	// user start any program with Blend2D instead of Skia without changing
+	// it (specification 14).
+	//
+	// Given
+	BackendRegistry registry;
+	std::vector<std::string> made;
+	const auto factory = [&made](std::string name) {
+		return [&made, name] {
+			made.push_back(name);
+			return std::make_unique<DumpBackend>();
+		};
+	};
+	registry.Register("fast", 100, factory("fast"));
+	registry.Register("other", 50, factory("other"));
+
+	// When
+	{
+		const ngui::test::ScopedEnvironment variable("NGUI_BACKEND", "other");
+		(void)registry.CreatePreferred({});
+		(void)registry.CreatePreferred("fast");
+	}
+	{
+		const ngui::test::ScopedEnvironment variable("NGUI_BACKEND", "missing");
+		(void)registry.CreatePreferred({});
+	}
+
+	// Then
+	EXPECT_EQ(made, (std::vector<std::string>{"other", "fast", "fast"}));
 }
 
 
