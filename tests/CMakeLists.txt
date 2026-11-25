@@ -57,6 +57,7 @@ add_executable(ngui_tests
     TruncateStringTest.cpp
     VersionTest.cpp
     ViewTest.cpp
+    WindowSnapshotTest.cpp
     WindowTest.cpp
     compat/CompatViewTest.cpp
     gfx/CanvasTest.cpp
@@ -189,7 +190,7 @@ if(NGUI_WITH_SKIA)
             unofficial::skia::skia)
     # Text drawn with the bundled fonts (vcpkg feature text).
     if(NGUI_WITH_TEXT)
-        target_sources(ngui_skia_tests PRIVATE skia/TextSkiaTest.cpp)
+        target_sources(ngui_skia_tests PRIVATE skia/TextSkiaTest.cpp skia/SnapshotSkiaTest.cpp)
         target_link_libraries(ngui_skia_tests PRIVATE ngui::text)
     endif()
     # The alert's type icon (vcpkg feature svg).

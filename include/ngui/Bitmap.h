@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <expected>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #include <ngui/Error.h>
@@ -140,6 +141,13 @@ private:
 			mutable gfx::ImageHandle fImage = 0;
 									// registered from the current pixels, or 0
 };
+
+
+/*!	\a bitmap as a PNG file (specification 19.1, S4), by the encoder of the
+	backend \a backend (empty: the preferred one; with Skia, SkPngEncoder);
+	NotSupported if it has none, InvalidArgument for an invalid bitmap. */
+std::expected<std::vector<std::byte>, Error> EncodePng(const BBitmap& bitmap,
+	std::string_view backend = {});
 
 
 } // namespace ngui

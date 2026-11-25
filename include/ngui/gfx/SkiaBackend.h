@@ -51,6 +51,9 @@ public:
 
 			bool				AddFont(FontId font, std::span<const std::byte> fontFile,
 									std::uint32_t faceIndex = 0) override;
+			std::expected<std::vector<std::byte>, Error> EncodePng(const PixelData& pixels)
+									override;
+									/*!< SkPngEncoder with its default options. */
 									/*!< Makes a typeface for \a font from the font file the
 										text subsystem uses (SkFontMgr::makeFromData, a copy
 										of the bytes); false if Skia cannot read it.

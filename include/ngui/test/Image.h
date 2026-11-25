@@ -13,6 +13,7 @@
 #include <span>
 #include <vector>
 
+#include <ngui/Bitmap.h>
 #include <ngui/Error.h>
 #include <ngui/gfx/Backend.h>
 
@@ -56,6 +57,9 @@ public:
 	static	Image				FromCpuPixels(const gfx::CpuPixels& pixels);
 									/*!< A copy of the pixels of a CPU surface, converted to
 										RGBA and unpremultiplied. */
+	static	Image				FromBitmap(const BBitmap& bitmap);
+									/*!< A copy of \a bitmap's pixels in RGBA, e.g. of a
+										BWindow::Snapshot(); empty for an invalid bitmap. */
 
 			std::int32_t		Width() const;
 									/*!< Width in pixels. */

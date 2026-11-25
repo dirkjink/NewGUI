@@ -291,6 +291,20 @@ WindowRef::Frame() const
 }
 
 
+std::expected<BBitmap, Error>
+WindowRef::Snapshot(const BSnapshotOptions& options) const
+{
+	return BWindow::Snapshot(fTarget, options).get();
+}
+
+
+std::expected<BBitmap, Error>
+WindowRef::CaptureFrame() const
+{
+	return BWindow::CaptureFrame(fTarget).get();
+}
+
+
 std::vector<ViewRef>
 WindowRef::FindAllIf(const std::function<bool(BView&)>& matches) const
 {

@@ -33,6 +33,13 @@ Backend::AddFont(FontId, std::span<const std::byte>, std::uint32_t)
 }
 
 
+std::expected<std::vector<std::byte>, Error>
+Backend::EncodePng(const PixelData&)
+{
+	return Failure(ErrorCode::NotSupported, "this backend encodes no PNG");
+}
+
+
 Size
 Surface::LogicalSize() const
 {

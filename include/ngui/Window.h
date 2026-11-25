@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <expected>
+#include <future>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -222,6 +223,24 @@ public:
 			void				UpdateIfNeeded();
 									/*!< Draws a frame now if one is due, as Haiku's. */
 
+			std::future<std::expected<BBitmap, Error>> Snapshot(
+									const BSnapshotOptions& options = {});
+									/*!< The window rendered anew into a bitmap (B_RGBA32,
+										specification 19.1, level a): its current views,
+										after pending layout and drawing (S1), as its
+										backend draws them in CPU raster at the same scale,
+										bit for bit (S2); also hidden. From any thread while
+										it lives (see the BMessenger form). */
+	static	std::future<std::expected<BBitmap, Error>> Snapshot(const BMessenger& window,
+									const BSnapshotOptions& options = {});
+									/*!< Snapshot() of the window \a window; NotFound if it
+										is gone. */
+			std::future<std::expected<BBitmap, Error>> CaptureFrame();
+									/*!< The frame shown last, as it is (level b); NotFound
+										before the first. From any thread while it lives. */
+	static	std::future<std::expected<BBitmap, Error>> CaptureFrame(const BMessenger& window);
+									/*!< CaptureFrame() of the window \a window. */
+
 	// Keyboard shortcuts
 
 			void				AddShortcut(std::uint32_t key, BModifierFlags modifiers,
@@ -313,6 +332,9 @@ private:
 			void				_UpdatePopup(PopupSurface& popup,
 									const gfx::Caps& caps, const TextSystem& text);
 			void				_AddFonts(const TextSystem& text);
+			std::expected<BBitmap, Error> _Snapshot(const BSnapshotOptions& options,
+									BView* view);
+			std::expected<BBitmap, Error> _CaptureFrame();
 			void				_ScheduleUpdate();
 	static	BWindow*			_DispatchingWindow();
 			void				_SetTextInputArea(gfx::Rect rect, int32 cursor);
