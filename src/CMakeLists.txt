@@ -255,6 +255,7 @@ endif()
 if(NGUI_BUILD_TESTS)
     find_package(PNG REQUIRED)
     add_library(ngui_testkit
+        test/Driver.cpp
         test/Image.cpp
         test/ImageCompare.cpp
         test/Render.cpp
@@ -266,6 +267,8 @@ if(NGUI_BUILD_TESTS)
             ngui::ngui
         PRIVATE
             PNG::PNG)
+    # the driver reads the loopers' ports (LooperPort.h)
+    target_include_directories(ngui_testkit PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_testkit)
 
     # GoogleTest's main plus --update-snapshots.

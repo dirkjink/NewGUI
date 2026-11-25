@@ -8,6 +8,7 @@
 #include "LooperPort.h"
 
 #include <algorithm>
+#include <unordered_map>
 #include <utility>
 
 #include <ngui/AppDefs.h>
@@ -37,7 +38,170 @@ WaitFor(std::condition_variable& condition, Lock& lock, std::chrono::microsecond
 }
 
 
+// The ports of the process, for States(); expired ones are dropped as
+// they are found.
+std::mutex sPortsLock;
+std::vector<std::weak_ptr<LooperPort>>& Ports()
+{
+	static std::vector<std::weak_ptr<LooperPort>> ports;
+	return ports;
+}
+
+
 } // namespace
+
+
+std::shared_ptr<LooperPort>
+LooperPort::Create()
+{
+	auto port = std::make_shared<LooperPort>();
+	std::scoped_lock lock(sPortsLock);
+	std::erase_if(Ports(), [](const std::weak_ptr<LooperPort>& old) { return old.expired(); });
+	Ports().push_back(port);
+	return port;
+}
+
+
+std::vector<LooperPort::State>
+LooperPort::States()
+{
+	std::vector<std::shared_ptr<LooperPort>> ports;
+	{
+		std::scoped_lock lock(sPortsLock);
+		for (const std::weak_ptr<LooperPort>& weak : Ports()) {
+			if (auto port = weak.lock())
+				ports.push_back(std::move(port));
+		}
+	}
+	std::vector<State> states;
+	for (const std::shared_ptr<LooperPort>& port : ports) {
+		std::scoped_lock lock(port->fLock);
+		// a closed looper takes no part; one that has not started yet does,
+		// with the messages it will handle
+		if (port->fClosed)
+			continue;
+		State state;
+		state.name = port->fName;
+		state.queued = port->fQueue.size();
+		state.dispatching = port->fDispatching;
+		state.handling = port->fHandling;
+		for (const std::unique_ptr<BMessage>& message : port->fQueue)
+			state.waiting.push_back(message->what);
+		states.push_back(std::move(state));
+	}
+	return states;
+}
+
+
+std::uint64_t
+LooperPort::Activity()
+{
+	return sActivity.load();
+}
+
+
+void
+LooperPort::SetName(std::string name)
+{
+	std::scoped_lock lock(fLock);
+	fName = std::move(name);
+}
+
+
+void
+LooperPort::_Dispatched()
+{
+	if (fDispatching) {
+		fDispatching = false;
+		sActivity++;
+	}
+}
+
+
+namespace {
+
+// The work of RunOnLooper() by number. A request that times out takes its
+// work back if it has not started; if it has, it waits for the end, since
+// the work refers to the caller's variables.
+struct RequestedWork {
+	std::function<void(BLooper&)>	work;
+	bool							running = false;
+	bool							done = false;
+};
+
+std::mutex sWorkLock;
+std::condition_variable sWorkChanged;
+std::uint64_t sNextWork = 1;
+
+std::unordered_map<std::uint64_t, RequestedWork>&
+Work()
+{
+	static std::unordered_map<std::uint64_t, RequestedWork> work;
+	return work;
+}
+
+} // namespace
+
+
+std::expected<void, Error>
+RunOnLooper(const BMessenger& looper, std::function<void(BLooper&)> work,
+	std::chrono::microseconds timeout)
+{
+	std::uint64_t number = 0;
+	{
+		std::scoped_lock lock(sWorkLock);
+		number = sNextWork++;
+		Work().emplace(number, RequestedWork{std::move(work)});
+	}
+	BMessage request(kRunOnLooper);
+	(void)request.AddInt64("work", static_cast<std::int64_t>(number));
+	BMessage reply;
+	const auto sent = looper.SendMessage(request, &reply, timeout);
+	{
+		std::unique_lock lock(sWorkLock);
+		sWorkChanged.wait(lock, [&] {
+			const auto found = Work().find(number);
+			return found == Work().end() || !found->second.running;
+		});
+		Work().erase(number);
+	}
+	if (!sent.has_value())
+		return std::unexpected(sent.error());
+	if (reply.what != kRunOnLooper)
+		return Failure(ErrorCode::NotFound, "the looper is gone");
+	return {};
+}
+
+
+bool
+RunRequestedWork(BLooper& looper, BMessage& message)
+{
+	if (message.what != kRunOnLooper)
+		return false;
+	const auto number = static_cast<std::uint64_t>(message.GetInt64("work", 0));
+	std::function<void(BLooper&)>* work = nullptr;
+	{
+		std::scoped_lock lock(sWorkLock);
+		const auto found = Work().find(number);
+		if (found != Work().end() && !found->second.done) {
+			found->second.running = true;
+			work = &found->second.work;
+		}
+	}
+	// the entry stays while it runs: its sender waits for that
+	if (work != nullptr && *work)
+		(*work)(looper);
+	{
+		std::scoped_lock lock(sWorkLock);
+		if (const auto found = Work().find(number); found != Work().end()) {
+			found->second.running = false;
+			found->second.done = true;
+		}
+	}
+	sWorkChanged.notify_all();
+	(void)message.SendReply(BMessage(kRunOnLooper));
+	return true;
+}
 
 
 std::expected<void, Error>
@@ -48,6 +212,7 @@ LooperPort::Push(std::unique_ptr<BMessage> message)
 	{
 		std::scoped_lock lock(fLock);
 		if (!fClosed) {
+			sActivity++;
 			fQueue.push_back(std::move(message));
 			fAvailable.notify_one();
 			waker = fWaker;
@@ -77,11 +242,14 @@ std::unique_ptr<BMessage>
 LooperPort::Pop()
 {
 	std::unique_lock lock(fLock);
+	_Dispatched();
 	fAvailable.wait(lock, [this] { return !fQueue.empty() || fClosed; });
 	if (fQueue.empty())
 		return nullptr;
 	std::unique_ptr<BMessage> message = std::move(fQueue.front());
 	fQueue.pop_front();
+	fDispatching = true;
+	fHandling = message->what;
 	return message;
 }
 
@@ -90,10 +258,13 @@ std::unique_ptr<BMessage>
 LooperPort::TryPop()
 {
 	std::scoped_lock lock(fLock);
+	_Dispatched();
 	if (fQueue.empty())
 		return nullptr;
 	std::unique_ptr<BMessage> message = std::move(fQueue.front());
 	fQueue.pop_front();
+	fDispatching = true;
+	fHandling = message->what;
 	return message;
 }
 
@@ -114,6 +285,7 @@ LooperPort::Close()
 	std::deque<std::unique_ptr<BMessage>> dropped;
 	{
 		std::scoped_lock lock(fLock);
+		_Dispatched();
 		fClosed = true;
 		dropped.swap(fQueue);
 	}

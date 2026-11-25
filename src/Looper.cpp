@@ -23,7 +23,7 @@ namespace ngui {
 BLooper::BLooper(std::string_view name)
 	:
 	BHandler(name),
-	fPort(std::make_shared<LooperPort>()),
+	fPort(LooperPort::Create()),
 	fLock(name)
 {
 	// The looper is its own first handler, as in Haiku.
@@ -61,6 +61,7 @@ BLooper::Run(std::unique_ptr<BLooper> looper)
 	std::thread([owned = std::move(looper)]() mutable {
 		owned->fThread = std::this_thread::get_id();
 		owned->fPort->SetThread(owned->fThread);
+		owned->fPort->SetName(owned->Name());
 		owned->_Loop();
 		// The looper dies on its own thread; afterwards anyone waiting in
 		// WaitForLooperQuit() may go on.
@@ -81,6 +82,7 @@ BLooper::_RunOnThisThread(EventSource* source)
 	fRunning = true;
 	fThread = std::this_thread::get_id();
 	fPort->SetThread(fThread);
+	fPort->SetName(Name());
 	if (source == nullptr) {
 		_Loop();
 		return;
@@ -130,6 +132,11 @@ BLooper::_Dispatch(std::unique_ptr<BMessage> message)
 
 	BAutolock lock(fLock);
 	fCurrent = std::move(message);
+	// the test kit's work on this thread (RunOnLooper())
+	if (RunRequestedWork(*this, *fCurrent)) {
+		fCurrent.reset();
+		return;
+	}
 	BHandler* handler = _FilteredTarget(fCurrent.get(), _Target(*fCurrent));
 	// A message for a handler that left the looper is dropped; its waiting
 	// sender gets kNoReply.
