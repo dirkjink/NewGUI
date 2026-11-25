@@ -506,14 +506,13 @@ main(int argc, char** argv)
 	// Vector icons (the alerts' type icons) drawn by lunasvg.
 	const svg::LunaSvgRenderer icons;
 	VectorIconRenderer::SetDefault(&icons);
-	auto platform = platform::SdlPlatform::Create();
-	if (!platform.has_value()) {
-		std::fprintf(stderr, "%s\n", platform.error().message.c_str());
+	// SDL3, or the platform NGUI_PLATFORM names (headless for tests)
+	(void)platform::SdlPlatform::Register(platform::PlatformRegistry::Default());
+	ButtonApp app(argc, argv);
+	if (auto used = app.UsePlatform(std::string_view()); !used.has_value()) {
+		std::fprintf(stderr, "%s\n", used.error().message.c_str());
 		return 1;
 	}
-	ButtonApp app(argc, argv);
-	if (!app.UsePlatform(std::move(*platform)).has_value())
-		return 1;
 	const int result = app.Run();
 	VectorIconRenderer::SetDefault(nullptr);
 	TextSystem::SetDefault(nullptr);

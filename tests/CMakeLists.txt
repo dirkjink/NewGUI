@@ -82,6 +82,7 @@ add_executable(ngui_tests
     look/ControlLookTest.cpp
     look/be/BeLookTest.cpp
     platform/CpuPresenterTest.cpp
+    platform/HeadlessPlatformTest.cpp
     platform/PlatformTest.cpp
     test/ImageCompareTest.cpp
     test/ImageTest.cpp

@@ -16,6 +16,7 @@
 #include <ngui/Error.h>
 #include <ngui/InterfaceDefs.h>
 #include <ngui/platform/Platform.h>
+#include <ngui/platform/PlatformRegistry.h>
 
 
 namespace ngui::platform {
@@ -45,6 +46,10 @@ public:
 	static	std::expected<std::unique_ptr<SdlPlatform>, Error> Create();
 									/*!< Initializes SDL's video on the calling thread, the
 										main thread; NotSupported if SDL cannot. */
+	static	bool				Register(PlatformRegistry& registry, int priority = 100);
+									/*!< Adds "sdl3" to \a registry (normally
+										PlatformRegistry::Default()); false if it is there
+										already. */
 								~SdlPlatform() override;
 									/*!< Shuts SDL down; all windows must be gone. */
 

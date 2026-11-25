@@ -130,7 +130,8 @@ TEST(PlatformTest, UsePlatformIsForBeforeRun)
 
 	// When / Then
 	EXPECT_EQ(app.Platform(), nullptr);
-	EXPECT_EQ(app.UsePlatform(nullptr).error().code, ErrorCode::InvalidArgument);
+	EXPECT_EQ(app.UsePlatform(std::unique_ptr<platform::Platform>()).error().code,
+		ErrorCode::InvalidArgument);
 	ASSERT_TRUE(app.UsePlatform(std::make_unique<FakePlatform>()).has_value());
 	EXPECT_EQ(app.Platform()->Name(), "fake");
 	std::thread runner([&] { (void)app.Run(); });
