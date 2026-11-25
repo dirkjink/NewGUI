@@ -205,7 +205,9 @@ LintWindow(BWindow& window, const LintOptions& options)
 				"it is " + Number(frame.Width()) + " x " + Number(frame.Height())
 				+ ", its minimum " + Number(minimum.w) + " x " + Number(minimum.h));
 		}
-		// overlapping visible siblings, each pair once
+		// overlapping visible siblings, each pair once: reported at the
+		// earlier child, compared with the later ones (in child order, not
+		// by address, so that the report is the same on every platform)
 		const auto children = [&](const BView* parent) {
 			std::vector<BView*> list;
 			if (parent == nullptr) {
@@ -217,9 +219,12 @@ LintWindow(BWindow& window, const LintOptions& options)
 			}
 			return list;
 		};
+		bool later = false;
 		for (BView* sibling : children(view->Parent())) {
-			if (sibling <= view)
+			if (!later) {
+				later = sibling == view;
 				continue;
+			}
 			const std::string* siblingPath = pathOf(sibling);
 			if (siblingPath != nullptr && Overlap(frame, sibling->Frame())) {
 				add(LintCheck::Overlap, LintSeverity::Error, entry.path,
