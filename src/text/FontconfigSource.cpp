@@ -338,20 +338,4 @@ CreateFontconfigSource(std::string_view)
 #endif
 
 
-std::vector<SourceFont>
-FontSource::List() const
-{
-	return {};
-}
-
-
-std::unique_ptr<FontSource>
-SystemFontSource()
-{
-	if (auto fontconfig = CreateFontconfigSource())
-		return std::move(*fontconfig);
-	return nullptr;
-}
-
-
 } // namespace ngui::text

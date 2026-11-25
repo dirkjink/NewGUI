@@ -458,7 +458,8 @@ main(int argc, char** argv)
 {
 	gfx::SkiaBackend::Register(gfx::BackendRegistry::Default());
 	// The text system of all windows; it lives until the end of main(). The
-	// bundled fonts, with the system's (fontconfig) for what they lack.
+	// bundled fonts, with the system's (fontconfig, DirectWrite) for what
+	// they lack.
 	auto fonts = text::FontTextSystem::Create(text::SystemFontSource());
 	if (!fonts.has_value()) {
 		std::fprintf(stderr, "%s\n", fonts.error().message.c_str());

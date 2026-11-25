@@ -184,6 +184,8 @@ if(NGUI_WITH_TEXT)
         list(APPEND embeddedFonts "${output}")
     endforeach()
     add_library(ngui_text
+        text/DirectWriteSource.cpp
+        text/FontSource.cpp
         text/FontTextSystem.cpp
         text/FontconfigSource.cpp
         ${embeddedFonts})
@@ -196,6 +198,10 @@ if(NGUI_WITH_TEXT)
             libunibreak::libunibreak
             # dlopen() of the system's fontconfig (none where libc has it)
             ${CMAKE_DL_LIBS})
+    if(WIN32)
+        # the system's fonts (DirectWriteSource.cpp)
+        target_link_libraries(ngui_text PRIVATE dwrite)
+    endif()
     target_include_directories(ngui_text PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_text)
 endif()
