@@ -99,7 +99,7 @@ TEST(ControlLookTest, NonVirtualHelpersForward)
 
 	// When
 	look.DrawLabel(context, "OK", 0, {0, 0, 10, 10}, {0, 0, 0, 1}, {});
-	const Insets insets = look.FrameAndBackgroundInsets(FrameType::Button,
+	const Insets insets = look.FrameAndBackgroundInsets(text, FrameType::Button,
 		BackgroundType::Button, {});
 
 	// Then

@@ -11,6 +11,7 @@
 #include <utility>
 
 #include <ngui/BeLook.h>
+#include <ngui/HaikuLook.h>
 
 
 namespace ngui {
@@ -45,6 +46,7 @@ LookRegistry::Default()
 	static const bool initialized = [] {
 		// The built-in looks (18.6).
 		registry.Register(std::string(kFallbackId), CreateBeLook);
+		registry.Register("haiku", CreateHaikuLook);
 		return registry.SetCurrent(kFallbackId).has_value();
 	}();
 	(void)initialized;

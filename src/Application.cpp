@@ -7,14 +7,19 @@
 
 #include <ngui/Application.h>
 
+#include <cstdio>
 #include <mutex>
+#include <optional>
+#include <string>
 
 #include <ngui/AppDefs.h>
 #include <ngui/Cursor.h>
+#include <ngui/LookRegistry.h>
 #include <ngui/Window.h>
 #include <ngui/platform/PlatformRegistry.h>
 
 #include "CursorState.h"
+#include "Environment.h"
 #include "LooperPort.h"
 
 
@@ -82,11 +87,22 @@ BApplication::BApplication(std::string_view signature, int argc, char** argv)
 		if (argv[i] != nullptr)
 			fArguments.emplace_back(argv[i]);
 	}
-	std::scoped_lock lock(sLock);
-	if (!sExists) {
-		sExists = true;
-		sMessenger = BMessenger(this);
-		fRegistered = true;
+	{
+		std::scoped_lock lock(sLock);
+		if (!sExists) {
+			sExists = true;
+			sMessenger = BMessenger(this);
+			fRegistered = true;
+		}
+	}
+	// The look of the user's setting ngui.controlLook (specification 18.4),
+	// until there are settings the environment variable NGUI_CONTROL_LOOK;
+	// a look that does not fit the backend falls back to "be" (L9).
+	if (const std::optional<std::string> look = detail::EnvironmentVariable(
+			"NGUI_CONTROL_LOOK"); look.has_value() && !look->empty()) {
+		const auto selection = LookRegistry::Default().SelectAtStart(*look);
+		if (selection.has_value() && !selection->warning.empty())
+			std::fprintf(stderr, "ngui: %s\n", selection->warning.c_str());
 	}
 }
 

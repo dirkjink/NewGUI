@@ -136,6 +136,8 @@ add_library(ngui
     gfx/Region.cpp
     gfx/RegionSupport.cpp
     looks/be/BeControlLook.cpp
+    looks/haiku/HaikuControlLook.cpp
+    looks/haiku/HaikuLook.cpp
     platform/CpuPresenter.cpp
     platform/HeadlessPlatform.cpp
     platform/PlatformRegistry.cpp

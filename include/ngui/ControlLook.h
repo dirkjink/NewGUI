@@ -455,14 +455,18 @@ public:
 									const gfx::Color* textColor = nullptr) const = 0;
 									/*!< \a label and \a icon with \a alignment. */
 
-	virtual	Insets				FrameInsets(FrameType frameType,
+	virtual	Insets				FrameInsets(const TextSystem& text, FrameType frameType,
 									ControlStateFlags flags) const = 0;
-									/*!< The border a Draw…Frame() method consumes. */
-	virtual	Insets				BackgroundInsets(BackgroundType backgroundType,
-									ControlStateFlags flags) const = 0;
-									/*!< The border a Draw…Background() method consumes. */
-			Insets				FrameAndBackgroundInsets(FrameType frameType,
+									/*!< The border a Draw…Frame() method consumes; a look
+										may scale it with the plain font of \a text (Haiku's
+										look does, with be_plain_font). */
+	virtual	Insets				BackgroundInsets(const TextSystem& text,
 									BackgroundType backgroundType,
+									ControlStateFlags flags) const = 0;
+									/*!< The border a Draw…Background() method consumes;
+										may depend on the plain font of \a text. */
+			Insets				FrameAndBackgroundInsets(const TextSystem& text,
+									FrameType frameType, BackgroundType backgroundType,
 									ControlStateFlags flags) const;
 									/*!< Both together, as Haiku's GetInsets(). */
 

@@ -24,10 +24,10 @@ ControlLook::DrawLabel(DrawContext& context, std::string_view label, gfx::ImageH
 
 
 Insets
-ControlLook::FrameAndBackgroundInsets(FrameType frameType, BackgroundType backgroundType,
-	ControlStateFlags flags) const
+ControlLook::FrameAndBackgroundInsets(const TextSystem& text, FrameType frameType,
+	BackgroundType backgroundType, ControlStateFlags flags) const
 {
-	return FrameInsets(frameType, flags) + BackgroundInsets(backgroundType, flags);
+	return FrameInsets(text, frameType, flags) + BackgroundInsets(text, backgroundType, flags);
 }
 
 
