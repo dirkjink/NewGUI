@@ -13,8 +13,9 @@
 // distributed to views; the controls drawing through the look into their
 // Canvas; the window putting the DisplayLists together, Skia rendering
 // them, the presenter copying the changed area into the window; text
-// shaped by the text subsystem with the bundled Noto Sans, drawn by Skia
-// with the same font file; the layout keeping both centered when the
+// shaped by the text subsystem with the bundled Noto Sans (and the
+// system's fonts for characters it lacks), drawn by Skia with the same
+// font file; the layout keeping both centered when the
 // window is resized (BLayoutBuilder). Below them, in a BBox, a BSlider
 // drives a BStatusBar while its thumb moves (its modification message);
 // a BScrollView shows a list of check boxes that is longer than its room;
@@ -74,6 +75,7 @@
 #include <ngui/gfx/SkiaBackend.h>
 #include <ngui/platform/SdlPlatform.h>
 #include <ngui/svg/LunaSvgRenderer.h>
+#include <ngui/text/FontSource.h>
 #include <ngui/text/FontTextSystem.h>
 
 
@@ -206,7 +208,10 @@ public:
 		auto notes = std::make_unique<BTextView>("notes");
 		notes->SetStylable(true);
 		notes->SetText("Type here. Shift and the arrows select, a double click selects "
-			"a word, a triple click a line. The Text menu styles the selection.\n");
+			"a word, a triple click a line. The Text menu styles the selection.\n"
+			"Characters the bundled Noto Sans lacks come from the system's fonts: "
+			"\u2192 \u65e5\u672c\u8a9e \ud55c\uad6d\uc5b4 \u0e44\u0e17\u0e22 "
+			"\u0395\u03bb\u03bb\u03b7\u03bd\u03b9\u03ba\u03ac\n");
 		fNotes = notes.get();
 		auto notesScroll = std::make_unique<BScrollView>("notes scroll", std::move(notes),
 			BViewFlags{}, false, true);
@@ -452,8 +457,9 @@ int
 main(int argc, char** argv)
 {
 	gfx::SkiaBackend::Register(gfx::BackendRegistry::Default());
-	// The text system of all windows; it lives until the end of main().
-	auto fonts = text::FontTextSystem::CreateBundled();
+	// The text system of all windows; it lives until the end of main(). The
+	// bundled fonts, with the system's (fontconfig) for what they lack.
+	auto fonts = text::FontTextSystem::Create(text::SystemFontSource());
 	if (!fonts.has_value()) {
 		std::fprintf(stderr, "%s\n", fonts.error().message.c_str());
 		return 1;

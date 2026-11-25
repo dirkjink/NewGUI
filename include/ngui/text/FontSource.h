@@ -7,8 +7,14 @@
 
 
 #include <cstdint>
+#include <expected>
+#include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <vector>
+
+#include <ngui/Error.h>
 
 #include <ngui/TextSystem.h>
 
@@ -27,10 +33,25 @@ struct FontLocation {
 };
 
 
-/*!	The fonts of the system for a FontTextSystem (module X1): where to find
-	a font for characters the fonts it has do not have. Implemented over the
-	system's font services (fontconfig, DirectWrite) and, in tests, over
-	fixed files. Thread-safe: several window threads shape at once.
+/*!	A font of the system, as a FontSource lists it. */
+struct SourceFont {
+			FontLocation		location;	/*!< Where it is. */
+			std::string			family;		/*!< Its family, e.g. "DejaVu Serif". */
+			std::string			style;		/*!< Its style, e.g. "Bold Italic". */
+			BFontFaceFlags		face;		/*!< How it looks. */
+			bool				fixed = false;
+									/*!< Monospaced, as the system sees it (fontconfig:
+										from the advances of the glyphs, so a font with a
+										few wider glyphs may not be, and one with only
+										ideographs may). */
+};
+
+
+/*!	The fonts of the system for a FontTextSystem (module X1): which fonts
+	there are, and where to find a font for characters the fonts it has do
+	not have. Implemented over the system's font services (fontconfig,
+	DirectWrite) and, in tests, over fixed files. Thread-safe: several
+	window threads shape at once.
 */
 class FontSource {
 public:
@@ -41,7 +62,33 @@ public:
 									/*!< A font that has \a codePoint, as like the font
 										\a like as the system can find; nullopt if it has
 										none. */
+	virtual	std::vector<SourceFont> List() const;
+									/*!< The fonts of the system, a family and style once,
+										for Haiku's get_font_family(); none by default. */
 };
+
+
+/*!	The font source of this system: fontconfig under Linux and other Unix
+	systems (if its library is there), else none yet (nullptr); DirectWrite
+	and CoreText come later. */
+std::unique_ptr<FontSource> SystemFontSource();
+
+
+/*!	A FontSource over fontconfig (Linux and other Unix systems except
+	macOS), its library libfontconfig.so.1 loaded at run time, so that the
+	system's configuration in /etc/fonts applies (a fontconfig of vcpkg
+	would look for its own). \a configFile replaces that configuration
+	(fonts.conf, for tests); empty for the system's. NotSupported on other
+	systems or without the library, IoError if fontconfig cannot read its
+	configuration.
+
+	Fallback() asks fontconfig for the fonts sorted by how well they match
+	the family, weight and slant of \a like (FcFontSort(), the system's
+	preferences and aliases included) and takes the first TrueType or CFF
+	font that has the character. List() lists those fonts. A variable font
+	stands for its default instance. */
+std::expected<std::unique_ptr<FontSource>, Error> CreateFontconfigSource(
+	std::string_view configFile = {});
 
 
 } // namespace ngui::text

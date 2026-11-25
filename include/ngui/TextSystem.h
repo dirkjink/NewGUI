@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -213,6 +214,11 @@ public:
 										By default the three roles: "Default" (Regular,
 										font 1; Bold, font 2) and "Default Mono" (Regular,
 										font 3). */
+	virtual	std::optional<FontFamilyStyle> Style(std::string_view family,
+									std::string_view style) const;
+									/*!< The style \a style of \a family, if it has a font
+										for it; by default from Styles(). For BFont, which
+										looks its font up for every measurement. */
 	virtual	FontSpec			RoleFont(FontRole role) const;
 									/*!< The font of \a role at its size. By default font
 										1, 2 or 3 at FontSize(). */

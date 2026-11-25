@@ -97,7 +97,8 @@ target_include_directories(ngui_tests
 target_compile_definitions(ngui_tests
     PRIVATE
         NGUI_FUZZ_CORPUS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fuzz/corpus"
-        NGUI_TEST_FONTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/fonts")
+        NGUI_TEST_FONTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/fonts"
+        NGUI_BUNDLED_FONTS_DIR="${PROJECT_SOURCE_DIR}/data/fonts")
 
 target_link_libraries(ngui_tests
     PRIVATE
@@ -107,7 +108,8 @@ target_link_libraries(ngui_tests
 
 # The text subsystem with its bundled fonts (vcpkg feature text).
 if(NGUI_WITH_TEXT)
-    target_sources(ngui_tests PRIVATE text/FontTextSystemTest.cpp text/FontFallbackTest.cpp)
+    target_sources(ngui_tests PRIVATE text/FontTextSystemTest.cpp text/FontFallbackTest.cpp
+        text/FontconfigSourceTest.cpp)
     target_link_libraries(ngui_tests PRIVATE ngui::text)
 endif()
 
@@ -131,10 +133,13 @@ set(snapshotArguments
 # A test that hangs fails after five minutes instead of holding the CI job
 # until its time limit.
 set(testTimeout 300)
+# Under AddressSanitizer: the global state of the system's fontconfig is no
+# leak (lsan.supp); without a sanitizer the variable does nothing.
+set(sanitizerEnvironment "LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/lsan.supp")
 gtest_discover_tests(ngui_tests
     DISCOVERY_MODE PRE_TEST
     EXTRA_ARGS ${snapshotArguments}
-    PROPERTIES TIMEOUT ${testTimeout})
+    PROPERTIES TIMEOUT ${testTimeout} ENVIRONMENT "${sanitizerEnvironment}")
 
 # libFuzzer executables, one per target: ngui_fuzz_<Name>. The list goes to
 # fuzz-targets.txt in the build directory.

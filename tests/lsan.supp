@@ -1,0 +1,7 @@
+# LeakSanitizer suppressions for the tests (LSAN_OPTIONS, tests/CMakeLists.txt).
+#
+# fontconfig keeps global state for the life of the process (interned
+# strings, the default languages, the program name) that only FcFini()
+# frees; a library must not call FcFini() while other code may use
+# fontconfig (src/text/FontconfigSource.cpp).
+leak:libfontconfig.so
