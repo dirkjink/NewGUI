@@ -66,6 +66,7 @@ add_library(ngui
     compat/CompatView.cpp
     compat/Point.cpp
     compat/Rect.cpp
+    Environment.cpp
     Error.cpp
     FilePanel.cpp
     Font.cpp
@@ -136,6 +137,8 @@ add_library(ngui
     gfx/RegionSupport.cpp
     looks/be/BeControlLook.cpp
     platform/CpuPresenter.cpp
+    platform/HeadlessPlatform.cpp
+    platform/PlatformRegistry.cpp
     looks/be/BeLook.cpp)
 add_library(ngui::ngui ALIAS ngui)
 

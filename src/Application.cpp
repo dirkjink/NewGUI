@@ -12,6 +12,7 @@
 #include <ngui/AppDefs.h>
 #include <ngui/Cursor.h>
 #include <ngui/Window.h>
+#include <ngui/platform/PlatformRegistry.h>
 
 #include "CursorState.h"
 #include "LooperPort.h"
@@ -110,6 +111,16 @@ BApplication::UsePlatform(std::unique_ptr<platform::Platform> platform)
 		return Failure(ErrorCode::InvalidArgument, "the application runs already");
 	fPlatform = std::move(platform);
 	return {};
+}
+
+
+std::expected<void, Error>
+BApplication::UsePlatform(std::string_view name)
+{
+	auto platform = platform::PlatformRegistry::Default().CreatePreferred(name);
+	if (!platform.has_value())
+		return std::unexpected(platform.error());
+	return UsePlatform(std::move(*platform));
 }
 
 

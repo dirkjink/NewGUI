@@ -595,6 +595,19 @@ SdlPlatform::SdlPlatform()
 }
 
 
+bool
+SdlPlatform::Register(PlatformRegistry& registry, int priority)
+{
+	return registry.Register("sdl3", priority,
+		[]() -> std::expected<std::unique_ptr<Platform>, Error> {
+			auto platform = Create();
+			if (!platform.has_value())
+				return std::unexpected(platform.error());
+			return std::unique_ptr<Platform>(std::move(*platform));
+		});
+}
+
+
 std::expected<std::unique_ptr<SdlPlatform>, Error>
 SdlPlatform::Create()
 {

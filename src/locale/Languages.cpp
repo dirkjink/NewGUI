@@ -8,9 +8,10 @@
 #include "Languages.h"
 
 #include <algorithm>
-#include <cstdlib>
 #include <filesystem>
 #include <system_error>
+
+#include "../Environment.h"
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -44,23 +45,11 @@ Split(std::string_view list)
 }
 
 
-// A variable of the environment, empty if it is not set; MSVC deprecates
-// std::getenv() (C4996) in favour of _dupenv_s(), which copies the value.
+// A variable of the environment, empty if it is not set.
 std::string
 Environment(const char* name)
 {
-#ifdef _MSC_VER
-	char* value = nullptr;
-	std::size_t length = 0;
-	if (_dupenv_s(&value, &length, name) != 0 || value == nullptr)
-		return {};
-	std::string copy(value);
-	std::free(value);
-	return copy;
-#else
-	const char* value = std::getenv(name);
-	return value != nullptr ? std::string(value) : std::string();
-#endif
+	return detail::EnvironmentVariable(name).value_or(std::string());
 }
 
 

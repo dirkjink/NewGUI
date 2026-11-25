@@ -75,6 +75,12 @@ public:
 										and the messages together, and platform::Current()
 										gives it to other threads. InvalidArgument for
 										nullptr or while it runs. */
+			std::expected<void, Error> UsePlatform(std::string_view name);
+									/*!< The platform \a name of
+										platform::PlatformRegistry::Default(), or with an
+										empty name the one it prefers (NGUI_PLATFORM, e.g.
+										"headless" for tests, else the first that can
+										run); its error otherwise. */
 			platform::Platform*	Platform() const;
 									/*!< The platform, nullptr without one. */
 
