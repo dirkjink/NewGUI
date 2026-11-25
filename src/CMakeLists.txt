@@ -63,6 +63,7 @@ add_library(ngui
     MessageRunner.cpp
     Messenger.cpp
     PropertyInfo.cpp
+    remote/Hey.cpp
     remote/LocalSocket.cpp
     remote/RemoteControl.cpp
     OutlineListView.cpp
