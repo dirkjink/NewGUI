@@ -446,7 +446,8 @@ BMessage::BMessage(std::uint32_t command)
 BMessage::BMessage(const BMessage& other)
 	:
 	what(other.what),
-	fFields(other.fFields)
+	fFields(other.fFields),
+	fDropPoint(other.fDropPoint)
 {
 }
 
@@ -464,6 +465,7 @@ BMessage::operator=(const BMessage& other)
 		what = other.what;
 		fFields = other.fFields;
 		fDelivery.reset();
+		fDropPoint = other.fDropPoint;
 	}
 	return *this;
 }
@@ -471,6 +473,22 @@ BMessage::operator=(const BMessage& other)
 
 BMessage&
 BMessage::operator=(BMessage&& other) noexcept = default;
+
+
+bool
+BMessage::WasDropped() const
+{
+	return fDropPoint.has_value();
+}
+
+
+gfx::Point
+BMessage::DropPoint(gfx::Point* offset) const
+{
+	if (offset != nullptr)
+		*offset = {0, 0};
+	return fDropPoint.value_or(gfx::Point{0, 0});
+}
 
 
 bool

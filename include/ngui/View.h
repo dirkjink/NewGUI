@@ -456,8 +456,10 @@ public:
 									/*!< A button went up. */
 	virtual	void				MouseMoved(gfx::Point where, BMouseTransit transit,
 									const BMessage* dragMessage);
-									/*!< The mouse moved; \a dragMessage is nullptr until
-										drag and drop exists. */
+									/*!< The mouse moved; while something is dragged from
+										another application over the view, \a dragMessage
+										is a kSimpleData message (without its content,
+										which comes with the drop), otherwise nullptr. */
 	virtual	void				KeyDown(std::string_view bytes);
 									/*!< A key went down while it had the focus; \a bytes is
 										the text it types, possibly empty. By default Tab

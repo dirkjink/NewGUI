@@ -318,6 +318,35 @@ Translate(std::span<const SDL_Event> events, const TranslationContext& context)
 			case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
 				translated.push_back({event.window.windowID, Stamped(kQuitRequested, context)});
 				break;
+			case SDL_EVENT_DROP_BEGIN:
+				translated.push_back({event.drop.windowID, Stamped(kDropBegin, context)});
+				break;
+			case SDL_EVENT_DROP_POSITION:
+			case SDL_EVENT_DROP_FILE:
+			case SDL_EVENT_DROP_TEXT:
+			case SDL_EVENT_DROP_COMPLETE:
+			{
+				// Files and text come one by one before the drop completes;
+				// the window collects them (module P2).
+				const SDL_DropEvent& drop = event.drop;
+				std::uint32_t what = kDropComplete;
+				if (event.type == SDL_EVENT_DROP_POSITION)
+					what = kDropPosition;
+				else if (event.type == SDL_EVENT_DROP_FILE)
+					what = kDropFile;
+				else if (event.type == SDL_EVENT_DROP_TEXT)
+					what = kDropText;
+				BMessage message = Stamped(what, context);
+				(void)message.AddPoint("where", {drop.x, drop.y});
+				if (drop.data != nullptr) {
+					if (what == kDropFile)
+						(void)message.AddString("path", drop.data);
+					else if (what == kDropText)
+						(void)message.AddString("text", drop.data);
+				}
+				translated.push_back({drop.windowID, std::move(message)});
+				break;
+			}
 			case SDL_EVENT_QUIT:
 				// SIGINT, SIGTERM or the session ending: the application is
 				// asked to quit (Haiku: B_QUIT_REQUESTED to be_app), and with

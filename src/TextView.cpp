@@ -170,7 +170,8 @@ constexpr std::string_view kTextRunArrayType = "application/x-vnd.Be-text_run_ar
 
 
 // Ported from Haiku: src/kits/interface/textview_support/UndoBuffer.cpp
-// (commit b1d497bb69), with std::string; without the DropUndoBuffer. The
+// (commit b1d497bb69), with std::string; the DropUndoBuffer for drops from
+// other applications only (NewGUI drags no text out of a view yet). The
 // runs are kept as the style buffer has them (colors that follow the text
 // color included).
 class BTextView::UndoBuffer {
@@ -288,6 +289,38 @@ protected:
 private:
 	std::string			fPasteText;
 	std::optional<BTextRunArray> fPasteRunArray;
+};
+
+
+class BTextView::DropUndoBuffer : public BTextView::UndoBuffer {
+public:
+	DropUndoBuffer(BTextView* textView, std::string_view text, int32 location)
+		:
+		UndoBuffer(textView, BUndoState::Drop),
+		fDropText(text),
+		fDropLocation(location)
+	{
+	}
+
+protected:
+	void UndoSelf(BClipboard* /*clipboard*/) override
+	{
+		fTextView->Select(fDropLocation, fDropLocation);
+		fTextView->Delete(fDropLocation,
+			fDropLocation + static_cast<int32>(fDropText.size()));
+		fTextView->Select(fStart, fEnd);
+	}
+
+	void RedoSelf(BClipboard* /*clipboard*/) override
+	{
+		fTextView->Select(fDropLocation, fDropLocation);
+		fTextView->Insert(fDropText);
+		fTextView->Select(fDropLocation, fDropLocation + static_cast<int32>(fDropText.size()));
+	}
+
+private:
+	std::string			fDropText;
+	int32				fDropLocation;
 };
 
 
@@ -761,6 +794,13 @@ BTextView::MakeFocus(bool focus)
 void
 BTextView::MessageReceived(BMessage* message)
 {
+	// was this message dropped?
+	if (message->WasDropped()) {
+		if (!_MessageDropped(message, ConvertFromScreen(message->DropPoint())))
+			BView::MessageReceived(message);
+		return;
+	}
+
 	switch (message->what) {
 		case kCut:
 			Cut(&BClipboard::System());
@@ -1034,6 +1074,44 @@ BTextView::Copy(BClipboard* clipboard)
 		}
 		clipboard->Unlock();
 	}
+}
+
+
+bool
+BTextView::AcceptsDrop(const BMessage* message)
+{
+	return fEditable && message != nullptr
+		&& message->HasData("text/plain", BTypeCode::Mime);
+}
+
+
+bool
+BTextView::_MessageDropped(BMessage* message, gfx::Point where)
+{
+	// are we sure we like this message?
+	if (!AcceptsDrop(message))
+		return false;
+
+	int32 dropOffset = OffsetAt(where);
+	if (dropOffset > TextLength())
+		dropOffset = TextLength();
+
+	const auto data = message->FindData("text/plain", BTypeCode::Mime);
+	if (!data.has_value())
+		return true;
+	const std::string text = _FilterDisallowedChars(std::string_view(
+		reinterpret_cast<const char*>(data->data()), data->size()));
+	// NewGUI: no beep() for nothing left
+	if (text.empty())
+		return true;
+
+	if (fUndo)
+		fUndo = std::make_unique<DropUndoBuffer>(this, text, dropOffset);
+
+	Insert(dropOffset, text);
+	if (IsFocus())
+		Select(dropOffset, dropOffset + static_cast<int32>(text.size()));
+	return true;
 }
 
 
