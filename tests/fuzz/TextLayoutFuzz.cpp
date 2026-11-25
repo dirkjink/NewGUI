@@ -26,8 +26,11 @@ NGUI_FUZZ_TARGET(TextLayout)
 	// Success criteria: No crash or sanitizer report; the lines cover the
 	// text from 0 to its end without gaps, each but an empty last line
 	// longer than zero, their tops increasing; OffsetAt() gives an offset
-	// within the text; moving the caret right from 0 reaches the end in
-	// increasing steps, never stopping before a UTF-8 continuation byte.
+	// within the text; CaretLeft() and CaretRight() from every offset stay
+	// in the text and never stop before a UTF-8 continuation byte; in text
+	// without right-to-left runs, moving the caret right from 0 reaches the
+	// end in increasing steps (with them, the caret moves visually, so
+	// right may go back).
 	// Why it matters: Text views lay out whatever users type or paste,
 	// including broken UTF-8 and very narrow widths.
 	//
@@ -71,13 +74,27 @@ NGUI_FUZZ_TARGET(TextLayout)
 		NGUI_FUZZ_CHECK(layout.OffsetAt(point) <= text.size());
 		NGUI_FUZZ_CHECK(layout.OffsetAt({point.x + 3, point.y + 1}) <= text.size());
 	}
-	std::size_t caret = 0;
-	while (caret < text.size()) {
-		const std::size_t next = layout.CaretRight(caret);
-		NGUI_FUZZ_CHECK(next > caret);
-		const auto byte = static_cast<unsigned char>(text[next < text.size() ? next : 0]);
-		NGUI_FUZZ_CHECK(next == text.size() || (byte & 0xc0) != 0x80);
-		caret = next;
+	// the start and end of the text, or before a byte that begins a code
+	// point (a stray continuation byte at the start is not one)
+	const auto onBoundary = [&](std::size_t offset) {
+		return offset == 0 || offset == text.size()
+			|| (static_cast<unsigned char>(text[offset]) & 0xc0) != 0x80;
+	};
+	for (std::size_t offset = 0; offset <= text.size(); offset++) {
+		const std::size_t right = layout.CaretRight(offset);
+		const std::size_t left = layout.CaretLeft(offset);
+		NGUI_FUZZ_CHECK(right <= text.size() && onBoundary(right));
+		NGUI_FUZZ_CHECK(left <= text.size() && onBoundary(left));
+	}
+	if (!layout.HasRightToLeft()) {
+		std::size_t caret = 0;
+		while (caret < text.size()) {
+			const std::size_t next = layout.CaretRight(caret);
+			NGUI_FUZZ_CHECK(next > caret);
+			if (next <= caret)
+				break;
+			caret = next;
+		}
 	}
 	(void)layout.SelectionRects(0, text.size());
 }

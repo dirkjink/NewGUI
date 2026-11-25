@@ -69,6 +69,14 @@ TextLayout::TextLayout(const TextSystem& system, std::string_view text,
 {
 	if (fRuns.empty() || fRuns.front().start != 0)
 		fRuns.insert(fRuns.begin(), TextStyleRun{0, system.RoleFont(FontRole::Plain)});
+	// NewGUI: a run that begins inside a code point begins at its start, so
+	// that no character is split between runs (and their glyph runs)
+	for (TextStyleRun& run : fRuns) {
+		while (run.start > 0 && run.start < fText.size()
+			&& (static_cast<unsigned char>(fText[run.start]) & 0xc0) == 0x80) {
+			run.start--;
+		}
+	}
 	_Layout(system);
 }
 
@@ -221,7 +229,8 @@ TextLayout::OffsetAt(int32 lineNum, float x) const
 {
 	lineNum = std::clamp(lineNum, 0, CountLines() - 1);
 	const Line& line = LineAt(lineNum);
-	const std::vector<float>& carets = fLines[static_cast<std::size_t>(lineNum)].carets;
+	const LineData& data = fLines[static_cast<std::size_t>(lineNum)];
+	const std::vector<float>& carets = data.carets;
 
 	// convert to text rect coordinates
 	x -= AlignmentOffset(lineNum);
@@ -229,8 +238,28 @@ TextLayout::OffsetAt(int32 lineNum, float x) const
 
 	std::size_t offset = line.start;
 	const std::size_t limit = line.end;
+	if (!data.clusters.empty()) {
+		// NewGUI: right-to-left runs; the edge of the grapheme hit that is
+		// nearer, beyond the line the edge of its outer grapheme
+		std::size_t hit = 0;
+		bool rightEdge = false;
+		if (x >= data.clusters.back().right) {
+			hit = data.clusters.size() - 1;
+			rightEdge = true;
+		} else if (x >= data.clusters.front().left) {
+			for (std::size_t i = 0; i < data.clusters.size(); i++) {
+				if (x >= data.clusters[i].left && x < data.clusters[i].right) {
+					hit = i;
+					break;
+				}
+			}
+			// the right half: its right edge
+			rightEdge = x >= (data.clusters[hit].left + data.clusters[hit].right) / 2;
+		}
+		offset = _OnBoundary(_EdgeOffset(lineNum, hit, rightEdge));
+	}
 	float location = 0;
-	while (offset < limit) {
+	while (offset < limit && data.clusters.empty()) {
 		const std::size_t nextInitial = std::min(NextBoundary(offset, TextBoundary::Grapheme),
 			limit);
 		const float width = carets[nextInitial - line.start] - carets[offset - line.start];
@@ -263,15 +292,125 @@ TextLayout::OffsetAt(int32 lineNum, float x) const
 std::size_t
 TextLayout::CaretRight(std::size_t offset) const
 {
-	// NewGUI: left to right only, the next grapheme
-	return NextBoundary(offset, TextBoundary::Grapheme);
+	offset = std::min(offset, fText.size());
+	const int32 lineNum = LineAtOffset(offset);
+	const LineData& data = fLines[static_cast<std::size_t>(lineNum)];
+	if (data.clusters.empty() || _IsOnEmptyLastLine(offset))
+		return NextBoundary(offset, TextBoundary::Grapheme);
+
+	// NewGUI: visually, over the grapheme right of the caret
+	if (const std::size_t next = _ClusterRightOf(data, _X(lineNum, offset));
+			next < data.clusters.size()) {
+		return _OnBoundary(_EdgeOffset(lineNum, next, true));
+	}
+	// at the line's right end: on to the next line left to right, back to
+	// the previous one right to left
+	// (at the text's start: there, the line's start is its right end)
+	if (data.rightToLeft) {
+		return data.line.start > 0 ? PreviousBoundary(data.line.start, TextBoundary::Grapheme)
+			: data.line.start;
+	}
+	return NextBoundary(_ContentEnd(data.line), TextBoundary::Grapheme);
 }
 
 
 std::size_t
 TextLayout::CaretLeft(std::size_t offset) const
 {
+	offset = std::min(offset, fText.size());
+	const int32 lineNum = LineAtOffset(offset);
+	const LineData& data = fLines[static_cast<std::size_t>(lineNum)];
+	if (data.clusters.empty() || _IsOnEmptyLastLine(offset))
+		return PreviousBoundary(offset, TextBoundary::Grapheme);
+
+	// NewGUI: visually, over the grapheme left of the caret
+	if (const std::size_t previous = _ClusterLeftOf(data, _X(lineNum, offset));
+			previous < data.clusters.size()) {
+		return _OnBoundary(_EdgeOffset(lineNum, previous, false));
+	}
+	// at the line's left end
+	if (data.rightToLeft)
+		return NextBoundary(_ContentEnd(data.line), TextBoundary::Grapheme);
+	return data.line.start > 0 ? PreviousBoundary(data.line.start, TextBoundary::Grapheme)
+		: data.line.start;
+}
+
+
+// \a offset, or the grapheme boundary before it if it is inside a grapheme:
+// in malformed UTF-8 the bidirectional algorithm may begin a run at a stray
+// continuation byte, which the boundaries count to the character before.
+std::size_t
+TextLayout::_OnBoundary(std::size_t offset) const
+{
+	if (offset == 0 || offset >= fText.size() || IsBoundary(offset, TextBoundary::Grapheme))
+		return offset;
 	return PreviousBoundary(offset, TextBoundary::Grapheme);
+}
+
+
+namespace {
+
+// How close two edges must be to be the same.
+constexpr float kSlack = 0.01f;
+
+} // namespace
+
+
+// The index of the grapheme right of a caret at \a x: the first that
+// begins there or later and is wider than nothing; the number of graphemes
+// at the line's right end.
+std::size_t
+TextLayout::_ClusterRightOf(const LineData& data, float x) const
+{
+	for (std::size_t i = 0; i < data.clusters.size(); i++) {
+		if (data.clusters[i].left >= x - kSlack && data.clusters[i].right > x + kSlack)
+			return i;
+	}
+	return data.clusters.size();
+}
+
+
+// The index of the grapheme left of a caret at \a x; the number of
+// graphemes at the line's left end.
+std::size_t
+TextLayout::_ClusterLeftOf(const LineData& data, float x) const
+{
+	for (std::size_t i = data.clusters.size(); i-- > 0;) {
+		if (data.clusters[i].right <= x + kSlack && data.clusters[i].left < x - kSlack)
+			return i;
+	}
+	return data.clusters.size();
+}
+
+
+// The offset whose caret stands at the right or left edge of grapheme
+// \a index of line \a lineNum: the grapheme's own (the start of a
+// left-to-right grapheme's left edge, the end of a right-to-left one's)
+// or, where two directions meet, that of its neighbor across the edge.
+std::size_t
+TextLayout::_EdgeOffset(int32 lineNum, std::size_t index, bool rightEdge) const
+{
+	const LineData& data = fLines[static_cast<std::size_t>(lineNum)];
+	const Cluster& cluster = data.clusters[index];
+	const float edge = rightEdge ? cluster.right : cluster.left;
+	const std::size_t own = rightEdge != cluster.rightToLeft ? cluster.end : cluster.start;
+	if (std::fabs(_X(lineNum, own) - edge) < kSlack)
+		return own;
+	const std::size_t neighbor = rightEdge ? index + 1 : index - 1;
+	if (neighbor < data.clusters.size()) {
+		const Cluster& other = data.clusters[neighbor];
+		if (std::fabs((rightEdge ? other.left : other.right) - edge) < kSlack) {
+			const std::size_t offset = rightEdge != other.rightToLeft ? other.start : other.end;
+			if (std::fabs(_X(lineNum, offset) - edge) < kSlack)
+				return offset;
+		}
+	}
+	// at the line's ends: its start or the end of its text
+	for (const std::size_t offset : {data.line.start, _ContentEnd(data.line)}) {
+		if (std::fabs(_X(lineNum, offset) - edge) < kSlack)
+			return offset;
+	}
+	return own;
 }
 
 
@@ -323,11 +462,41 @@ TextLayout::SelectionRects(std::size_t from, std::size_t to) const
 		const std::size_t start = std::max(from, line.start);
 		const std::size_t end = std::min(to, _ContentEnd(line));
 		const float align = AlignmentOffset(i);
+		const float bottom = line.top + LineHeight(i);
+		const LineData& data = fLines[static_cast<std::size_t>(i)];
+		if (!data.clusters.empty()) {
+			// NewGUI: the graphemes in the range, joined where they touch
+			const std::size_t first = rects.size();
+			for (const Cluster& cluster : data.clusters) {
+				if (cluster.start < start || cluster.end > end)
+					continue;
+				const float x0 = cluster.left + align;
+				const float x1 = cluster.right + align;
+				if (rects.size() > first && std::fabs(rects.back().x1 - x0) < kSlack)
+					rects.back().x1 = x1;
+				else
+					rects.push_back({x0, line.top, x1, bottom});
+			}
+			if (rects.size() == first) {
+				const float x = _X(i, start) + align;
+				rects.push_back({x, line.top, x, bottom});
+			}
+			continue;
+		}
 		const float x0 = _X(i, start) + align;
 		const float x1 = _X(i, std::max(start, end)) + align;
-		rects.push_back({x0, line.top, x1, line.top + LineHeight(i)});
+		rects.push_back({x0, line.top, x1, bottom});
 	}
 	return rects;
+}
+
+
+bool
+TextLayout::HasRightToLeft() const
+{
+	return std::ranges::any_of(fLines, [](const LineData& data) {
+		return !data.clusters.empty();
+	});
 }
 
 
@@ -382,10 +551,11 @@ TextLayout::_Layout(const TextSystem& system)
 		data.carets.assign(toOffset - fromOffset + 1, 0.0f);
 		std::vector<float> carets;
 		data.line.width = _Measure(system, fromOffset, contentEnd, 0, &carets,
-			&data.segments);
+			&data.segments, &data);
 		std::copy(carets.begin(), carets.end(), data.carets.begin());
+		// after the content (its line break): where the caret after it is
 		for (std::size_t i = contentEnd - fromOffset + 1; i < data.carets.size(); i++)
-			data.carets[i] = data.line.width;
+			data.carets[i] = carets.back();
 		fLines.push_back(std::move(data));
 
 		top = std::ceil(top + ascent + descent) + 1;
@@ -538,7 +708,7 @@ TextLayout::_FindLineBreak(const TextSystem& system, std::size_t fromOffset, flo
 
 float
 TextLayout::_Measure(const TextSystem& system, std::size_t from, std::size_t to, float x,
-	std::vector<float>* carets, std::vector<Segment>* segments) const
+	std::vector<float>* carets, std::vector<Segment>* segments, LineData* visual) const
 {
 	if (carets != nullptr)
 		carets->assign(to - from + 1, x);
@@ -554,16 +724,25 @@ TextLayout::_Measure(const TextSystem& system, std::size_t from, std::size_t to,
 			paragraphEnd = fText.size();
 		const std::string_view paragraph(fText.data() + paragraphStart,
 			paragraphEnd - paragraphStart);
-		std::vector<DirectionRun> visual = system.VisualRuns(paragraph, from - paragraphStart,
-			std::min(to, paragraphEnd) - paragraphStart);
-		if (!visual.empty()) {
-			for (DirectionRun& run : visual) {
+		std::vector<DirectionRun> ordered = system.VisualRuns(paragraph,
+			from - paragraphStart, std::min(to, paragraphEnd) - paragraphStart);
+		if (!ordered.empty()) {
+			for (DirectionRun& run : ordered) {
 				run.start += paragraphStart;
 				run.end += paragraphStart;
 			}
-			runs = std::move(visual);
+			runs = std::move(ordered);
 		}
-	}
+		if (visual != nullptr && (runs.size() > 1
+				|| runs.front().direction == TextDirection::RightToLeft)) {
+			visual->rightToLeft
+				= system.ParagraphDirection(paragraph) == TextDirection::RightToLeft;
+		} else
+			visual = nullptr;
+	} else
+		visual = nullptr;
+	// the clusters of a line with right-to-left runs, where they are
+	std::vector<Cluster>* clusters = visual != nullptr ? &visual->clusters : nullptr;
 
 	float position = x;
 	for (const DirectionRun& run : runs) {
@@ -598,6 +777,8 @@ TextLayout::_Measure(const TextSystem& system, std::size_t from, std::size_t to,
 				}
 				if (carets != nullptr)
 					(*carets)[i - from] = rightToLeft ? position + tabWidth : position;
+				if (clusters != nullptr)
+					clusters->push_back({i, i + 1, position, position + tabWidth, rightToLeft});
 				position += tabWidth;
 				continue;
 			}
@@ -615,6 +796,17 @@ TextLayout::_Measure(const TextSystem& system, std::size_t from, std::size_t to,
 				for (std::size_t k = 0; k < piece.size(); k++)
 					(*carets)[i - from + k] = position + pieceCarets[k];
 			}
+			if (clusters != nullptr) {
+				// its graphemes, from their leading to their trailing edge
+				for (std::size_t k = i; k < j;) {
+					const std::size_t next = std::min(NextBoundary(k, TextBoundary::Grapheme), j);
+					const float leading = pieceCarets[k - i];
+					const float trailing = pieceCarets[next - i];
+					clusters->push_back({k, next, position + std::min(leading, trailing),
+						position + std::max(leading, trailing), rightToLeft});
+					k = next;
+				}
+			}
 			if (segments != nullptr) {
 				segments->push_back({position, system.ShapeRun(piece, style.font, run.direction),
 					style.color});
@@ -626,7 +818,55 @@ TextLayout::_Measure(const TextSystem& system, std::size_t from, std::size_t to,
 
 	if (carets != nullptr)
 		(*carets)[to - from] = position;
+	if (clusters != nullptr) {
+		std::ranges::stable_sort(*clusters, {}, &Cluster::left);
+		if (carets != nullptr)
+			_PlaceCarets(*visual, from, to, carets);
+	}
 	return position;
+}
+
+
+// The carets between graphemes of a line with right-to-left runs, where two
+// graphemes of different directions meet on two places: at the edge of the
+// one in the paragraph's direction (the "strong" caret), else at the
+// leading edge of the one after it. At the line's start and end a grapheme
+// against the paragraph's direction puts the caret at the line's end in
+// that direction (left to right the left end, then the right end): there
+// the next character typed goes.
+void
+TextLayout::_PlaceCarets(const LineData& data, std::size_t from, std::size_t to,
+	std::vector<float>* carets) const
+{
+	constexpr std::size_t kNone = static_cast<std::size_t>(-1);
+	std::vector<std::size_t> starting(to - from + 1, kNone);
+	std::vector<std::size_t> ending(to - from + 1, kNone);
+	for (std::size_t i = 0; i < data.clusters.size(); i++) {
+		starting[data.clusters[i].start - from] = i;
+		ending[data.clusters[i].end - from] = i;
+	}
+	const auto leading = [](const Cluster& cluster) {
+		return cluster.rightToLeft ? cluster.right : cluster.left;
+	};
+	const auto trailing = [](const Cluster& cluster) {
+		return cluster.rightToLeft ? cluster.left : cluster.right;
+	};
+	const float left = data.clusters.front().left;
+	const float right = data.clusters.back().right;
+	for (std::size_t offset = from; offset <= to; offset++) {
+		const std::size_t next = starting[offset - from];
+		const std::size_t previous = ending[offset - from];
+		if (next != kNone && data.clusters[next].rightToLeft == data.rightToLeft)
+			(*carets)[offset - from] = leading(data.clusters[next]);
+		else if (previous != kNone && data.clusters[previous].rightToLeft == data.rightToLeft)
+			(*carets)[offset - from] = trailing(data.clusters[previous]);
+		else if (next != kNone && previous != kNone)
+			(*carets)[offset - from] = leading(data.clusters[next]);
+		else if (next != kNone)
+			(*carets)[offset - from] = data.rightToLeft ? right : left;
+		else if (previous != kNone)
+			(*carets)[offset - from] = data.rightToLeft ? left : right;
+	}
 }
 
 

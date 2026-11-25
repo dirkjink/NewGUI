@@ -15,7 +15,10 @@
 
 #include <gtest/gtest.h>
 
+#include <ngui/InterfaceDefs.h>
 #include <ngui/TextLayout.h>
+#include <ngui/TextView.h>
+#include <ngui/gfx/Region.h>
 #include <ngui/text/FontSource.h>
 
 
@@ -147,16 +150,18 @@ TEST(BidiTest, ShapingOrdersMirrorsAndJoins)
 TEST(BidiTest, LayoutPutsCaretsWhereTheCharactersAre)
 {
 	// What is tested: A TextLayout of "abc שלום" and of the right-to-left
-	// "שלום", left aligned, and the carets of the right-to-left run.
-	// Success criteria: In "abc שלום" the caret before ש stands at the right
-	// end of the line (in whole pixels, as PointAt() gives them), and the
-	// carets before ל, ו, ם step to the left, the
-	// one before ם still right of the space's caret (after "abc"). The
-	// right-to-left paragraph stays left aligned (alignment is absolute, as
-	// in Haiku): the caret before its first letter is at its width, and its
-	// width is that of the word.
-	// Why it matters: Selections and the caret follow the characters on the
-	// screen, not their order in memory (module X3).
+	// "שלום", left aligned, and the carets around the right-to-left run.
+	// Success criteria: In "abc שלום" the caret before ש, where the space
+	// meets the Hebrew word, stands after the space, at the word's left
+	// edge (the "strong" caret, on the side of the paragraph's direction);
+	// the carets before ל, ו, ם step to the left from the word's right
+	// edge, all right of it; the caret after the text stands at the line's
+	// right end, where typing goes on. The right-to-left paragraph stays
+	// left aligned (alignment is absolute, as in Haiku): the caret before
+	// its first letter is at its right end, after its last at 0 (in whole
+	// pixels, as PointAt() gives them).
+	// Why it matters: The caret follows the characters on the screen, not
+	// their order in memory (module X3).
 	//
 	// Given
 	const auto text = WithRightToLeft();
@@ -166,22 +171,129 @@ TEST(BidiTest, LayoutPutsCaretsWhereTheCharactersAre)
 
 	// When
 	const float lineWidth = mixed.LineAt(0).width;
+	const float afterAbc = mixed.PointAt(3).x;
 	const float beforeShin = mixed.PointAt(4).x;
 	const float beforeLamed = mixed.PointAt(6).x;
 	const float beforeVav = mixed.PointAt(8).x;
 	const float beforeMem = mixed.PointAt(10).x;
-	const float afterAbc = mixed.PointAt(3).x;
+	const float atEnd = mixed.PointAt(12).x;
 	const float word = text->StringWidth(kShalom, FontRole::Plain);
 
 	// Then
-	// PointAt() gives whole pixels, as Haiku's
-	EXPECT_NEAR(beforeShin, lineWidth, 0.5f);
-	EXPECT_GT(beforeShin, beforeLamed);
+	EXPECT_GT(beforeShin, afterAbc);
+	EXPECT_NEAR(beforeShin, lineWidth - word, 0.5f);
 	EXPECT_GT(beforeLamed, beforeVav);
 	EXPECT_GT(beforeVav, beforeMem);
-	EXPECT_GT(beforeMem, afterAbc);
+	EXPECT_GT(beforeMem, beforeShin);
+	EXPECT_NEAR(atEnd, lineWidth, 0.5f);
 	EXPECT_NEAR(hebrew.LineAt(0).width, word, kTolerance);
 	EXPECT_NEAR(hebrew.PointAt(0).x, word, 0.5f);
+	EXPECT_NEAR(hebrew.PointAt(8).x, 0, 0.5f);
+}
+
+
+// The offsets the caret goes through from \a from, moving with \a move
+// until it stays.
+template<typename Move>
+std::vector<std::size_t>
+Walk(std::size_t from, Move move)
+{
+	std::vector<std::size_t> offsets;
+	for (std::size_t offset = from, steps = 0; steps < 64; steps++) {
+		const std::size_t next = move(offset);
+		if (next == offset)
+			break;
+		offsets.push_back(next);
+		offset = next;
+	}
+	return offsets;
+}
+
+
+TEST(BidiTest, CaretsMoveHitAndSelectVisually)
+{
+	// What is tested: In the TextLayout of "abc שלום def" (left to right):
+	// CaretRight() from 0 and CaretLeft() from the end until they stay;
+	// OffsetAt() in the left half of ש and just left of the word's right
+	// edge; SelectionRects() of "c ש" (offsets 2 to 6).
+	// Success criteria: The caret moves over one grapheme on the screen at
+	// a time: right through "abc ", then into the Hebrew word at its left
+	// edge (offset 4) and over ם, ו, ל (10, 8, 6), out at its right edge
+	// as offset 12, then through " def"; left the same way back. A click in
+	// ש's left half hits offset 6, one at the word's right edge offset 12.
+	// The selection of "c ש" is two rectangles: "c " on the left and ש at
+	// the right end of the word.
+	// Why it matters: Arrow keys, clicks and selections in mixed text must
+	// follow what the user sees (module X3).
+	//
+	// Given
+	const auto text = WithRightToLeft();
+	const std::string content = std::string("abc ") + kShalom + " def";
+	const TextLayout layout(*text, content, FontRole::Plain, {.width = 500});
+
+	// When
+	const std::vector<std::size_t> right
+		= Walk(0, [&](std::size_t offset) { return layout.CaretRight(offset); });
+	const std::vector<std::size_t> left
+		= Walk(content.size(), [&](std::size_t offset) { return layout.CaretLeft(offset); });
+	const float y = layout.PointAt(0).y + 1;
+	const std::size_t inShin = layout.OffsetAt({layout.PointAt(6).x + 1, y});
+	const std::size_t atWordEnd = layout.OffsetAt({layout.PointAt(12).x - 1, y});
+	const std::vector<gfx::Rect> rects = layout.SelectionRects(2, 6);
+
+	// Then
+	EXPECT_TRUE(layout.HasRightToLeft());
+	EXPECT_EQ(right, (std::vector<std::size_t>{1, 2, 3, 4, 10, 8, 6, 12, 13, 14, 15, 16}));
+	EXPECT_EQ(left, (std::vector<std::size_t>{15, 14, 13, 12, 6, 8, 10, 4, 3, 2, 1, 0}));
+	EXPECT_EQ(inShin, 6u);
+	EXPECT_EQ(atWordEnd, 12u);
+	ASSERT_EQ(rects.size(), 2u);
+	EXPECT_NEAR(rects[0].x0, layout.PointAt(2).x, 0.5f);
+	EXPECT_NEAR(rects[0].x1, layout.PointAt(4).x, 0.5f);
+	EXPECT_NEAR(rects[1].x1, layout.PointAt(12).x, 0.5f);
+	EXPECT_GT(rects[1].x0, rects[0].x1);
+}
+
+
+TEST(BidiTest, TextViewsMoveAndHighlightVisually)
+{
+	// What is tested: A BTextView with "abc שלום" and the bundled fonts with
+	// the Hebrew test font: the right arrow pressed three times from offset
+	// 3, the left arrow then twice; the text region of offsets 2 to 6.
+	// Success criteria: The caret goes 4 (into the word at its left edge),
+	// 10, 8, then back 10, 4; the region of "c ש" has two rectangles. A text
+	// without right-to-left characters keeps Haiku's moves (tested
+	// elsewhere).
+	// Why it matters: Text views are where users edit mixed text (module
+	// X3).
+	//
+	// Given
+	const auto text = WithRightToLeft();
+	TextSystem::SetDefault(text.get());
+	BTextView view({0, 0, 300, 50}, "view", {0, 0, 300, 50});
+	view.SetText((std::string("abc ") + kShalom).c_str());
+	view.Select(3, 3);
+
+	// When
+	std::vector<int32> carets;
+	const auto press = [&](char key) {
+		view.KeyDown(std::string(1, key));
+		int32 start = 0;
+		int32 end = 0;
+		view.GetSelection(&start, &end);
+		carets.push_back(start == end ? start : -1);
+	};
+	for (int i = 0; i < 3; i++)
+		press(keys::kRightArrow);
+	for (int i = 0; i < 2; i++)
+		press(keys::kLeftArrow);
+	gfx::Region region;
+	view.GetTextRegion(2, 6, &region);
+	TextSystem::SetDefault(nullptr);
+
+	// Then
+	EXPECT_EQ(carets, (std::vector<int32>{4, 10, 8, 10, 4}));
+	EXPECT_EQ(region.CountRects(), 2);
 }
 
 
