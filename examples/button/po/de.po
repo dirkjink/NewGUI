@@ -114,6 +114,10 @@ msgid "Text"
 msgstr "Text"
 
 msgctxt "Demo"
+msgid "Look"
+msgstr "Aussehen"
+
+msgctxt "Demo"
 msgid "Plain"
 msgstr "Normal"
 

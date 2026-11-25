@@ -57,6 +57,7 @@ add_executable(ngui_tests
     TruncateStringTest.cpp
     VersionTest.cpp
     ViewTest.cpp
+    LookSwitchTest.cpp
     WindowSnapshotTest.cpp
     WindowTest.cpp
     compat/CompatViewTest.cpp

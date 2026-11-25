@@ -32,6 +32,7 @@
 #include "CursorState.h"
 #include "MenuPrivate.h"
 #include "ToolTipPopup.h"
+#include "WindowList.h"
 
 
 namespace ngui {
@@ -354,7 +355,42 @@ BWindow::Look() const
 void
 BWindow::_TakeLook()
 {
-	fLook = LookRegistry::DefaultLook();
+	fLook = fOwnLook != nullptr ? fOwnLook : LookRegistry::DefaultLook();
+}
+
+
+std::expected<void, Error>
+BWindow::SetControlLook(std::string_view id)
+{
+	std::shared_ptr<const ControlLook> look;
+	if (!id.empty()) {
+		const gfx::Caps caps = fBackend != nullptr ? fBackend->Capabilities()
+			: LookRegistry::Default().BackendCaps();
+		auto found = LookRegistry::Default().Find(id, caps);
+		if (!found.has_value())
+			return std::unexpected(found.error());
+		look = std::move(*found);
+	}
+	if (look == fOwnLook)
+		return {};
+	fOwnLook = std::move(look);
+	_LookChanged();
+	return {};
+}
+
+
+// Rule L11: the metrics may have changed, so the layout is redone, and every
+// view records its DisplayList anew with the new look, popups included.
+void
+BWindow::_LookChanged()
+{
+	_TakeLook();
+	fRoot->InvalidateLayout(true);
+	ForEachView(fRoot.get(), [](BView* view) { view->Invalidate(); });
+	for (const std::unique_ptr<PopupSurface>& popup : fPopups) {
+		popup->root->InvalidateLayout(true);
+		ForEachView(popup->root.get(), [](BView* view) { view->Invalidate(); });
+	}
 }
 
 
@@ -814,6 +850,11 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 			FrameMoved(where);
 			return;
 		}
+		case kLookChanged:
+			// a window with a look of its own keeps it (18.5)
+			if (fOwnLook == nullptr)
+				_LookChanged();
+			return;
 		case kWindowActivated:
 		{
 			fActive = message->GetBool("active", false);
@@ -1524,6 +1565,19 @@ BWindow::_Windows()
 {
 	std::scoped_lock lock(sWindowsLock);
 	return sWindows;
+}
+
+
+void
+detail::PostToWindows(std::uint32_t what)
+{
+	std::vector<BMessenger> windows;
+	{
+		std::scoped_lock lock(sWindowsLock);
+		windows = sWindows;
+	}
+	for (const BMessenger& window : windows)
+		(void)window.SendMessage(what);
 }
 
 

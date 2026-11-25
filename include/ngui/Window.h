@@ -144,9 +144,16 @@ public:
 
 			const ControlLook&	Look() const;
 									/*!< The look of this cycle: taken at the start of each
-										layout and drawing cycle (rule L10) from
-										LookRegistry::DefaultLook(), and kept until the next
-										one. */
+										layout and drawing cycle (rule L10), the window's own
+										(SetControlLook()) or LookRegistry::DefaultLook(), and
+										kept until the next one. */
+			std::expected<void, Error> SetControlLook(std::string_view id);
+									/*!< Gives the window a look of its own that overrides the
+										current one (18.5), e.g. for a live preview; an empty
+										\a id goes back to the current one. Lays out and draws
+										anew. NotFound or NotSupported as
+										LookRegistry::Find() for the window's backend; the
+										look is unchanged then. Call with the window locked. */
 			BButton*			DefaultButton() const;
 									/*!< The button Enter invokes, or nullptr. */
 			void				SetDefaultButton(BButton* button);
@@ -361,6 +368,7 @@ private:
 			void				_Resized(float width, float height, float scale);
 			void				_LayoutInvalidated();
 			void				_TakeLook();
+			void				_LookChanged();
 
 			std::string			fTitle;
 			BWindowFlags		fFlags;
@@ -384,6 +392,8 @@ private:
 			int					fHideLevel = 1;
 			bool				fUpdatePending = false;
 			std::shared_ptr<const ControlLook> fLook;
+			std::shared_ptr<const ControlLook> fOwnLook;
+									// SetControlLook(), or nullptr for the current one.
 			BButton*			fDefaultButton = nullptr;
 			gfx::Size			fMinSize = {0, 0};
 			gfx::Size			fMaxSize = {kSizeUnlimited, kSizeUnlimited};

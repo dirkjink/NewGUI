@@ -232,6 +232,43 @@ TEST(SnapshotSkiaTest, TheFormInTheHaikuLook)
 }
 
 
+TEST(SnapshotSkiaTest, SwitchingTheLookIsLikeStartingInIt)
+{
+	// What is tested: The form opened in the BeOS look, then the current
+	// look switched to "haiku" while it runs, then back to "be".
+	// Success criteria: After the switch the window matches
+	// SnapshotSkiaTest_Form.haiku.skia.1x.png, the reference of the form
+	// started in the Haiku look; after switching back it is pixel for pixel
+	// the image from before the switch.
+	// Why it matters: Specification 18.7: after SetCurrent(b) in a running
+	// window, the image must be the one after a restart with look b; that
+	// holds only if the window lays out and draws everything anew (L11).
+	//
+	// Given
+	const CurrentLook be("be");
+	FormApp app;
+	WindowRef window = app.Window();
+	const auto before = window.Snapshot();
+
+	// When
+	ASSERT_TRUE(LookRegistry::Default().SetCurrent("haiku").has_value());
+	ASSERT_TRUE(app.Drive().WaitForIdle().has_value());
+
+	// Then
+	EXPECT_IMAGE_SNAPSHOT(window, "Form",
+		{.look = "haiku", .backend = "skia", .tolerance = Tolerance::Text()});
+
+	// When
+	ASSERT_TRUE(LookRegistry::Default().SetCurrent("be").has_value());
+	ASSERT_TRUE(app.Drive().WaitForIdle().has_value());
+	const auto after = window.Snapshot();
+
+	// Then
+	ASSERT_TRUE(before.has_value() && after.has_value());
+	EXPECT_EQ(Image::FromBitmap(*after), Image::FromBitmap(*before));
+}
+
+
 TEST(SnapshotSkiaTest, PopupsAreLaidOverWhenAsked)
 {
 	// What is tested: The form with its menu field's pop-up menu open

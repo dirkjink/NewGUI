@@ -61,6 +61,7 @@
 #include <ngui/LayoutBuilder.h>
 #include <ngui/ListView.h>
 #include <ngui/LocaleRoster.h>
+#include <ngui/LookRegistry.h>
 #include <ngui/Menu.h>
 #include <ngui/MenuBar.h>
 #include <ngui/MenuField.h>
@@ -109,6 +110,7 @@ constexpr std::uint32_t kHashMarks = FourCharCode("HASH");
 constexpr std::uint32_t kName = FourCharCode("NAME");
 constexpr std::uint32_t kChosen = FourCharCode("CHSN");
 constexpr std::uint32_t kOpen = FourCharCode("OPEN");
+constexpr std::uint32_t kLook = FourCharCode("LOOK");
 
 
 // The counter's label: a right click opens a context menu with the
@@ -273,7 +275,18 @@ public:
 		tabs->AddTab(std::make_unique<BStringView>("About",
 			"NewGUI: Haiku's Interface Kit on SDL3 and Skia"));
 
-		// The menus.
+		// The menus. The look menu has every look the backend can draw;
+		// choosing one switches all windows at once.
+		auto looks = std::make_unique<BMenu>(B_TRANSLATE("Look"));
+		looks->SetRadioMode(true);
+		const std::string current(LookRegistry::Default().Current()->Info().id);
+		for (const LookInfo& look : LookRegistry::Default().Available()) {
+			auto message = std::make_unique<BMessage>(kLook);
+			(void)message->AddString("id", std::string(look.id));
+			auto item = std::make_unique<BMenuItem>(look.displayName, std::move(message));
+			item->SetMarked(look.id == current);
+			looks->AddItem(std::move(item));
+		}
 		auto menuBar = std::make_unique<BMenuBar>("menu bar");
 		BLayoutBuilder::Menu<>(menuBar.get())
 			.AddMenu(B_TRANSLATE("File"))
@@ -288,6 +301,7 @@ public:
 				.AddItem(B_TRANSLATE("Large"), kStyleLarge, 'L')
 				.AddItem(B_TRANSLATE("Red"), kStyleRed)
 			.End()
+			.AddMenu(std::move(looks)).End()
 			.AddMenu(B_TRANSLATE("Help"))
 				.AddItem(B_TRANSLATE("About"), kAbout)
 			.End();
@@ -403,6 +417,13 @@ public:
 				text += "\n" + std::string(*path);
 			(void)BAlert::Go(std::make_unique<BAlert>(B_TRANSLATE("Drop"), text,
 				B_TRANSLATE("OK")), [](int32) {});
+			return;
+		}
+		if (message->what == kLook) {
+			// the look of every window, at run time (specification 18.5)
+			const std::string id(message->GetString("id", ""));
+			if (const auto result = LookRegistry::Default().SetCurrent(id); !result)
+				std::fprintf(stderr, "%s\n", result.error().message.c_str());
 			return;
 		}
 		if (message->what == kAbout) {
