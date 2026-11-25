@@ -23,6 +23,7 @@
 // code with fractional coordinates hits the same pixels.
 
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -34,10 +35,12 @@
 
 #include "Bitmap.h"
 #include "Font.h"
+#include "Gradient.h"
 #include "InterfaceDefs.h"
 #include "Point.h"
 #include "Rect.h"
 #include "Region.h"
+#include "Shape.h"
 
 
 namespace ngui::compat {
@@ -101,6 +104,7 @@ public:
 	// Drawing
 
 			void				FillRect(BRect rect, pattern_kind pattern = B_SOLID_HIGH);
+			void				FillRect(BRect rect, const BGradientLinear& gradient);
 			void				StrokeRect(BRect rect, pattern_kind pattern = B_SOLID_HIGH);
 			void				StrokeLine(BPoint start, BPoint end,
 									pattern_kind pattern = B_SOLID_HIGH);
@@ -113,11 +117,19 @@ public:
 			void				StrokeTriangle(BPoint p1, BPoint p2, BPoint p3,
 									pattern_kind pattern = B_SOLID_HIGH);
 			void				FillEllipse(BRect rect, pattern_kind pattern = B_SOLID_HIGH);
+			void				FillEllipse(BRect rect, const BGradientLinear& gradient);
 			void				StrokeEllipse(BRect rect, pattern_kind pattern = B_SOLID_HIGH);
 			void				StrokeArc(BRect rect, float startAngle, float arcAngle,
 									pattern_kind pattern = B_SOLID_HIGH);
 			void				FillRegion(const BRegion* region,
 									pattern_kind pattern = B_SOLID_HIGH);
+			void				StrokeRoundRect(BRect rect, float xRadius, float yRadius,
+									pattern_kind pattern = B_SOLID_HIGH);
+			void				StrokeShape(const BShape* shape,
+									pattern_kind pattern = B_SOLID_HIGH);
+			void				FillShape(const BShape* shape,
+									pattern_kind pattern = B_SOLID_HIGH);
+			void				FillShape(const BShape* shape, const BGradientLinear& gradient);
 			void				DrawString(const char* string, BPoint where);
 			float				StringWidth(const char* string) const;
 			void				DrawBitmap(gfx::ImageHandle bitmap, BPoint where);
@@ -136,6 +148,10 @@ private:
 			};
 
 			gfx::Paint			_Paint(pattern_kind pattern) const;
+			std::optional<gfx::Paint> _Paint(const BGradientLinear& gradient,
+									BPoint start, BPoint end) const;
+			void				_DrawShape(const BShape* shape, bool fill,
+									const gfx::Paint& paint);
 			BPoint				_Align(BPoint point) const;
 			BRect				_Align(BRect rect) const;
 

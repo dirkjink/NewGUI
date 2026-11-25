@@ -233,4 +233,127 @@ TEST(CompatViewTest, BRectKeepsHaikusSemantics)
 }
 
 
+TEST(CompatViewTest, GradientsAreSampledLikeHaikus)
+{
+	// What is tested: BGradientLinear (stops added out of order, one
+	// recolored, one out of range) and FillRect(), FillEllipse() with it: a
+	// vertical gradient from row 2 to row 11, a horizontal one, an empty one
+	// and one with a single stop.
+	// Success criteria: The stops are sorted by offset (AddColor returns
+	// index 0 for the second, smaller offset) and an offset beyond 255 is
+	// refused (-1). The vertical rectangle runs from half a pixel above row
+	// 2 to half a pixel below row 11; the ellipse takes the points as they
+	// are; offsets become 0 to 1. Without stops nothing is drawn, with one
+	// its color fills.
+	// Why it matters: Haiku's app_server fills a vertical gradient with one
+	// color per row from the start row to the end row
+	// (Painter::FillRectVerticalGradient()); a gradient sampled at pixel
+	// centers hits those colors only with these points. Every bevel of the
+	// Haiku look is such a gradient.
+	//
+	// Given
+	BGradientLinear gradient;
+	const int32 second = gradient.AddColor(make_color(0, 0, 255), 255);
+	const int32 first = gradient.AddColor(make_color(255, 0, 0), 0);
+	const int32 refused = gradient.AddColor(make_color(0, 255, 0), 256);
+	const bool recolored = gradient.SetColor(1, make_color(0, 255, 0));
+	gradient.SetStart(BPoint(2, 2));
+	gradient.SetEnd(BPoint(2, 11));
+	BGradientLinear horizontal = gradient;
+	horizontal.SetEnd(BPoint(11, 2));
+	BGradientLinear empty;
+	BGradientLinear single;
+	single.AddColor(make_color(0, 0, 255), 128);
+
+	// When
+	const std::string dump = Recorded([&](CompatView& view) {
+		view.FillRect(BRect(2, 2, 11, 11), gradient);
+		view.FillEllipse(BRect(2, 2, 11, 11), horizontal);
+		view.FillRect(BRect(0, 0, 1, 1), empty);
+		view.FillRect(BRect(0, 0, 1, 1), single);
+	});
+
+	// Then
+	EXPECT_EQ(second, 0);
+	EXPECT_EQ(first, 0);
+	EXPECT_EQ(refused, -1);
+	EXPECT_TRUE(recolored);
+	EXPECT_EQ(gradient.CountColorStops(), 2);
+	EXPECT_EQ(dump,
+		"DisplayList bounds=[0 0 20 20] ops=3\n"
+		"clip [0 0 20 20]\n"
+		"FillRect rect=[2 2 12 12] color=(0 0 0 1) width=1 cap=Butt join=Miter aa=1"
+		" gradient=(2 1.5)->(2 11.5) stop=0:(1 0 0 1) stop=1:(0 1 0 1)\n"
+		"FillEllipse rect=[2 2 12 12] color=(0 0 0 1) width=1 cap=Butt join=Miter aa=1"
+		" gradient=(2 2)->(11 2) stop=0:(1 0 0 1) stop=1:(0 1 0 1)\n"
+		"FillRect rect=[0 0 2 2] color=(0 0 1 1) width=1 cap=Butt join=Miter aa=1\n");
+}
+
+
+TEST(CompatViewTest, ShapesAndRoundRectsAreDrawnLikeHaikus)
+{
+	// What is tested: A closed triangle shape stroked and filled at pen
+	// location (1, 1), filled with a gradient, an open shape whose second
+	// MoveTo replaces the first, and StrokeRoundRect() of BRect(2, 2, 11, 11)
+	// with radius 3 at pen size 1 and 2.
+	// Success criteria: The shape's points move with the pen and are not
+	// rounded; stroked it is a closed polyline, filled a convex polygon;
+	// the gradient of a shape does not move. The open shape starts at the
+	// replaced point. The round rectangle at pen size 1 lies on the pixel
+	// edges [2, 12) with radius 3.5 at its outer edge; at pen size 2 its
+	// stroke is centered on the corners 2 and 11, [1, 12) with radius 4.
+	// Why it matters: Haiku offsets shapes by the pen location and strokes
+	// round rectangles on the pixel centers (ServerWindow, Painter); the
+	// Haiku look draws its slider triangles and arrows as shapes and the
+	// default button's ring as a round rectangle.
+	//
+	// Given
+	BShape triangle;
+	triangle.MoveTo(BPoint(0.5f, 8.5f));
+	triangle.LineTo(BPoint(8.5f, 8.5f));
+	triangle.LineTo(BPoint(4.5f, 0.5f));
+	triangle.Close();
+	BShape open;
+	open.MoveTo(BPoint(9, 9));
+	open.MoveTo(BPoint(0, 0));
+	open.LineTo(BPoint(5, 0));
+	BGradientLinear gradient;
+	gradient.AddColor(make_color(255, 0, 0), 0);
+	gradient.AddColor(make_color(0, 0, 255), 255);
+	gradient.SetStart(BPoint(0, 0));
+	gradient.SetEnd(BPoint(0, 8));
+
+	// When
+	const std::string dump = Recorded([&](CompatView& view) {
+		view.MovePenTo(BPoint(1, 1));
+		view.StrokeShape(&triangle);
+		view.FillShape(&triangle);
+		view.FillShape(&triangle, gradient);
+		view.MovePenTo(B_ORIGIN);
+		view.StrokeShape(&open);
+		view.StrokeRoundRect(BRect(2, 2, 11, 11), 3, 3);
+		view.SetPenSize(2);
+		view.StrokeRoundRect(BRect(2, 2, 11, 11), 3, 3);
+	});
+
+	// Then
+	EXPECT_EQ(dump,
+		"DisplayList bounds=[0 0 20 20] ops=6\n"
+		"clip [0 0 20 20]\n"
+		"StrokePolyline points=(1.5 9.5)(9.5 9.5)(5.5 1.5) closed=1 color=(0 0 0 1)"
+		" width=1 cap=Butt join=Miter aa=1\n"
+		"FillConvexPolygon points=(1.5 9.5)(9.5 9.5)(5.5 1.5) color=(0 0 0 1) width=1"
+		" cap=Butt join=Miter aa=1\n"
+		"FillConvexPolygon points=(1.5 9.5)(9.5 9.5)(5.5 1.5) color=(0 0 0 1) width=1"
+		" cap=Butt join=Miter aa=1 gradient=(0 0)->(0 8) stop=0:(1 0 0 1)"
+		" stop=1:(0 0 1 1)\n"
+		"StrokePolyline points=(0 0)(5 0) closed=0 color=(0 0 0 1) width=1 cap=Butt"
+		" join=Miter aa=1\n"
+		"StrokeRRect rrect=[2 2 12 12] radii=(3.5 3.5 3.5 3.5) color=(0 0 0 1) width=1"
+		" cap=Butt join=Miter aa=1\n"
+		"StrokeRRect rrect=[1 1 12 12] radii=(4 4 4 4) color=(0 0 0 1) width=2"
+		" cap=Butt join=Miter aa=1\n");
+}
+
+
 } // namespace

@@ -7,6 +7,7 @@
 
 #include "CompatView.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -253,6 +254,64 @@ CompatView::FillRect(BRect rect, pattern_kind pattern)
 }
 
 
+// The stops as offsets 0 to 1 from \a start to \a end; nullopt without
+// stops. One stop fills with its color; the Canvas takes up to four, more
+// are dropped with a warning in debug builds.
+std::optional<gfx::Paint>
+CompatView::_Paint(const BGradientLinear& gradient, BPoint start, BPoint end) const
+{
+	const std::vector<BGradientLinear::ColorStop>& colorStops = gradient.ColorStops();
+	if (colorStops.empty())
+		return std::nullopt;
+	gfx::Paint paint = _Paint(B_SOLID_HIGH);
+	if (colorStops.size() == 1) {
+		paint.color = ToColor(colorStops.front().color);
+		return paint;
+	}
+#ifndef NDEBUG
+	if (colorStops.size() > 4) {
+		std::fprintf(stderr, "ngui::compat::CompatView: a gradient with more than four "
+			"stops is cut to four\n");
+	}
+#endif
+	std::vector<gfx::GradientStop> stops;
+	for (const BGradientLinear::ColorStop& stop : colorStops) {
+		if (stops.size() == 4)
+			break;
+		stops.push_back({stop.offset / 255.0f, ToColor(stop.color)});
+	}
+	auto linear = gfx::LinearGradient::Create({start.x, start.y}, {end.x, end.y}, stops);
+	if (!linear.has_value())
+		return std::nullopt;
+	paint.gradient = *linear;
+	return paint;
+}
+
+
+void
+CompatView::FillRect(BRect rect, const BGradientLinear& gradient)
+{
+	// Haiku's Painter::FillRect() with a gradient always rounds the corners
+	// down, B_SUBPIXEL_PRECISE or not.
+	const BRect aligned(std::floor(std::min(rect.left, rect.right)),
+		std::floor(std::min(rect.top, rect.bottom)), std::floor(std::max(rect.left, rect.right)),
+		std::floor(std::max(rect.top, rect.bottom)));
+	BPoint start = gradient.Start();
+	BPoint end = gradient.End();
+	if (start.x == end.x && start.y <= end.y) {
+		// Painter::FillRectVerticalGradient(): one color per row, from the
+		// row of the start to the row of the end, both included, with the
+		// end color in the last row; a linear gradient sampled at pixel
+		// centers matches that from half a pixel above the start row to
+		// half a pixel below the end row.
+		start.y = std::trunc(start.y) - 0.5f;
+		end.y = std::trunc(end.y) + 0.5f;
+	}
+	if (const std::optional<gfx::Paint> paint = _Paint(gradient, start, end))
+		fContext.canvas.FillRect(FromBRect(aligned), *paint);
+}
+
+
 void
 CompatView::StrokeRect(BRect rect, pattern_kind pattern)
 {
@@ -350,6 +409,84 @@ CompatView::StrokeArc(BRect rect, float startAngle, float arcAngle, pattern_kind
 	// Haiku's angles run counterclockwise, the Canvas's clockwise
 	// (specification 17.2).
 	fContext.canvas.StrokeArc(FromBRect(rect), -startAngle, -arcAngle, _Paint(pattern));
+}
+
+
+void
+CompatView::FillEllipse(BRect rect, const BGradientLinear& gradient)
+{
+	// AGG samples gradients at pixel centers, as the Canvas does.
+	if (const std::optional<gfx::Paint> paint
+			= _Paint(gradient, gradient.Start(), gradient.End())) {
+		fContext.canvas.FillEllipse(FromBRect(rect), *paint);
+	}
+}
+
+
+void
+CompatView::StrokeRoundRect(BRect rect, float xRadius, float /*yRadius*/,
+	pattern_kind pattern)
+{
+	// Haiku strokes centered on the corners, rounded down and moved to the
+	// pixel centers for an odd pen size, with the radius at the middle of
+	// the stroke (Painter::StrokeRoundRect()); the Canvas strokes inside
+	// the outer edge, which lies half the pen size further out. The ported
+	// looks pass the same radius twice.
+	const float penSize = fState.penSize;
+	const float offset = std::fmod(penSize, 2.0f) != 0 ? 0.5f : 0.0f;
+	const BRect aligned = _Align(rect);
+	const float half = penSize / 2;
+	const gfx::Rect outer{aligned.left + offset - half, aligned.top + offset - half,
+		aligned.right + offset + half, aligned.bottom + offset + half};
+	const float radius = xRadius + half;
+	fContext.canvas.StrokeRRect({outer, {radius, radius, radius, radius}}, _Paint(pattern));
+}
+
+
+// Shapes are offset by the pen location and not rounded (Haiku's
+// ServerWindow and Painter::DrawShape()); lines only (specification 17.2):
+// a figure is stroked as a polyline, filled as a convex polygon.
+void
+CompatView::_DrawShape(const BShape* shape, bool fill, const gfx::Paint& paint)
+{
+	if (shape == nullptr)
+		return;
+	std::vector<gfx::Point> points;
+	for (const BShape::Figure& figure : shape->Figures()) {
+		points.clear();
+		for (const BPoint& point : figure.points)
+			points.push_back({point.x + fState.pen.x, point.y + fState.pen.y});
+		if (fill && points.size() >= 3)
+			fContext.canvas.FillConvexPolygon(points, paint);
+		else if (!fill && points.size() >= 2)
+			fContext.canvas.StrokePolyline(points, figure.closed, paint);
+	}
+}
+
+
+void
+CompatView::StrokeShape(const BShape* shape, pattern_kind pattern)
+{
+	_DrawShape(shape, false, _Paint(pattern));
+}
+
+
+void
+CompatView::FillShape(const BShape* shape, pattern_kind pattern)
+{
+	_DrawShape(shape, true, _Paint(pattern));
+}
+
+
+void
+CompatView::FillShape(const BShape* shape, const BGradientLinear& gradient)
+{
+	// The gradient lies in view coordinates; only the shape moves with the
+	// pen.
+	if (const std::optional<gfx::Paint> paint
+			= _Paint(gradient, gradient.Start(), gradient.End())) {
+		_DrawShape(shape, true, *paint);
+	}
 }
 
 

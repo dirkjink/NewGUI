@@ -181,6 +181,7 @@ if(NGUI_WITH_SKIA)
     find_package(unofficial-skia CONFIG REQUIRED)
     add_executable(ngui_skia_tests
         skia/BeLookSkiaTest.cpp
+        skia/CompatSkiaTest.cpp
         skia/SkiaBackendTest.cpp
         skia/SkiaSmokeTest.cpp)
     target_link_libraries(ngui_skia_tests
@@ -199,7 +200,8 @@ if(NGUI_WITH_SKIA)
         target_link_libraries(ngui_skia_tests PRIVATE ngui::svg)
         target_compile_definitions(ngui_skia_tests PRIVATE NGUI_TEST_WITH_SVG=1)
     endif()
-    target_include_directories(ngui_skia_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_include_directories(ngui_skia_tests
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/src")
     target_compile_definitions(ngui_skia_tests
         PRIVATE NGUI_TEST_FONTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/fonts")
     ngui_configure_target(ngui_skia_tests)
