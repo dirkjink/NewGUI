@@ -857,6 +857,98 @@ SdlPlatform::SetCursorVisible(bool visible)
 }
 
 
+namespace {
+
+
+// What a file dialog needs until SDL calls back: the filters (SDL reads
+// them until then) and the callback.
+struct FileDialogRequest {
+	std::vector<std::string>			names;
+	std::vector<std::string>			patterns;
+	std::vector<SDL_DialogFileFilter>	filters;
+	std::function<void(FileDialogResult)> done;
+
+	static void Callback(void* userdata, const char* const* files, int /*filter*/)
+	{
+		const std::unique_ptr<FileDialogRequest> request(
+			static_cast<FileDialogRequest*>(userdata));
+		if (files == nullptr) {
+			request->done(Failure(ErrorCode::IoError, SDL_GetError()));
+			return;
+		}
+		std::vector<std::string> paths;
+		for (const char* const* file = files; *file != nullptr; file++)
+			paths.emplace_back(*file);
+		request->done(std::move(paths));
+	}
+};
+
+
+} // namespace
+
+
+std::expected<void, Error>
+SdlPlatform::ShowFileDialog(const FileDialogSpec& spec,
+	std::function<void(FileDialogResult)> done)
+{
+	if (!done)
+		return Failure(ErrorCode::InvalidArgument, "no callback");
+	auto request = std::make_unique<FileDialogRequest>();
+	for (const auto& [name, pattern] : spec.filters) {
+		request->names.push_back(name);
+		request->patterns.push_back(pattern);
+	}
+	for (std::size_t i = 0; i < request->names.size(); i++)
+		request->filters.push_back({request->names[i].c_str(), request->patterns[i].c_str()});
+	request->done = std::move(done);
+
+	std::shared_ptr<WindowState> parent;
+	if (const auto* window = dynamic_cast<const SdlWindow*>(spec.parent))
+		parent = window->State();
+
+	// SDL shows dialogs from the main thread; the caller does not wait. The
+	// callback may come on another thread (the portal's under Linux).
+	FileDialogRequest* raw = request.release();
+	RunOnMainThread([spec, parent, raw] {
+		SDL_FileDialogType type = SDL_FILEDIALOG_OPENFILE;
+		if (spec.kind == FileDialogSpec::Kind::Save)
+			type = SDL_FILEDIALOG_SAVEFILE;
+		else if (spec.kind == FileDialogSpec::Kind::Folder)
+			type = SDL_FILEDIALOG_OPENFOLDER;
+		const SDL_PropertiesID properties = SDL_CreateProperties();
+		if (!raw->filters.empty()) {
+			(void)SDL_SetPointerProperty(properties, SDL_PROP_FILE_DIALOG_FILTERS_POINTER,
+				raw->filters.data());
+			(void)SDL_SetNumberProperty(properties, SDL_PROP_FILE_DIALOG_NFILTERS_NUMBER,
+				static_cast<Sint64>(raw->filters.size()));
+		}
+		if (parent != nullptr) {
+			SDL_Window* handle = nullptr;
+			{
+				std::scoped_lock lock(parent->lock);
+				handle = parent->window;
+			}
+			if (handle != nullptr) {
+				(void)SDL_SetPointerProperty(properties, SDL_PROP_FILE_DIALOG_WINDOW_POINTER,
+					handle);
+			}
+		}
+		const auto setString = [&](const char* name, const std::string& value) {
+			if (!value.empty())
+				(void)SDL_SetStringProperty(properties, name, value.c_str());
+		};
+		setString(SDL_PROP_FILE_DIALOG_LOCATION_STRING, spec.location);
+		setString(SDL_PROP_FILE_DIALOG_TITLE_STRING, spec.title);
+		setString(SDL_PROP_FILE_DIALOG_ACCEPT_STRING, spec.acceptLabel);
+		setString(SDL_PROP_FILE_DIALOG_CANCEL_STRING, spec.cancelLabel);
+		(void)SDL_SetBooleanProperty(properties, SDL_PROP_FILE_DIALOG_MANY_BOOLEAN, spec.many);
+		SDL_ShowFileDialogWithProperties(type, &FileDialogRequest::Callback, raw, properties);
+		SDL_DestroyProperties(properties);
+	});
+	return {};
+}
+
+
 void
 SdlPlatform::RunOnMainThread(std::function<void()> work)
 {

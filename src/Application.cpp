@@ -382,6 +382,14 @@ platform::Platform::SetCursorVisible(bool /*visible*/)
 
 
 std::expected<void, Error>
+platform::Platform::ShowFileDialog(const FileDialogSpec& /*spec*/,
+	std::function<void(FileDialogResult)> /*done*/)
+{
+	return Failure(ErrorCode::NotSupported, "no file dialogs");
+}
+
+
+std::expected<void, Error>
 platform::Platform::SetClipboard(const ClipboardData& /*data*/)
 {
 	return Failure(ErrorCode::NotSupported, "no clipboard");

@@ -30,7 +30,8 @@
 // BTextControl asks for a name, and the label greets it when Enter is
 // pressed or the field is left. A page with lists shows a BListView and a
 // BOutlineListView. Text dragged from another application drops into the
-// notes; files dropped on the window are listed in an alert.
+// notes; files dropped on the window are listed in an alert. File > Open
+// shows the system's file dialog (BFilePanel).
 
 
 #include <cstdint>
@@ -45,6 +46,7 @@
 #include <ngui/Box.h>
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
+#include <ngui/FilePanel.h>
 #include <ngui/Font.h>
 #include <ngui/GroupView.h>
 #include <ngui/IconUtils.h>
@@ -93,6 +95,7 @@ constexpr std::uint32_t kStyleRed = FourCharCode("SRED");
 constexpr std::uint32_t kHashMarks = FourCharCode("HASH");
 constexpr std::uint32_t kName = FourCharCode("NAME");
 constexpr std::uint32_t kChosen = FourCharCode("CHSN");
+constexpr std::uint32_t kOpen = FourCharCode("OPEN");
 
 
 // The counter's label: a right click opens a context menu with the
@@ -250,6 +253,7 @@ public:
 		auto menuBar = std::make_unique<BMenuBar>("menu bar");
 		BLayoutBuilder::Menu<>(menuBar.get())
 			.AddMenu("File")
+				.AddItem("Open" "\u2026", kOpen, 'O')
 				.AddItem("Reset", kReset, 'R')
 				.AddSeparator()
 				.AddItem("Quit", kQuitRequested, 'Q')
@@ -339,6 +343,31 @@ public:
 			_Style(message->what);
 			return;
 		}
+		if (message->what == kOpen) {
+			// the system's file dialog (BFilePanel); the choice comes as
+			// kRefsReceived, then kCancel as it closes
+			if (fOpenPanel == nullptr) {
+				fOpenPanel = std::make_unique<BFilePanel>(BFilePanelMode::Open,
+					BMessenger(this));
+				fOpenPanel->SetTitle("Open files");
+				fOpenPanel->AddFilter("Text", "txt;md");
+				fOpenPanel->AddFilter("All files", "*");
+			}
+			if (auto shown = fOpenPanel->Show(); !shown.has_value()) {
+				(void)BAlert::Go(std::make_unique<BAlert>("Open", shown.error().message, "OK"),
+					[](int32) {});
+			}
+			return;
+		}
+		if (message->what == kRefsReceived) {
+			std::string text = "Chosen:";
+			for (std::int32_t i = 0; auto path = message->FindString("paths", i); i++)
+				text += "\n" + std::string(*path);
+			(void)BAlert::Go(std::make_unique<BAlert>("Open", text, "OK"), [](int32) {});
+			return;
+		}
+		if (message->what == kCancel)
+			return;
 		if (message->WasDropped() && message->what == kSimpleData) {
 			// files dragged from the file manager onto a view that does not
 			// take them (text goes into the notes)
@@ -371,6 +400,7 @@ private:
 	BOutlineListView* fClasses = nullptr;
 	BStatusBar* fStatus = nullptr;
 	BTabView* fTabs = nullptr;
+	std::unique_ptr<BFilePanel> fOpenPanel;
 	BTextView* fNotes = nullptr;
 
 	// The Text menu: the selected notes (or what is typed next) plain, bold,

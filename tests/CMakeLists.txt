@@ -30,6 +30,7 @@ add_executable(ngui_tests
     DropTest.cpp
     ErrorTest.cpp
     FontTest.cpp
+    FilePanelTest.cpp
     FlagsTest.cpp
     InvokerTest.cpp
     LockerTest.cpp

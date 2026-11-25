@@ -78,6 +78,11 @@ public:
 										NoCursor. */
 			void				SetCursorVisible(bool visible) override;
 									/*!< SDL_ShowCursor() or SDL_HideCursor(). */
+			std::expected<void, Error> ShowFileDialog(const FileDialogSpec& spec,
+									std::function<void(FileDialogResult)> done) override;
+									/*!< SDL_ShowFileDialogWithProperties(): the system's
+										dialog (under Linux through the xdg-desktop-portal,
+										else zenity). */
 
 			void				RunOnMainThread(std::function<void()> work);
 									/*!< Runs \a work on the main thread: at once if called

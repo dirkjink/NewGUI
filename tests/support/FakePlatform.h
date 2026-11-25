@@ -236,6 +236,38 @@ public:
 		fCursorVisible.push_back(visible);
 	}
 
+	std::expected<void, Error> ShowFileDialog(const platform::FileDialogSpec& spec,
+		std::function<void(platform::FileDialogResult)> done) override
+	{
+		std::scoped_lock lock(fLock);
+		fDialogs.push_back(spec);
+		fDialogAnswers.push_back(std::move(done));
+		return {};
+	}
+
+	// The file dialogs shown so far, in order.
+	std::vector<platform::FileDialogSpec> Dialogs()
+	{
+		std::scoped_lock lock(fLock);
+		return fDialogs;
+	}
+
+	// Answers file dialog \a index with \a result, as the system would
+	// (from the calling thread); false if there is none or it was answered.
+	bool AnswerDialog(std::size_t index, platform::FileDialogResult result)
+	{
+		std::function<void(platform::FileDialogResult)> done;
+		{
+			std::scoped_lock lock(fLock);
+			if (index >= fDialogAnswers.size() || !fDialogAnswers[index])
+				return false;
+			done = std::move(fDialogAnswers[index]);
+			fDialogAnswers[index] = nullptr;
+		}
+		done(std::move(result));
+		return true;
+	}
+
 	// The cursors shown so far, in order.
 	std::vector<platform::CursorShape> Cursors()
 	{
@@ -319,6 +351,8 @@ private:
 	std::vector<FakeWindow*> fWindows;
 	std::vector<platform::CursorShape> fCursors;
 	std::vector<bool> fCursorVisible;
+	std::vector<platform::FileDialogSpec> fDialogs;
+	std::vector<std::function<void(platform::FileDialogResult)>> fDialogAnswers;
 	bool fWoken = false;
 	bool fBlocked = false;
 	int fWaits = 0;

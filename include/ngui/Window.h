@@ -291,6 +291,7 @@ private:
 	friend class BAlert;
 	friend class BPopUpMenu;
 	friend class BTextView;
+	friend class BFilePanel;
 	friend class BToolTipManager;
 	friend class ToolTipPopup;
 
