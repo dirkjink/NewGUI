@@ -12,6 +12,8 @@
 
 #include <ngui/AppDefs.h>
 
+#include "PlatformEvent.h"
+
 
 namespace ngui::platform {
 
@@ -247,7 +249,10 @@ HeadlessWindow::CountFrames() const
 std::expected<void, Error>
 HeadlessWindow::Send(const BMessage& message) const
 {
-	return Target().SendMessage(message);
+	// an event of the platform, for Record & Replay
+	BMessage event(message);
+	PlatformEventMark::Set(event);
+	return Target().SendMessage(event);
 }
 
 

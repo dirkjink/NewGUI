@@ -455,7 +455,8 @@ BMessage::BMessage(const BMessage& other)
 	what(other.what),
 	fFields(other.fFields),
 	fDropPoint(other.fDropPoint),
-	fCurrentSpecifier(other.fCurrentSpecifier)
+	fCurrentSpecifier(other.fCurrentSpecifier),
+	fPlatformEvent(other.fPlatformEvent)
 {
 }
 
@@ -475,6 +476,7 @@ BMessage::operator=(const BMessage& other)
 		fDelivery.reset();
 		fDropPoint = other.fDropPoint;
 		fCurrentSpecifier = other.fCurrentSpecifier;
+		fPlatformEvent = other.fPlatformEvent;
 	}
 	return *this;
 }

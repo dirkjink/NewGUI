@@ -16,8 +16,10 @@
 
 #include <ngui/AppDefs.h>
 #include <ngui/Cursor.h>
+#include <ngui/LocaleRoster.h>
 #include <ngui/LookRegistry.h>
 #include <ngui/PropertyInfo.h>
+#include <ngui/Recording.h>
 #include <ngui/RemoteControl.h>
 #include <ngui/Window.h>
 #include <ngui/platform/PlatformRegistry.h>
@@ -28,6 +30,7 @@
 #include <unistd.h>
 #endif
 
+#include "record/Recorder.h"
 #include "CursorState.h"
 #include "Environment.h"
 #include "LooperPort.h"
@@ -122,6 +125,13 @@ BApplication::BApplication(std::string_view signature, int argc, char** argv)
 		if (const auto path = EnableRemoteControl(); !path.has_value())
 			std::fprintf(stderr, "ngui: remote control: %s\n", path.error().message.c_str());
 	}
+	// Recording only when asked (rule T5): here by the environment, which
+	// whoever sets it agrees to.
+	if (const std::optional<std::string> file = detail::EnvironmentVariable("NGUI_RECORD");
+			file.has_value() && !file->empty()) {
+		if (const auto started = StartRecording(*file); !started.has_value())
+			std::fprintf(stderr, "ngui: recording: %s\n", started.error().message.c_str());
+	}
 }
 
 
@@ -129,6 +139,7 @@ BApplication::~BApplication()
 {
 	// no requests any more, before the looper goes
 	fRemote.reset();
+	StopRecording();
 	fPulseRunner.reset();
 	std::scoped_lock lock(sLock);
 	if (fRegistered) {
@@ -611,6 +622,40 @@ std::filesystem::path
 BApplication::RemoteControlPath() const
 {
 	return fRemote != nullptr ? fRemote->Path() : std::filesystem::path();
+}
+
+
+std::expected<void, Error>
+BApplication::StartRecording(const std::filesystem::path& file)
+{
+	RecordingStart start;
+	start.signature = fSignature;
+	if (const auto look = LookRegistry::DefaultLook())
+		start.look = std::string(look->Info().id);
+	start.languages = BLocaleRoster::Default()->PreferredLanguages();
+	for (const detail::WindowEntry& window : detail::WindowEntries())
+		start.windows.push_back({window.title});
+	if (auto started = detail::StartRecorder(file, start); !started.has_value())
+		return started;
+	fRecording = true;
+	return {};
+}
+
+
+void
+BApplication::StopRecording()
+{
+	if (!fRecording)
+		return;
+	detail::StopRecorder();
+	fRecording = false;
+}
+
+
+bool
+BApplication::IsRecording() const
+{
+	return fRecording;
 }
 
 

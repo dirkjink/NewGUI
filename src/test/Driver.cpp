@@ -13,17 +13,21 @@
 
 #include <algorithm>
 #include <sstream>
+#include <string>
 #include <utility>
 
 #include <ngui/AppDefs.h>
 #include <ngui/Control.h>
 #include <ngui/LocaleRoster.h>
+#include <ngui/LookRegistry.h>
 #include <ngui/StringView.h>
 #include <ngui/TextControl.h>
 #include <ngui/TextView.h>
 #include <ngui/Window.h>
 
 #include "LooperPort.h"
+#include "PlatformEvent.h"
+#include "WindowList.h"
 
 
 namespace ngui::test {
@@ -490,6 +494,51 @@ Driver::Advance(Clock::Time duration)
 }
 
 
+std::expected<void, Error>
+Driver::Replay(const Recording& recording)
+{
+	if (dynamic_cast<ManualClock*>(&Clock::Default()) == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "the clock is no ManualClock");
+	if (auto idle = WaitForIdle(); !idle.has_value())
+		return idle;
+	if (!recording.start.look.empty()) {
+		if (auto look = LookRegistry::Default().SetCurrent(recording.start.look);
+				!look.has_value()) {
+			return look;
+		}
+		if (auto idle = WaitForIdle(); !idle.has_value())
+			return idle;
+	}
+	const std::vector<detail::WindowEntry> windows = detail::WindowEntries();
+	if (windows.size() != recording.start.windows.size()) {
+		return Failure(ErrorCode::NotFound, "the recording began with "
+			+ std::to_string(recording.start.windows.size()) + " windows, there are "
+			+ std::to_string(windows.size()));
+	}
+	std::vector<std::uint64_t> startSerials;
+	for (const detail::WindowEntry& window : windows)
+		startSerials.push_back(window.serial);
+	const std::uint64_t firstNewSerial = detail::NextWindowSerial();
+
+	Clock::Time elapsed{};
+	for (std::size_t i = 0; i < recording.events.size(); i++) {
+		const RecordedEvent& event = recording.events[i];
+		if (event.time > elapsed) {
+			if (auto advanced = Advance(event.time - elapsed); !advanced.has_value())
+				return advanced;
+			elapsed = event.time;
+		}
+		if (auto sent = _ReplayEvent(event, startSerials, firstNewSerial); !sent.has_value()) {
+			return Failure(sent.error().code, "event " + std::to_string(i) + ": "
+				+ sent.error().message);
+		}
+		if (auto idle = WaitForIdle(); !idle.has_value())
+			return idle;
+	}
+	return {};
+}
+
+
 WindowRef
 Driver::Window(std::string_view title)
 {
@@ -645,6 +694,63 @@ Driver::_PlatformWindow(const BMessenger& target) const
 			return window;
 	}
 	return nullptr;
+}
+
+
+// Sends \a event of a recording to where it went: its window, its popup or
+// the application.
+std::expected<void, Error>
+Driver::_ReplayEvent(const RecordedEvent& event, const std::vector<std::uint64_t>& startSerials,
+	std::uint64_t firstNewSerial)
+{
+	if (event.window < 0) {
+		BMessage message(event.message);
+		PlatformEventMark::Set(message);
+		return AppMessenger().SendMessage(message);
+	}
+	const auto number = static_cast<std::uint64_t>(event.window);
+	const std::uint64_t serial = number < startSerials.size()
+		? startSerials[static_cast<std::size_t>(number)]
+		: firstNewSerial + (number - startSerials.size());
+	BMessenger target;
+	for (const detail::WindowEntry& window : detail::WindowEntries()) {
+		if (window.serial == serial)
+			target = window.messenger;
+	}
+	if (!target.IsValid()) {
+		return Failure(ErrorCode::NotFound, "window " + std::to_string(event.window)
+			+ " of the recording is not there");
+	}
+	platform::HeadlessWindow* platformWindow = _PlatformWindow(target);
+	if (event.popup >= 0) {
+		// the window's open popups, in the order they opened
+		std::vector<platform::HeadlessWindow*> popups;
+		if (fPlatform != nullptr && platformWindow != nullptr) {
+			for (platform::HeadlessWindow* window : fPlatform->Windows()) {
+				if (window->IsPopup() && window->Parent() == platformWindow)
+					popups.push_back(window);
+			}
+		}
+		if (static_cast<std::size_t>(event.popup) >= popups.size()) {
+			return Failure(ErrorCode::NotFound, "popup " + std::to_string(event.popup)
+				+ " of window " + std::to_string(event.window) + " is not open");
+		}
+		return popups[static_cast<std::size_t>(event.popup)]->Send(event.message);
+	}
+	if (platformWindow == nullptr) {
+		BMessage message(event.message);
+		PlatformEventMark::Set(message);
+		return target.SendMessage(message);
+	}
+	// the window system's own idea of the window, as before such an event
+	if (event.message.what == kWindowMoved)
+		platformWindow->MoveTo(event.message.GetPoint("where", platformWindow->Frame().LeftTop()));
+	if (event.message.what == kWindowResized) {
+		const gfx::Rect frame = platformWindow->Frame();
+		platformWindow->ResizeTo({event.message.GetFloat("width", frame.Width()),
+			event.message.GetFloat("height", frame.Height())});
+	}
+	return platformWindow->Send(event.message);
 }
 
 

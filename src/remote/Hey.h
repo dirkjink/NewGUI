@@ -29,6 +29,7 @@
 #include <expected>
 #include <span>
 #include <string>
+#include <string_view>
 
 #include <ngui/Error.h>
 #include <ngui/Message.h>
@@ -52,6 +53,13 @@ std::string DescribeReply(const BMessage& reply);
 
 // The items of "result", one per line (hey -o).
 std::string ResultText(const BMessage& reply);
+
+// The name of \a what as hey prints it ("B_KEY_DOWN", or 'abcd').
+std::string MessageName(std::uint32_t what);
+
+// A line per item of \a message, each after \a indent, as DescribeReply()
+// prints them.
+std::string DescribeFields(const BMessage& message, std::string_view indent);
 
 
 } // namespace ngui::remote::detail

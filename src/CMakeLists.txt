@@ -64,6 +64,7 @@ add_library(ngui
     Messenger.cpp
     PropertyInfo.cpp
     remote/Hey.cpp
+    record/Recording.cpp
     remote/LocalSocket.cpp
     remote/RemoteControl.cpp
     OutlineListView.cpp
@@ -272,6 +273,8 @@ if(NGUI_WITH_SDL3)
             ngui::ngui
         PRIVATE
             SDL3::SDL3)
+    # internal headers (PlatformEvent.h)
+    target_include_directories(ngui_sdl3 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_sdl3)
 endif()
 

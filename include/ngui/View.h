@@ -357,6 +357,18 @@ public:
 									/*!< NewGUI: the cursor of SetViewCursor(), or
 										nullptr. */
 
+	// Record & Replay (specification 20.8)
+
+			void				SetInputPrivate(bool isPrivate);
+									/*!< Whether what is typed into it, or into a view in
+										it, is kept out of recordings (rule T5): its
+										characters are recorded as bullets "\u2022" (and
+										replayed so), its keys without their codes. For
+										a credit card number, say; text views that hide
+										typing (passwords) are private anyway. */
+			bool				IsInputPrivate() const;
+									/*!< Whether it is marked private for recordings. */
+
 	// Tooltips (module W6b)
 
 			void				SetToolTip(std::string_view text);
@@ -566,6 +578,7 @@ private:
 			gfx::DisplayListRef	fList;
 			gfx::DisplayListRef	fListAfterChildren;
 			std::shared_ptr<BToolTip> fToolTip;
+			bool				fInputPrivate = false;
 			std::unique_ptr<BCursor> fCursor;
 
 			// Layout, as Haiku's BView::LayoutData

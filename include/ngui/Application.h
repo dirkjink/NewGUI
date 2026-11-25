@@ -179,6 +179,24 @@ public:
 			std::filesystem::path RemoteControlPath() const;
 									/*!< The socket, empty while remote control is off. */
 
+	// Record & Replay (specification 20.8, rule T5)
+
+			std::expected<void, Error> StartRecording(const std::filesystem::path& file);
+									/*!< Records the events of the platform into \a file
+										(ngui/Recording.h), only the user may read it, until
+										StopRecording(): what they type is in it. Call it only
+										after the user agreed (rule T5); starting with
+										NGUI_RECORD=\<file\> is that agreement. Typing into
+										password fields and views marked private
+										(BView::SetInputPrivate()) is masked. InvalidArgument
+										while a recording runs, IoError if \a file cannot be
+										written. Test::Driver::Replay() plays it back. */
+			void				StopRecording();
+									/*!< Ends the recording and closes its file (also when
+										the application goes). */
+			bool				IsRecording() const;
+									/*!< Whether a recording runs. */
+
 private:
 			class PlatformEvents;
 
@@ -191,6 +209,7 @@ private:
 			bool				fRegistered = false;
 			bool				fValidSignature;
 			std::unique_ptr<remote::detail::RemoteServer> fRemote;
+			bool				fRecording = false;
 };
 
 

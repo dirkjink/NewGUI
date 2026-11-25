@@ -29,6 +29,7 @@ namespace ngui {
 
 
 struct MessageDelivery;
+struct PlatformEventMark;
 
 
 /*!	A four-character code, as Haiku writes 'LONG': FourCharCode("LONG"). */
@@ -626,11 +627,15 @@ private:
 									// set by the window it was dropped on
 			std::int32_t		fCurrentSpecifier = -1;
 									// the specifier left to resolve, -1 for none
+			bool				fPlatformEvent = false;
+									// sent by the platform (Record & Replay),
+									// until its looper takes it
 
 			friend class BLooper;
 			friend class BWindow;
 			friend class BMessenger;
 			friend class MessageFlattener;
+			friend struct PlatformEventMark;
 };
 
 

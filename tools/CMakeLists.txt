@@ -11,3 +11,11 @@ set_target_properties(ngui_hey PROPERTIES OUTPUT_NAME ngui-hey)
 target_link_libraries(ngui_hey PRIVATE ngui::ngui)
 target_include_directories(ngui_hey PRIVATE "${PROJECT_SOURCE_DIR}/src")
 ngui_configure_target(ngui_hey)
+
+# ngui-replay: what a recording holds (specification 20.8); tests play it
+# back with test::Driver::Replay().
+add_executable(ngui_replay replay/main.cpp)
+set_target_properties(ngui_replay PROPERTIES OUTPUT_NAME ngui-replay)
+target_link_libraries(ngui_replay PRIVATE ngui::ngui)
+target_include_directories(ngui_replay PRIVATE "${PROJECT_SOURCE_DIR}/src")
+ngui_configure_target(ngui_replay)
