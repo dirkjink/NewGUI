@@ -590,11 +590,14 @@ SkiaBackend::Register(BackendRegistry& registry, int priority)
 
 
 bool
-SkiaBackend::AddFont(FontId font, std::span<const std::byte> fontFile)
+SkiaBackend::AddFont(FontId font, std::span<const std::byte> fontFile, std::uint32_t faceIndex)
 {
+	if (faceIndex > 0xffff)
+		return false;
 	const sk_sp<SkData> data = SkData::MakeWithCopy(fontFile.data(), fontFile.size());
 	const std::scoped_lock lock(fData->fontLock);
-	sk_sp<SkTypeface> typeface = fData->fontManager->makeFromData(data);
+	sk_sp<SkTypeface> typeface = fData->fontManager->makeFromData(data,
+		static_cast<int>(faceIndex));
 	if (!typeface)
 		return false;
 	fData->fonts[font] = std::move(typeface);

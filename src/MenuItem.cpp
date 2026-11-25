@@ -372,7 +372,7 @@ BMenuItem::DrawContent(DrawContext& context)
 	const std::string label
 		= std::round(frameWidth) >= std::round(labelWidth) ? fLabel : TruncateLabel(frameWidth);
 	const ShapedText shaped = text.Shape(label, FontRole::Plain);
-	context.canvas.DrawGlyphRun(shaped.Run(), {lineStart.x, lineStart.y},
+	shaped.Draw(context.canvas, {lineStart.x, lineStart.y},
 		gfx::Paint{.color = high});
 
 	if (fSuper->AreTriggersEnabled() && fTriggerIndex != -1
@@ -665,7 +665,7 @@ BMenuItem::_DrawShortcutSymbol(DrawContext& context, bool submenus)
 	}
 
 	const ShapedText shaped = text.Shape(symbol, FontRole::Plain);
-	context.canvas.DrawGlyphRun(shaped.Run(), {where.x, where.y + ascent},
+	shaped.Draw(context.canvas, {where.x, where.y + ascent},
 		gfx::Paint{.color = HighColor(context)});
 
 	where.y += (bounds.Height() - 11) / 2 - 1;

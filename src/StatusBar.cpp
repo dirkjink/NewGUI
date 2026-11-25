@@ -215,12 +215,12 @@ BStatusBar::Draw(DrawContext& context)
 		const gfx::Paint paint{.color = textColor};
 		if (!leftText.empty()) {
 			const ShapedText shaped = textSystem.Shape(leftText, FontRole::Plain);
-			context.canvas.DrawGlyphRun(shaped.Run(), {rect.left, baseLine}, paint);
+			shaped.Draw(context.canvas, {rect.left, baseLine}, paint);
 		}
 
 		if (!rightText.empty()) {
 			const ShapedText shaped = textSystem.Shape(rightText, FontRole::Plain);
-			context.canvas.DrawGlyphRun(shaped.Run(), {textDivider, baseLine}, paint);
+			shaped.Draw(context.canvas, {textDivider, baseLine}, paint);
 		}
 	}
 

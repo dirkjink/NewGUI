@@ -104,13 +104,16 @@ public:
 	void Render(const gfx::DisplayList&, gfx::Point) override
 	{
 		renders++;
+		// font 0 marks a frame among the added fonts
+		if (addedFonts != nullptr && markRenders)
+			addedFonts->push_back(0);
 	}
 
 	void EndFrame(gfx::Surface&) override
 	{
 	}
 
-	bool AddFont(gfx::FontId font, std::span<const std::byte>) override
+	bool AddFont(gfx::FontId font, std::span<const std::byte>, std::uint32_t = 0) override
 	{
 		if (addedFonts != nullptr)
 			addedFonts->push_back(font);
@@ -119,6 +122,7 @@ public:
 
 	std::atomic<int> renders = 0;
 	std::shared_ptr<std::vector<gfx::FontId>> addedFonts;
+	bool markRenders = false;
 };
 
 

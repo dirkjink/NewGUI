@@ -6,16 +6,21 @@
 #pragma once
 
 
+#include <cstdint>
 #include <expected>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <ngui/Error.h>
 #include <ngui/TextSystem.h>
 #include <ngui/gfx/GlyphRun.h>
+#include <ngui/text/FontSource.h>
 
 
 namespace ngui::text {
@@ -30,14 +35,21 @@ namespace ngui::text {
 	Sans and Noto Sans Bold for the plain and bold roles, Noto Sans Mono for
 	the fixed one (data/fonts/, SIL Open Font License 1.1), the system font
 	of Haiku. They give the same metrics on every system, so layouts and
-	tests do not depend on the machine (specification 20.3). Fonts of the
-	system and fallback chains for other scripts come later.
+	tests do not depend on the machine (specification 20.3).
+
+	Fallback (module X1): characters a font does not have come in another
+	font, a grapheme cluster (UAX #29) at a time: first in the other bundled
+	fonts (Noto Sans Mono has arrows and symbols that Noto Sans lacks), then
+	in the font a FontSource finds, which is loaded on first use and gets
+	the next free FontId (4, 5, ...). Without a font for it, a character
+	stays in its font, as its "missing" glyph. A shaped text then has
+	several runs (ShapedText::fontRuns); Fonts() grows by the loaded fonts.
 
 	Metrics as Haiku's BFont: Height() from the font's ascender, descender
 	and line gap; StringWidth() is the advance of the shaped text, kerning
 	included; Truncate() is Haiku's truncate_string() with the advances of
-	the single characters (escapements). Thread-safe: the fonts are not
-	changed after construction.
+	the single characters (escapements), each in the font it comes in.
+	Thread-safe: fonts are only added, and a loaded font is not changed.
 */
 class FontTextSystem final : public TextSystem {
 public:
@@ -46,9 +58,15 @@ public:
 
 	static	std::expected<std::unique_ptr<FontTextSystem>, Error> CreateBundled(
 									float size = kDefaultSize);
-									/*!< The text system with the bundled fonts at \a size;
-										InvalidArgument for a size that is not positive,
-										BadData if a font cannot be read. */
+									/*!< The text system with the bundled fonts at \a size,
+										without fonts of the system; InvalidArgument for a
+										size that is not positive, BadData if a font
+										cannot be read. */
+	static	std::expected<std::unique_ptr<FontTextSystem>, Error> Create(
+									std::unique_ptr<FontSource> fonts,
+									float size = kDefaultSize);
+									/*!< CreateBundled() with the fallback fonts \a fonts
+										finds (none if nullptr). */
 								~FontTextSystem() override;
 									/*!< Frees the fonts. */
 
@@ -76,8 +94,9 @@ public:
 										"Noto Sans Mono" Regular (font 3). */
 			FontSpec			RoleFont(FontRole role) const override;
 									/*!< Fonts 1 to 3 at the size of the text system. */
-			std::span<const FontFile> Fonts() const override;
-									/*!< The three bundled fonts, ids 1 to 3. */
+			std::vector<FontFile> Fonts() const override;
+									/*!< The three bundled fonts, ids 1 to 3, then the
+										fallback fonts loaded so far. */
 
 			using				TextSystem::Height;
 			using				TextSystem::StringWidth;
@@ -104,9 +123,21 @@ private:
 								FontTextSystem();
 
 			const Font&			_Font(gfx::FontId id) const;
+			const Font*			_FontFor(const Font& primary,
+									std::span<const char32_t> cluster) const;
+			const Font*			_SourceFont(const Font& primary, char32_t codePoint) const;
+			const Font*			_Load(const FontLocation& location) const;
+			std::vector<std::pair<std::size_t, const Font*>> _Itemize(std::string_view text,
+									const Font& primary) const;
 
-			std::vector<std::unique_ptr<Font>> fFonts;
-			std::vector<FontFile> fFiles;
+			mutable std::mutex	fLock;
+			mutable std::vector<std::unique_ptr<Font>> fFonts;
+									// guarded by fLock; only appended
+			mutable std::map<std::pair<gfx::FontId, char32_t>, gfx::FontId> fFallbacks;
+									// what the source found, 0 for nothing
+			mutable std::vector<std::pair<FontLocation, gfx::FontId>> fLoaded;
+									// the files loaded, 0 for unreadable
+			std::unique_ptr<FontSource> fSource;
 			float				fSize = kDefaultSize;
 };
 

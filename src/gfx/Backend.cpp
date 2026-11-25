@@ -27,7 +27,7 @@ PixelData::IsValid() const
 
 
 bool
-Backend::AddFont(FontId, std::span<const std::byte>)
+Backend::AddFont(FontId, std::span<const std::byte>, std::uint32_t)
 {
 	return false;
 }

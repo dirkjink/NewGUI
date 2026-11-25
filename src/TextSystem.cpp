@@ -13,16 +13,62 @@
 #include <utility>
 #include <vector>
 
+#include <ngui/gfx/Canvas.h>
+#include <ngui/gfx/Paint.h>
+
 #include "TruncateString.h"
 
 
 namespace ngui {
 
 
-gfx::GlyphRun
-ShapedText::Run() const
+std::vector<gfx::GlyphRun>
+ShapedText::Runs() const
 {
-	return {font, sizePx, glyphs, positions, text, clusters};
+	std::vector<gfx::GlyphRun> runs;
+	const std::span<const std::uint32_t> allGlyphs(glyphs);
+	const std::span<const gfx::Point> allPositions(positions);
+	const std::span<const std::uint32_t> allClusters(clusters);
+	const auto add = [&](gfx::FontId runFont, std::size_t begin, std::size_t end) {
+		// positions and clusters as many as the glyphs, or broken text
+		end = std::min({end, glyphs.size(), positions.size()});
+		if (begin >= end)
+			return;
+		const std::size_t count = end - begin;
+		runs.push_back({runFont, sizePx, allGlyphs.subspan(begin, count),
+			allPositions.subspan(begin, count), text,
+			clusters.size() == glyphs.size() ? allClusters.subspan(begin, count)
+				: std::span<const std::uint32_t>()});
+	};
+	if (fontRuns.empty()) {
+		add(font, 0, glyphs.size());
+		return runs;
+	}
+	std::size_t begin = 0;
+	for (const ShapedFontRun& run : fontRuns) {
+		add(run.font, begin, run.end);
+		begin = std::max(begin, run.end);
+	}
+	return runs;
+}
+
+
+void
+ShapedText::Draw(gfx::Canvas& canvas, gfx::Point origin, const gfx::Paint& paint) const
+{
+	for (const gfx::GlyphRun& run : Runs())
+		canvas.DrawGlyphRun(run, origin, paint);
+}
+
+
+gfx::FontId
+ShapedText::FontOf(std::size_t glyph) const
+{
+	for (const ShapedFontRun& run : fontRuns) {
+		if (glyph < run.end)
+			return run.font;
+	}
+	return font;
 }
 
 
@@ -318,7 +364,7 @@ TextSystem::DoShape(std::string_view text, const FontSpec& font) const
 }
 
 
-std::span<const FontFile>
+std::vector<FontFile>
 TextSystem::Fonts() const
 {
 	return {};

@@ -77,7 +77,7 @@ Rendered::Rendered(const DisplayListRef& list, Size device, float scale, Point o
 	fSurface(fBackend.CreateOffscreenSurface(device, scale))
 {
 	for (const FontFile& font : fonts)
-		(void)fBackend.AddFont(font.id, font.data);
+		(void)fBackend.AddFont(font.id, font.data, font.faceIndex);
 	fBackend.BeginFrame(*fSurface, {1, 1, 1, 1});
 	fBackend.Render(*list, offset);
 	fBackend.EndFrame(*fSurface);

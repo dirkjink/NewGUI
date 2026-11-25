@@ -74,7 +74,9 @@ NGUI_FUZZ_TARGET(Text)
 	// text system with arbitrary bytes as text: the first byte chooses the
 	// role and the truncation mode, the second the width.
 	// Success criteria: No crash or sanitizer report; the clusters are
-	// byte offsets inside the text and never decrease; a truncated valid
+	// byte offsets inside the text and never decrease; the font runs (the
+	// fallback to the other bundled fonts) cover the glyphs in order, and
+	// Runs() views each glyph once; a truncated valid
 	// UTF-8 text is valid UTF-8 again, and the text itself, empty, or a
 	// beginning and an end of it joined by "…" (for End only a beginning,
 	// for Beginning only an end).
@@ -105,6 +107,20 @@ NGUI_FUZZ_TARGET(Text)
 	}
 	NGUI_FUZZ_CHECK(shaped.glyphs.size() == shaped.positions.size());
 	NGUI_FUZZ_CHECK(measured == shaped.advance);
+	std::size_t runEnd = 0;
+	for (const ngui::ShapedFontRun& run : shaped.fontRuns) {
+		NGUI_FUZZ_CHECK(run.end >= runEnd && run.end <= shaped.glyphs.size());
+		NGUI_FUZZ_CHECK(run.font >= 1 && run.font <= 3);
+		runEnd = run.end;
+	}
+	NGUI_FUZZ_CHECK(shaped.fontRuns.empty() || runEnd == shaped.glyphs.size());
+	std::size_t viewed = 0;
+	for (const ngui::gfx::GlyphRun& run : shaped.Runs()) {
+		NGUI_FUZZ_CHECK(run.glyphs.size() == run.positions.size());
+		NGUI_FUZZ_CHECK(run.clusters.size() == run.glyphs.size());
+		viewed += run.glyphs.size();
+	}
+	NGUI_FUZZ_CHECK(viewed == shaped.glyphs.size());
 	if (IsValidUtf8(text)) {
 		NGUI_FUZZ_CHECK(IsValidUtf8(truncated));
 		NGUI_FUZZ_CHECK(truncated == text || truncated.empty()

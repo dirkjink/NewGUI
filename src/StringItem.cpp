@@ -62,9 +62,8 @@ BStringItem::DrawItem(BView* owner, DrawContext& context, gfx::Rect frame,
 	}
 
 	const ShapedText shaped = context.text.Shape(fText, FontRole::Plain);
-	context.canvas.DrawGlyphRun(shaped.Run(),
-		{frame.x0 + owner->Look().DefaultLabelSpacing(context.text),
-			frame.y0 + fBaselineOffset},
+	shaped.Draw(context.canvas,
+		{frame.x0 + owner->Look().DefaultLabelSpacing(context.text), frame.y0 + fBaselineOffset},
 		gfx::Paint{.color = textColor});
 }
 

@@ -6,15 +6,19 @@
 
 
 #include <ngui/text/FontTextSystem.h>
+#include <ngui/text/FontSource.h>
 
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <cstdlib>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -80,7 +84,7 @@ Ok(const TextSystem& text)
 {
 	const ShapedText shaped = text.Shape("OK", FontRole::Plain);
 	Canvas canvas({0, 0, 40, 24});
-	canvas.DrawGlyphRun(shaped.Run(), {4, 16}, Paint{.color = {0, 0, 0, 1}});
+	shaped.Draw(canvas, {4, 16}, Paint{.color = {0, 0, 0, 1}});
 	return canvas.Finish();
 }
 
@@ -154,6 +158,72 @@ TEST(TextSkiaTest, GlyphRunsAreDrawnInTheTextSystemsFont)
 	EXPECT_EQ(Measure(withoutFonts, 40, 24).total, 0);
 	EXPECT_TRUE(backend.AddFont(1, text->Fonts()[0].data));
 	EXPECT_FALSE(backend.AddFont(2, junk));
+}
+
+
+// Han in face 0 and Hangul in face 1 of the test collection
+// (tests/data/fonts/README.md).
+class CollectionSource : public text::FontSource {
+public:
+	std::optional<text::FontLocation> Fallback(char32_t codePoint,
+		const FontFamilyStyle&) const override
+	{
+		const std::string path = std::string(NGUI_TEST_FONTS_DIR) + "/NotoSansCJK-Subset.ttc";
+		if (codePoint >= 0x4e00 && codePoint <= 0x9fff)
+			return text::FontLocation{path, 0};
+		if (codePoint >= 0xac00 && codePoint <= 0xd7af)
+			return text::FontLocation{path, 1};
+		return std::nullopt;
+	}
+};
+
+
+TEST(TextSkiaTest, FallbackFontsAreDrawnWithTheirFaces)
+{
+	// What is tested: "日한" shaped by a text system whose source finds the
+	// test collection (日 in face 0, 한 in face 1), drawn at 24 px with
+	// ShapedText::Draw() and rendered with the text system's fonts.
+	// Success criteria: Both glyphs are drawn: ink in the em of each (x 4 to
+	// 28 and 28 to 52), full black in both. The backend got the faces by
+	// their index: with every font handed over as face 0, 한 (its glyph
+	// number taken from face 0) looks different in many pixels.
+	// Why it matters: Fallback fonts reach the backend like the bundled
+	// ones, collections (.ttc, common for CJK) included (module X1).
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::Create(
+		std::make_unique<CollectionSource>(), 24));
+	const ShapedText shaped = text->Shape("\u65e5\ud55c", FontRole::Plain);
+	Canvas canvas({0, 0, 60, 32});
+	shaped.Draw(canvas, {4, 26}, Paint{.color = {0, 0, 0, 1}});
+	const DisplayListRef list = canvas.Finish();
+
+	// When
+	const Rendered rendered(list, {60, 32}, 1, {0, 0}, text->Fonts());
+	std::vector<FontFile> firstFaces = text->Fonts();
+	for (FontFile& font : firstFaces)
+		font.faceIndex = 0;
+	const Rendered wrongFace(list, {60, 32}, 1, {0, 0}, firstFaces);
+
+	// Then
+	ASSERT_EQ(shaped.fontRuns.size(), 2u);
+	int leftDarkest = 0;
+	int rightDarkest = 0;
+	int differing = 0;
+	for (int y = 0; y < 32; y++) {
+		for (int x = 0; x < 60; x++) {
+			const int dark = 255 - rendered.At(x, y).g;
+			if (x >= 4 && x < 28)
+				leftDarkest = std::max(leftDarkest, dark);
+			else if (x >= 28 && x < 52)
+				rightDarkest = std::max(rightDarkest, dark);
+			if (std::abs(rendered.At(x, y).g - wrongFace.At(x, y).g) > 64)
+				differing++;
+		}
+	}
+	EXPECT_GE(leftDarkest, 240);
+	EXPECT_GE(rightDarkest, 240);
+	EXPECT_GT(differing, 20);
 }
 
 
