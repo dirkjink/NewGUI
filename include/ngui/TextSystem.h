@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <span>
 #include <string>
@@ -301,6 +302,21 @@ public:
 	static	void				SetDefault(const TextSystem* text);
 									/*!< Replaces the default; nullptr restores the
 										placeholder. The object must outlive its use. */
+
+	/*!	Told about each text a view cut to fit (the layout lint,
+		specification 20.6): the text and what is shown of it. */
+	using TruncationObserver = std::function<void(std::string_view text,
+		std::string_view shown)>;
+
+	static	void				SetTruncationObserver(TruncationObserver observer);
+									/*!< Observes the cuts on the calling thread (a
+										window's); nullptr ends it. */
+	static	void				ReportTruncation(std::string_view text,
+									std::string_view shown);
+									/*!< Tells the observer of the calling thread, if
+										\a shown differs from \a text; called where views
+										cut their labels (BStringView, BStatusBar,
+										BMenuItem, BFont::TruncateString()). */
 
 protected:
 	virtual	FontHeight			DoHeight(const FontSpec& font) const;

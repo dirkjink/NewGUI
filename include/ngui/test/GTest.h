@@ -32,6 +32,7 @@
 #include <ngui/test/Driver.h>
 #include <ngui/test/Image.h>
 #include <ngui/test/ImageCompare.h>
+#include <ngui/test/Lint.h>
 #include <ngui/test/Snapshot.h>
 
 
@@ -112,7 +113,44 @@ MatchesListSnapshot(const gfx::DisplayList& list, std::string_view name,
 }
 
 
+/*!	The layout of \a window (LayoutText()) against its reference, for
+	EXPECT_LAYOUT_SNAPSHOT; the backend in the file name is "layout". */
+inline ::testing::AssertionResult
+MatchesLayoutSnapshot(const WindowRef& window, std::string_view name,
+	SnapshotOptions options = {})
+{
+	if (options.backend == "none")
+		options.backend = "layout";
+	const SnapshotResult result = CheckTextSnapshot(Snapshots(),
+		CurrentSnapshotKey(name, options), "txt", LayoutText(window));
+	if (result.Passed())
+		return ::testing::AssertionSuccess() << result.message;
+	return ::testing::AssertionFailure() << result.message;
+}
+
+
+/*!	Whether \a report has no errors, for EXPECT_LINT_CLEAN; lists them
+	otherwise (warnings too). */
+inline ::testing::AssertionResult
+HasNoLintErrors(const LintReport& report)
+{
+	if (!report.HasErrors())
+		return ::testing::AssertionSuccess() << report.Text();
+	return ::testing::AssertionFailure() << "layout lint:\n" << report.Text();
+}
+
+
 } // namespace ngui::test
+
+
+/*!	Expects the layout of window \a window (a WindowRef) to match snapshot
+	\a name; optional SnapshotOptions. */
+#define EXPECT_LAYOUT_SNAPSHOT(window, ...) \
+	EXPECT_TRUE(::ngui::test::MatchesLayoutSnapshot((window), __VA_ARGS__))
+
+/*!	Expects the LintReport \a report to have no errors. */
+#define EXPECT_LINT_CLEAN(report) \
+	EXPECT_TRUE(::ngui::test::HasNoLintErrors(report))
 
 
 /*!	Expects \a image to match snapshot \a name; optional SnapshotOptions. */

@@ -88,6 +88,7 @@ add_executable(ngui_tests
     test/DriverTest.cpp
     test/ImageCompareTest.cpp
     test/ImageTest.cpp
+    test/LintTest.cpp
     test/SnapshotTest.cpp
     fuzz/FuzzRegressionTest.cpp
     ${fuzzTargetSources})

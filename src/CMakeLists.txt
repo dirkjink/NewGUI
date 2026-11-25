@@ -258,6 +258,7 @@ if(NGUI_BUILD_TESTS)
         test/Driver.cpp
         test/Image.cpp
         test/ImageCompare.cpp
+        test/Lint.cpp
         test/Render.cpp
         test/Report.cpp
         test/Snapshot.cpp)

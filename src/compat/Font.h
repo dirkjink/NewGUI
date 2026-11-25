@@ -178,7 +178,9 @@ BFont::TruncateString(std::string* inOut, uint32 mode, float width) const
 {
 	const TruncationMode truncation = mode == B_TRUNCATE_BEGINNING ? TruncationMode::Beginning
 		: mode == B_TRUNCATE_MIDDLE ? TruncationMode::Middle : TruncationMode::End;
-	*inOut = fText->Truncate(*inOut, width / Scale(), truncation, fRole);
+	std::string shown = fText->Truncate(*inOut, width / Scale(), truncation, fRole);
+	TextSystem::ReportTruncation(*inOut, shown);
+	*inOut = std::move(shown);
 }
 
 

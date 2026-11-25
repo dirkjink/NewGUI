@@ -344,8 +344,10 @@ BMenuItem::GetContentSize(float* _width, float* _height)
 std::string
 BMenuItem::TruncateLabel(float maxWidth)
 {
-	return TextSystem::Default().Truncate(fLabel, maxWidth, TruncationMode::Middle,
-		FontRole::Plain);
+	std::string shown = TextSystem::Default().Truncate(fLabel, maxWidth,
+		TruncationMode::Middle, FontRole::Plain);
+	TextSystem::ReportTruncation(fLabel, shown);
+	return shown;
 }
 
 

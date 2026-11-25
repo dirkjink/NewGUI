@@ -220,7 +220,9 @@ BFont::TruncateString(std::string* inOut, TruncationMode mode, float width) cons
 {
 	if (inOut == nullptr)
 		return;
-	*inOut = TextSystem::Default().Truncate(*inOut, width, mode, Spec());
+	std::string shown = TextSystem::Default().Truncate(*inOut, width, mode, Spec());
+	TextSystem::ReportTruncation(*inOut, shown);
+	*inOut = std::move(shown);
 }
 
 

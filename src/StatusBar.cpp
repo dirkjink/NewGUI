@@ -192,15 +192,19 @@ BStatusBar::Draw(DrawContext& context)
 		float textDivider = rect.right;
 
 		if (!rightText.empty()) {
+			const std::string original = rightText;
 			rightText = textSystem.Truncate(rightText, rect.Width(),
 				TruncationMode::Beginning, FontRole::Plain);
+			TextSystem::ReportTruncation(original, rightText);
 			textDivider -= textSystem.StringWidth(rightText, FontRole::Plain);
 		}
 
 		if (!leftText.empty()) {
 			float width = std::max(0.0f, textDivider - rect.left);
+			const std::string original = leftText;
 			leftText = textSystem.Truncate(leftText, width, TruncationMode::End,
 				FontRole::Plain);
+			TextSystem::ReportTruncation(original, leftText);
 		}
 
 		gfx::Color textColor = context.palette.Get(BColorWhich::PanelText);

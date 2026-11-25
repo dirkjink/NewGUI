@@ -1,0 +1,4 @@
+BWindow "Clean" (0, 0, 200, 100)
+  BBox "box" (10, 10, 190, 90)
+    BButton "ok" (10, 10, 90, 35)
+    BStringView "label" (10, 45, 50, 65)
