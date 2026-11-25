@@ -158,12 +158,13 @@ if(NGUI_WITH_SKIA)
     ngui_configure_target(ngui_skia)
 endif()
 
-# The text subsystem (modules X1, X2, X4, X5), its own library: HarfBuzz,
+# The text subsystem (modules X1 to X5), its own library: HarfBuzz, SheenBidi,
 # libunibreak, and the bundled fonts embedded as generated sources
 # (data/fonts/).
 if(NGUI_WITH_TEXT)
     find_package(harfbuzz CONFIG REQUIRED)
     find_package(libunibreak CONFIG REQUIRED)
+    find_package(SheenBidi CONFIG REQUIRED)
     set(embeddedFonts)
     foreach(font IN ITEMS
             "NotoSans-Regular|kNotoSansRegular"
@@ -196,6 +197,7 @@ if(NGUI_WITH_TEXT)
         PRIVATE
             harfbuzz::harfbuzz
             libunibreak::libunibreak
+            SheenBidi::SheenBidi
             # dlopen() of the system's fontconfig (none where libc has it)
             ${CMAKE_DL_LIBS})
     if(WIN32)

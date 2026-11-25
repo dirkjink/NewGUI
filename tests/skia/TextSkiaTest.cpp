@@ -51,6 +51,7 @@
 #include <ngui/StringItem.h>
 #include <ngui/TabView.h>
 #include <ngui/TextControl.h>
+#include <ngui/TextLayout.h>
 #include <ngui/TextView.h>
 #include <ngui/ToolTip.h>
 #if NGUI_TEST_WITH_SVG
@@ -224,6 +225,64 @@ TEST(TextSkiaTest, FallbackFontsAreDrawnWithTheirFaces)
 	EXPECT_GE(leftDarkest, 240);
 	EXPECT_GE(rightDarkest, 240);
 	EXPECT_GT(differing, 20);
+}
+
+
+// Hebrew and Arabic from the test fonts (tests/data/fonts/README.md).
+class RightToLeftSource : public text::FontSource {
+public:
+	std::optional<text::FontLocation> Fallback(char32_t codePoint,
+		const FontFamilyStyle&) const override
+	{
+		const std::string directory(NGUI_TEST_FONTS_DIR);
+		if (codePoint >= 0x0590 && codePoint <= 0x05ff)
+			return text::FontLocation{directory + "/NotoSansHebrew-Subset.ttf", 0};
+		if (codePoint >= 0x0600 && codePoint <= 0x06ff)
+			return text::FontLocation{directory + "/NotoSansArabic-Subset.ttf", 0};
+		return std::nullopt;
+	}
+};
+
+
+TEST(TextSkiaTest, RightToLeftTextMatchesItsSnapshot)
+{
+	// What is tested: Mixed text laid out by a TextLayout of 240 px and drawn
+	// by Skia at scale 1 and 2 against the snapshots
+	// TextSkiaTest_RightToLeft.none.skia.{1,2}x.png: a left-to-right line
+	// "Hello שלום (123) world", a right-to-left line "مرحبا (abc)", and a
+	// right-to-left line "שלום עולם!".
+	// Success criteria: Within the text tolerance: the Hebrew word reads
+	// right to left inside the Latin line, with "(123)" after it; the
+	// Arabic letters are joined; in the right-to-left lines the brackets
+	// are mirrored around "abc" and the "!" stands at the left end; all
+	// lines start at the left (absolute alignment, as in Haiku).
+	// Why it matters: The bidirectional algorithm, right-to-left shaping and
+	// the fallback fonts together, as a user sees them (module X3).
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::Create(
+		std::make_unique<RightToLeftSource>()));
+	const TextLayout layout(*text,
+		"Hello \u05e9\u05dc\u05d5\u05dd (123) world\n"
+		"\u0645\u0631\u062d\u0628\u0627 (abc)\n"
+		"\u05e9\u05dc\u05d5\u05dd \u05e2\u05d5\u05dc\u05dd!",
+		FontRole::Plain, {.width = 240});
+	Canvas canvas({0, 0, 240, 60});
+	layout.Draw(canvas, {4, 2}, {0, 0, 0, 1});
+	const DisplayListRef list = canvas.Finish();
+
+	for (const float scale : {1.0f, 2.0f}) {
+		// When
+		SkiaBackend backend;
+		for (const FontFile& font : text->Fonts())
+			ASSERT_TRUE(backend.AddFont(font.id, font.data, font.faceIndex));
+		const auto image = RenderToImage(backend, *list, scale);
+
+		// Then
+		ASSERT_TRUE(image.has_value()) << image.error().message;
+		EXPECT_IMAGE_SNAPSHOT(*image, "RightToLeft",
+			{.backend = "skia", .scale = scale, .tolerance = Tolerance::Text()});
+	}
 }
 
 

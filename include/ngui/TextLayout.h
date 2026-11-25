@@ -70,10 +70,14 @@ struct TextLayoutOptions {
 	NewGUI: the boundaries come from the text system (Unicode's rules in
 	the text subsystem, Haiku: its own character classes), tab stops count
 	from the line's start (Haiku: from each measured piece), and the widths
-	from shaping each line. Only left-to-right text is laid out; the
-	interface is meant to stay when right-to-left text comes: positions are
+	from shaping each line. A line is drawn in the visual order of its runs
+	(UAX #9, module X3): each paragraph takes the direction of its first
+	strong character, right-to-left runs are shaped right to left, and
+	the caret before a character of such a run stands at its right edge;
+	the alignment stays absolute, as in Haiku (Left is left). Positions are
 	asked for by offset, CaretLeft() and CaretRight() move visually, and a
-	selection is a list of rectangles.
+	selection is a list of rectangles; in mixed text these still follow
+	the logical order (the next step of module X3).
 */
 class TextLayout {
 public:

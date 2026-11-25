@@ -7,11 +7,13 @@
 
 #include "FuzzTarget.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <ngui/text/FontTextSystem.h>
 
@@ -65,6 +67,36 @@ IsTruncationOf(std::string_view truncated, std::string_view text,
 }
 
 
+// The paragraphs of \a text: split at the paragraph separators of UAX #9
+// (type B: LF, CR, U+001C to U+001E, U+0085, U+2029), without them.
+std::vector<std::string_view>
+Paragraphs(std::string_view text)
+{
+	std::vector<std::string_view> paragraphs;
+	std::size_t start = 0;
+	std::size_t i = 0;
+	while (i < text.size()) {
+		std::size_t separator = 0;
+		const auto c = static_cast<unsigned char>(text[i]);
+		if (c == '\n' || c == '\r' || (c >= 0x1c && c <= 0x1e))
+			separator = 1;
+		else if (text.substr(i, 2) == "\xC2\x85")
+			separator = 2;
+		else if (text.substr(i, 3) == "\xE2\x80\xA9")
+			separator = 3;
+		if (separator == 0) {
+			i++;
+			continue;
+		}
+		paragraphs.push_back(text.substr(start, i - start));
+		i += separator;
+		start = i;
+	}
+	paragraphs.push_back(text.substr(start));
+	return paragraphs;
+}
+
+
 } // namespace
 
 
@@ -74,7 +106,9 @@ NGUI_FUZZ_TARGET(Text)
 	// text system with arbitrary bytes as text: the first byte chooses the
 	// role and the truncation mode, the second the width.
 	// Success criteria: No crash or sanitizer report; the clusters are
-	// byte offsets inside the text and never decrease; the font runs (the
+	// byte offsets inside the text and, in text that is one left-to-right
+	// run, never decrease; the visual runs of the bidirectional algorithm
+	// cover each paragraph once, each in it; the font runs (the
 	// fallback to the other bundled fonts) cover the glyphs in order, and
 	// Runs() views each glyph once; a truncated valid
 	// UTF-8 text is valid UTF-8 again, and the text itself, empty, or a
@@ -99,10 +133,23 @@ NGUI_FUZZ_TARGET(Text)
 	const std::string truncated = kText->Truncate(text, width, mode, role);
 
 	// Then
+	bool leftToRight = true;
+	for (const std::string_view paragraph : Paragraphs(text)) {
+		const std::vector<ngui::DirectionRun> runs
+			= kText->VisualRuns(paragraph, 0, paragraph.size());
+		leftToRight = leftToRight && runs.size() == 1
+			&& runs[0].direction == ngui::TextDirection::LeftToRight;
+		std::size_t covered = 0;
+		for (const ngui::DirectionRun& run : runs) {
+			NGUI_FUZZ_CHECK(run.start <= run.end && run.end <= paragraph.size());
+			covered += run.end - run.start;
+		}
+		NGUI_FUZZ_CHECK(covered == paragraph.size());
+	}
 	std::uint32_t previous = 0;
 	for (const std::uint32_t cluster : shaped.clusters) {
 		NGUI_FUZZ_CHECK(cluster < text.size());
-		NGUI_FUZZ_CHECK(cluster >= previous);
+		NGUI_FUZZ_CHECK(!leftToRight || cluster >= previous);
 		previous = cluster;
 	}
 	NGUI_FUZZ_CHECK(shaped.glyphs.size() == shaped.positions.size());

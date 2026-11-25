@@ -33,13 +33,14 @@
       ]
     },
     "text": {
-      "description": "The text subsystem (ngui_text): HarfBuzz for shaping and metrics, with its own OpenType functions; libunibreak for line, word and grapheme boundaries (UAX #14 and #29); FreeType comes with the search for system fonts.",
+      "description": "The text subsystem (ngui_text): HarfBuzz for shaping and metrics, with its own OpenType functions; libunibreak for line, word and grapheme boundaries (UAX #14 and #29); SheenBidi for the bidirectional algorithm (UAX #9). The system's fonts come through fontconfig or DirectWrite, loaded at run time or part of Windows.",
       "dependencies": [
         {
           "name": "harfbuzz",
           "default-features": false
         },
-        "libunibreak"
+        "libunibreak",
+        "sheenbidi"
       ]
     },
     "svg": {

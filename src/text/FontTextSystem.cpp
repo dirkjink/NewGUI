@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include <SheenBidi/SheenBidi.h>
 #include <graphemebreak.h>
 #include <hb-ot.h>
 #include <hb.h>
@@ -89,6 +90,105 @@ BundledStyles()
 		{"Noto Sans", "Bold", 2, BFontFace::Bold, false},
 		{"Noto Sans Mono", "Regular", 3, BFontFace::Regular, true}};
 }
+
+
+// Whether \a text may have a character of a right-to-left script or a
+// control that makes text right to left; otherwise the bidirectional
+// algorithm leaves it left to right, and it is not needed. By the bytes
+// that begin such characters in UTF-8, so that malformed text cannot hide
+// one (a decoder that loses step could): U+0580 to U+08FF, U+F000 to
+// U+FFFF (the presentation forms), U+10000 to U+13FFF and U+1E000 to
+// U+1EFFF, RLM, RLE, RLO and RLI. A false yes only costs time.
+bool
+HasRightToLeft(std::string_view text)
+{
+	const auto byte = [&](std::size_t i) -> unsigned char {
+		return i < text.size() ? static_cast<unsigned char>(text[i]) : 0;
+	};
+	for (std::size_t i = 0; i < text.size(); i++) {
+		const unsigned char lead = byte(i);
+		if (lead < 0xd6)
+			continue;
+		if (lead <= 0xdf || lead == 0xef)
+			return true;
+		if (lead == 0xe0 && byte(i + 1) >= 0xa0 && byte(i + 1) <= 0xa3)
+			return true;
+		if (lead == 0xf0 && (byte(i + 1) == 0x90 || byte(i + 1) == 0x9e))
+			return true;
+		if (lead == 0xe2 && byte(i + 1) == 0x80
+			&& (byte(i + 2) == 0x8f || byte(i + 2) == 0xab || byte(i + 2) == 0xae)) {
+			return true;
+		}
+		if (lead == 0xe2 && byte(i + 1) == 0x81 && byte(i + 2) == 0xa7)
+			return true;
+	}
+	return false;
+}
+
+
+// The bidirectional algorithm (UAX #9, SheenBidi) over a text in UTF-8:
+// its first paragraph from an offset, and lines of it.
+class Bidi {
+public:
+	Bidi(std::string_view text, std::size_t paragraphStart)
+		:
+		fSequence{SBStringEncodingUTF8, text.data(), text.size()},
+		fAlgorithm(SBAlgorithmCreate(&fSequence)),
+		fParagraph(fAlgorithm != nullptr && paragraphStart < text.size()
+			? SBAlgorithmCreateParagraph(fAlgorithm, paragraphStart,
+				text.size() - paragraphStart, SBLevelDefaultLTR)
+			: nullptr)
+	{
+	}
+
+	~Bidi()
+	{
+		if (fParagraph != nullptr)
+			SBParagraphRelease(fParagraph);
+		if (fAlgorithm != nullptr)
+			SBAlgorithmRelease(fAlgorithm);
+	}
+
+	Bidi(const Bidi&) = delete;
+	Bidi& operator=(const Bidi&) = delete;
+
+	// The offset after the paragraph (its separator included).
+	std::size_t ParagraphEnd() const
+	{
+		return fParagraph != nullptr
+			? SBParagraphGetOffset(fParagraph) + SBParagraphGetLength(fParagraph) : 0;
+	}
+
+	bool RightToLeft() const
+	{
+		return fParagraph != nullptr && (SBParagraphGetBaseLevel(fParagraph) & 1) != 0;
+	}
+
+	// The runs of the line from \a start to \a end in visual order; empty
+	// if the line is not in the paragraph.
+	std::vector<DirectionRun> Line(std::size_t start, std::size_t end) const
+	{
+		std::vector<DirectionRun> runs;
+		if (fParagraph == nullptr || end <= start)
+			return runs;
+		const SBLineRef line = SBParagraphCreateLine(fParagraph, start, end - start);
+		if (line == nullptr)
+			return runs;
+		const SBRun* items = SBLineGetRunsPtr(line);
+		for (SBUInteger i = 0; i < SBLineGetRunCount(line); i++) {
+			runs.push_back({items[i].offset, items[i].offset + items[i].length,
+				(items[i].level & 1) != 0 ? TextDirection::RightToLeft
+					: TextDirection::LeftToRight});
+		}
+		SBLineRelease(line);
+		return runs;
+	}
+
+private:
+	SBCodepointSequence	fSequence;
+	SBAlgorithmRef		fAlgorithm;
+	SBParagraphRef		fParagraph;
+};
 
 
 void
@@ -536,42 +636,147 @@ FontTextSystem::DoShape(std::string_view text, const FontSpec& spec) const
 	if (text.empty())
 		return shaped;
 
-	// Each stretch in its font, with the whole text as context; the
-	// clusters stay offsets in the whole text.
-	const auto pieces = _Itemize(text, primary);
-	std::size_t begin = 0;
+	// The text's runs in visual order, each paragraph's lines after the
+	// other (UAX #9; left to right without right-to-left characters).
+	std::vector<DirectionRun> runs;
+	if (!HasRightToLeft(text))
+		runs.push_back({0, text.size(), TextDirection::LeftToRight});
+	else {
+		std::size_t paragraph = 0;
+		while (paragraph < text.size()) {
+			const Bidi bidi(text, paragraph);
+			const std::size_t end = bidi.ParagraphEnd();
+			if (end <= paragraph) {
+				runs.push_back({paragraph, text.size(), TextDirection::LeftToRight});
+				break;
+			}
+			for (const DirectionRun& run : bidi.Line(paragraph, end))
+				runs.push_back(run);
+			paragraph = end;
+		}
+	}
+
+	std::vector<ShapedFontRun> fonts;
 	float pen = 0;
-	for (const auto& [end, font] : pieces) {
+	for (const DirectionRun& run : runs)
+		_ShapeRange(&shaped, &fonts, text, run, primary, &pen);
+	_SetFontRuns(&shaped, std::move(fonts));
+	shaped.advance = pen;
+	return shaped;
+}
+
+
+ShapedText
+FontTextSystem::DoShapeRun(std::string_view text, const FontSpec& spec,
+	TextDirection direction) const
+{
+	const Font& primary = _Font(spec.font);
+	ShapedText shaped;
+	shaped.font = primary.file.id;
+	shaped.sizePx = spec.size;
+	shaped.text.assign(text.begin(), text.end());
+	std::vector<ShapedFontRun> fonts;
+	float pen = 0;
+	if (!text.empty())
+		_ShapeRange(&shaped, &fonts, text, {0, text.size(), direction}, primary, &pen);
+	_SetFontRuns(&shaped, std::move(fonts));
+	shaped.advance = pen;
+	return shaped;
+}
+
+
+// Appends the glyphs of \a run of \a text to \a shaped from \a pen on,
+// each stretch in its font (a fallback for characters \a primary lacks),
+// with the whole text as context; the clusters stay offsets in the whole
+// text. A right-to-left run's stretches come last first, and HarfBuzz
+// gives their glyphs in visual order, mirrored where Unicode says so.
+void
+FontTextSystem::_ShapeRange(ShapedText* shaped, std::vector<ShapedFontRun>* fonts,
+	std::string_view text, const DirectionRun& run, const Font& primary, float* pen) const
+{
+	const bool rightToLeft = run.direction == TextDirection::RightToLeft;
+	struct Piece {
+		std::size_t		begin;
+		std::size_t		end;
+		const Font*		font;
+	};
+	std::vector<Piece> pieces;
+	std::size_t begin = run.start;
+	for (const auto& [end, font] : _Itemize(text.substr(run.start, run.end - run.start),
+			primary)) {
+		pieces.push_back({begin, run.start + end, font});
+		begin = run.start + end;
+	}
+	if (rightToLeft)
+		std::ranges::reverse(pieces);
+
+	for (const Piece& piece : pieces) {
 		hb_buffer_t* buffer = hb_buffer_create();
 		hb_buffer_add_utf8(buffer, text.data(), static_cast<int>(text.size()),
-			static_cast<unsigned int>(begin), static_cast<int>(end - begin));
-		// Left to right until there is BiDi (module X3).
-		hb_buffer_set_direction(buffer, HB_DIRECTION_LTR);
+			static_cast<unsigned int>(piece.begin), static_cast<int>(piece.end - piece.begin));
+		hb_buffer_set_direction(buffer, rightToLeft ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
 		hb_buffer_guess_segment_properties(buffer);
-		hb_shape(font->font, buffer, nullptr, 0);
+		hb_shape(piece.font->font, buffer, nullptr, 0);
 
 		unsigned int count = 0;
 		const hb_glyph_info_t* infos = hb_buffer_get_glyph_infos(buffer, &count);
 		const hb_glyph_position_t* positions = hb_buffer_get_glyph_positions(buffer, &count);
-		const float scale = spec.size / font->unitsPerEm;
+		const float scale = shaped->sizePx / piece.font->unitsPerEm;
 		float x = 0;
 		for (unsigned int i = 0; i < count; i++) {
-			shaped.glyphs.push_back(infos[i].codepoint);
+			shaped->glyphs.push_back(infos[i].codepoint);
 			// HarfBuzz's y grows upwards, the Canvas's downwards.
-			shaped.positions.push_back(
-				{pen + (x + static_cast<float>(positions[i].x_offset)) * scale,
+			shaped->positions.push_back(
+				{*pen + (x + static_cast<float>(positions[i].x_offset)) * scale,
 					-static_cast<float>(positions[i].y_offset) * scale});
-			shaped.clusters.push_back(infos[i].cluster);
+			shaped->clusters.push_back(infos[i].cluster);
 			x += static_cast<float>(positions[i].x_advance);
 		}
-		pen += x * scale;
+		*pen += x * scale;
 		hb_buffer_destroy(buffer);
-		if (pieces.size() > 1 || font != &primary)
-			shaped.fontRuns.push_back({font->file.id, shaped.glyphs.size()});
-		begin = end;
+		fonts->push_back({piece.font->file.id, shaped->glyphs.size()});
 	}
-	shaped.advance = pen;
-	return shaped;
+}
+
+
+// Sets the font runs of \a shaped from \a fonts, a stretch per piece:
+// none if all are in its font, else the stretches of one font joined.
+void
+FontTextSystem::_SetFontRuns(ShapedText* shaped, std::vector<ShapedFontRun> fonts)
+{
+	if (std::ranges::all_of(fonts, [&](const ShapedFontRun& run) {
+			return run.font == shaped->font;
+		})) {
+		return;
+	}
+	for (const ShapedFontRun& run : fonts) {
+		if (!shaped->fontRuns.empty() && shaped->fontRuns.back().font == run.font)
+			shaped->fontRuns.back().end = run.end;
+		else
+			shaped->fontRuns.push_back(run);
+	}
+}
+
+
+std::vector<DirectionRun>
+FontTextSystem::VisualRuns(std::string_view paragraph, std::size_t lineStart,
+	std::size_t lineEnd) const
+{
+	if (HasRightToLeft(paragraph)) {
+		const Bidi bidi(paragraph, 0);
+		if (std::vector<DirectionRun> runs = bidi.Line(lineStart, lineEnd); !runs.empty())
+			return runs;
+	}
+	return {{lineStart, lineEnd, TextDirection::LeftToRight}};
+}
+
+
+TextDirection
+FontTextSystem::ParagraphDirection(std::string_view paragraph) const
+{
+	if (HasRightToLeft(paragraph) && Bidi(paragraph, 0).RightToLeft())
+		return TextDirection::RightToLeft;
+	return TextDirection::LeftToRight;
 }
 
 

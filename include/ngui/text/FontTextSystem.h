@@ -90,6 +90,14 @@ public:
 										malformed UTF-8 is broken at each code point
 										start. */
 
+			std::vector<DirectionRun> VisualRuns(std::string_view paragraph,
+									std::size_t lineStart, std::size_t lineEnd) const override;
+									/*!< UAX #9 with SheenBidi; one left-to-right run if the
+										paragraph has no right-to-left characters. */
+			TextDirection		ParagraphDirection(std::string_view paragraph)
+									const override;
+									/*!< UAX #9, rules P2 and P3, with SheenBidi. */
+
 			std::vector<FontFamilyStyle> Styles() const override;
 			std::optional<FontFamilyStyle> Style(std::string_view family,
 									std::string_view style) const override;
@@ -119,7 +127,13 @@ protected:
 									/*!< Haiku's truncation with "…". */
 			ShapedText			DoShape(std::string_view text,
 									const FontSpec& font) const override;
-									/*!< Glyphs, positions and clusters at the size. */
+									/*!< Glyphs, positions and clusters at the size, in
+										visual order: each paragraph's runs reordered by
+										the bidirectional algorithm (UAX #9), right-to-left
+										runs shaped right to left. */
+			ShapedText			DoShapeRun(std::string_view text, const FontSpec& font,
+									TextDirection direction) const override;
+									/*!< One run in \a direction. */
 
 private:
 			struct Font;
@@ -138,6 +152,12 @@ private:
 			void				_ListLocked(std::vector<SourceFont> listed) const;
 			std::vector<std::pair<std::size_t, const Font*>> _Itemize(std::string_view text,
 									const Font& primary) const;
+			void				_ShapeRange(ShapedText* shaped,
+									std::vector<ShapedFontRun>* fonts, std::string_view text,
+									const DirectionRun& run, const Font& primary,
+									float* pen) const;
+	static	void				_SetFontRuns(ShapedText* shaped,
+									std::vector<ShapedFontRun> fonts);
 
 			mutable std::mutex	fLock;
 			mutable std::vector<std::unique_ptr<Font>> fFonts;
