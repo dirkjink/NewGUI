@@ -11,6 +11,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ngui/AppDefs.h>
@@ -480,13 +481,16 @@ BApplication::MessageReceived(BMessage* message)
 			const std::int32_t match = BPropertyInfo(kApplicationProperties).FindMatch(*message,
 				specifier->index, specifier->form, specifier->property);
 			BMessage reply(kReply);
+			// the result first: the reply is passed by value, and compilers
+			// evaluate arguments in different orders
 			if (match == 2) {
-				detail::SendScriptingReply(*message, reply, reply.AddString("result", fSignature));
+				const auto added = reply.AddString("result", fSignature);
+				detail::SendScriptingReply(*message, std::move(reply), added);
 				return;
 			}
 			if (match == 3) {
-				detail::SendScriptingReply(*message, reply,
-					reply.AddInt32("result", CountWindows()));
+				const auto added = reply.AddInt32("result", CountWindows());
+				detail::SendScriptingReply(*message, std::move(reply), added);
 				return;
 			}
 		}
