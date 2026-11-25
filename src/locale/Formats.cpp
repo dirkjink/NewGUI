@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 #include "NumberGrouping.h"
 
@@ -129,6 +130,27 @@ Utf8(const wchar_t* text, int length)
 }
 
 
+// Whether Windows has the locale \a name: one of EnumSystemLocalesEx()
+// (IsValidLocaleName() accepts any well-formed tag, and Windows makes up a
+// locale for it).
+bool
+IsKnownLocale(const std::wstring& name)
+{
+	static const std::vector<std::wstring> known = [] {
+		std::vector<std::wstring> names;
+		(void)EnumSystemLocalesEx([](LPWSTR locale, DWORD, LPARAM list) -> BOOL {
+			reinterpret_cast<std::vector<std::wstring>*>(list)->emplace_back(locale);
+			return TRUE;
+		}, LOCALE_ALL, reinterpret_cast<LPARAM>(&names), nullptr);
+		return names;
+	}();
+	return std::ranges::any_of(known, [&](const std::wstring& candidate) {
+		return CompareStringOrdinal(candidate.c_str(), -1, name.c_str(), -1, TRUE)
+			== CSTR_EQUAL;
+	});
+}
+
+
 // The system's locale: its name (nullptr for the user's); whether
 // Windows knows it.
 struct SystemLocale {
@@ -142,7 +164,7 @@ struct SystemLocale {
 			return;
 		user = locale.empty();
 		name = WindowsName(locale);
-		valid = user || IsValidLocaleName(name.c_str()) != FALSE;
+		valid = user || IsKnownLocale(name);
 	}
 
 	const wchar_t* Name() const
