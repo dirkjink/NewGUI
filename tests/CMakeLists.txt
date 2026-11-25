@@ -44,6 +44,7 @@ add_executable(ngui_tests
     MessageFilterTest.cpp
     MessageRunnerTest.cpp
     MessageTest.cpp
+    RemoteControlTest.cpp
     ScriptingPropertiesTest.cpp
     ScriptingTest.cpp
     MessengerTest.cpp
