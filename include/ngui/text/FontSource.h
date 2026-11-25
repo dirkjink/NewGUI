@@ -68,9 +68,9 @@ public:
 };
 
 
-/*!	The font source of this system: fontconfig under Linux and other Unix
-	systems (if its library is there), else none yet (nullptr); DirectWrite
-	and CoreText come later. */
+/*!	The font source of this system: DirectWrite under Windows, fontconfig
+	under Linux and other Unix systems (if its library is there), else none
+	(nullptr); CoreText for macOS comes later. */
 std::unique_ptr<FontSource> SystemFontSource();
 
 
@@ -89,6 +89,19 @@ std::unique_ptr<FontSource> SystemFontSource();
 	stands for its default instance. */
 std::expected<std::unique_ptr<FontSource>, Error> CreateFontconfigSource(
 	std::string_view configFile = {});
+
+
+/*!	A FontSource over DirectWrite (Windows 8.1 and later), with the
+	system's font collection. NotSupported on other systems, IoError if
+	DirectWrite cannot be started.
+
+	Fallback() asks the system's font fallback (IDWriteFontFallback) for the
+	font Windows itself would take for the character after the family,
+	weight and slant of \a like. List() lists the fonts of the system's
+	collection, without the faces DirectWrite only simulates (an emboldened
+	or slanted regular face) and fonts that are not local files. A variable
+	font stands for its default instance. */
+std::expected<std::unique_ptr<FontSource>, Error> CreateDirectWriteSource();
 
 
 } // namespace ngui::text

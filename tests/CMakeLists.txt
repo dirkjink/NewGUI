@@ -109,7 +109,7 @@ target_link_libraries(ngui_tests
 # The text subsystem with its bundled fonts (vcpkg feature text).
 if(NGUI_WITH_TEXT)
     target_sources(ngui_tests PRIVATE text/FontTextSystemTest.cpp text/FontFallbackTest.cpp
-        text/FontconfigSourceTest.cpp)
+        text/FontconfigSourceTest.cpp text/DirectWriteSourceTest.cpp)
     target_link_libraries(ngui_tests PRIVATE ngui::text)
 endif()
 
