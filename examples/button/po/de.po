@@ -78,6 +78,14 @@ msgid "Enter sends the name"
 msgstr "Die Eingabetaste sendet den Namen"
 
 msgctxt "Demo"
+msgid "Password:"
+msgstr "Passwort:"
+
+msgctxt "Demo"
+msgid "Shown as bullets; cannot be copied"
+msgstr "Wird als Punkte gezeigt; lässt sich nicht kopieren"
+
+msgctxt "Demo"
 msgid "Progress: "
 msgstr "Fortschritt: "
 

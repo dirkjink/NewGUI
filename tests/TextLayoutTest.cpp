@@ -8,6 +8,7 @@
 #include <ngui/TextLayout.h>
 
 #include <array>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -199,6 +200,56 @@ TEST(TextLayoutTest, TheCaretMovesByGraphemes)
 	EXPECT_TRUE(layout.IsBoundary(0, TextBoundary::Word));
 	EXPECT_EQ(layout.CaretRight(8), 8u);
 	EXPECT_EQ(layout.CaretLeft(0), 0u);
+}
+
+
+
+TEST(TextLayoutTest, HiddenTextIsBulletsAtTheTextsOffsets)
+{
+	// What is tested: "a\xC3\xA9 b\nc" ("aé b", a line break, "c": 7
+	// bytes, 6 characters) laid out hidden, without wrapping and wrapped at
+	// 50 pixels, beside "\u2022" six times (FixedTextSystem: 7 pixels a
+	// byte, so 21 a bullet).
+	// Success criteria: Hidden, it is one line as wide as the six bullets;
+	// the caret at each character's first byte stands where the bullet's
+	// does (offset 3, after "é", at 42); the caret moves by characters
+	// (right of 1 is 3); the only word is the whole text, and no line may
+	// begin inside it; wrapped at 50 pixels, it breaks after two bullets
+	// (where they no longer fit), not at the space or the line break.
+	// Why it matters: A password field shows nothing of the password but
+	// its length (Haiku's password mode); its offsets stay the text's, so
+	// editing works as in any text view.
+	//
+	// Given
+	const FixedTextSystem text;
+	const std::string_view secret = "a\xC3\xA9 b\nc";
+	std::string bullets;
+	for (int i = 0; i < 6; i++)
+		bullets += "\u2022";
+
+	// When
+	const TextLayout hidden(text, secret, FontRole::Plain, {.wrap = false, .hideText = true});
+	const TextLayout shown(text, bullets, FontRole::Plain, {.wrap = false});
+	const TextLayout wrapped(text, secret, FontRole::Plain, {.width = 50, .hideText = true});
+
+	// Then
+	EXPECT_EQ(hidden.CountLines(), 1);
+	EXPECT_EQ(hidden.MaxWidth(), shown.MaxWidth());
+	EXPECT_EQ(hidden.MaxWidth(), 126.0f);
+	EXPECT_EQ(hidden.PointAt(1).x, 21.0f);
+	EXPECT_EQ(hidden.PointAt(3).x, 42.0f);
+	EXPECT_EQ(hidden.PointAt(7).x, 126.0f);
+	EXPECT_EQ(hidden.OffsetAt({43, 5}), 3u);
+	EXPECT_EQ(hidden.CaretRight(1), 3u);
+	EXPECT_EQ(hidden.CaretLeft(3), 1u);
+	EXPECT_EQ(hidden.NextBoundary(0, TextBoundary::Word), 7u);
+	EXPECT_EQ(hidden.PreviousBoundary(7, TextBoundary::Word), 0u);
+	EXPECT_FALSE(hidden.IsBoundary(4, TextBoundary::Line));
+	EXPECT_FALSE(hidden.IsBoundary(6, TextBoundary::MandatoryLine));
+	EXPECT_FALSE(hidden.HasRightToLeft());
+	ASSERT_GE(wrapped.CountLines(), 2);
+	EXPECT_EQ(wrapped.LineAt(0).end, 3u);
+	EXPECT_EQ(wrapped.LineAt(0).width, 42.0f);
 }
 
 

@@ -1154,6 +1154,62 @@ TEST(TextSkiaTest, TextViewsMatchTheirSnapshots)
 }
 
 
+TEST(TextSkiaTest, HiddenTypingLooksLikeBullets)
+{
+	// What is tested: A focused text view hiding its typing with
+	// "p\xC3\xA4ssword" ("pässword": 9 bytes, 8 characters), the caret
+	// after "päs"; beside it the same view showing "\u2022" eight times,
+	// the caret after the third; both recorded with the bundled font and
+	// rendered by Skia at scale 1 and 2.
+	// Success criteria: The two images are identical, and not blank.
+	// Why it matters: A password field draws bullets in the font's own
+	// glyph and nothing of the password (Haiku's password mode); the caret
+	// stands where its offset in the real text puts it.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	BWindow window({0, 0, 300, 200}, "text");
+	BMessage activated(kWindowActivated);
+	(void)activated.AddBool("active", true);
+	window.DispatchMessage(&activated, &window);
+	const auto field = [&](const char* name) {
+		return static_cast<BTextView*>(window.AddChild(std::make_unique<BTextView>(
+			gfx::Rect{0, 0, 160, 24}, name, gfx::Rect{0, 0, 160, 24})));
+	};
+	BTextView* hidden = field("hidden");
+	hidden->HideTyping(true);
+	hidden->SetText("p\xC3\xA4ssword");
+	std::string bullets;
+	for (int i = 0; i < 8; i++)
+		bullets += "\u2022";
+	BTextView* shown = field("shown");
+	shown->SetText(bullets);
+
+	const auto render = [&](BTextView& view, int32 caret, float scale) {
+		view.MakeFocus(true);
+		view.Select(caret, caret);
+		const DisplayListRef list = RecordTree(view, *text);
+		SkiaBackend backend;
+		for (const FontFile& font : text->Fonts())
+			EXPECT_TRUE(backend.AddFont(font.id, font.data));
+		auto image = RenderToImage(backend, *list, scale);
+		EXPECT_TRUE(image.has_value());
+		return image.value_or(Image());
+	};
+
+	// When / Then
+	for (const float scale : {1.0f, 2.0f}) {
+		const Image password = render(*hidden, 4, scale);
+		const Image dots = render(*shown, 9, scale);
+		ASSERT_GT(password.Width(), 0);
+		EXPECT_TRUE(password == dots) << "scale " << scale;
+		EXPECT_FALSE(password == Image(password.Width(), password.Height(),
+			password.At(0, 0)));
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
 TEST(TextSkiaTest, StyledTextMatchesItsSnapshot)
 {
 	// What is tested: A stylable, focused text view of 200 × 70 in an

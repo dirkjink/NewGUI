@@ -807,11 +807,14 @@ BTextView::MessageReceived(BMessage* message)
 
 	switch (message->what) {
 		case kCut:
-			Cut(&BClipboard::System());
+			// NewGUI: no beep()
+			if (!IsTypingHidden())
+				Cut(&BClipboard::System());
 			break;
 
 		case kCopy:
-			Copy(&BClipboard::System());
+			if (!IsTypingHidden())
+				Copy(&BClipboard::System());
 			break;
 
 		case kPaste:
@@ -1214,6 +1217,30 @@ bool
 BTextView::DoesUndo() const
 {
 	return fUndo != nullptr;
+}
+
+
+void
+BTextView::HideTyping(bool enabled)
+{
+	if (enabled == fHideTyping)
+		return;
+
+	if (enabled) {
+		Delete(0, TextLength());
+		// NewGUI: nor can undo bring it back
+		if (fUndo != nullptr)
+			fUndo = std::make_unique<UndoBuffer>(this, BUndoState::Unavailable);
+	}
+	fHideTyping = enabled;
+	_Refresh();
+}
+
+
+bool
+BTextView::IsTypingHidden() const
+{
+	return fHideTyping;
 }
 
 
@@ -2353,11 +2380,11 @@ BTextView::_Relayout()
 	fTextRect.x1 = right;
 	fTextRect.y0 = fLayoutData.topInset;
 	TextLayoutOptions options{.width = std::max(fTextRect.Width(), 0.0f), .wrap = fWrap,
-		.tabWidth = fTabWidth, .alignment = fAlignment};
+		.tabWidth = fTabWidth, .alignment = fAlignment, .hideText = fHideTyping};
 
 	if (!fWrap) {
 		const TextLayout measured(system, fText, runs,
-			{.width = 0, .wrap = false, .tabWidth = fTabWidth});
+			{.width = 0, .wrap = false, .tabWidth = fTabWidth, .hideText = fHideTyping});
 		const float minTextRectWidth = std::max(std::round(measured.MaxWidth()), 1.0f);
 		switch (fAlignment) {
 			default:
@@ -2762,7 +2789,7 @@ BTextView::_HandlePageKey(uint8 pageKey, int32 modifiers)
 							// cursor when the cursor is on the last line,
 							// and that line is empty
 							fCaretOffset = TextLength();
-							if (ByteAt(fCaretOffset - 1) == '\n')
+							if (!fHideTyping && ByteAt(fCaretOffset - 1) == '\n')
 								fCaretOffset--;
 						}
 					}
@@ -2877,7 +2904,8 @@ BTextView::_HandleAlphaKey(std::string_view bytes)
 	}
 
 	// we're only going to handle the first character
-	if (fAutoindent && bytes.size() == 1 && bytes[0] == keys::kEnter) {
+	// NewGUI: not in hidden text, which is one line
+	if (fAutoindent && !fHideTyping && bytes.size() == 1 && bytes[0] == keys::kEnter) {
 		int32 start;
 		int32 offset;
 		start = offset = OffsetAt(LineAt(fSelStart));
@@ -3470,6 +3498,11 @@ BTextView::_Deactivate()
 uint32
 BTextView::_CharClassification(int32 offset) const
 {
+	// NewGUI: hidden text is one word, without white space or line breaks
+	// (as its TextLayout)
+	if (fHideTyping && ByteAt(offset) != '\0')
+		return CHAR_CLASS_DEFAULT;
+
 	switch (ByteAt(offset)) {
 		case '\0':
 			return CHAR_CLASS_END_OF_TEXT;
@@ -3663,7 +3696,8 @@ BTextView::_NextWordEnd(int32 offset)
 bool
 BTextView::_IsOnEmptyLastLine(int32 offset) const
 {
-	return offset == TextLength() && offset > 0 && ByteAt(offset - 1) == '\n';
+	return !fHideTyping && offset == TextLength() && offset > 0
+		&& ByteAt(offset - 1) == '\n';
 }
 
 

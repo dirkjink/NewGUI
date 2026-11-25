@@ -944,6 +944,13 @@ BTextControl::MessageReceived(BMessage* message)
 			&& (specifier->property == "Value" || specifier->property == "Text")) {
 			BMessage reply(kReply);
 			if (message->what == kGetProperty) {
+				// Do not allow stealing passwords via scripting (Haiku's
+				// BTextView)
+				if (TextView()->IsTypingHidden()) {
+					ReplyScriptingError(*message, Error{ErrorCode::NotSupported,
+						"the text is hidden"});
+					return;
+				}
 				const auto added = reply.AddString("result", Text());
 				detail::SendScriptingReply(*message, std::move(reply), added);
 				return;

@@ -185,6 +185,11 @@ public:
 			std::make_unique<BMessage>(kName));
 		name->SetToolTip(B_TRANSLATE("Enter sends the name"));
 		fName = name.get();
+		// a password field: its text view hides typing (bullets)
+		auto password = std::make_unique<BTextControl>("password", B_TRANSLATE("Password:"),
+			"", nullptr);
+		password->TextView()->HideTyping(true);
+		password->SetToolTip(B_TRANSLATE("Shown as bullets; cannot be copied"));
 		auto status = std::make_unique<BStatusBar>("status", B_TRANSLATE("Progress: "), " %");
 		status->SetTo(0, {}, "0");
 		fStatus = status.get();
@@ -196,6 +201,7 @@ public:
 			.Add(std::move(slider))
 			.Add(std::move(marksField))
 			.Add(std::move(name))
+			.Add(std::move(password))
 			.Add(std::move(status));
 		auto box = std::make_unique<BBox>("progress box");
 		box->SetLabel(B_TRANSLATE("Progress"));

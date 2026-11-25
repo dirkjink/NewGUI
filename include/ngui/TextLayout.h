@@ -52,6 +52,14 @@ struct TextLayoutOptions {
 									/*!< The distance of tab stops (Haiku's SetTabWidth()). */
 			BHorizontalAlignment alignment = BHorizontalAlignment::Left;
 									/*!< Left, Center or Right (Haiku's SetAlignment()). */
+			bool				hideText = false;
+									/*!< Whether each character (code point) is measured
+										and drawn as a bullet "•" (Haiku's password mode,
+										BTextView::HideTyping()). Offsets stay those of
+										the text; a caret stands between characters, and
+										no other boundary (words, line breaks, right to
+										left) tells what they are: a word is the whole
+										text, and lines only wrap where they must. */
 };
 
 
@@ -221,6 +229,10 @@ private:
 									std::size_t to, float x, std::vector<float>* carets,
 									std::vector<Segment>* segments,
 									LineData* visual = nullptr) const;
+			float				_MeasureHidden(const TextSystem& system, std::size_t from,
+									std::size_t to, float x, std::vector<float>* carets,
+									std::vector<Segment>* segments) const;
+			bool				_IsChar(std::size_t offset, char c) const;
 			void				_PlaceCarets(const LineData& data, std::size_t from,
 									std::size_t to, std::vector<float>* carets) const;
 			std::size_t			_ClusterRightOf(const LineData& data, float x) const;

@@ -36,6 +36,7 @@ using namespace std::chrono_literals;
 
 constexpr std::uint32_t kAsk = FourCharCode("ASK ");
 constexpr std::uint32_t kSetText = FourCharCode("STXT");
+constexpr std::uint32_t kHide = FourCharCode("HIDE");
 
 
 // A window with a text view of 200 × 100 at (10, 10), focused; its text
@@ -60,6 +61,10 @@ public:
 			fView->SetText(message->GetString("text", ""));
 			return;
 		}
+		if (message->what == kHide) {
+			fView->HideTyping(message->GetBool("hide", true));
+			return;
+		}
 		if (message->what == kUndo) {
 			// as a menu item targeting the focus would
 			fView->MessageReceived(message);
@@ -77,6 +82,7 @@ public:
 		(void)reply.AddInt32("start", start);
 		(void)reply.AddInt32("end", end);
 		(void)reply.AddInt32("lines", fView->CountLines());
+		(void)reply.AddBool("hidden", fView->IsTypingHidden());
 		(void)message->SendReply(reply);
 	}
 
@@ -90,6 +96,7 @@ struct TextState {
 	int32 start = -1;
 	int32 end = -1;
 	int32 lines = 0;
+	bool hidden = false;
 };
 
 
@@ -163,6 +170,13 @@ public:
 		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
 	}
 
+	void Hide(bool hide)
+	{
+		BMessage message(kHide);
+		(void)message.AddBool("hide", hide);
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
 	void SetText(std::string_view text)
 	{
 		BMessage message(kSetText);
@@ -176,7 +190,8 @@ public:
 		EXPECT_TRUE(fWindow.SendMessage(BMessage(kAsk), &reply).has_value());
 		EXPECT_TRUE(fWindow.SendMessage(BMessage(kAsk), &reply).has_value());
 		return {std::string(reply.GetString("text", "?")), reply.GetInt32("start", -1),
-			reply.GetInt32("end", -1), reply.GetInt32("lines", 0)};
+			reply.GetInt32("end", -1), reply.GetInt32("lines", 0),
+			reply.GetBool("hidden", false)};
 	}
 
 private:
@@ -425,6 +440,63 @@ TEST(TextViewTest, TheClipboardAndUndo)
 	EXPECT_EQ(text.Ask().text, "abc");
 }
 
+
+TEST(TextViewTest, HiddenTypingKeepsThePasswordIn)
+{
+	// What is tested: With a ManualClock: "old" typed, then HideTyping(true)
+	// and kUndo; "ab cd\n" typed; a click into the third bullet and a second
+	// click there; Command+C and Command+X with all of it selected; the down
+	// arrow; then HideTyping(false).
+	// Success criteria: Hiding deletes the text, and undo does not bring it
+	// back; the typed text is the view's Text() and one line (the line break
+	// a bullet too); the click hits at the bullets' widths (21 pixels in
+	// FixedTextSystem, so offset 2); the double click selects all of it;
+	// copying leaves the clipboard as it was, cutting the text too; the down
+	// arrow goes to the very end. Shown again, the text has its two lines.
+	// Why it matters: A password is typed and edited like any text, but it
+	// can neither be seen nor taken out with the shortcuts (Haiku's
+	// HideTyping(), specification 20.8 T5).
+	//
+	// Given
+	ManualClock clock;
+	Clock::SetDefault(&clock);
+	{
+		RunningText text;
+		text.Type("old");
+
+		// When / Then
+		text.Hide(true);
+		const TextState hidden = text.Ask();
+		EXPECT_TRUE(hidden.hidden);
+		EXPECT_EQ(hidden.text, "");
+		text.Send(kUndo);
+		EXPECT_EQ(text.Ask().text, "");
+		text.Type("ab cd\n");
+		const TextState typed = text.Ask();
+		EXPECT_EQ(typed.text, "ab cd\n");
+		EXPECT_EQ(typed.lines, 1);
+		clock.Advance(1s);
+		text.Click({13 + 21 * 2 + 3, 16});
+		EXPECT_EQ(text.Ask().end, 2);
+		text.Click({13 + 21 * 2 + 3, 16});
+		const TextState word = text.Ask();
+		EXPECT_EQ(word.start, 0);
+		EXPECT_EQ(word.end, 6);
+		const std::string before = ClipboardText();
+		text.Key("c", BModifier::Command);
+		text.Key("x", BModifier::Command);
+		EXPECT_EQ(ClipboardText(), before);
+		EXPECT_EQ(text.Ask().text, "ab cd\n");
+		text.Key("\x1f");
+		EXPECT_EQ(text.Ask().start, 6);
+		text.Hide(false);
+		const TextState shown = text.Ask();
+		EXPECT_FALSE(shown.hidden);
+		EXPECT_EQ(shown.text, "ab cd\n");
+		EXPECT_EQ(shown.lines, 2);
+	}
+	Clock::SetDefault(nullptr);
+}
 
 TEST(TextViewTest, InputMethodsComposeInline)
 {
