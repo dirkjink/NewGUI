@@ -66,6 +66,7 @@ add_executable(ngui_tests
     gfx/DisplayListTest.cpp
     gfx/DumpBackendTest.cpp
     gfx/DumpTest.cpp
+    gfx/SvgExportTest.cpp
     gfx/ImageRegistryTest.cpp
     gfx/IntRectTest.cpp
     gfx/LinearGradientTest.cpp

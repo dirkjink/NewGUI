@@ -106,6 +106,11 @@ public:
 										"Noto Sans Mono" Regular (font 3). */
 			FontSpec			RoleFont(FontRole role) const override;
 									/*!< Fonts 1 to 3 at the size of the text system. */
+			std::optional<gfx::Path> GlyphOutline(gfx::FontId font, std::uint32_t glyph,
+									float sizePx) const override;
+									/*!< The glyph's outline from HarfBuzz
+										(hb_font_draw_glyph()), quadratic curves as cubic
+										ones. */
 			std::vector<FontFile> Fonts() const override;
 									/*!< The three bundled fonts, ids 1 to 3, then the
 										fallback fonts loaded so far. */

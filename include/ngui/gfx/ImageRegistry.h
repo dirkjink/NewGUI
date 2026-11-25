@@ -70,6 +70,11 @@ public:
 									/*!< References of \a image; 0 for an unknown handle. */
 			std::optional<Size>	PixelSize(ImageHandle image) const;
 									/*!< Width and height in pixels, if \a image is known. */
+			std::optional<std::vector<std::uint8_t>> Pixels(ImageHandle image) const;
+									/*!< A copy of the pixels of \a image, if it is known:
+										PixelSize() rows of RGBA, 8 bits each, not
+										premultiplied, without padding; for export backends,
+										which encode them themselves. */
 
 			ImageHandle			BackendImage(ImageHandle image, Backend& backend);
 									/*!< The resource of \a backend for \a image, created

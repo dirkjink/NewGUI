@@ -17,6 +17,7 @@
 
 #include <ngui/Flags.h>
 #include <ngui/gfx/GlyphRun.h>
+#include <ngui/gfx/Path.h>
 #include <ngui/gfx/Point.h>
 
 
@@ -283,6 +284,14 @@ public:
 									/*!< The direction of \a paragraph: that of its first
 										strong character (UAX #9, rules P2 and P3), left to
 										right without one. By default left to right. */
+	virtual	std::optional<gfx::Path> GlyphOutline(gfx::FontId font, std::uint32_t glyph,
+									float sizePx) const;
+									/*!< The outline of \a glyph of \a font at \a sizePx, in
+										logical pixels from the glyph's origin on the
+										baseline, y down (specification 19.3: glyphs as paths
+										in the SVG export); an empty path for a glyph without
+										one (a space). nullopt for an unknown font or glyph,
+										and by default. */
 	virtual	std::vector<FontFile> Fonts() const;
 									/*!< The font files of the glyph runs of Shape(), for the
 										backends; none by default, for text systems whose

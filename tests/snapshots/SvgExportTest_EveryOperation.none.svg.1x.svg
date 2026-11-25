@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="120" height="80" viewBox="0 0 120 80">
+  <defs>
+    <clipPath id="c1"><rect x="0" y="0" width="120" height="80"/></clipPath>
+    <linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="10"><stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/></linearGradient>
+    <image id="i3" width="2" height="2" preserveAspectRatio="none" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAHUlEQVR4AQESAO3/AP8AAP8A/wD/AAAA//////+ASUkJeEvZzgMAAAAASUVORK5CYII="/>
+    <path id="p4" d="M0 0L6 0L6 -8L0 -8Z"/>
+    <path id="p5" d="M0 0L6 0L6 -8L0 -8Z"/>
+    <clipPath id="c6"><rect x="60" y="30" width="10" height="10"/></clipPath>
+    <clipPath id="c7"><rect x="0" y="0" width="20" height="20"/></clipPath>
+  </defs>
+  <g clip-path="url(#c1)">
+    <rect x="0" y="0" width="20" height="10" fill="url(#g2)" shape-rendering="crispEdges"/>
+    <rect x="20" y="0" width="20" height="10" fill="#008000" fill-opacity="0.5" shape-rendering="crispEdges"/>
+    <path d="M42 0L58 0A2 2 0 0 1 60 2L60 6A4 4 0 0 1 56 10L44 10A4 4 0 0 1 40 6L40 2A2 2 0 0 1 42 0Z" fill="#000000"/>
+    <path d="M63 0L77 0A3 3 0 0 1 80 3L80 7A3 3 0 0 1 77 10L63 10A3 3 0 0 1 60 7L60 3A3 3 0 0 1 63 0ZM63 1L77 1A2 2 0 0 1 79 3L79 7A2 2 0 0 1 77 9L63 9A2 2 0 0 1 61 7L61 3A2 2 0 0 1 63 1Z" fill-rule="evenodd" fill="#000000"/>
+    <ellipse cx="90" cy="5" rx="10" ry="5" fill="#000000"/>
+    <polygon points="100,10 110,0 120,10" fill="#000000"/>
+    <rect x="1" y="13" width="18" height="8" fill="none" stroke="#000000" stroke-width="2" shape-rendering="crispEdges"/>
+    <path d="M23 12.5L37 12.5A2.5 2.5 0 0 1 39.5 15L39.5 19A2.5 2.5 0 0 1 37 21.5L23 21.5A2.5 2.5 0 0 1 20.5 19L20.5 15A2.5 2.5 0 0 1 23 12.5Z" fill="none" stroke="#000000" stroke-width="1"/>
+    <polyline points="40,22 50,12 60,22" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M80 17A10 5 0 0 1 70 22" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt"/>
+    <rect x="80.5" y="11.5" width="20" height="1" fill="#ff0000" shape-rendering="crispEdges"/>
+    <line x1="100" y1="12" x2="120" y2="22" stroke="#0000ff" stroke-width="1" stroke-linecap="butt"/>
+    <use xlink:href="#i3" transform="translate(0 30)"/>
+    <use xlink:href="#i3" transform="translate(4 30) scale(2 2)" opacity="0.5"/>
+    <g fill="#000000">
+      <use xlink:href="#p4" x="10" y="50"/>
+      <use xlink:href="#p5" x="17" y="50"/>
+    </g>
+    <g fill="#000000">
+      <use xlink:href="#p4" x="10" y="70"/>
+      <use xlink:href="#p5" x="17" y="70"/>
+    </g>
+  </g>
+  <g clip-path="url(#c6)">
+    <g transform="translate(60 30)">
+      <g clip-path="url(#c7)">
+        <rect x="0" y="0" width="20" height="20" fill="#000000" shape-rendering="crispEdges"/>
+      </g>
+    </g>
+  </g>
+  <g clip-path="url(#c1)">
+    <path d="M90 30C100 30 100 40 90 40Z" fill="#000000"/>
+  </g>
+</svg>

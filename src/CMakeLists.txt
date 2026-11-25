@@ -132,9 +132,11 @@ add_library(ngui
     gfx/ImageRegistry.cpp
     gfx/LinearGradient.cpp
     gfx/Path.cpp
+    gfx/PngWriter.cpp
     gfx/RRect.cpp
     gfx/Region.cpp
     gfx/RegionSupport.cpp
+    gfx/SvgExportBackend.cpp
     looks/be/BeControlLook.cpp
     looks/haiku/HaikuControlLook.cpp
     looks/haiku/HaikuLook.cpp

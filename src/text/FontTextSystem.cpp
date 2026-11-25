@@ -542,6 +542,119 @@ FontTextSystem::_Itemize(std::string_view text, const Font& primary) const
 }
 
 
+namespace {
+
+
+// HarfBuzz's draw callbacks into a gfx::Path, scaled from font units (y up)
+// to pixels (y down).
+struct OutlineDrawing {
+	gfx::Path	path;
+	float		scale;
+
+	gfx::Point At(float x, float y) const
+	{
+		return {x * scale, -y * scale};
+	}
+};
+
+
+void
+MoveTo(hb_draw_funcs_t*, void* data, hb_draw_state_t*, float x, float y, void*)
+{
+	auto* drawing = static_cast<OutlineDrawing*>(data);
+	drawing->path.MoveTo(drawing->At(x, y));
+}
+
+
+void
+LineTo(hb_draw_funcs_t*, void* data, hb_draw_state_t*, float x, float y, void*)
+{
+	auto* drawing = static_cast<OutlineDrawing*>(data);
+	drawing->path.LineTo(drawing->At(x, y));
+}
+
+
+// A quadratic curve is the cubic one with its control points two thirds of
+// the way from the ends to the quadratic control point.
+void
+QuadraticTo(hb_draw_funcs_t*, void* data, hb_draw_state_t* state, float controlX,
+	float controlY, float x, float y, void*)
+{
+	auto* drawing = static_cast<OutlineDrawing*>(data);
+	constexpr float kTwoThirds = 2.0f / 3.0f;
+	const float startX = state->current_x;
+	const float startY = state->current_y;
+	drawing->path.CubicTo(
+		drawing->At(startX + kTwoThirds * (controlX - startX),
+			startY + kTwoThirds * (controlY - startY)),
+		drawing->At(x + kTwoThirds * (controlX - x), y + kTwoThirds * (controlY - y)),
+		drawing->At(x, y));
+}
+
+
+void
+CubicTo(hb_draw_funcs_t*, void* data, hb_draw_state_t*, float control1X, float control1Y,
+	float control2X, float control2Y, float x, float y, void*)
+{
+	auto* drawing = static_cast<OutlineDrawing*>(data);
+	drawing->path.CubicTo(drawing->At(control1X, control1Y),
+		drawing->At(control2X, control2Y), drawing->At(x, y));
+}
+
+
+void
+ClosePath(hb_draw_funcs_t*, void* data, hb_draw_state_t*, void*)
+{
+	static_cast<OutlineDrawing*>(data)->path.Close();
+}
+
+
+// The callbacks, made once and never freed (immutable, shared by threads).
+hb_draw_funcs_t*
+OutlineFuncs()
+{
+	static hb_draw_funcs_t* const funcs = [] {
+		hb_draw_funcs_t* made = hb_draw_funcs_create();
+		hb_draw_funcs_set_move_to_func(made, MoveTo, nullptr, nullptr);
+		hb_draw_funcs_set_line_to_func(made, LineTo, nullptr, nullptr);
+		hb_draw_funcs_set_quadratic_to_func(made, QuadraticTo, nullptr, nullptr);
+		hb_draw_funcs_set_cubic_to_func(made, CubicTo, nullptr, nullptr);
+		hb_draw_funcs_set_close_path_func(made, ClosePath, nullptr, nullptr);
+		hb_draw_funcs_make_immutable(made);
+		return made;
+	}();
+	return funcs;
+}
+
+
+} // namespace
+
+
+std::optional<gfx::Path>
+FontTextSystem::GlyphOutline(gfx::FontId id, std::uint32_t glyph, float sizePx) const
+{
+	const Font* font = nullptr;
+	{
+		std::scoped_lock lock(fLock);
+		for (const std::unique_ptr<Font>& loaded : fFonts) {
+			if (loaded->file.id == id)
+				font = loaded.get();
+		}
+		for (const std::unique_ptr<Known>& known : fKnown) {
+			if (font == nullptr && known->id == id)
+				font = _LoadLocked(*known);
+		}
+	}
+	if (font == nullptr || glyph >= hb_face_get_glyph_count(font->face)
+		|| !(sizePx > 0)) {
+		return std::nullopt;
+	}
+	OutlineDrawing drawing{{}, sizePx / font->unitsPerEm};
+	hb_font_draw_glyph(font->font, glyph, OutlineFuncs(), &drawing);
+	return std::move(drawing.path);
+}
+
+
 std::vector<FontFamilyStyle>
 FontTextSystem::Styles() const
 {
