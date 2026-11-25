@@ -97,6 +97,17 @@ ImageRegistry::PixelSize(ImageHandle image) const
 }
 
 
+std::optional<std::vector<std::uint8_t>>
+ImageRegistry::Pixels(ImageHandle image) const
+{
+	std::scoped_lock lock(fLock);
+	const auto found = fImages.find(image);
+	if (found == fImages.end())
+		return std::nullopt;
+	return found->second.rgba;
+}
+
+
 ImageHandle
 ImageRegistry::BackendImage(ImageHandle image, Backend& backend)
 {

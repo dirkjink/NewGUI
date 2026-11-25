@@ -29,6 +29,7 @@
 #include <ngui/Bitmap.h>
 #include <ngui/gfx/DisplayList.h>
 #include <ngui/gfx/Dump.h>
+#include <ngui/gfx/SvgExportBackend.h>
 #include <ngui/test/Driver.h>
 #include <ngui/test/Image.h>
 #include <ngui/test/ImageCompare.h>
@@ -113,6 +114,30 @@ MatchesListSnapshot(const gfx::DisplayList& list, std::string_view name,
 }
 
 
+/*!	The SVG of \a list over its bounds (gfx::ExportSvg(), pretty, so that a
+	failing comparison shows readable lines) against its reference, for
+	EXPECT_SVG_SNAPSHOT; the backend in the file name is "svg", the
+	extension ".svg". Glyph outlines and font names come from \a text
+	(TextSystem::Default() if nullptr). */
+inline ::testing::AssertionResult
+MatchesSvgSnapshot(const gfx::DisplayList& list, std::string_view name,
+	SnapshotOptions options = {}, gfx::ExportOptions exportOptions = {},
+	const TextSystem* text = nullptr)
+{
+	if (options.backend == "none")
+		options.backend = "svg";
+	exportOptions.pretty = true;
+	const auto svg = gfx::ExportSvg(list, list.Bounds(), exportOptions, text);
+	if (!svg.has_value())
+		return ::testing::AssertionFailure() << "SVG export: " << svg.error().message;
+	const SnapshotResult result = CheckTextSnapshot(Snapshots(),
+		CurrentSnapshotKey(name, options), "svg", *svg);
+	if (result.Passed())
+		return ::testing::AssertionSuccess() << result.message;
+	return ::testing::AssertionFailure() << result.message;
+}
+
+
 /*!	The layout of \a window (LayoutText()) against its reference, for
 	EXPECT_LAYOUT_SNAPSHOT; the backend in the file name is "layout". */
 inline ::testing::AssertionResult
@@ -160,6 +185,12 @@ HasNoLintErrors(const LintReport& report)
 /*!	As EXPECT_IMAGE_SNAPSHOT, but ends the test on failure. */
 #define ASSERT_IMAGE_SNAPSHOT(image, ...) \
 	ASSERT_TRUE(::ngui::test::MatchesImageSnapshot((image), __VA_ARGS__))
+
+/*!	Expects the SVG of DisplayList \a list (MatchesSvgSnapshot()) to match
+	snapshot \a name; optional SnapshotOptions, ExportOptions and text
+	system. */
+#define EXPECT_SVG_SNAPSHOT(list, ...) \
+	EXPECT_TRUE(::ngui::test::MatchesSvgSnapshot((list), __VA_ARGS__))
 
 /*!	Expects the dump of DisplayList \a list to match snapshot \a name. */
 #define EXPECT_LIST_SNAPSHOT(list, ...) \

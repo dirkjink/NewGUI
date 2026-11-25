@@ -436,6 +436,13 @@ TextSystem::DoShape(std::string_view text, const FontSpec& font) const
 }
 
 
+std::optional<gfx::Path>
+TextSystem::GlyphOutline(gfx::FontId, std::uint32_t, float) const
+{
+	return std::nullopt;
+}
+
+
 std::vector<FontFile>
 TextSystem::Fonts() const
 {

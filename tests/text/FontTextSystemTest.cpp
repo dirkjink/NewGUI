@@ -7,6 +7,7 @@
 
 #include <ngui/text/FontTextSystem.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <memory>
@@ -18,6 +19,8 @@
 
 #include <ngui/Font.h>
 #include <ngui/TextLayout.h>
+#include <ngui/gfx/Canvas.h>
+#include <ngui/gfx/SvgExportBackend.h>
 
 
 namespace {
@@ -311,6 +314,71 @@ TEST(FontTextSystemTest, FontsOfAnySizeAndTheirStyles)
 		FontRole::Bold));
 	EXPECT_NE(truncated, "Haiku is here");
 	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(FontTextSystemTest, GlyphOutlinesComeFromTheFont)
+{
+	// What is tested: GlyphOutline() of "O" and of the space of Noto Sans
+	// at 1000 px (one pixel per font unit), of a glyph beyond the font, and
+	// of an unknown font; then "Hello" exported as SVG, as paths and as
+	// text.
+	// Success criteria: The O has two closed contours (outside and inside)
+	// within its advance of 781 and between the baseline and about 714
+	// units above it (y up in the font is y down here); the space has an
+	// empty outline; the others have none. The SVG has one path for each of
+	// the four different glyphs and uses five; as text it names the family
+	// "Noto Sans".
+	// Why it matters: The SVG export draws glyphs from these outlines
+	// (specification 19.3), so that the text looks the same everywhere.
+	//
+	// Given
+	const auto text = Bundled();
+	ASSERT_NE(text, nullptr);
+	const ShapedText letters = text->Shape("O ", FontRole::Plain);
+	ASSERT_EQ(letters.glyphs.size(), 2u);
+	const gfx::FontId font = letters.font;
+	gfx::Canvas canvas({0, 0, 100, 30});
+	text->Shape("Hello", FontRole::Plain).Draw(canvas, {5, 20}, {.color = {0, 0, 0, 1}});
+	const gfx::DisplayListRef hello = canvas.Finish();
+
+	// When
+	const auto o = text->GlyphOutline(font, letters.glyphs[0], 1000);
+	const auto space = text->GlyphOutline(font, letters.glyphs[1], 1000);
+	const auto beyond = text->GlyphOutline(font, 1000000, 12);
+	const auto unknown = text->GlyphOutline(999999, letters.glyphs[0], 12);
+	const auto paths = gfx::ExportSvg(*hello, hello->Bounds(), {}, text.get());
+	const auto words = gfx::ExportSvg(*hello, hello->Bounds(),
+		{.text = gfx::ExportOptions::TextMode::Text}, text.get());
+
+	// Then
+	ASSERT_TRUE(o.has_value());
+	EXPECT_EQ(std::ranges::count(o->Verbs(), gfx::PathVerb::Move), 2);
+	EXPECT_EQ(std::ranges::count(o->Verbs(), gfx::PathVerb::Close), 2);
+	const gfx::Rect bounds = o->Bounds();
+	EXPECT_GT(bounds.x0, 0);
+	EXPECT_LT(bounds.x1, 781);
+	EXPECT_GT(bounds.y0, -760);
+	EXPECT_LT(bounds.y0, -690);
+	EXPECT_GT(bounds.y1, 0);
+	EXPECT_LT(bounds.y1, 20);
+	ASSERT_TRUE(space.has_value());
+	EXPECT_TRUE(space->IsEmpty());
+	EXPECT_FALSE(beyond.has_value());
+	EXPECT_FALSE(unknown.has_value());
+	ASSERT_TRUE(paths.has_value() && words.has_value());
+	const auto count = [](const std::string& svg, std::string_view part) {
+		std::size_t found = 0;
+		for (std::size_t at = svg.find(part); at != std::string::npos;
+				at = svg.find(part, at + 1)) {
+			found++;
+		}
+		return found;
+	};
+	EXPECT_EQ(count(*paths, "<path id="), 4u) << *paths;
+	EXPECT_EQ(count(*paths, "<use "), 5u);
+	EXPECT_NE(words->find("font-family=\"Noto Sans\""), std::string::npos) << *words;
+	EXPECT_NE(words->find(">Hello</text>"), std::string::npos);
 }
 
 
