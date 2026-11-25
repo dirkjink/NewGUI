@@ -26,8 +26,10 @@
 
 #include <gtest/gtest.h>
 
+#include <ngui/Bitmap.h>
 #include <ngui/gfx/DisplayList.h>
 #include <ngui/gfx/Dump.h>
+#include <ngui/test/Driver.h>
 #include <ngui/test/Image.h>
 #include <ngui/test/ImageCompare.h>
 #include <ngui/test/Snapshot.h>
@@ -66,6 +68,30 @@ MatchesImageSnapshot(const Image& image, std::string_view name,
 	if (result.Passed())
 		return ::testing::AssertionSuccess() << result.message;
 	return ::testing::AssertionFailure() << result.message;
+}
+
+
+/*!	\a bitmap (a snapshot) against its reference, for EXPECT_IMAGE_SNAPSHOT. */
+inline ::testing::AssertionResult
+MatchesImageSnapshot(const BBitmap& bitmap, std::string_view name,
+	const SnapshotOptions& options = {})
+{
+	return MatchesImageSnapshot(Image::FromBitmap(bitmap), name, options);
+}
+
+
+/*!	A snapshot of \a window (WindowRef::Snapshot() at the options' scale)
+	against its reference, for EXPECT_IMAGE_SNAPSHOT (specification 20.5). */
+inline ::testing::AssertionResult
+MatchesImageSnapshot(const WindowRef& window, std::string_view name,
+	const SnapshotOptions& options = {})
+{
+	BSnapshotOptions snapshot;
+	snapshot.scale = options.scale;
+	const std::expected<BBitmap, Error> bitmap = window.Snapshot(snapshot);
+	if (!bitmap.has_value())
+		return ::testing::AssertionFailure() << "no snapshot: " << bitmap.error().message;
+	return MatchesImageSnapshot(*bitmap, name, options);
 }
 
 

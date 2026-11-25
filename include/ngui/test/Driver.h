@@ -130,6 +130,11 @@ public:
 			platform::HeadlessWindow* PlatformWindow() const;
 									/*!< Its window of the headless platform, nullptr if
 										it closed. */
+			std::expected<BBitmap, Error> Snapshot(const BSnapshotOptions& options = {}) const;
+									/*!< BWindow::Snapshot() of the window (its popups'
+										BWindow for a popup), waited for. */
+			std::expected<BBitmap, Error> CaptureFrame() const;
+									/*!< BWindow::CaptureFrame(), waited for. */
 
 			ViewRef				FindIf(const std::function<bool(BView&)>& matches) const;
 									/*!< The first view, depth first, that \a matches. */

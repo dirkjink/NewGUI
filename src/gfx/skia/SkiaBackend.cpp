@@ -29,10 +29,12 @@
 #include "include/core/SkRect.h"
 #include "include/core/SkRegion.h"
 #include "include/core/SkSamplingOptions.h"
+#include "include/core/SkStream.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkTextBlob.h"
 #include "include/core/SkTypeface.h"
 #include "include/effects/SkGradient.h"
+#include "include/encode/SkPngEncoder.h"
 #include "include/ports/SkFontMgr_empty.h"
 
 #include <ngui/gfx/DisplayList.h>
@@ -602,6 +604,23 @@ SkiaBackend::AddFont(FontId font, std::span<const std::byte> fontFile, std::uint
 		return false;
 	fData->fonts[font] = std::move(typeface);
 	return true;
+}
+
+
+std::expected<std::vector<std::byte>, Error>
+SkiaBackend::EncodePng(const PixelData& pixels)
+{
+	if (!pixels.IsValid())
+		return Failure(ErrorCode::InvalidArgument, "no pixels");
+	const SkImageInfo info = SkImageInfo::Make(pixels.width, pixels.height,
+		kRGBA_8888_SkColorType, kUnpremul_SkAlphaType);
+	const SkPixmap pixmap(info, pixels.bytes.data(), pixels.stride);
+	SkDynamicMemoryWStream stream;
+	if (!SkPngEncoder::Encode(&stream, pixmap, {}))
+		return Failure(ErrorCode::IoError, "Skia cannot encode the PNG");
+	const sk_sp<SkData> data = stream.detachAsData();
+	const auto* bytes = static_cast<const std::byte*>(data->data());
+	return std::vector<std::byte>(bytes, bytes + data->size());
 }
 
 

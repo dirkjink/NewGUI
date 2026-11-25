@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
+#include <future>
 #include <mutex>
 #include <utility>
 
@@ -24,6 +26,7 @@
 #include <ngui/TextSystem.h>
 #include <ngui/ToolTip.h>
 #include <ngui/gfx/BackendRegistry.h>
+#include <ngui/gfx/Canvas.h>
 
 #include "LooperPort.h"
 #include "CursorState.h"
@@ -1653,6 +1656,202 @@ BWindow::_AddFonts(const TextSystem& text)
 	for (std::size_t i = fFontsAdded; i < fonts.size(); i++)
 		(void)fBackend->AddFont(fonts[i].id, fonts[i].data, fonts[i].faceIndex);
 	fFontsAdded = fonts.size();
+}
+
+
+// #pragma mark - snapshots
+
+
+namespace {
+
+
+// \a pixels of a CPU surface as a B_RGBA32 bitmap (B, G, R, A, not
+// premultiplied), rounded as the test kit's Image::FromCpuPixels().
+std::expected<BBitmap, Error>
+BitmapOf(const gfx::CpuPixels& pixels)
+{
+	BBitmap bitmap({0, 0, static_cast<float>(pixels.width), static_cast<float>(pixels.height)},
+		BColorSpace::RGBA32);
+	if (!bitmap.IsValid())
+		return Failure(ErrorCode::OutOfRange, "the snapshot is too large");
+	const bool bgra = pixels.format == gfx::PixelFormat::Bgra8Premul;
+	const std::span<std::uint8_t> bits = bitmap.Bits();
+	const auto bytesPerRow = static_cast<std::size_t>(bitmap.BytesPerRow());
+	for (std::int32_t y = 0; y < pixels.height; y++) {
+		const std::byte* row = pixels.bytes.data() + static_cast<std::size_t>(y) * pixels.stride;
+		std::uint8_t* out = bits.data() + static_cast<std::size_t>(y) * bytesPerRow;
+		for (std::int32_t x = 0; x < pixels.width; x++) {
+			const std::byte* p = row + static_cast<std::size_t>(x) * 4;
+			const int alpha = static_cast<int>(p[3]);
+			const auto straight = [alpha](std::byte value) {
+				if (alpha == 0)
+					return std::uint8_t{0};
+				const int unpremultiplied = (static_cast<int>(value) * 255 + alpha / 2) / alpha;
+				return static_cast<std::uint8_t>(std::min(unpremultiplied, 255));
+			};
+			const std::byte red = bgra ? p[2] : p[0];
+			const std::byte blue = bgra ? p[0] : p[2];
+			std::uint8_t* q = out + static_cast<std::size_t>(x) * 4;
+			q[0] = straight(blue);
+			q[1] = straight(p[1]);
+			q[2] = straight(red);
+			q[3] = static_cast<std::uint8_t>(alpha);
+		}
+	}
+	return bitmap;
+}
+
+
+// A future that is ready with \a value.
+std::future<std::expected<BBitmap, Error>>
+Ready(std::expected<BBitmap, Error> value)
+{
+	std::promise<std::expected<BBitmap, Error>> promise;
+	promise.set_value(std::move(value));
+	return promise.get_future();
+}
+
+
+// \a work's result, run on the thread of the window \a window: at once on
+// its own thread, else from a thread of its own that waits for the window.
+std::future<std::expected<BBitmap, Error>>
+OnWindowThread(const BMessenger& window,
+	std::function<std::expected<BBitmap, Error>(BWindow&)> work)
+{
+	return std::async(std::launch::async, [window, work = std::move(work)] {
+		std::expected<BBitmap, Error> result = Failure(ErrorCode::NotFound,
+			"the window is gone");
+		auto ran = RunOnLooper(window, [&](BLooper& looper) {
+			if (auto* target = dynamic_cast<BWindow*>(&looper))
+				result = work(*target);
+		}, BMessenger::kInfiniteTimeout);
+		if (!ran.has_value())
+			return std::expected<BBitmap, Error>(std::unexpected(ran.error()));
+		return result;
+	});
+}
+
+
+} // namespace
+
+
+std::future<std::expected<BBitmap, Error>>
+BWindow::Snapshot(const BSnapshotOptions& options)
+{
+	if (std::this_thread::get_id() == Thread())
+		return Ready(_Snapshot(options, nullptr));
+	return Snapshot(BMessenger(this), options);
+}
+
+
+std::future<std::expected<BBitmap, Error>>
+BWindow::Snapshot(const BMessenger& window, const BSnapshotOptions& options)
+{
+	return OnWindowThread(window, [options](BWindow& target) {
+		return target._Snapshot(options, nullptr);
+	});
+}
+
+
+std::future<std::expected<BBitmap, Error>>
+BWindow::CaptureFrame()
+{
+	if (std::this_thread::get_id() == Thread())
+		return Ready(_CaptureFrame());
+	return CaptureFrame(BMessenger(this));
+}
+
+
+std::future<std::expected<BBitmap, Error>>
+BWindow::CaptureFrame(const BMessenger& window)
+{
+	return OnWindowThread(window, [](BWindow& target) { return target._CaptureFrame(); });
+}
+
+
+// The window, or \a view and its children, rendered anew into an
+// offscreen CPU surface (specification 19.1, level a).
+std::expected<BBitmap, Error>
+BWindow::_Snapshot(const BSnapshotOptions& options, BView* view)
+{
+	// S1: pending layout and drawing first
+	UpdateIfNeeded();
+	if (view != nullptr && !view->IsLayoutValid())
+		view->Layout(false);
+
+	std::unique_ptr<gfx::Backend> own;
+	gfx::Backend* backend = fBackend.get();
+	if (!options.backend.empty() || backend == nullptr) {
+		auto made = options.backend.empty()
+			? gfx::BackendRegistry::Default().CreatePreferred({})
+			: gfx::BackendRegistry::Default().Create(options.backend);
+		if (!made.has_value())
+			return std::unexpected(made.error());
+		own = std::move(*made);
+		backend = own.get();
+	}
+	const TextSystem& text = TextSystem::Default();
+	if (own != nullptr) {
+		for (const FontFile& font : text.Fonts())
+			(void)own->AddFont(font.id, font.data, font.faceIndex);
+	}
+
+	const float scale = options.scale > 0 ? options.scale : fScale;
+	const gfx::Caps caps = backend->Capabilities();
+	const DrawEnvironment environment{caps, Palette::Default(), text, scale};
+	BView* root = view != nullptr ? view : fRoot.get();
+	const gfx::Rect bounds = view != nullptr ? view->Bounds() : Bounds();
+	const gfx::Rect area = options.area.value_or(bounds);
+	if (!(area.Width() > 0) || !(area.Height() > 0))
+		return Failure(ErrorCode::InvalidArgument, "an empty area");
+
+	// The window as its frames have it, then its popups at their places on
+	// the screen, each on its menu background.
+	gfx::Canvas canvas({area.x0, area.y0, area.x1, area.y1});
+	canvas.DrawList(root->RecordTree(environment), {0, 0});
+	if (view == nullptr && options.includePopups) {
+		for (const std::unique_ptr<PopupSurface>& popup : fPopups) {
+			const gfx::Rect frame = popup->root->Frame();
+			const gfx::Point at{frame.x0 - fFrame.x0, frame.y0 - fFrame.y0};
+			canvas.FillRect({at.x, at.y, at.x + frame.Width(), at.y + frame.Height()},
+				gfx::Paint{.color = Palette::Default().Get(BColorWhich::MenuBackground)});
+			canvas.DrawList(popup->root->RecordTree(environment), at);
+		}
+	}
+	const gfx::DisplayListRef list = canvas.Finish();
+	// fonts the recording loaded (fallbacks) for the window's backend too
+	if (own == nullptr)
+		_AddFonts(text);
+	else {
+		const std::vector<FontFile> fonts = text.Fonts();
+		for (const FontFile& font : fonts)
+			(void)own->AddFont(font.id, font.data, font.faceIndex);
+	}
+
+	const gfx::Size device{std::ceil(area.Width() * scale), std::ceil(area.Height() * scale)};
+	const gfx::SurfaceRef surface = backend->CreateOffscreenSurface(device, scale);
+	if (surface == nullptr)
+		return Failure(ErrorCode::NotSupported, "the backend has no offscreen surfaces");
+	backend->BeginFrame(*surface, Palette::Default().Get(BColorWhich::PanelBackground));
+	backend->Render(*list, {-area.x0, -area.y0});
+	backend->EndFrame(*surface);
+	const std::optional<gfx::CpuPixels> pixels = surface->Pixels();
+	if (!pixels.has_value())
+		return Failure(ErrorCode::NotSupported, "the backend gives no CPU pixels");
+	return BitmapOf(*pixels);
+}
+
+
+// The frame shown last (specification 19.1, level b).
+std::expected<BBitmap, Error>
+BWindow::_CaptureFrame()
+{
+	if (fSurface == nullptr || fFrameCount == 0)
+		return Failure(ErrorCode::NotFound, "no frame shown yet");
+	const std::optional<gfx::CpuPixels> pixels = fSurface->Pixels();
+	if (!pixels.has_value())
+		return Failure(ErrorCode::NotSupported, "the window's surface has no CPU pixels");
+	return BitmapOf(*pixels);
 }
 
 

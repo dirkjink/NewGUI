@@ -9,10 +9,13 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
+#include <ngui/Bitmap.h>
 #include <ngui/ControlLook.h>
+#include <ngui/Error.h>
 #include <ngui/Flags.h>
 #include <ngui/Handler.h>
 #include <ngui/Layout.h>
@@ -124,6 +127,21 @@ NGUI_FLAG_ENUM(BEventMask)
 
 /*!	A set of BEventMask. */
 using BEventMaskFlags = Flags<BEventMask>;
+
+
+/*!	What a snapshot of a window or view shows (specification 19.1). */
+struct BSnapshotOptions {
+			std::optional<gfx::Rect> area;
+									/*!< The part in window (BView::Snapshot(): view)
+										coordinates; none for all of it. */
+			float				scale = 0;	/*!< Device pixels per logical pixel; 0 for
+												the window's. */
+			std::string			backend;	/*!< The backend that renders, by name; empty
+												for the window's (CPU raster). */
+			bool				includePopups = false;
+									/*!< BWindow::Snapshot(): with the window's open menus
+										and tooltips over it (the cursor never). */
+};
 
 
 /*!	What views draw with besides their Canvas, given by the window for one
@@ -306,6 +324,13 @@ public:
 										in its own coordinates: its own list (recorded if it
 										was invalidated) with the children's placed in. Used
 										by the window for every frame. */
+			std::expected<BBitmap, Error> Snapshot(const BSnapshotOptions& options = {});
+									/*!< The view and its children rendered anew into a
+										bitmap (B_RGBA32), as the window's backend draws
+										them (specification 19.1, level a): its bounds, or
+										\a options' area in its coordinates, after pending
+										layout and drawing. On the window's thread only;
+										InvalidArgument without a window. */
 
 	// Events
 

@@ -17,7 +17,9 @@
 #include <climits>
 #include <cmath>
 #include <utility>
+#include <vector>
 
+#include <ngui/gfx/BackendRegistry.h>
 #include <ngui/gfx/ImageRegistry.h>
 
 #include "ColorConversion.h"
@@ -261,6 +263,34 @@ BBitmap::_Changed()
 		gfx::ImageRegistry::Default().Release(fImage);
 		fImage = 0;
 	}
+}
+
+
+std::expected<std::vector<std::byte>, Error>
+EncodePng(const BBitmap& bitmap, std::string_view backendName)
+{
+	if (!bitmap.IsValid())
+		return Failure(ErrorCode::InvalidArgument, "an invalid bitmap");
+	// as B_RGBA32 (B, G, R, A in memory), then R and B swapped: the RGBA of
+	// PixelData
+	const gfx::Rect bounds = bitmap.Bounds();
+	const auto width = static_cast<std::int32_t>(bounds.Width());
+	const auto height = static_cast<std::int32_t>(bounds.Height());
+	const std::size_t stride = static_cast<std::size_t>(width) * 4;
+	std::vector<std::uint8_t> rgba(stride * static_cast<std::size_t>(height));
+	if (auto converted = detail::ConvertBits(bitmap.Bits(), rgba, bitmap.BytesPerRow(),
+			static_cast<std::int32_t>(stride), bitmap.ColorSpace(), BColorSpace::RGBA32, 0, 0,
+			0, 0, width, height); !converted.has_value()) {
+		return std::unexpected(converted.error());
+	}
+	for (std::size_t i = 0; i + 3 < rgba.size(); i += 4)
+		std::swap(rgba[i], rgba[i + 2]);
+
+	auto backend = backendName.empty() ? gfx::BackendRegistry::Default().CreatePreferred({})
+		: gfx::BackendRegistry::Default().Create(backendName);
+	if (!backend.has_value())
+		return std::unexpected(backend.error());
+	return (*backend)->EncodePng({width, height, stride, rgba});
 }
 
 

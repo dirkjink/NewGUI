@@ -750,6 +750,15 @@ BView::_RecordChildrenOver(const DrawEnvironment& environment)
 }
 
 
+std::expected<BBitmap, Error>
+BView::Snapshot(const BSnapshotOptions& options)
+{
+	if (Window() == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "the view has no window");
+	return Window()->_Snapshot(options, this);
+}
+
+
 gfx::DisplayListRef
 BView::RecordTree(const DrawEnvironment& environment)
 {

@@ -8,10 +8,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <memory>
 #include <optional>
 #include <span>
+#include <vector>
 
+#include <ngui/Error.h>
 #include <ngui/gfx/Color.h>
 #include <ngui/gfx/DisplayList.h>
 #include <ngui/gfx/GlyphRun.h>
@@ -158,6 +161,10 @@ public:
 										backend cannot read it. The bytes are only borrowed
 										for the call. By default false: a backend that does
 										not draw text keeps it. Thread-safe. */
+	virtual	std::expected<std::vector<std::byte>, Error> EncodePng(const PixelData& pixels);
+									/*!< \a pixels as a PNG file, by the backend's encoder
+										(specification 19.1, S4); NotSupported by default.
+										Thread-safe. */
 
 	virtual	SurfaceRef			CreateWindowSurface(const NativeWindow& window,
 									SurfaceKind kind) = 0;

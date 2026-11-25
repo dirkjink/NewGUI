@@ -11,8 +11,11 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <vector>
 
 #include <png.h>
+
+#include "ColorConversion.h"
 
 
 namespace ngui::test {
@@ -121,6 +124,35 @@ Image::FromCpuPixels(const gfx::CpuPixels& pixels)
 			const int blue = bgra ? c0 : c2;
 			image.Set(x, y, {unpremultiply(red), unpremultiply(c1), unpremultiply(blue),
 				static_cast<std::uint8_t>(alpha)});
+		}
+	}
+	return image;
+}
+
+
+Image
+Image::FromBitmap(const BBitmap& bitmap)
+{
+	if (!bitmap.IsValid())
+		return Image();
+	const gfx::Rect bounds = bitmap.Bounds();
+	Image image(static_cast<std::int32_t>(bounds.Width()),
+		static_cast<std::int32_t>(bounds.Height()));
+	if (image.IsEmpty())
+		return image;
+	// B_RGBA32 lies in memory as B, G, R, A
+	const std::size_t stride = static_cast<std::size_t>(image.Width()) * 4;
+	std::vector<std::uint8_t> bgra(stride * static_cast<std::size_t>(image.Height()));
+	if (!detail::ConvertBits(bitmap.Bits(), bgra, bitmap.BytesPerRow(),
+			static_cast<std::int32_t>(stride), bitmap.ColorSpace(), BColorSpace::RGBA32, 0, 0,
+			0, 0, image.Width(), image.Height()).has_value()) {
+		return Image();
+	}
+	for (std::int32_t y = 0; y < image.Height(); y++) {
+		for (std::int32_t x = 0; x < image.Width(); x++) {
+			const std::uint8_t* p = bgra.data() + static_cast<std::size_t>(y) * stride
+				+ static_cast<std::size_t>(x) * 4;
+			image.Set(x, y, {p[2], p[1], p[0], p[3]});
 		}
 	}
 	return image;
