@@ -96,6 +96,19 @@ inline constexpr std::uint32_t kWindowMoved = FourCharCode("_WMV");
 inline constexpr std::uint32_t kWindowActivated = FourCharCode("_ACT");
 
 
+/*!	Files chosen to open (B_REFS_RECEIVED), e.g. in a BFilePanel: their
+	paths as UTF-8 strings in "paths" (NewGUI; Haiku: entry_refs in
+	"refs"). */
+inline constexpr std::uint32_t kRefsReceived = FourCharCode("_RRC");
+
+/*!	A file chosen to save to (B_SAVE_REQUESTED), from a BFilePanel: the
+	folder in "directory" and the file name in "name" (strings). */
+inline constexpr std::uint32_t kSaveRequested = FourCharCode("SAVE");
+
+/*!	A panel closed (B_CANCEL): from a BFilePanel, with "old_what" (int32)
+	and "source" (pointer to the panel). */
+inline constexpr std::uint32_t kCancel = FourCharCode("_CNC");
+
 /*!	Data dropped on a view (B_SIMPLE_DATA): files from another application,
 	their paths as UTF-8 strings in "paths" (NewGUI; Haiku: entry_refs in
 	"refs"). BMessage::WasDropped() and DropPoint() tell where. */

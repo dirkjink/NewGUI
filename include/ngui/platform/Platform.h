@@ -7,7 +7,9 @@
 
 
 #include <cstddef>
+#include <cstdint>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <span>
 #include <string>
@@ -147,6 +149,41 @@ struct CursorShape {
 };
 
 
+/*!	A file dialog of the system (module P2): what to ask for. */
+struct FileDialogSpec {
+	/*!	What the dialog picks. */
+	enum class Kind : std::uint8_t {
+		Open,	/*!< Existing files. */
+		Save,	/*!< A file to save to, existing or not. */
+		Folder	/*!< Existing folders. */
+	};
+
+			Kind				kind = Kind::Open;	/*!< What it picks. */
+			std::string			title;				/*!< The title, empty for the
+														system's. */
+			std::string			acceptLabel;		/*!< The accepting button, empty for
+														the system's. */
+			std::string			cancelLabel;		/*!< The cancelling button, empty
+														for the system's. */
+			std::string			location;			/*!< The folder (or for Save, the
+														file) to start at; may be
+														empty. */
+			std::vector<std::pair<std::string, std::string>> filters;
+													/*!< Names and patterns
+														("Images", "png;jpg"); empty
+														for all files. */
+			bool				many = false;		/*!< Open, Folder: more than one may
+														be picked. */
+			PlatformWindow*		parent = nullptr;	/*!< The window it is modal to, or
+														nullptr. */
+};
+
+
+/*!	What a file dialog gives back: the chosen paths (UTF-8), empty if it was
+	cancelled. */
+using FileDialogResult = std::expected<std::vector<std::string>, Error>;
+
+
 /*!	The window system (module P1): windows, screens and the events of the
 	main thread. BApplication::UsePlatform() hands it to the application,
 	whose loop then waits for the platform's events and its own messages
@@ -190,6 +227,12 @@ public:
 	virtual	void				SetCursorVisible(bool visible);
 									/*!< Shows or hides the mouse cursor; from any thread.
 										Nothing by default. */
+
+	virtual	std::expected<void, Error> ShowFileDialog(const FileDialogSpec& spec,
+									std::function<void(FileDialogResult)> done);
+									/*!< Shows the system's file dialog and returns at once;
+										\a done gets the result later, on any thread. From
+										any thread. NotSupported by default. */
 };
 
 
