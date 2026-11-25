@@ -96,6 +96,33 @@ inline constexpr std::uint32_t kWindowMoved = FourCharCode("_WMV");
 inline constexpr std::uint32_t kWindowActivated = FourCharCode("_ACT");
 
 
+/*!	Data dropped on a view (B_SIMPLE_DATA): files from another application,
+	their paths as UTF-8 strings in "paths" (NewGUI; Haiku: entry_refs in
+	"refs"). BMessage::WasDropped() and DropPoint() tell where. */
+inline constexpr std::uint32_t kSimpleData = FourCharCode("DATA");
+
+/*!	Data by MIME type (B_MIME_DATA): text dropped on a view comes as
+	"text/plain" (BTypeCode::Mime) with the UTF-8 text. */
+inline constexpr std::uint32_t kMimeData = FourCharCode("MIME");
+
+/*!	A drag from another application entered the window (platform event,
+	module P2). */
+inline constexpr std::uint32_t kDropBegin = FourCharCode("_DRB");
+
+/*!	The drag is at "where" in the window (platform event). */
+inline constexpr std::uint32_t kDropPosition = FourCharCode("_DRP");
+
+/*!	A file of the drop: "path" (UTF-8) and "where" (platform event). */
+inline constexpr std::uint32_t kDropFile = FourCharCode("_DRF");
+
+/*!	Text of the drop: "text" (UTF-8) and "where" (platform event). */
+inline constexpr std::uint32_t kDropText = FourCharCode("_DRT");
+
+/*!	The drop is complete, or the drag left: "where" if it was dropped
+	(platform event). */
+inline constexpr std::uint32_t kDropComplete = FourCharCode("_DRC");
+
+
 /*!	B_UPDATE_STATUS_BAR: BStatusBar::Update() with "delta" (float), "text"
 	and "trailing_text" (strings). */
 inline constexpr std::uint32_t kUpdateStatusBar = FourCharCode("_UPS");

@@ -776,6 +776,13 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kMouseIdleCheck:
 			_MouseIdleCheck();
 			return;
+		case kDropBegin:
+		case kDropPosition:
+		case kDropFile:
+		case kDropText:
+		case kDropComplete:
+			_DropEvent(message);
+			return;
 		case kToolTipClose:
 			if (fToolTip != nullptr)
 				fToolTip->CloseIfHidden();
@@ -1087,6 +1094,8 @@ BWindow::_ViewDetached(BView* view)
 		fToolTip->ViewDetached(view);
 	if (fCursorView == view)
 		fCursorView = nullptr;
+	if (fDragView == view)
+		fDragView = nullptr;
 }
 
 
@@ -1182,6 +1191,90 @@ BWindow::_CheckToolTipOwner(const BView* under)
 			return;
 	}
 	fToolTip->Hide();
+}
+
+
+void
+BWindow::_DropEvent(BMessage* message)
+{
+	// NewGUI: files and text dragged from other applications (module P2).
+	// The platform reports them one by one; the drop goes, as Haiku's
+	// app_server delivers it, to the view under the drop point as
+	// kSimpleData with the paths, or kMimeData with "text/plain".
+	const gfx::Point where = message->GetPoint("where", {0, 0});
+	switch (message->what) {
+		case kDropBegin:
+			fDropPaths.clear();
+			fDropText.clear();
+			fDropTextSeen = false;
+			return;
+		case kDropPosition:
+			_DragMoved(where);
+			return;
+		case kDropFile:
+			if (auto path = message->FindString("path"))
+				fDropPaths.emplace_back(*path);
+			return;
+		case kDropText:
+			if (auto text = message->FindString("text")) {
+				fDropText += *text;
+				fDropTextSeen = true;
+			}
+			return;
+		default:
+			break;
+	}
+
+	// kDropComplete: the drag ends over the window
+	BMessage drag(kSimpleData);
+	if (fDragView != nullptr) {
+		fDragView->MouseMoved(fDragView->ConvertFromWindow(where), BMouseTransit::Exited,
+			&drag);
+		fDragView = nullptr;
+	}
+	if (fDropPaths.empty() && !fDropTextSeen)
+		return;
+
+	BMessage dropped(fDropPaths.empty() ? kMimeData : kSimpleData);
+	for (const std::string& path : fDropPaths)
+		(void)dropped.AddString("paths", path);
+	if (fDropPaths.empty()) {
+		(void)dropped.AddData("text/plain", BTypeCode::Mime,
+			std::as_bytes(std::span(fDropText.data(), fDropText.size())));
+	}
+	dropped.fDropPoint = gfx::Point{where.x + fFrame.x0, where.y + fFrame.y0};
+	fDropPaths.clear();
+	fDropText.clear();
+	fDropTextSeen = false;
+
+	// to the view under the drop point; its parents and the window get it
+	// if it does not handle it (BHandler's next handler)
+	if (BView* target = ViewAt(fRoot.get(), where))
+		target->MessageReceived(&dropped);
+	else
+		MessageReceived(&dropped);
+}
+
+
+void
+BWindow::_DragMoved(gfx::Point where)
+{
+	// Haiku: the views get MouseMoved() with the drag message. NewGUI: the
+	// platform tells the content only at the drop, so the message has no
+	// fields while dragging.
+	BMessage drag(kSimpleData);
+	BView* under = ViewAt(fRoot.get(), where);
+	if (under != fDragView) {
+		if (fDragView != nullptr) {
+			fDragView->MouseMoved(fDragView->ConvertFromWindow(where), BMouseTransit::Exited,
+				&drag);
+		}
+		fDragView = under;
+		if (under != nullptr)
+			under->MouseMoved(under->ConvertFromWindow(where), BMouseTransit::Entered, &drag);
+	} else if (under != nullptr) {
+		under->MouseMoved(under->ConvertFromWindow(where), BMouseTransit::Inside, &drag);
+	}
 }
 
 

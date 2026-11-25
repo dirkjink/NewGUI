@@ -362,4 +362,52 @@ TEST(SdlEventsTest, QuitAsksTheApplication)
 }
 
 
+TEST(SdlEventsTest, DropsBecomePlatformEvents)
+{
+	// What is tested: SDL's drop events for window 3: begin, a position,
+	// two files, text and complete.
+	// Success criteria: In order kDropBegin, kDropPosition with "where",
+	// kDropFile with "path" and "where" for each file, kDropText with
+	// "text", kDropComplete with "where", all for window 3 and with "when".
+	// Why it matters: The window collects the files of a drop and hands
+	// them to the view under the drop point (module P2).
+	//
+	// Given
+	const auto drop = [](SDL_EventType type, float x, float y, const char* data) {
+		SDL_Event event{};
+		event.type = type;
+		event.drop.windowID = 3;
+		event.drop.x = x;
+		event.drop.y = y;
+		event.drop.data = data;
+		return event;
+	};
+	const std::vector<SDL_Event> events = {drop(SDL_EVENT_DROP_BEGIN, 0, 0, nullptr),
+		drop(SDL_EVENT_DROP_POSITION, 10, 20, nullptr),
+		drop(SDL_EVENT_DROP_FILE, 11, 21, "/tmp/a b.txt"),
+		drop(SDL_EVENT_DROP_FILE, 11, 21, "/tmp/ä.png"),
+		drop(SDL_EVENT_DROP_TEXT, 12, 22, "Hello"),
+		drop(SDL_EVENT_DROP_COMPLETE, 13, 23, nullptr)};
+
+	// When
+	const std::vector<TranslatedEvent> messages = Translate(events, Context());
+
+	// Then
+	ASSERT_EQ(messages.size(), 6u);
+	const std::vector<std::uint32_t> expected = {kDropBegin, kDropPosition, kDropFile,
+		kDropFile, kDropText, kDropComplete};
+	for (std::size_t i = 0; i < messages.size(); i++) {
+		EXPECT_EQ(messages[i].window, 3u);
+		EXPECT_EQ(messages[i].message.what, expected[i]);
+		EXPECT_TRUE(messages[i].message.HasInt64("when"));
+	}
+	EXPECT_EQ(messages[1].message.GetPoint("where", {}), (gfx::Point{10, 20}));
+	EXPECT_EQ(messages[2].message.GetString("path", ""), "/tmp/a b.txt");
+	EXPECT_EQ(messages[3].message.GetString("path", ""), "/tmp/ä.png");
+	EXPECT_EQ(messages[4].message.GetString("text", ""), "Hello");
+	EXPECT_EQ(messages[5].message.GetPoint("where", {}), (gfx::Point{13, 23}));
+	EXPECT_FALSE(messages[5].message.HasString("path"));
+}
+
+
 } // namespace

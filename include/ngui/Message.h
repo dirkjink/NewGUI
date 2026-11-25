@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -131,6 +132,17 @@ public:
 									/*!< Same what, same fields in the same order, equal
 										items; floats compare by their bits, so that NaN
 										equals itself. */
+
+	// Drag and drop
+
+			bool				WasDropped() const;
+									/*!< It was dropped on a view (a file or text dragged
+										from another application, module P2). */
+			gfx::Point			DropPoint(gfx::Point* offset = nullptr) const;
+									/*!< Where it was dropped, on the screen; (0, 0) if it
+										was not. \a offset gets (0, 0): NewGUI drags no
+										image of its own (Haiku: the point under the mouse
+										in the dragged image). */
 
 	// Delivery and replies
 
@@ -540,8 +552,11 @@ private:
 
 			std::vector<Field>	fFields;
 			std::unique_ptr<MessageDelivery> fDelivery;
+			std::optional<gfx::Point> fDropPoint;
+									// set by the window it was dropped on
 
 			friend class BLooper;
+			friend class BWindow;
 			friend class BMessenger;
 			friend class MessageFlattener;
 };

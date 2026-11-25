@@ -306,6 +306,8 @@ private:
 			void				_MouseIdleCheck();
 			void				_CheckToolTipOwner(const BView* under);
 			void				_UpdateCursor(const BView* under);
+			void				_DropEvent(BMessage* message);
+			void				_DragMoved(gfx::Point where);
 			void				_ViewCursorChanged(const BView* view);
 			void				_UpdatePopup(PopupSurface& popup,
 									const gfx::Caps& caps, const TextSystem& text);
@@ -372,6 +374,11 @@ private:
 			std::vector<std::unique_ptr<BView>> fDisposals;
 									// destroyed after the message being dispatched
 			const BView*		fCursorView = nullptr;
+			std::vector<std::string> fDropPaths;
+			std::string			fDropText;
+			bool				fDropTextSeen = false;
+			BView*				fDragView = nullptr;
+									// the view a drag from outside is over
 									// the view under the mouse whose cursor shows
 			std::unique_ptr<ToolTipPopup> fToolTip;
 									// the tooltip shown, once one was

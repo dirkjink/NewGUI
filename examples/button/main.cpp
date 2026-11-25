@@ -29,7 +29,8 @@
 // styled by the Text menu (Alt+B bold, Alt+L large, Alt+P plain); a
 // BTextControl asks for a name, and the label greets it when Enter is
 // pressed or the field is left. A page with lists shows a BListView and a
-// BOutlineListView.
+// BOutlineListView. Text dragged from another application drops into the
+// notes; files dropped on the window are listed in an alert.
 
 
 #include <cstdint>
@@ -336,6 +337,15 @@ public:
 		if (message->what == kStylePlain || message->what == kStyleBold
 			|| message->what == kStyleLarge || message->what == kStyleRed) {
 			_Style(message->what);
+			return;
+		}
+		if (message->WasDropped() && message->what == kSimpleData) {
+			// files dragged from the file manager onto a view that does not
+			// take them (text goes into the notes)
+			std::string text = "Dropped:";
+			for (std::int32_t i = 0; auto path = message->FindString("paths", i); i++)
+				text += "\n" + std::string(*path);
+			(void)BAlert::Go(std::make_unique<BAlert>("Drop", text, "OK"), [](int32) {});
 			return;
 		}
 		if (message->what == kAbout) {

@@ -124,6 +124,9 @@ public:
 			void				FrameResized(float newWidth, float newHeight) override;
 			void				MakeFocus(bool focus = true) override;
 			void				MessageReceived(BMessage* message) override;
+	virtual	bool				AcceptsDrop(const BMessage* message);
+									/*!< Whether it takes a dropped message: editable, and
+										text ("text/plain") in it. */
 									/*!< kCut, kCopy, kPaste (the system clipboard),
 										kUndo, kSelectAll, kInputMethodEvent, and the
 										navigation shortcuts it installs while active. */
@@ -378,6 +381,7 @@ private:
 			class UndoBuffer;
 			class CutUndoBuffer;
 			class PasteUndoBuffer;
+			class DropUndoBuffer;
 			class ClearUndoBuffer;
 			class TypingUndoBuffer;
 
@@ -419,6 +423,7 @@ private:
 									const std::vector<TextStyleRunEntry>& runs);
 			std::vector<TextStyleRun> _LayoutRuns() const;
 			gfx::Color			_ResolvedColor(const std::optional<gfx::Color>& color) const;
+			bool				_MessageDropped(BMessage* message, gfx::Point where);
 			std::string			_FilterDisallowedChars(std::string_view text,
 									BTextRunArray* runArray = nullptr) const;
 			BTextRunArray		_ResolvedRuns(const std::vector<TextStyleRunEntry>& runs) const;
