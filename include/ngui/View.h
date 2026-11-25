@@ -31,6 +31,7 @@ namespace ngui {
 
 
 class BAbstractLayout;
+class BCursor;
 class BLayoutContext;
 class BMessage;
 class BScrollBar;
@@ -318,6 +319,19 @@ public:
 									/*!< In MouseDown(): \a mask (Pointer) sends it all mouse
 										events until the buttons are up, as Haiku's. */
 
+	// Cursor (module P2)
+
+			void				SetViewCursor(const BCursor& cursor);
+									/*!< The cursor shown while the mouse is over this view
+										(not over its children, as in Haiku); an invalid
+										cursor is ignored. */
+			void				ClearViewCursor();
+									/*!< NewGUI: the application's cursor over this view
+										again. */
+			const BCursor*		ViewCursor() const;
+									/*!< NewGUI: the cursor of SetViewCursor(), or
+										nullptr. */
+
 	// Tooltips (module W6b)
 
 			void				SetToolTip(std::string_view text);
@@ -515,6 +529,7 @@ private:
 			gfx::DisplayListRef	fList;
 			gfx::DisplayListRef	fListAfterChildren;
 			std::shared_ptr<BToolTip> fToolTip;
+			std::unique_ptr<BCursor> fCursor;
 
 			// Layout, as Haiku's BView::LayoutData
 			gfx::Size			fMinSize = kUnsetSize;

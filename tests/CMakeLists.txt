@@ -26,6 +26,7 @@ add_executable(ngui_tests
     ClockTest.cpp
     ContainerTest.cpp
     ControlTest.cpp
+    CursorTest.cpp
     ErrorTest.cpp
     FontTest.cpp
     FlagsTest.cpp

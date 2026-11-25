@@ -13,6 +13,7 @@
 #include <ngui/SplitView.h>
 
 #include <ngui/ControlLook.h>
+#include <ngui/Cursor.h>
 #include <ngui/Palette.h>
 
 #include "SplitLayout.h"
@@ -262,12 +263,23 @@ void
 BSplitView::MouseMoved(gfx::Point where, BMouseTransit /*transit*/,
 	const BMessage* /*message*/)
 {
-	// NewGUI: no cursors yet (Haiku: the resize cursors over a splitter)
+	BCursor cursor(BCursorID::SystemDefault);
+
 	int32 splitterIndex = fSplitLayout->DraggedSplitter();
+
+	if (splitterIndex >= 0 || fSplitLayout->IsAboveSplitter(where)) {
+		if (Orientation() == BOrientation::Vertical)
+			cursor = BCursor(BCursorID::ResizeNorthSouth);
+		else
+			cursor = BCursor(BCursorID::ResizeEastWest);
+	}
+
 	if (splitterIndex >= 0) {
 		if (fSplitLayout->DragSplitter(where))
 			Invalidate();
 	}
+
+	SetViewCursor(cursor);
 }
 
 

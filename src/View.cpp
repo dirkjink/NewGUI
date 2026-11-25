@@ -13,6 +13,7 @@
 #include <utility>
 
 #include <ngui/AppDefs.h>
+#include <ngui/Cursor.h>
 #include <ngui/LayoutContext.h>
 #include <ngui/LookRegistry.h>
 #include <ngui/Message.h>
@@ -935,6 +936,42 @@ BView::_Detach()
 	fWindow->_ViewDetached(this);
 	fWindow->RemoveHandler(this);
 	fWindow = nullptr;
+}
+
+
+// #pragma mark - Cursor
+
+
+void
+BView::SetViewCursor(const BCursor& cursor)
+{
+	if (!cursor.InitCheck().has_value())
+		return;
+	if (fCursor != nullptr && *fCursor == cursor)
+		return;
+	fCursor = std::make_unique<BCursor>(cursor);
+	// shown at once if the mouse is over this view (Haiku's
+	// AS_SET_VIEW_CURSOR)
+	if (fWindow != nullptr)
+		fWindow->_ViewCursorChanged(this);
+}
+
+
+void
+BView::ClearViewCursor()
+{
+	if (fCursor == nullptr)
+		return;
+	fCursor.reset();
+	if (fWindow != nullptr)
+		fWindow->_ViewCursorChanged(this);
+}
+
+
+const BCursor*
+BView::ViewCursor() const
+{
+	return fCursor.get();
 }
 
 

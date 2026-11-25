@@ -72,6 +72,13 @@ public:
 										offered. */
 									/*!< See Platform. */
 
+			void				SetCursor(const CursorShape& cursor) override;
+									/*!< SDL's system cursor nearest to the BCursorID, or a
+										color cursor of the image; the transparent pixel for
+										NoCursor. */
+			void				SetCursorVisible(bool visible) override;
+									/*!< SDL_ShowCursor() or SDL_HideCursor(). */
+
 			void				RunOnMainThread(std::function<void()> work);
 									/*!< Runs \a work on the main thread: at once if called
 										there, otherwise during the next ProcessEvents(). */

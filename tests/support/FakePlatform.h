@@ -224,6 +224,32 @@ public:
 		return displays;
 	}
 
+	void SetCursor(const platform::CursorShape& cursor) override
+	{
+		std::scoped_lock lock(fLock);
+		fCursors.push_back(cursor);
+	}
+
+	void SetCursorVisible(bool visible) override
+	{
+		std::scoped_lock lock(fLock);
+		fCursorVisible.push_back(visible);
+	}
+
+	// The cursors shown so far, in order.
+	std::vector<platform::CursorShape> Cursors()
+	{
+		std::scoped_lock lock(fLock);
+		return fCursors;
+	}
+
+	// The visibility changes so far, in order.
+	std::vector<bool> CursorVisibility()
+	{
+		std::scoped_lock lock(fLock);
+		return fCursorVisible;
+	}
+
 	void ProcessEvents() override
 	{
 		std::deque<std::function<void()>> events;
@@ -291,6 +317,8 @@ private:
 	std::deque<std::function<void()>> fEvents;
 	std::vector<std::thread::id> fProcessThreads;
 	std::vector<FakeWindow*> fWindows;
+	std::vector<platform::CursorShape> fCursors;
+	std::vector<bool> fCursorVisible;
 	bool fWoken = false;
 	bool fBlocked = false;
 	int fWaits = 0;

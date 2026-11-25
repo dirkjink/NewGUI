@@ -25,6 +25,9 @@
 namespace ngui {
 
 
+class BCursor;
+
+
 /*!	The application (module G4), as Haiku's BApplication: a looper whose
 	loop runs on the thread that calls Run(), the main thread, as macOS and
 	SDL require. There is one per process.
@@ -49,7 +52,8 @@ namespace ngui {
 	- The pulse is timed by Clock::Default() (rule T1).
 	- Windows are reached through messengers (Windows()); windows left when
 	  Run() ends are quit without being asked, and Run() waits for them.
-	- Cursors and the about box come with later modules.
+	- The cursor functions are static (there is no be_app to call them on):
+	  any thread may call them, and they act on the process's cursor.
 */
 class BApplication : public BLooper {
 public:
@@ -105,6 +109,22 @@ public:
 									/*!< Messengers to its windows, in the order they were
 										made; there are no pointers to them (CONVENTIONS.md
 										3.4). */
+
+	// Cursor control
+
+	static	void				SetCursor(const BCursor& cursor);
+									/*!< The cursor shown where no view has one of its own
+										(BView::SetViewCursor()); the arrow by default. */
+	static	void				ShowCursor();
+									/*!< Undoes one HideCursor(). */
+	static	void				HideCursor();
+									/*!< Hides the cursor until as many ShowCursor()
+										calls. */
+	static	void				ObscureCursor();
+									/*!< Hides the cursor until the mouse moves. */
+	static	bool				IsCursorHidden();
+									/*!< HideCursor() was called more often than
+										ShowCursor(). */
 
 			void				SetPulseRate(Clock::Time rate);
 									/*!< The interval of Pulse(); 0 stops it. */

@@ -544,4 +544,47 @@ TEST(SdlPlatformTest, AResizedWindowShowsTheWholeFrame)
 }
 
 
+TEST(SdlPlatformTest, CursorsAreSdls)
+{
+	// What is tested: SetCursor() from another thread with system cursors
+	// (the arrow, the I-beam, one SDL has no match for, NoCursor) and with a
+	// 2 × 2 image; SetCursorVisible(false) and (true); a window open, so
+	// that SDL has a mouse focus to show cursors in.
+	// Success criteria: Nothing fails or crashes, also where the video
+	// driver makes no cursors (offscreen); after SetCursorVisible(false)
+	// SDL reports the cursor hidden, after (true) shown.
+	// Why it matters: Cursors are SDL's state on the main thread; windows
+	// set them from their own threads.
+	//
+	// Given
+	RunningApp app;
+	ASSERT_NE(app.Platform(), nullptr);
+	platform::WindowSpec spec;
+	spec.title = "test";
+	spec.frame = {10, 20, 40, 30};
+	std::unique_ptr<platform::PlatformWindow> window = *app.Platform()->CreateWindow(spec);
+	window->Show();
+	auto image = std::make_shared<platform::CursorImage>();
+	image->width = 2;
+	image->height = 2;
+	image->hotspot = {1, 1};
+	image->rgba.assign(16, 0xff);
+
+	// When
+	for (const std::uint8_t id : {std::uint8_t{1}, std::uint8_t{2}, std::uint8_t{27},
+			std::uint8_t{12}})
+		app.Platform()->SetCursor({id, nullptr});
+	app.Platform()->SetCursor({1, image});
+	app.Platform()->SetCursorVisible(false);
+	const bool hidden = !app.OnMain([] { return SDL_CursorVisible(); });
+	app.Platform()->SetCursorVisible(true);
+	const bool shown = app.OnMain([] { return SDL_CursorVisible(); });
+	window.reset();
+
+	// Then
+	EXPECT_TRUE(hidden);
+	EXPECT_TRUE(shown);
+}
+
+
 } // namespace

@@ -305,6 +305,8 @@ private:
 			void				_MouseMovedForToolTip(gfx::Point screen);
 			void				_MouseIdleCheck();
 			void				_CheckToolTipOwner(const BView* under);
+			void				_UpdateCursor(const BView* under);
+			void				_ViewCursorChanged(const BView* view);
 			void				_UpdatePopup(PopupSurface& popup,
 									const gfx::Caps& caps, const TextSystem& text);
 			void				_ScheduleUpdate();
@@ -369,6 +371,8 @@ private:
 									// on the screen, from the last mouse event
 			std::vector<std::unique_ptr<BView>> fDisposals;
 									// destroyed after the message being dispatched
+			const BView*		fCursorView = nullptr;
+									// the view under the mouse whose cursor shows
 			std::unique_ptr<ToolTipPopup> fToolTip;
 									// the tooltip shown, once one was
 			std::unique_ptr<BMessageRunner> fIdleRunner;

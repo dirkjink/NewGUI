@@ -58,6 +58,7 @@
 #include <ngui/Clipboard.h>
 #include <ngui/Clock.h>
 #include <ngui/ControlLook.h>
+#include <ngui/Cursor.h>
 #include <ngui/LayoutUtils.h>
 #include <ngui/Message.h>
 #include <ngui/MessageRunner.h>
@@ -605,6 +606,16 @@ BTextView::MouseUp(gfx::Point where)
 void
 BTextView::MouseMoved(gfx::Point where, BMouseTransit transit, const BMessage* dragMessage)
 {
+	// Haiku's _TrackMouse(): the I-beam where text can be selected.
+	// NewGUI: also over the selection, which cannot be dragged yet (Haiku
+	// showed the arrow there).
+	if (transit == BMouseTransit::Exited)
+		SetViewCursor(BCursor(BCursorID::SystemDefault));
+	else if (fSelectable || fEditable)
+		SetViewCursor(BCursor(BCursorID::IBeam));
+	else
+		SetViewCursor(BCursor(BCursorID::SystemDefault));
+
 	// Check if it's a "click'n'move"
 	if (_PerformMouseMoved(where))
 		return;
