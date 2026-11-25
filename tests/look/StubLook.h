@@ -301,12 +301,12 @@ public:
 		Record("DrawLabel");
 	}
 
-	Insets FrameInsets(FrameType, ControlStateFlags) const override
+	Insets FrameInsets(const TextSystem&, FrameType, ControlStateFlags) const override
 	{
 		return {1, 2, 3, 4};
 	}
 
-	Insets BackgroundInsets(BackgroundType, ControlStateFlags) const override
+	Insets BackgroundInsets(const TextSystem&, BackgroundType, ControlStateFlags) const override
 	{
 		return {1, 2, 3, 4};
 	}

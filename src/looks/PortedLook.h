@@ -714,19 +714,20 @@ public:
 			ToBRect(rect), kUpdateAll, ToRgb(base), ToHaiku(flags), alignment, color.Get());
 	}
 
-	Insets FrameInsets(FrameType frameType, ControlStateFlags flags) const override
+	Insets FrameInsets(const TextSystem& text, FrameType frameType,
+		ControlStateFlags flags) const override
 	{
 		Insets insets{};
-		Look(NoText(), Palette::Default()).GetFrameInsets(ToHaiku(frameType),
+		Look(text, Palette::Default()).GetFrameInsets(ToHaiku(frameType),
 			ToHaiku(flags), insets.left, insets.top, insets.right, insets.bottom);
 		return insets;
 	}
 
-	Insets BackgroundInsets(BackgroundType backgroundType,
+	Insets BackgroundInsets(const TextSystem& text, BackgroundType backgroundType,
 		ControlStateFlags flags) const override
 	{
 		Insets insets{};
-		Look(NoText(), Palette::Default()).GetBackgroundInsets(ToHaiku(backgroundType),
+		Look(text, Palette::Default()).GetBackgroundInsets(ToHaiku(backgroundType),
 			ToHaiku(flags), insets.left, insets.top, insets.right, insets.bottom);
 		return insets;
 	}

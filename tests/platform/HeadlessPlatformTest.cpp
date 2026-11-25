@@ -28,6 +28,7 @@
 
 #include "support/PixelBackend.h"
 #include "support/RecordingLooper.h"
+#include "support/ScopedEnvironment.h"
 
 
 namespace {
@@ -38,34 +39,7 @@ using namespace ngui::platform;
 using namespace std::chrono_literals;
 using test::LooperRecord;
 using test::PixelBackend;
-
-
-// Sets an environment variable for the life of the object.
-class ScopedEnvironment {
-public:
-	ScopedEnvironment(const char* name, const char* value)
-		:
-		fName(name)
-	{
-#ifdef _WIN32
-		(void)_putenv_s(name, value);
-#else
-		(void)setenv(name, value, 1);
-#endif
-	}
-
-	~ScopedEnvironment()
-	{
-#ifdef _WIN32
-		(void)_putenv_s(fName.c_str(), "");
-#else
-		(void)unsetenv(fName.c_str());
-#endif
-	}
-
-private:
-	std::string fName;
-};
+using test::ScopedEnvironment;
 
 
 // A view that records clicks, keys and activations.

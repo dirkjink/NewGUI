@@ -390,7 +390,7 @@ BButton::_ValidatePreferredSize()
 		const TextSystem& text = TextSystem::Default();
 		const BackgroundType backgroundType = fBehavior == BBehavior::PopUp
 			? BackgroundType::ButtonWithPopUp : BackgroundType::Button;
-		const Insets insets = look.FrameAndBackgroundInsets(FrameType::Button,
+		const Insets insets = look.FrameAndBackgroundInsets(text, FrameType::Button,
 			backgroundType, IsDefault() ? ControlStateFlags(ControlState::DefaultButton)
 				: ControlStateFlags());
 
@@ -437,8 +437,8 @@ BButton::_PopUpRect() const
 	if (fBehavior != BBehavior::PopUp)
 		return {0, 0, 0, 0};
 
-	const Insets insets = Look().FrameAndBackgroundInsets(FrameType::Button,
-		BackgroundType::ButtonWithPopUp,
+	const Insets insets = Look().FrameAndBackgroundInsets(TextSystem::Default(),
+		FrameType::Button, BackgroundType::ButtonWithPopUp,
 		IsDefault() ? ControlStateFlags(ControlState::DefaultButton) : ControlStateFlags());
 
 	// Haiku: rect.left = rect.right - right + 1 with inclusive rectangles,

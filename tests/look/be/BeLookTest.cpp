@@ -18,6 +18,7 @@
 #include <ngui/gfx/Dump.h>
 #include <ngui/test/GTest.h>
 
+#include "look/LookCalls.h"
 #include "support/FixedTextSystem.h"
 
 
@@ -91,23 +92,23 @@ TEST(BeLookTest, InfoAndMetricsAreHaikus)
 	EXPECT_EQ(look->DefaultItemSpacing(text), 11);
 	EXPECT_EQ(look->ScrollBarWidth(text, BOrientation::Vertical), 14);
 
-	EXPECT_EQ(look->FrameInsets(FrameType::Button, {}), (Insets{2, 2, 2, 2}));
-	EXPECT_EQ(look->FrameInsets(FrameType::Button, ControlState::DefaultButton),
+	EXPECT_EQ(look->FrameInsets(text, FrameType::Button, {}), (Insets{2, 2, 2, 2}));
+	EXPECT_EQ(look->FrameInsets(text, FrameType::Button, ControlState::DefaultButton),
 		(Insets{5, 5, 5, 5}));
-	EXPECT_EQ(look->FrameInsets(FrameType::Group, {}), (Insets{3, 3, 3, 3}));
-	EXPECT_EQ(look->FrameInsets(FrameType::MenuField, {}), (Insets{3, 3, 3, 3}));
-	EXPECT_EQ(look->FrameInsets(FrameType::ScrollView, {}), (Insets{2, 2, 2, 2}));
-	EXPECT_EQ(look->FrameInsets(FrameType::TextControl, {}), (Insets{2, 2, 2, 2}));
+	EXPECT_EQ(look->FrameInsets(text, FrameType::Group, {}), (Insets{3, 3, 3, 3}));
+	EXPECT_EQ(look->FrameInsets(text, FrameType::MenuField, {}), (Insets{3, 3, 3, 3}));
+	EXPECT_EQ(look->FrameInsets(text, FrameType::ScrollView, {}), (Insets{2, 2, 2, 2}));
+	EXPECT_EQ(look->FrameInsets(text, FrameType::TextControl, {}), (Insets{2, 2, 2, 2}));
 
-	EXPECT_EQ(look->BackgroundInsets(BackgroundType::Button, {}), (Insets{1, 1, 1, 1}));
-	EXPECT_EQ(look->BackgroundInsets(BackgroundType::ButtonWithPopUp, {}),
+	EXPECT_EQ(look->BackgroundInsets(text, BackgroundType::Button, {}), (Insets{1, 1, 1, 1}));
+	EXPECT_EQ(look->BackgroundInsets(text, BackgroundType::ButtonWithPopUp, {}),
 		(Insets{1, 1, 12, 1}));
-	EXPECT_EQ(look->BackgroundInsets(BackgroundType::MenuItem, {}), (Insets{1, 1, 1, 1}));
-	EXPECT_EQ(look->BackgroundInsets(BackgroundType::HorizontalScrollBar, {}),
+	EXPECT_EQ(look->BackgroundInsets(text, BackgroundType::MenuItem, {}), (Insets{1, 1, 1, 1}));
+	EXPECT_EQ(look->BackgroundInsets(text, BackgroundType::HorizontalScrollBar, {}),
 		(Insets{2, 0, 1, 0}));
-	EXPECT_EQ(look->BackgroundInsets(BackgroundType::VerticalScrollBar, {}),
+	EXPECT_EQ(look->BackgroundInsets(text, BackgroundType::VerticalScrollBar, {}),
 		(Insets{0, 2, 0, 1}));
-	EXPECT_EQ(look->FrameAndBackgroundInsets(FrameType::Button, BackgroundType::Button, {}),
+	EXPECT_EQ(look->FrameAndBackgroundInsets(text, FrameType::Button, BackgroundType::Button, {}),
 		(Insets{3, 3, 3, 3}));
 }
 
@@ -235,126 +236,10 @@ TEST(BeLookTest, EveryMethodDraws)
 	//
 	// Given
 	const auto look = CreateBeLook();
-	const gfx::Color text = Palette::Default().Get(BColorWhich::ControlText);
-	struct Call {
-		const char*	name;
-		std::function<void(DrawContext&, gfx::Rect&, ControlStateFlags)> draw;
-	};
-	const std::vector<Call> calls = {
-		{"DrawButtonFrame", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawButtonFrame(c, r, kPanel, kPanel, f);
-			look->DrawButtonFrame(c, r, 3, kPanel, kPanel, f);
-			look->DrawButtonFrame(c, r, 1, 2, 3, 4, kPanel, kPanel, f); }},
-		{"DrawButtonBackground", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawButtonBackground(c, r, kPanel, f);
-			look->DrawButtonBackground(c, r, 3, kPanel, f, kAllBorders, BOrientation::Vertical);
-			look->DrawButtonBackground(c, r, 1, 2, 3, 4, kPanel, f); }},
-		{"DrawMenuBarBackground", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawMenuBarBackground(c, r, kPanel, f); }},
-		{"DrawMenuFieldFrame", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawMenuFieldFrame(c, r, kPanel, kPanel, f);
-			look->DrawMenuFieldFrame(c, r, 3, kPanel, kPanel, f);
-			look->DrawMenuFieldFrame(c, r, 1, 2, 3, 4, kPanel, kPanel, f); }},
-		{"DrawMenuFieldBackground", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawMenuFieldBackground(c, r, kPanel, true, f);
-			look->DrawMenuFieldBackground(c, r, 3, kPanel, false, f);
-			look->DrawMenuFieldBackground(c, r, 1, 2, 3, 4, kPanel, true, f);
-			look->DrawMenuFieldBackground(c, r, kPanel, f); }},
-		{"DrawMenuBackground", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawMenuBackground(c, r, kPanel, f); }},
-		{"DrawMenuItemBackground", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawMenuItemBackground(c, r, kPanel, f); }},
-		{"DrawStatusBar", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags) {
-			look->DrawStatusBar(c, r, kPanel, text, 40); }},
-		{"DrawCheckBox", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawCheckBox(c, r, kPanel, f); }},
-		{"DrawRadioButton", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawRadioButton(c, r, kPanel, f); }},
-		{"DrawScrollBarBackground", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			gfx::Rect second{r.x0, r.y0 + 10, r.x1, r.y1};
-			look->DrawScrollBarBackground(c, r, second, kPanel, f, BOrientation::Vertical);
-			look->DrawScrollBarBackground(c, r, kPanel, f, BOrientation::Horizontal); }},
-		{"DrawScrollViewFrame", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawScrollViewFrame(c, r, {86, 0, 100, 26}, {0, 26, 86, 40}, kPanel,
-				BBorderStyle::Fancy, f);
-			look->DrawScrollViewFrame(c, r, {}, {}, kPanel, BBorderStyle::Plain, f); }},
-		{"DrawArrowShape", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			for (ArrowDirection d : {ArrowDirection::Left, ArrowDirection::Right,
-					ArrowDirection::Up, ArrowDirection::Down, ArrowDirection::LeftUp,
-					ArrowDirection::RightUp, ArrowDirection::RightDown,
-					ArrowDirection::LeftDown}) {
-				gfx::Rect arrow = r;
-				look->DrawArrowShape(c, arrow, kPanel, d, f);
-			} }},
-		{"DrawSliderBar", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawSliderBar(c, r, kPanel, text, kPanel, 0.5f, f, BOrientation::Horizontal);
-			look->DrawSliderBar(c, r, kPanel, text, f, BOrientation::Vertical); }},
-		{"DrawSliderThumb", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawSliderThumb(c, r, kPanel, f, BOrientation::Horizontal); }},
-		{"DrawSliderTriangle", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			gfx::Rect other = r;
-			look->DrawSliderTriangle(c, r, kPanel, f, BOrientation::Horizontal);
-			look->DrawSliderTriangle(c, other, kPanel, text, f, BOrientation::Vertical); }},
-		{"DrawSliderHashMarks", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawSliderHashMarks(c, r, kPanel, 5, BHashMarkLocation::Both, f,
-				BOrientation::Horizontal); }},
-		{"DrawTabs", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			for (Border side : {Border::Top, Border::Bottom, Border::Left, Border::Right}) {
-				gfx::Rect frame = r;
-				gfx::Rect active = r;
-				gfx::Rect inactive = r;
-				look->DrawTabFrame(c, frame, kPanel, f, kAllBorders, BBorderStyle::Fancy,
-					side);
-				look->DrawActiveTab(c, active, kPanel, f, kAllBorders, side, 1, 1, 0, 2);
-				look->DrawInactiveTab(c, inactive, kPanel, f, kAllBorders, side, 0, 1, 0,
-					2);
-			} }},
-		{"DrawSplitter", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawSplitter(c, r, kPanel, BOrientation::Vertical, f); }},
-		{"DrawBorder", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawBorder(c, r, kPanel, BBorderStyle::Fancy, f);
-			look->DrawBorder(c, r, kPanel, BBorderStyle::Plain, f); }},
-		{"DrawRaisedBorder", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawRaisedBorder(c, r, kPanel, f); }},
-		{"DrawGroupFrame", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags) {
-			look->DrawGroupFrame(c, r, kPanel); }},
-		{"DrawTextControlBorder", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawTextControlBorder(c, r, kPanel, f); }},
-		{"DrawLabel", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawLabel(c, "Label", r, kPanel, f);
-			look->DrawLabel(c, "Label", kPanel, f, {2, 15});
-			look->DrawLabel(c, "Label", 0, r, kPanel, f); }},
-		{"DrawButtonWithPopUpBackground",
-			[&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawButtonWithPopUpBackground(c, r, kPanel, f);
-			look->DrawButtonWithPopUpBackground(c, r, 3, kPanel, f);
-			look->DrawButtonWithPopUpBackground(c, r, 1, 2, 3, 4, kPanel, f); }},
-		{"DrawScrollBarButton", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawScrollBarButton(c, r, kPanel, text, f, ArrowDirection::Up,
-				BOrientation::Vertical, true); }},
-		{"DrawScrollBarThumb", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			for (KnobStyle knob : {KnobStyle::None, KnobStyle::Dots, KnobStyle::Lines}) {
-				gfx::Rect thumb = r;
-				look->DrawScrollBarThumb(c, thumb, kPanel, f, BOrientation::Vertical, knob);
-				thumb = r;
-				look->DrawScrollBarThumb(c, thumb, kPanel, f, BOrientation::Horizontal,
-					knob);
-			} }},
-		{"DrawScrollBarBorder", [&](DrawContext& c, gfx::Rect& r, ControlStateFlags f) {
-			look->DrawScrollBarBorder(c, r, kPanel, f, BOrientation::Horizontal); }},
-	};
-	const ControlStateFlags states[] = {
-		{},
-		ControlState::Disabled,
-		ControlState::Activated,
-		ControlState::Focused | ControlState::IsControl,
-		ControlState::DefaultButton,
-		ControlState::Hover | ControlState::Flat,
-		ControlState::PartiallyActivated,
-		ControlState::Disabled | ControlState::Activated | ControlState::DefaultButton
-	};
+	const std::vector<test::LookCall> calls = test::EveryLookCall(*look);
+	const std::vector<ControlStateFlags> states = test::LookStates();
 
-	for (const Call& call : calls) {
+	for (const test::LookCall& call : calls) {
 		for (ControlStateFlags state : states) {
 			// When
 			Drawing drawing;

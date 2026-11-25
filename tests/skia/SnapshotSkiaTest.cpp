@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string_view>
 
 #include <gtest/gtest.h>
 
@@ -19,6 +20,7 @@
 #include <ngui/Box.h>
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
+#include <ngui/LookRegistry.h>
 #include <ngui/MenuField.h>
 #include <ngui/MenuItem.h>
 #include <ngui/PopUpMenu.h>
@@ -185,6 +187,48 @@ TEST(SnapshotSkiaTest, SnapshotsAreWhatTheWindowShows)
 	EXPECT_EQ(*decoded, image);
 	EXPECT_IMAGE_SNAPSHOT(window, "Form",
 		{.look = "be", .backend = "skia", .tolerance = Tolerance::Text()});
+}
+
+
+// Makes a look current for the life of the object, then "be" again.
+class CurrentLook {
+public:
+	explicit CurrentLook(std::string_view id)
+	{
+		(void)LookRegistry::Default().SetCurrent(id);
+	}
+
+	~CurrentLook()
+	{
+		(void)LookRegistry::Default().SetCurrent("be");
+	}
+
+	CurrentLook(const CurrentLook&) = delete;
+	CurrentLook& operator=(const CurrentLook&) = delete;
+};
+
+
+TEST(SnapshotSkiaTest, TheFormInTheHaikuLook)
+{
+	// What is tested: The form of SnapshotsAreWhatTheWindowShows, opened
+	// while the Haiku look is current, against its reference snapshot.
+	// Success criteria: It matches SnapshotSkiaTest_Form.haiku.skia.1x.png
+	// within the text tolerance: the same controls and texts as in the BeOS
+	// look, drawn with Haiku's gradients and rounded corners.
+	// Why it matters: The ported look must work with real controls, their
+	// layout and their labels, not only method by method; the reference,
+	// checked by eye against Haiku, pins that.
+	//
+	// Given
+	const CurrentLook haiku("haiku");
+	FormApp app;
+
+	// When
+	WindowRef window = app.Window();
+
+	// Then
+	EXPECT_IMAGE_SNAPSHOT(window, "Form",
+		{.look = "haiku", .backend = "skia", .tolerance = Tolerance::Text()});
 }
 
 
