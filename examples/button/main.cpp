@@ -32,7 +32,9 @@
 // pressed or the field is left. A page with lists shows a BListView and a
 // BOutlineListView. Text dragged from another application drops into the
 // notes; files dropped on the window are listed in an alert. File > Open
-// shows the system's file dialog (BFilePanel).
+// shows the system's file dialog (BFilePanel). The texts are translated
+// (B_TRANSLATE(), a German catalog comes with it; NGUI_LANGUAGE=x-pseudo
+// pseudo-localizes them).
 
 
 #include <cstdint>
@@ -46,6 +48,7 @@
 #include <ngui/Application.h>
 #include <ngui/Box.h>
 #include <ngui/Button.h>
+#include <ngui/Catalog.h>
 #include <ngui/CheckBox.h>
 #include <ngui/FilePanel.h>
 #include <ngui/Font.h>
@@ -55,6 +58,7 @@
 #include <ngui/Invoker.h>
 #include <ngui/LayoutBuilder.h>
 #include <ngui/ListView.h>
+#include <ngui/LocaleRoster.h>
 #include <ngui/Menu.h>
 #include <ngui/MenuBar.h>
 #include <ngui/MenuField.h>
@@ -77,6 +81,10 @@
 #include <ngui/svg/LunaSvgRenderer.h>
 #include <ngui/text/FontSource.h>
 #include <ngui/text/FontTextSystem.h>
+
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "Demo"
 
 
 namespace {
@@ -106,7 +114,7 @@ class CounterLabel : public BStringView {
 public:
 	CounterLabel()
 		:
-		BStringView("label", "Not clicked yet")
+		BStringView("label", B_TRANSLATE("Not clicked yet"))
 	{
 	}
 
@@ -116,8 +124,10 @@ public:
 		if (current == nullptr || (current->GetInt32("buttons", 0) & 2) == 0)
 			return;
 		auto menu = std::make_unique<BPopUpMenu>("context", false, false);
-		menu->AddItem(std::make_unique<BMenuItem>("Reset", std::make_unique<BMessage>(kReset)));
-		menu->AddItem(std::make_unique<BMenuItem>("About", std::make_unique<BMessage>(kAbout)));
+		menu->AddItem(std::make_unique<BMenuItem>(B_TRANSLATE("Reset"),
+			std::make_unique<BMessage>(kReset)));
+		menu->AddItem(std::make_unique<BMenuItem>(B_TRANSLATE("About"),
+			std::make_unique<BMessage>(kAbout)));
 		(void)BPopUpMenu::Go(std::move(menu), ConvertToScreen(where), {.autoInvoke = true});
 	}
 };
@@ -134,37 +144,40 @@ public:
 	{
 		auto label = std::make_unique<CounterLabel>();
 		fLabel = label.get();
-		auto button = std::make_unique<BButton>("Click me",
+		auto button = std::make_unique<BButton>(B_TRANSLATE("Click me"),
 			std::make_unique<BMessage>(kClicked));
 		BButton* clickMe = button.get();
 		// Tooltips show when the mouse rests over a view (W6b).
-		button->SetToolTip("Counts the clicks.\nEnter clicks it too.");
-		auto slider = std::make_unique<BSlider>("slider", "Value",
+		button->SetToolTip(B_TRANSLATE("Counts the clicks.\nEnter clicks it too."));
+		auto slider = std::make_unique<BSlider>("slider", B_TRANSLATE("Value"),
 			std::make_unique<BMessage>(kProgress), 0, 100, BOrientation::Horizontal);
 		slider->SetModificationMessage(std::make_unique<BMessage>(kProgress));
 		slider->SetLimitLabels("0 %", "100 %");
 		slider->SetHashMarks(BHashMarkLocation::BottomOrRight);
 		slider->SetHashMarkCount(11);
-		slider->SetToolTip("Drag the thumb or use the arrow keys");
+		slider->SetToolTip(B_TRANSLATE("Drag the thumb or use the arrow keys"));
 		fSlider = slider.get();
 		// Where the slider's hash marks are, chosen in a menu field.
 		auto marks = std::make_unique<BPopUpMenu>("marks");
 		const std::pair<const char*, BHashMarkLocation> locations[] = {
-			{"None", BHashMarkLocation::None}, {"Top", BHashMarkLocation::TopOrLeft},
-			{"Bottom", BHashMarkLocation::BottomOrRight}, {"Both", BHashMarkLocation::Both}};
+			{B_TRANSLATE("None"), BHashMarkLocation::None},
+			{B_TRANSLATE("Top"), BHashMarkLocation::TopOrLeft},
+			{B_TRANSLATE("Bottom"), BHashMarkLocation::BottomOrRight},
+			{B_TRANSLATE("Both"), BHashMarkLocation::Both}};
 		for (const auto& [name, location] : locations) {
 			auto message = std::make_unique<BMessage>(kHashMarks);
 			(void)message->AddInt32("where", static_cast<std::int32_t>(location));
 			marks->AddItem(std::make_unique<BMenuItem>(name, std::move(message)));
 		}
 		marks->ItemAt(2)->SetMarked(true);
-		auto marksField = std::make_unique<BMenuField>("marks", "Hash marks:", std::move(marks));
-		marksField->SetToolTip("Where the slider draws its marks");
-		auto name = std::make_unique<BTextControl>("name", "Name:", "",
+		auto marksField = std::make_unique<BMenuField>("marks", B_TRANSLATE("Hash marks:"),
+			std::move(marks));
+		marksField->SetToolTip(B_TRANSLATE("Where the slider draws its marks"));
+		auto name = std::make_unique<BTextControl>("name", B_TRANSLATE("Name:"), "",
 			std::make_unique<BMessage>(kName));
-		name->SetToolTip("Enter sends the name");
+		name->SetToolTip(B_TRANSLATE("Enter sends the name"));
 		fName = name.get();
-		auto status = std::make_unique<BStatusBar>("status", "Progress: ", " %");
+		auto status = std::make_unique<BStatusBar>("status", B_TRANSLATE("Progress: "), " %");
 		status->SetTo(0, {}, "0");
 		fStatus = status.get();
 
@@ -177,7 +190,7 @@ public:
 			.Add(std::move(name))
 			.Add(std::move(status));
 		auto box = std::make_unique<BBox>("progress box");
-		box->SetLabel("Progress");
+		box->SetLabel(B_TRANSLATE("Progress"));
 		box->AddChild(std::move(progress));
 
 		// A list of options, longer than the room for it: the scroll view
@@ -202,7 +215,7 @@ public:
 			.Add(std::move(scrollView), 1.0f);
 		auto tabs = std::make_unique<BTabView>("tabs");
 		tabs->AddTab(std::move(split));
-		tabs->TabAt(0)->SetLabel("Panels");
+		tabs->TabAt(0)->SetLabel(B_TRANSLATE("Panels"));
 		// A page to type notes on: a text view that scrolls, styled by the
 		// Text menu.
 		auto notes = std::make_unique<BTextView>("notes");
@@ -219,7 +232,7 @@ public:
 		auto notesScroll = std::make_unique<BScrollView>("notes scroll", std::move(notes),
 			BViewFlags{}, false, true);
 		tabs->AddTab(std::move(notesScroll));
-		tabs->TabAt(1)->SetLabel("Notes");
+		tabs->TabAt(1)->SetLabel(B_TRANSLATE("Notes"));
 		// A page with a list: a double click or Enter names the item in the
 		// label.
 		auto kits = std::make_unique<BListView>("kits");
@@ -253,27 +266,27 @@ public:
 			.Add(std::move(kitsScroll), 1.0f)
 			.Add(std::move(classesScroll), 1.0f);
 		tabs->AddTab(std::move(lists));
-		tabs->TabAt(2)->SetLabel("Lists");
+		tabs->TabAt(2)->SetLabel(B_TRANSLATE("Lists"));
 		tabs->AddTab(std::make_unique<BStringView>("About",
 			"NewGUI: Haiku's Interface Kit on SDL3 and Skia"));
 
 		// The menus.
 		auto menuBar = std::make_unique<BMenuBar>("menu bar");
 		BLayoutBuilder::Menu<>(menuBar.get())
-			.AddMenu("File")
-				.AddItem("Open" "\u2026", kOpen, 'O')
-				.AddItem("Reset", kReset, 'R')
+			.AddMenu(B_TRANSLATE("File"))
+				.AddItem(B_TRANSLATE("Open\u2026"), kOpen, 'O')
+				.AddItem(B_TRANSLATE("Reset"), kReset, 'R')
 				.AddSeparator()
-				.AddItem("Quit", kQuitRequested, 'Q')
+				.AddItem(B_TRANSLATE("Quit"), kQuitRequested, 'Q')
 			.End()
-			.AddMenu("Text")
-				.AddItem("Plain", kStylePlain, 'P')
-				.AddItem("Bold", kStyleBold, 'B')
-				.AddItem("Large", kStyleLarge, 'L')
-				.AddItem("Red", kStyleRed)
+			.AddMenu(B_TRANSLATE("Text"))
+				.AddItem(B_TRANSLATE("Plain"), kStylePlain, 'P')
+				.AddItem(B_TRANSLATE("Bold"), kStyleBold, 'B')
+				.AddItem(B_TRANSLATE("Large"), kStyleLarge, 'L')
+				.AddItem(B_TRANSLATE("Red"), kStyleRed)
 			.End()
-			.AddMenu("Help")
-				.AddItem("About", kAbout)
+			.AddMenu(B_TRANSLATE("Help"))
+				.AddItem(B_TRANSLATE("About"), kAbout)
 			.End();
 		fTabs = tabs.get();
 
@@ -311,7 +324,8 @@ public:
 		}
 		if (message->what == kName) {
 			const std::string name(fName->Text());
-			fLabel->SetText(name.empty() ? "Not clicked yet" : "Hello, " + name);
+			fLabel->SetText(name.empty() ? B_TRANSLATE("Not clicked yet")
+				: B_TRANSLATE("Hello, ") + name);
 			return;
 		}
 		if (message->what == kChosen) {
@@ -322,7 +336,7 @@ public:
 			const auto* item = dynamic_cast<const BStringItem*>(
 				source->ItemAt(message->GetInt32("index", -1)));
 			if (item != nullptr)
-				fLabel->SetText("Chosen: " + item->Text());
+				fLabel->SetText(B_TRANSLATE("Chosen: ") + item->Text());
 			return;
 		}
 		if (message->what == kHashMarks) {
@@ -332,8 +346,9 @@ public:
 		if (message->what == kReset) {
 			// asks first: "Cancel" (Escape) or "Reset" (Enter); the answer
 			// comes back as kResetAnswered with "which"
-			auto alert = std::make_unique<BAlert>("Reset", "Reset the click counter?",
-				"Cancel", "Reset", "", BButtonWidth::AsUsual, BAlertType::Warning);
+			auto alert = std::make_unique<BAlert>(B_TRANSLATE("Reset"),
+				B_TRANSLATE("Reset the click counter?"), B_TRANSLATE("Cancel"),
+				B_TRANSLATE("Reset"), "", BButtonWidth::AsUsual, BAlertType::Warning);
 			alert->SetShortcut(0, keys::kEscape);
 			(void)BAlert::Go(std::move(alert), std::make_unique<BInvoker>(
 				std::make_unique<BMessage>(kResetAnswered), BMessenger(this)));
@@ -342,7 +357,7 @@ public:
 		if (message->what == kResetAnswered) {
 			if (message->GetInt32("which", 0) == 1) {
 				fClicks = 0;
-				fLabel->SetText("Not clicked yet");
+				fLabel->SetText(B_TRANSLATE("Not clicked yet"));
 			}
 			return;
 		}
@@ -357,21 +372,22 @@ public:
 			if (fOpenPanel == nullptr) {
 				fOpenPanel = std::make_unique<BFilePanel>(BFilePanelMode::Open,
 					BMessenger(this));
-				fOpenPanel->SetTitle("Open files");
-				fOpenPanel->AddFilter("Text", "txt;md");
-				fOpenPanel->AddFilter("All files", "*");
+				fOpenPanel->SetTitle(B_TRANSLATE("Open files"));
+				fOpenPanel->AddFilter(B_TRANSLATE("Text"), "txt;md");
+				fOpenPanel->AddFilter(B_TRANSLATE("All files"), "*");
 			}
 			if (auto shown = fOpenPanel->Show(); !shown.has_value()) {
-				(void)BAlert::Go(std::make_unique<BAlert>("Open", shown.error().message, "OK"),
-					[](int32) {});
+				(void)BAlert::Go(std::make_unique<BAlert>(B_TRANSLATE("Open"),
+					shown.error().message, B_TRANSLATE("OK")), [](int32) {});
 			}
 			return;
 		}
 		if (message->what == kRefsReceived) {
-			std::string text = "Chosen:";
+			std::string text = B_TRANSLATE("Chosen:");
 			for (std::int32_t i = 0; auto path = message->FindString("paths", i); i++)
 				text += "\n" + std::string(*path);
-			(void)BAlert::Go(std::make_unique<BAlert>("Open", text, "OK"), [](int32) {});
+			(void)BAlert::Go(std::make_unique<BAlert>(B_TRANSLATE("Open"), text,
+				B_TRANSLATE("OK")), [](int32) {});
 			return;
 		}
 		if (message->what == kCancel)
@@ -379,17 +395,19 @@ public:
 		if (message->WasDropped() && message->what == kSimpleData) {
 			// files dragged from the file manager onto a view that does not
 			// take them (text goes into the notes)
-			std::string text = "Dropped:";
+			std::string text = B_TRANSLATE("Dropped:");
 			for (std::int32_t i = 0; auto path = message->FindString("paths", i); i++)
 				text += "\n" + std::string(*path);
-			(void)BAlert::Go(std::make_unique<BAlert>("Drop", text, "OK"), [](int32) {});
+			(void)BAlert::Go(std::make_unique<BAlert>(B_TRANSLATE("Drop"), text,
+				B_TRANSLATE("OK")), [](int32) {});
 			return;
 		}
 		if (message->what == kAbout) {
 			// an info alert, which only needs to be closed
 			fTabs->Select(3);
-			(void)BAlert::Go(std::make_unique<BAlert>("About",
-				"NewGUI\n\nHaiku's Interface Kit on SDL3 and Skia.", "OK"), [](int32) {});
+			(void)BAlert::Go(std::make_unique<BAlert>(B_TRANSLATE("About"),
+				B_TRANSLATE("NewGUI\n\nHaiku's Interface Kit on SDL3 and Skia."),
+				B_TRANSLATE("OK")), [](int32) {});
 			return;
 		}
 		if (message->what != kClicked) {
@@ -397,8 +415,11 @@ public:
 			return;
 		}
 		fClicks++;
-		fLabel->SetText(fClicks == 1 ? "Clicked once"
-			: "Clicked " + std::to_string(fClicks) + " times");
+		// "Clicked %d times" in the forms of the language
+		std::string text = B_TRANSLATE_PLURAL("Clicked %d time", "Clicked %d times", fClicks);
+		if (const std::size_t at = text.find("%d"); at != std::string::npos)
+			text.replace(at, 2, std::to_string(fClicks));
+		fLabel->SetText(text);
 	}
 
 private:
@@ -469,6 +490,10 @@ main(int argc, char** argv)
 		return 1;
 	}
 	TextSystem::SetDefault(fonts->get());
+	// The texts in the user's language: locale/<language>/LC_MESSAGES/
+	// newgui-demo.mo beside the executable (German comes with it);
+	// NGUI_LANGUAGE=x-pseudo shows them pseudo-localized.
+	(void)BLocaleRoster::Default()->LoadCatalog("newgui-demo");
 	// Vector icons (the alerts' type icons) drawn by lunasvg.
 	const svg::LunaSvgRenderer icons;
 	VectorIconRenderer::SetDefault(&icons);

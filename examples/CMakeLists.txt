@@ -13,3 +13,10 @@ target_link_libraries(ngui_example_button
         ngui::svg
         ngui::text)
 ngui_configure_target(ngui_example_button)
+# Its translations beside it, where BLocaleRoster::LoadCatalog() looks
+# (button/po/*.po, compiled with msgfmt into button/locale).
+add_custom_command(TARGET ngui_example_button POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/button/locale"
+        "$<TARGET_FILE_DIR:ngui_example_button>/locale"
+    VERBATIM)
