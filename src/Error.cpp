@@ -33,6 +33,8 @@ ErrorCodeName(ErrorCode code)
 			return "TimedOut";
 		case ErrorCode::BadType:
 			return "BadType";
+		case ErrorCode::BadScriptSyntax:
+			return "BadScriptSyntax";
 	}
 	return "Unknown";
 }

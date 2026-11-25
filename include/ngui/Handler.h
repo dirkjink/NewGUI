@@ -7,11 +7,13 @@
 
 
 #include <cstdint>
+#include <expected>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include <ngui/Error.h>
 #include <ngui/MessageFilter.h>
 
 
@@ -27,7 +29,15 @@ class BMessage;
 	does not handle a message passes it to its next handler.
 
 	A looper does not own its handlers; a handler that is destroyed leaves
-	its looper. It owns its filters. Scripting and observers come later.
+	its looper. It owns its filters. Observers come later.
+
+	**Scripting** (specification 20.7): a message with specifiers is
+	resolved by the looper before it is handled; each handler on the way
+	turns the current specifier into the handler that holds the property
+	(ResolveSpecifier()), the last one handles the message. Every handler
+	answers kGetProperty for "Suites" and "InternalName" and
+	kGetSupportedSuites, and replies kMessageNotUnderstood to a scripting
+	message nobody handles.
 */
 class BHandler {
 public:
@@ -42,8 +52,22 @@ public:
 									/*!< Not copyable. */
 
 	virtual	void				MessageReceived(BMessage* message);
-									/*!< Handles \a message; the default passes it to the
-										next handler. */
+									/*!< Handles \a message; the default answers the
+										scripting messages of BHandler and passes the rest to
+										the next handler. */
+	virtual	BHandler*			ResolveSpecifier(BMessage* message, std::int32_t index,
+									const BMessage& specifier, std::uint32_t form,
+									std::string_view property);
+									/*!< The handler for the current specifier of
+										\a message (\a index, \a specifier with its \a form
+										and \a property): this one if it has the property,
+										another one after PopSpecifier() if the specifier
+										names it, or nullptr after replying an error. The
+										default knows the properties of BHandler. */
+	virtual	std::expected<void, Error> GetSupportedSuites(BMessage* data);
+									/*!< Adds the suites ("suite/vnd.Be-handler") and the
+										property tables ("messages") it understands; a
+										subclass adds its own and calls this. */
 
 			BLooper*			Looper() const;
 									/*!< The looper it belongs to, nullptr if none. */

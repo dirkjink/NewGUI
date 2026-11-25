@@ -73,7 +73,15 @@ public:
 										asks QuitRequested(), replying with the bool
 										"result" to a waiting sender. */
 			void				MessageReceived(BMessage* message) override;
-									/*!< As BHandler's. */
+									/*!< Counts its handlers (kCountProperties of "Handler"),
+										otherwise as BHandler's. */
+			BHandler*			ResolveSpecifier(BMessage* message, std::int32_t index,
+									const BMessage& specifier, std::uint32_t form,
+									std::string_view property) override;
+									/*!< "Handler" by index or reverse index leads to that
+										handler; otherwise as BHandler's. */
+			std::expected<void, Error> GetSupportedSuites(BMessage* data) override;
+									/*!< "suite/vnd.Be-looper" and BHandler's. */
 
 			std::expected<void, Error> PostMessage(std::uint32_t command);
 									/*!< Queues a message for the preferred handler. */
@@ -157,6 +165,7 @@ private:
 			BHandler*			_FilteredTarget(BMessage* message, BHandler* target);
 			void				_Loop();
 			void				_Dispatch(std::unique_ptr<BMessage> message);
+			BHandler*			_ResolveSpecifier(BHandler* target, BMessage* message);
 
 			std::shared_ptr<LooperPort> fPort;
 			BLocker				fLock;

@@ -71,6 +71,35 @@ enum class BTypeCode : std::uint32_t {
 };
 
 
+/*!	\name Specifier forms
+	The `what` of a specifier (scripting, specification 20.7): how a property
+	is named. Forms above kSpecifiersEnd are the application's. */
+/*!	\{ */
+inline constexpr std::uint32_t kDirectSpecifier = 1;
+									/*!< The property itself (B_DIRECT_SPECIFIER). */
+inline constexpr std::uint32_t kIndexSpecifier = 2;
+									/*!< An item by the int32 "index" (B_INDEX_SPECIFIER). */
+inline constexpr std::uint32_t kReverseIndexSpecifier = 3;
+									/*!< An item by "index" from the end
+										(B_REVERSE_INDEX_SPECIFIER). */
+inline constexpr std::uint32_t kRangeSpecifier = 4;
+									/*!< Items "index" on, "range" of them
+										(B_RANGE_SPECIFIER). */
+inline constexpr std::uint32_t kReverseRangeSpecifier = 5;
+									/*!< As kRangeSpecifier, from the end
+										(B_REVERSE_RANGE_SPECIFIER). */
+inline constexpr std::uint32_t kNameSpecifier = 6;
+									/*!< An item by the string "name" (B_NAME_SPECIFIER). */
+inline constexpr std::uint32_t kIdSpecifier = 7;
+									/*!< An item by its int32 "id" (B_ID_SPECIFIER). */
+inline constexpr std::uint32_t kSpecifiersEnd = 128;
+									/*!< The last form of the toolkit (B_SPECIFIERS_END). */
+/*!	\} */
+
+
+struct BSpecifier;
+
+
 /*!	What a field of a BMessage holds. */
 struct BFieldInfo {
 			std::string			name;	/*!< The field name. */
@@ -103,7 +132,9 @@ struct BFieldInfo {
 	- A copy of a message carries no delivery: it is not a reply and owes
 	  none. To reply later, keep the delivered message itself
 	  (BLooper::DetachCurrentMessage()).
-	- Specifiers come with scripting (specification 20.7).
+	- The specifiers of scripting (specification 20.7) are the messages of the
+	  field "specifiers"; the current one is not flattened: a message read
+	  from Flatten() output starts at its last specifier, as a new one does.
 */
 class BMessage {
 public:
@@ -161,6 +192,45 @@ public:
 										(B_DUPLICATE_REPLY). */
 			std::expected<void, Error> SendReply(std::uint32_t command);
 									/*!< As above, with an empty reply of \a command. */
+
+	// Specifiers (scripting, specification 20.7)
+
+			std::expected<void, Error> AddSpecifier(std::string_view property);
+									/*!< Adds a kDirectSpecifier for \a property; it becomes
+										the current one. InvalidArgument for an empty name. */
+			std::expected<void, Error> AddSpecifier(std::string_view property,
+									std::int32_t index);
+									/*!< Adds a kIndexSpecifier: item \a index of
+										\a property. */
+			std::expected<void, Error> AddSpecifier(std::string_view property,
+									std::int32_t index, std::int32_t range);
+									/*!< Adds a kRangeSpecifier: \a range items of
+										\a property from \a index on; InvalidArgument for a
+										negative range. */
+			std::expected<void, Error> AddSpecifier(std::string_view property,
+									std::string_view name);
+									/*!< Adds a kNameSpecifier: the item \a name of
+										\a property. */
+			std::expected<void, Error> AddSpecifier(const BMessage& specifier);
+									/*!< Adds \a specifier as it is, e.g. of a form of the
+										application's; it becomes the current one. */
+			std::expected<void, Error> SetCurrentSpecifier(std::int32_t index);
+									/*!< Makes specifier \a index the current one;
+										OutOfRange if there is none. */
+			std::expected<BSpecifier, Error> GetCurrentSpecifier() const;
+									/*!< The current specifier, for a handler resolving it.
+										BadScriptSyntax if the message was not delivered,
+										has no current specifier (all popped) or the
+										specifier names no property. */
+			std::int32_t		CurrentSpecifierIndex() const;
+									/*!< The index of the current specifier; -1 if there is
+										none (left to resolve). */
+			bool				HasSpecifiers() const;
+									/*!< Whether specifiers were added: a scripting message. */
+			std::expected<void, Error> PopSpecifier();
+									/*!< A handler has resolved the current specifier; the one
+										before becomes current. InvalidArgument if the message
+										was not delivered or none is left. */
 
 	// Fields
 
@@ -554,11 +624,24 @@ private:
 			std::unique_ptr<MessageDelivery> fDelivery;
 			std::optional<gfx::Point> fDropPoint;
 									// set by the window it was dropped on
+			std::int32_t		fCurrentSpecifier = -1;
+									// the specifier left to resolve, -1 for none
 
 			friend class BLooper;
 			friend class BWindow;
 			friend class BMessenger;
 			friend class MessageFlattener;
+};
+
+
+/*!	The current specifier of a scripting message, as
+	BMessage::GetCurrentSpecifier() gives it (Haiku: its out parameters). */
+struct BSpecifier {
+			std::int32_t		index;		/*!< Its index in the field "specifiers". */
+			BMessage			specifier;	/*!< The specifier: form as `what`, "property",
+												and "index", "range" or "name". */
+			std::uint32_t		form;		/*!< The specifier's `what`, e.g. kIndexSpecifier. */
+			std::string			property;	/*!< The property it names. */
 };
 
 

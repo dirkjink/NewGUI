@@ -1070,7 +1070,7 @@ Grob gesagt umfasst die austauschbare Canvas-Schicht ohne ControlLook, Text und 
    - **Schrift:** Haiku verwendet standardmäßig Noto Sans. Ein Look nach BeOS R5 verlangt eine andere Schriftwahl im Text-Subsystem.
    - **Icons:** Für HVIF-Vektor-Icons ist ein eigener Renderer nötig. Bezug ist `src/libs/icon`, das Modul ist bisher nicht eingeplant.
    - **Views ohne ControlLook** (z. B. `BListView`) folgen dem Look nur über die Systemfarben.
-10. **Blend2D nach Phase 2:** behalten (als CPU-Referenz, etwa für schlanke Zielsysteme) oder entfernen? Vorher API-Stabilität und Lizenz der verwendeten Version prüfen.
+10. **Blend2D nach Phase 2:** ~~behalten oder entfernen?~~ **Entschieden (2026-11-25): behalten.** Das Backend bleibt in der CI (Presets `skia` und `docs`) und sichert die Austauschbarkeit laufend ab (`CrossBackendTest`). Verwendet wird Blend2D 0.12 aus vcpkg, Lizenz zlib.
 11. **Referenz-Backend aus Haikus `Painter`:** Der AGG-basierte `Painter` des app_server (`src/servers/app/drawing/Painter`) implementiert genau die Pixelsemantik von BView. Herausgelöst wäre er ein Test-Orakel, das bei 1:1-Ports pixelgleich zu Haiku ist. Er hängt allerdings stark an Klassen des app_server, Aufwand und Nutzen sind abzuwägen.
 12. **Leistung des CPU-Raster-Pfads:** Ab welcher Fenstergröße bzw. welchem Anteil neu gezeichneter Fläche Phase G nötig wird, muss gemessen werden.
 

@@ -30,6 +30,39 @@ inline constexpr std::uint32_t kNoReply = FourCharCode("_NRP");
 /*!	A plain reply, e.g. to kQuitRequested with the bool "result" (B_REPLY). */
 inline constexpr std::uint32_t kReply = FourCharCode("RPLY");
 
+/*!	The reply to a message the target did not understand, e.g. a scripting
+	message for a property it has not (B_MESSAGE_NOT_UNDERSTOOD); the
+	int32 "error" and the string "message" say why. */
+inline constexpr std::uint32_t kMessageNotUnderstood = FourCharCode("MNOT");
+
+/*!	Scripting (specification 20.7): sets the property the specifiers name to
+	the "data" field (B_SET_PROPERTY). */
+inline constexpr std::uint32_t kSetProperty = FourCharCode("PSET");
+
+/*!	Scripting: asks for the property the specifiers name; the reply has it in
+	"result" (B_GET_PROPERTY). */
+inline constexpr std::uint32_t kGetProperty = FourCharCode("PGET");
+
+/*!	Scripting: creates an item of the property, e.g. a list item
+	(B_CREATE_PROPERTY). */
+inline constexpr std::uint32_t kCreateProperty = FourCharCode("PCRT");
+
+/*!	Scripting: deletes the item the specifiers name (B_DELETE_PROPERTY). */
+inline constexpr std::uint32_t kDeleteProperty = FourCharCode("PDEL");
+
+/*!	Scripting: asks how many items the property has; the reply has the int32
+	"result" (B_COUNT_PROPERTIES). */
+inline constexpr std::uint32_t kCountProperties = FourCharCode("PCNT");
+
+/*!	Scripting: does what the property stands for, e.g. clicks a button
+	(B_EXECUTE_PROPERTY). */
+inline constexpr std::uint32_t kExecuteProperty = FourCharCode("PEXE");
+
+/*!	Scripting: asks a handler which suites and properties it understands; the
+	reply has the strings "suites" and the messages "messages"
+	(B_GET_SUPPORTED_SUITES). */
+inline constexpr std::uint32_t kGetSupportedSuites = FourCharCode("SUIT");
+
 /*!	The command line, as strings "argv" and the int32 "argc"; to
 	BApplication::ArgvReceived() (B_ARGV_RECEIVED). */
 inline constexpr std::uint32_t kArgvReceived = FourCharCode("_ARG");
