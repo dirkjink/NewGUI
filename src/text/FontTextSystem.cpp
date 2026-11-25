@@ -81,6 +81,16 @@ Ignorable(char32_t c)
 }
 
 
+// The styles of the bundled fonts 1 to 3.
+std::vector<FontFamilyStyle>
+BundledStyles()
+{
+	return {{"Noto Sans", "Regular", 1, BFontFace::Regular, false},
+		{"Noto Sans", "Bold", 2, BFontFace::Bold, false},
+		{"Noto Sans Mono", "Regular", 3, BFontFace::Regular, true}};
+}
+
+
 void
 InitUnibreak()
 {
@@ -151,6 +161,17 @@ struct FontTextSystem::Font {
 };
 
 
+// A font of the source: listed (with its look) or found as a fallback,
+// loaded on first use.
+struct FontTextSystem::Known {
+	FontLocation	location;
+	gfx::FontId		id = 0;
+	std::optional<FontFamilyStyle> look;
+	const Font*		font = nullptr;
+	bool			failed = false;
+};
+
+
 FontTextSystem::FontTextSystem() = default;
 
 
@@ -183,7 +204,7 @@ FontTextSystem::Create(std::unique_ptr<FontSource> fonts, float size)
 		{2, FontRole::Bold, embedded::kNotoSansBold, embedded::kNotoSansBoldSize},
 		{3, FontRole::Fixed, embedded::kNotoSansMonoRegular, embedded::kNotoSansMonoRegularSize}
 	};
-	const std::vector<FontFamilyStyle> styles = system->Styles();
+	const std::vector<FontFamilyStyle> styles = BundledStyles();
 	for (std::size_t i = 0; i < std::size(bundled); i++) {
 		const Bundled& entry = bundled[i];
 		auto font = std::make_unique<Font>();
@@ -208,7 +229,15 @@ FontTextSystem::_Font(gfx::FontId id) const
 		if (font->file.id == id)
 			return *font;
 	}
-	// an unknown font: the plain one
+	// a font the source listed, not loaded yet
+	for (const std::unique_ptr<Known>& known : fKnown) {
+		if (known->id == id) {
+			if (const Font* font = _LoadLocked(*known))
+				return *font;
+			break;
+		}
+	}
+	// an unknown font, or one that cannot be read: the plain one
 	return *fFonts[0];
 }
 
@@ -286,43 +315,89 @@ const FontTextSystem::Font*
 FontTextSystem::_Load(const FontLocation& location) const
 {
 	std::scoped_lock lock(fLock);
-	const auto findId = [&](gfx::FontId id) -> const Font* {
-		for (const std::unique_ptr<Font>& font : fFonts) {
-			if (font->file.id == id)
-				return font.get();
-		}
-		return nullptr;
-	};
-	for (const auto& [loaded, id] : fLoaded) {
-		if (loaded == location)
-			return findId(id);
+	return _LoadLocked(_KnownLocked(location));
+}
+
+
+// The entry of \a location, with the next free FontId if it is new.
+FontTextSystem::Known&
+FontTextSystem::_KnownLocked(const FontLocation& location) const
+{
+	for (const std::unique_ptr<Known>& known : fKnown) {
+		if (known->location == location)
+			return *known;
 	}
+	auto known = std::make_unique<Known>();
+	known->location = location;
+	known->id = fNextId++;
+	fKnown.push_back(std::move(known));
+	return *fKnown.back();
+}
+
+
+// The font of \a known, loaded now if it is not yet; nullptr if it cannot
+// be read (and is not tried again).
+const FontTextSystem::Font*
+FontTextSystem::_LoadLocked(Known& known) const
+{
+	if (known.font != nullptr || known.failed)
+		return known.font;
 
 	// HarfBuzz maps the file (and reads UTF-8 paths under Windows too)
-	hb_blob_t* blob = hb_blob_create_from_file_or_fail(location.path.c_str());
+	hb_blob_t* blob = hb_blob_create_from_file_or_fail(known.location.path.c_str());
 	auto font = std::make_unique<Font>();
-	if (blob == nullptr || location.faceIndex >= hb_face_count(blob)
-		|| !font->Open(blob, location.faceIndex)) {
+	if (blob == nullptr || known.location.faceIndex >= hb_face_count(blob)
+		|| !font->Open(blob, known.location.faceIndex)) {
 		if (font->blob == nullptr)
 			hb_blob_destroy(blob);
-		fLoaded.emplace_back(location, 0);
+		known.failed = true;
 		return nullptr;
 	}
-	const auto id = static_cast<gfx::FontId>(fFonts.size() + 1);
 	unsigned int length = 0;
 	const char* data = hb_blob_get_data(blob, &length);
-	font->file = {id, FontRole::Plain, std::as_bytes(std::span(data, length)),
-		location.faceIndex};
-	std::string family = FaceName(font->face, HB_OT_NAME_ID_TYPOGRAPHIC_FAMILY);
-	if (family.empty())
-		family = FaceName(font->face, HB_OT_NAME_ID_FONT_FAMILY);
-	std::string style = FaceName(font->face, HB_OT_NAME_ID_TYPOGRAPHIC_SUBFAMILY);
-	if (style.empty())
-		style = FaceName(font->face, HB_OT_NAME_ID_FONT_SUBFAMILY);
-	font->look = {std::move(family), std::move(style), id, BFontFace::Regular, false};
-	fLoaded.emplace_back(location, id);
+	font->file = {known.id, FontRole::Plain, std::as_bytes(std::span(data, length)),
+		known.location.faceIndex};
+	if (known.look.has_value())
+		font->look = *known.look;
+	else {
+		// found as a fallback: named after its name table
+		std::string family = FaceName(font->face, HB_OT_NAME_ID_TYPOGRAPHIC_FAMILY);
+		if (family.empty())
+			family = FaceName(font->face, HB_OT_NAME_ID_FONT_FAMILY);
+		std::string style = FaceName(font->face, HB_OT_NAME_ID_TYPOGRAPHIC_SUBFAMILY);
+		if (style.empty())
+			style = FaceName(font->face, HB_OT_NAME_ID_FONT_SUBFAMILY);
+		font->look = {std::move(family), std::move(style), known.id, BFontFace::Regular,
+			false};
+	}
 	fFonts.push_back(std::move(font));
-	return fFonts.back().get();
+	known.font = fFonts.back().get();
+	return known.font;
+}
+
+
+// The styles: the bundled ones, then those of \a listed that are not
+// bundled, each with its FontId (loaded when it is used).
+void
+FontTextSystem::_ListLocked(std::vector<SourceFont> listed) const
+{
+	fStyles = BundledStyles();
+	for (SourceFont& font : listed) {
+		const std::pair key(font.family, font.style);
+		if (fStyleIndex.contains(key)
+			|| std::ranges::any_of(fStyles, [&](const FontFamilyStyle& style) {
+				return style.family == font.family && style.style == font.style;
+			})) {
+			continue;
+		}
+		Known& known = _KnownLocked(font.location);
+		known.look = FontFamilyStyle{font.family, font.style, known.id, font.face, font.fixed};
+		fStyleIndex.emplace(key, fStyles.size());
+		fStyles.push_back(*known.look);
+	}
+	for (std::size_t i = 0; i < 3; i++)
+		fStyleIndex.emplace(std::pair(fStyles[i].family, fStyles[i].style), i);
+	fListed = true;
 }
 
 
@@ -370,9 +445,37 @@ FontTextSystem::_Itemize(std::string_view text, const Font& primary) const
 std::vector<FontFamilyStyle>
 FontTextSystem::Styles() const
 {
-	return {{"Noto Sans", "Regular", 1, BFontFace::Regular, false},
-		{"Noto Sans", "Bold", 2, BFontFace::Bold, false},
-		{"Noto Sans Mono", "Regular", 3, BFontFace::Regular, true}};
+	{
+		std::scoped_lock lock(fLock);
+		if (fListed)
+			return fStyles;
+	}
+	// not under the lock: listing the system's fonts takes its time
+	std::vector<SourceFont> listed;
+	if (fSource != nullptr)
+		listed = fSource->List();
+	std::scoped_lock lock(fLock);
+	if (!fListed)
+		_ListLocked(std::move(listed));
+	return fStyles;
+}
+
+
+std::optional<FontFamilyStyle>
+FontTextSystem::Style(std::string_view family, std::string_view style) const
+{
+	{
+		std::scoped_lock lock(fLock);
+		if (fListed) {
+			const auto found = fStyleIndex.find(std::pair(std::string(family),
+				std::string(style)));
+			if (found == fStyleIndex.end())
+				return std::nullopt;
+			return fStyles[found->second];
+		}
+	}
+	(void)Styles();
+	return Style(family, style);
 }
 
 

@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -90,6 +91,9 @@ public:
 										start. */
 
 			std::vector<FontFamilyStyle> Styles() const override;
+			std::optional<FontFamilyStyle> Style(std::string_view family,
+									std::string_view style) const override;
+									/*!< The style from Styles(), looked up by name. */
 									/*!< "Noto Sans" Regular (font 1) and Bold (font 2),
 										"Noto Sans Mono" Regular (font 3). */
 			FontSpec			RoleFont(FontRole role) const override;
@@ -126,7 +130,12 @@ private:
 			const Font*			_FontFor(const Font& primary,
 									std::span<const char32_t> cluster) const;
 			const Font*			_SourceFont(const Font& primary, char32_t codePoint) const;
+			struct Known;
+
 			const Font*			_Load(const FontLocation& location) const;
+			Known&				_KnownLocked(const FontLocation& location) const;
+			const Font*			_LoadLocked(Known& known) const;
+			void				_ListLocked(std::vector<SourceFont> listed) const;
 			std::vector<std::pair<std::size_t, const Font*>> _Itemize(std::string_view text,
 									const Font& primary) const;
 
@@ -135,8 +144,13 @@ private:
 									// guarded by fLock; only appended
 			mutable std::map<std::pair<gfx::FontId, char32_t>, gfx::FontId> fFallbacks;
 									// what the source found, 0 for nothing
-			mutable std::vector<std::pair<FontLocation, gfx::FontId>> fLoaded;
-									// the files loaded, 0 for unreadable
+			mutable std::vector<std::unique_ptr<Known>> fKnown;
+									// the fonts of the source, by location
+			mutable gfx::FontId	fNextId = 4;
+			mutable std::vector<FontFamilyStyle> fStyles;
+									// the bundled and the source's fonts, once listed
+			mutable std::map<std::pair<std::string, std::string>, std::size_t> fStyleIndex;
+			mutable bool		fListed = false;
 			std::unique_ptr<FontSource> fSource;
 			float				fSize = kDefaultSize;
 };

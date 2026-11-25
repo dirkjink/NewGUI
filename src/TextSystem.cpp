@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -248,6 +249,17 @@ TextSystem::Styles() const
 	return {{"Default", "Regular", 1, BFontFace::Regular, false},
 		{"Default", "Bold", 2, BFontFace::Bold, false},
 		{"Default Mono", "Regular", 3, BFontFace::Regular, true}};
+}
+
+
+std::optional<FontFamilyStyle>
+TextSystem::Style(std::string_view family, std::string_view style) const
+{
+	for (FontFamilyStyle& entry : Styles()) {
+		if (entry.family == family && entry.style == style)
+			return std::move(entry);
+	}
+	return std::nullopt;
 }
 
 

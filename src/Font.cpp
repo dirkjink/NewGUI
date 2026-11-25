@@ -13,6 +13,7 @@
 #include <ngui/Font.h>
 
 #include <algorithm>
+#include <optional>
 #include <utility>
 
 
@@ -186,18 +187,16 @@ BFont::Size() const
 BFontFaceFlags
 BFont::Face() const
 {
-	const std::vector<FontFamilyStyle> styles = TextSystem::Default().Styles();
-	const FontFamilyStyle* entry = FindStyle(styles, fFamily, fStyle);
-	return entry != nullptr ? entry->face : BFontFaceFlags(BFontFace::Regular);
+	const std::optional<FontFamilyStyle> entry = TextSystem::Default().Style(fFamily, fStyle);
+	return entry.has_value() ? entry->face : BFontFaceFlags(BFontFace::Regular);
 }
 
 
 bool
 BFont::IsFixed() const
 {
-	const std::vector<FontFamilyStyle> styles = TextSystem::Default().Styles();
-	const FontFamilyStyle* entry = FindStyle(styles, fFamily, fStyle);
-	return entry != nullptr && entry->fixed;
+	const std::optional<FontFamilyStyle> entry = TextSystem::Default().Style(fFamily, fStyle);
+	return entry.has_value() && entry->fixed;
 }
 
 
@@ -229,8 +228,7 @@ FontSpec
 BFont::Spec() const
 {
 	const TextSystem& text = TextSystem::Default();
-	const std::vector<FontFamilyStyle> styles = text.Styles();
-	if (const FontFamilyStyle* entry = FindStyle(styles, fFamily, fStyle))
+	if (const std::optional<FontFamilyStyle> entry = text.Style(fFamily, fStyle))
 		return {entry->font, fSize};
 
 	// a font the text system does not have: its plain font

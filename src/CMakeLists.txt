@@ -185,6 +185,7 @@ if(NGUI_WITH_TEXT)
     endforeach()
     add_library(ngui_text
         text/FontTextSystem.cpp
+        text/FontconfigSource.cpp
         ${embeddedFonts})
     add_library(ngui::text ALIAS ngui_text)
     target_link_libraries(ngui_text
@@ -192,7 +193,9 @@ if(NGUI_WITH_TEXT)
             ngui::ngui
         PRIVATE
             harfbuzz::harfbuzz
-            libunibreak::libunibreak)
+            libunibreak::libunibreak
+            # dlopen() of the system's fontconfig (none where libc has it)
+            ${CMAKE_DL_LIBS})
     target_include_directories(ngui_text PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_text)
 endif()
