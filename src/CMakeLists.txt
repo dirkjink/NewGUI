@@ -63,6 +63,8 @@ add_library(ngui
     MessageRunner.cpp
     Messenger.cpp
     PropertyInfo.cpp
+    remote/LocalSocket.cpp
+    remote/RemoteControl.cpp
     OutlineListView.cpp
     compat/CompatView.cpp
     compat/Point.cpp
@@ -156,6 +158,10 @@ target_include_directories(ngui
         "${CMAKE_CURRENT_SOURCE_DIR}")
 
 ngui_configure_target(ngui)
+# remote control over AF_UNIX sockets (Winsock)
+if(WIN32)
+    target_link_libraries(ngui PRIVATE ws2_32)
+endif()
 
 # The Skia backend (specification 13), its own library: Skia headers appear
 # in its sources only (13.5).

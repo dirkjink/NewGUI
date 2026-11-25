@@ -18,12 +18,20 @@
 #include <ngui/Cursor.h>
 #include <ngui/LookRegistry.h>
 #include <ngui/PropertyInfo.h>
+#include <ngui/RemoteControl.h>
 #include <ngui/Window.h>
 #include <ngui/platform/PlatformRegistry.h>
+
+#ifdef _WIN32
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "CursorState.h"
 #include "Environment.h"
 #include "LooperPort.h"
+#include "remote/RemoteServer.h"
 #include "ScriptingSupport.h"
 #include "WindowList.h"
 
@@ -109,11 +117,18 @@ BApplication::BApplication(std::string_view signature, int argc, char** argv)
 		if (selection.has_value() && !selection->warning.empty())
 			std::fprintf(stderr, "ngui: %s\n", selection->warning.c_str());
 	}
+	// Remote control only when asked (rule T4): here by the environment.
+	if (detail::EnvironmentVariable("NGUI_REMOTE_CONTROL").value_or("") == "1") {
+		if (const auto path = EnableRemoteControl(); !path.has_value())
+			std::fprintf(stderr, "ngui: remote control: %s\n", path.error().message.c_str());
+	}
 }
 
 
 BApplication::~BApplication()
 {
+	// no requests any more, before the looper goes
+	fRemote.reset();
 	fPulseRunner.reset();
 	std::scoped_lock lock(sLock);
 	if (fRegistered) {
@@ -554,6 +569,48 @@ BApplication::GetSupportedSuites(BMessage* data)
 		return added;
 	}
 	return BLooper::GetSupportedSuites(data);
+}
+
+
+// #pragma mark - Remote control
+
+
+std::expected<std::filesystem::path, Error>
+BApplication::EnableRemoteControl(const std::filesystem::path& directory)
+{
+	std::filesystem::path where = directory;
+	if (where.empty()) {
+		auto found = remote::DefaultDirectory();
+		if (!found.has_value())
+			return std::unexpected(found.error());
+		where = std::move(*found);
+	}
+	fRemote.reset();
+#ifdef _WIN32
+	const std::int64_t process = static_cast<std::int64_t>(_getpid());
+#else
+	const std::int64_t process = static_cast<std::int64_t>(getpid());
+#endif
+	auto server = remote::detail::RemoteServer::Start(remote::EndpointPath(where, fSignature,
+		process), BMessenger(this));
+	if (!server.has_value())
+		return std::unexpected(server.error());
+	fRemote = std::move(*server);
+	return fRemote->Path();
+}
+
+
+void
+BApplication::DisableRemoteControl()
+{
+	fRemote.reset();
+}
+
+
+std::filesystem::path
+BApplication::RemoteControlPath() const
+{
+	return fRemote != nullptr ? fRemote->Path() : std::filesystem::path();
 }
 
 

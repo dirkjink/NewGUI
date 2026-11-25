@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <expected>
+#include <filesystem>
 #include <memory>
 #include <span>
 #include <string>
@@ -26,6 +27,10 @@ namespace ngui {
 
 
 class BCursor;
+
+namespace remote::detail {
+class RemoteServer;
+}
 
 
 /*!	The application (module G4), as Haiku's BApplication: a looper whose
@@ -159,6 +164,21 @@ public:
 			std::expected<void, Error> GetSupportedSuites(BMessage* data) override;
 									/*!< "suite/vnd.Be-application" and BLooper's. */
 
+	// Remote control (specification 20.7, rule T4)
+
+			std::expected<std::filesystem::path, Error> EnableRemoteControl(
+									const std::filesystem::path& directory = {});
+									/*!< Lets other processes of the user send scripting
+										messages (ngui/RemoteControl.h): listens at
+										remote::EndpointPath() in \a directory
+										(remote::DefaultDirectory() if empty) and returns the
+										socket. Off until this is called or the application
+										starts with NGUI_REMOTE_CONTROL=1. Again moves it. */
+			void				DisableRemoteControl();
+									/*!< Stops listening and removes the socket. */
+			std::filesystem::path RemoteControlPath() const;
+									/*!< The socket, empty while remote control is off. */
+
 private:
 			class PlatformEvents;
 
@@ -170,6 +190,7 @@ private:
 			bool				fLaunching = true;
 			bool				fRegistered = false;
 			bool				fValidSignature;
+			std::unique_ptr<remote::detail::RemoteServer> fRemote;
 };
 
 
