@@ -13,7 +13,11 @@
  * - TextLayout breaks the lines and answers PointAt() and OffsetAt();
  *   _Refresh() lays out all of the text again.
  * - The caret moves by graphemes (_NextInitialByte() and
- *   _PreviousInitialByte() step over them, Haiku: over code points).
+ *   _PreviousInitialByte() step over them, Haiku: over code points). In
+ *   text with right-to-left runs (module X3) the left and right arrows
+ *   move visually (TextLayout::CaretLeft() and CaretRight()), a selection
+ *   grows from its anchor, and GetTextRegion() gives the pieces of the
+ *   range on the screen (TextLayout::SelectionRects()).
  * - Highlight(), the caret and the selection invalidate; Draw() fills the
  *   selection with the inverted colors and draws its text inverted
  *   (Haiku: B_OP_INVERT), while the view is active.
@@ -1722,6 +1726,19 @@ BTextView::GetTextRegion(int32 startOffset, int32 endOffset, gfx::Region* outReg
 	startLineHeight = std::ceil(startLineHeight);
 	endLineHeight = std::ceil(endLineHeight);
 
+	if (fLayout.HasRightToLeft()) {
+		// NewGUI: right-to-left runs; the range in pieces as it is on the
+		// screen (TextLayout::SelectionRects())
+		for (const gfx::Rect& rect : fLayout.SelectionRects(
+				static_cast<std::size_t>(startOffset), static_cast<std::size_t>(endOffset))) {
+			const gfx::Rect placed{rect.x0 + fTextRect.x0, rect.y0 + fTextRect.y0,
+				rect.x1 + fTextRect.x0, rect.y1 + fTextRect.y0};
+			if (placed.x1 > placed.x0 && placed.y1 > placed.y0)
+				outRegion->Include(gfx::IntRect::RoundedFrom(placed));
+		}
+		return;
+	}
+
 	const gfx::Rect bounds = Bounds();
 	const float left = std::min(fTextRect.x0, bounds.x0 + fLayoutData.leftInset);
 	const float right = std::max(fTextRect.x1, bounds.x1 - fLayoutData.rightInset);
@@ -2439,6 +2456,17 @@ BTextView::_HandleBackspace(int32 modifiers)
 }
 
 
+// NewGUI: the selection between its anchor and the caret, after the caret
+// moved visually from \a previousCaret (the anchor is the other end).
+void
+BTextView::_SelectFromAnchor(int32 previousCaret, int32* selStart, int32* selEnd) const
+{
+	const int32 anchor = previousCaret == fSelStart ? fSelEnd : fSelStart;
+	*selStart = std::min(anchor, fCaretOffset);
+	*selEnd = std::max(anchor, fCaretOffset);
+}
+
+
 void
 BTextView::_HandleArrowKey(uint8 arrowKey, int32 modifiers)
 {
@@ -2466,7 +2494,13 @@ BTextView::_HandleArrowKey(uint8 arrowKey, int32 modifiers)
 				_ScrollBy(-kHorizontalScrollBarStep, 0);
 			else if (fSelStart != fSelEnd && !shiftKeyDown)
 				fCaretOffset = fSelStart;
-			else {
+			else if (fLayout.HasRightToLeft() && !commandKeyDown && !optionKeyDown) {
+				// NewGUI: visually over the grapheme left of the caret
+				fCaretOffset = static_cast<int32>(
+					fLayout.CaretLeft(static_cast<std::size_t>(fCaretOffset)));
+				if (shiftKeyDown)
+					_SelectFromAnchor(lastClickOffset, &selStart, &selEnd);
+			} else {
 				if ((commandKeyDown || optionKeyDown) && !controlKeyDown)
 					fCaretOffset = _PreviousWordStart(fCaretOffset - 1);
 				else
@@ -2493,7 +2527,13 @@ BTextView::_HandleArrowKey(uint8 arrowKey, int32 modifiers)
 				_ScrollBy(kHorizontalScrollBarStep, 0);
 			else if (fSelStart != fSelEnd && !shiftKeyDown)
 				fCaretOffset = fSelEnd;
-			else {
+			else if (fLayout.HasRightToLeft() && !commandKeyDown && !optionKeyDown) {
+				// NewGUI: visually over the grapheme right of the caret
+				fCaretOffset = static_cast<int32>(
+					fLayout.CaretRight(static_cast<std::size_t>(fCaretOffset)));
+				if (shiftKeyDown)
+					_SelectFromAnchor(lastClickOffset, &selStart, &selEnd);
+			} else {
 				if ((commandKeyDown || optionKeyDown) && !controlKeyDown)
 					fCaretOffset = _NextWordEnd(fCaretOffset);
 				else

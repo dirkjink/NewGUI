@@ -403,6 +403,8 @@ private:
 			void				_Refresh(std::optional<int32> scrollTo = std::nullopt);
 			void				_HandleBackspace(int32 modifiers = -1);
 			void				_HandleArrowKey(uint8 arrowKey, int32 modifiers = -1);
+			void				_SelectFromAnchor(int32 previousCaret, int32* selStart,
+									int32* selEnd) const;
 			void				_HandleDelete(int32 modifiers = -1);
 			void				_HandlePageKey(uint8 pageKey, int32 modifiers = -1);
 			void				_HandleAlphaKey(std::string_view bytes);

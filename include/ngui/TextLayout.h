@@ -72,12 +72,16 @@ struct TextLayoutOptions {
 	from the line's start (Haiku: from each measured piece), and the widths
 	from shaping each line. A line is drawn in the visual order of its runs
 	(UAX #9, module X3): each paragraph takes the direction of its first
-	strong character, right-to-left runs are shaped right to left, and
-	the caret before a character of such a run stands at its right edge;
-	the alignment stays absolute, as in Haiku (Left is left). Positions are
-	asked for by offset, CaretLeft() and CaretRight() move visually, and a
-	selection is a list of rectangles; in mixed text these still follow
-	the logical order (the next step of module X3).
+	strong character, right-to-left runs are shaped right to left; the
+	alignment stays absolute, as in Haiku (Left is left). In a line with
+	right-to-left runs the caret before a character stands at its leading
+	edge (the right one right to left); where two directions meet, at the
+	edge of the character in the paragraph's direction (the "strong"
+	caret), and after the line's text at its end in that direction.
+	CaretLeft() and CaretRight() move over the grapheme left or right on
+	the screen, OffsetAt() hits the nearer edge of a grapheme, and
+	SelectionRects() gives a rectangle per piece of the range on the
+	screen. Lines without right-to-left runs behave as Haiku's.
 */
 class TextLayout {
 public:
@@ -103,7 +107,9 @@ public:
 									std::span<const TextStyleRun> runs,
 									const TextLayoutOptions& options = {});
 									/*!< \a text in the fonts of \a runs (sorted by
-										start; before the first, the plain font). */
+										start; before the first, the plain font). A run
+										that begins inside a code point begins at its
+										start. */
 
 			std::string_view	Text() const;
 									/*!< The text laid out. */
@@ -161,7 +167,11 @@ public:
 			std::vector<gfx::Rect> SelectionRects(std::size_t from, std::size_t to) const;
 									/*!< The parts of the lines between \a from and \a to,
 										one rectangle per line (from its top to the next
-										line's). */
+										line's); in a line with right-to-left runs, one per
+										piece of the range on the screen. */
+			bool				HasRightToLeft() const;
+									/*!< Whether a line has right-to-left runs: then carets
+										move, hit and select visually (module X3). */
 
 			/*!	Maps the color of a run as it is drawn, e.g. inverted. */
 			using				ColorMap = gfx::Color (*)(const gfx::Color& color);
@@ -182,11 +192,26 @@ private:
 			std::optional<gfx::Color> color;
 	};
 
+	// A grapheme cluster of a line with right-to-left runs, where it is on
+	// the screen.
+	struct Cluster {
+			std::size_t			start = 0;
+			std::size_t			end = 0;
+			float				left = 0;
+			float				right = 0;
+			bool				rightToLeft = false;
+	};
+
 	struct LineData {
 			Line				line;
 			std::vector<float>	carets;
 									// x of each offset from start to end
 			std::vector<Segment> segments;
+			std::vector<Cluster> clusters;
+									// left to right; only in lines with right-to-left
+									// runs (module X3), the others are left to right
+			bool				rightToLeft = false;
+									// its paragraph's direction
 	};
 
 			void				_Layout(const TextSystem& system);
@@ -194,7 +219,15 @@ private:
 									float* ascent, float* descent, float* width) const;
 			float				_Measure(const TextSystem& system, std::size_t from,
 									std::size_t to, float x, std::vector<float>* carets,
-									std::vector<Segment>* segments) const;
+									std::vector<Segment>* segments,
+									LineData* visual = nullptr) const;
+			void				_PlaceCarets(const LineData& data, std::size_t from,
+									std::size_t to, std::vector<float>* carets) const;
+			std::size_t			_ClusterRightOf(const LineData& data, float x) const;
+			std::size_t			_ClusterLeftOf(const LineData& data, float x) const;
+			std::size_t			_EdgeOffset(int32 lineNum, std::size_t index,
+									bool rightEdge) const;
+			std::size_t			_OnBoundary(std::size_t offset) const;
 			void				_Metrics(const TextSystem& system, std::size_t from,
 									std::size_t to, float* ascent, float* descent) const;
 			const TextStyleRun&	_RunAt(std::size_t offset) const;
