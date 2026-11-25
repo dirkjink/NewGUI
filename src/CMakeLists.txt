@@ -82,8 +82,10 @@ add_library(ngui
     ListItem.cpp
     ListView.cpp
     locale/Catalog.cpp
+    locale/Formats.cpp
     locale/Languages.cpp
     locale/LocaleRoster.cpp
+    locale/NumberGrouping.cpp
     locale/PluralForms.cpp
     Palette.cpp
     Polygon.cpp

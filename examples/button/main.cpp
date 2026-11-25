@@ -39,6 +39,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <ctime>
 #include <memory>
 #include <string>
 #include <utility>
@@ -50,6 +51,7 @@
 #include <ngui/Button.h>
 #include <ngui/Catalog.h>
 #include <ngui/CheckBox.h>
+#include <ngui/DateFormat.h>
 #include <ngui/FilePanel.h>
 #include <ngui/Font.h>
 #include <ngui/GroupView.h>
@@ -63,6 +65,7 @@
 #include <ngui/MenuBar.h>
 #include <ngui/MenuField.h>
 #include <ngui/MenuItem.h>
+#include <ngui/NumberFormat.h>
 #include <ngui/OutlineListView.h>
 #include <ngui/Palette.h>
 #include <ngui/PopUpMenu.h>
@@ -405,8 +408,14 @@ public:
 		if (message->what == kAbout) {
 			// an info alert, which only needs to be closed
 			fTabs->Select(3);
-			(void)BAlert::Go(std::make_unique<BAlert>(B_TRANSLATE("About"),
-				B_TRANSLATE("NewGUI\n\nHaiku's Interface Kit on SDL3 and Skia."),
+			// with today's date and a number as the user's locale writes them
+			const std::time_t now = std::time(nullptr);
+			const std::string text = std::string(
+				B_TRANSLATE("NewGUI\n\nHaiku's Interface Kit on SDL3 and Skia.")) + "\n\n"
+				+ BDateFormat().Format(now, BDateFormatStyle::Long) + ", "
+				+ BTimeFormat().Format(now, BTimeFormatStyle::Short) + "\n"
+				+ BNumberFormat().Format(1234567.89, 2);
+			(void)BAlert::Go(std::make_unique<BAlert>(B_TRANSLATE("About"), text,
 				B_TRANSLATE("OK")), [](int32) {});
 			return;
 		}
