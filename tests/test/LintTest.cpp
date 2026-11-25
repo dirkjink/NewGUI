@@ -63,11 +63,13 @@ public:
 			nullptr));
 		AddChild(std::make_unique<BButton>(gfx::Rect{10, 10, 90, 35}, "upper", "Upper",
 			nullptr));
-		// "left" and "right" overlap
+		// "left" and "right" overlap; "right" is made first, so it usually
+		// lies at the lower address, but "left" is the earlier child
+		auto right = std::make_unique<BView>(gfx::Rect{150, 10, 200, 40}, "right",
+			kFollowLeftTop, BViewFlag::WillDraw);
 		AddChild(std::make_unique<BView>(gfx::Rect{100, 10, 160, 40}, "left", kFollowLeftTop,
 			BViewFlag::WillDraw));
-		AddChild(std::make_unique<BView>(gfx::Rect{150, 10, 200, 40}, "right", kFollowLeftTop,
-			BViewFlag::WillDraw));
+		AddChild(std::move(right));
 		// "Truncated text" is 98 pixels in 50
 		AddChild(Label({100, 50, 150, 70}, "cut", "Truncated text"));
 		// beyond the window's right edge
@@ -139,7 +141,8 @@ TEST(LintTest, TheLintFindsBrokenLayouts)
 	// report), "beyond" reaches out (an error), "small" is below its
 	// minimum (an error), "upper" comes after "lower" in Tab order (a
 	// warning). The excluded and the hidden views add nothing. The report
-	// text names the window, path and check.
+	// text names the window, path and check. The overlap is reported at the
+	// earlier child on every platform, whatever the heap order.
 	// Why it matters: Layout faults show in tests before users see them
 	// (specification 20.6).
 	//
