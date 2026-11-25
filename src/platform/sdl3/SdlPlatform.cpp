@@ -907,7 +907,7 @@ SdlPlatform::ShowFileDialog(const FileDialogSpec& spec,
 		parent = window->State();
 
 	// SDL shows dialogs from the main thread; the caller does not wait. The
-	// callback may come on another thread (the portal's under Linux).
+	// callback may come on another thread (zenity's under Linux).
 	FileDialogRequest* raw = request.release();
 	RunOnMainThread([spec, parent, raw] {
 		SDL_FileDialogType type = SDL_FILEDIALOG_OPENFILE;

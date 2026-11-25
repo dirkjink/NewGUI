@@ -81,8 +81,9 @@ public:
 			std::expected<void, Error> ShowFileDialog(const FileDialogSpec& spec,
 									std::function<void(FileDialogResult)> done) override;
 									/*!< SDL_ShowFileDialogWithProperties(): the system's
-										dialog (under Linux through the xdg-desktop-portal,
-										else zenity). */
+										dialog (Windows' and macOS' own; under Linux
+										zenity, as SDL is built without D-Bus and so
+										without the xdg-desktop-portal). */
 
 			void				RunOnMainThread(std::function<void()> work);
 									/*!< Runs \a work on the main thread: at once if called
