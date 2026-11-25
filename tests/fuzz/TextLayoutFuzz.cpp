@@ -21,7 +21,8 @@ NGUI_FUZZ_TARGET(TextLayout)
 {
 	// What is tested: A TextLayout of arbitrary bytes in the bundled fonts:
 	// the first byte chooses wrapping, alignment and the role and size of
-	// a second style run, the second the width, the third where that run begins;
+	// a second style run, the second the width, the third where that run begins
+	// and, by its top bit, whether the text is hidden (as bullets);
 	// then points and offsets at every byte and some points.
 	// Success criteria: No crash or sanitizer report; the lines cover the
 	// text from 0 to its end without gaps, each but an empty last line
@@ -43,6 +44,7 @@ NGUI_FUZZ_TARGET(TextLayout)
 	options.wrap = (data[0] & 1) != 0;
 	options.alignment = static_cast<ngui::BHorizontalAlignment>((data[0] >> 1) % 3);
 	options.width = static_cast<float>(data[1]);
+	options.hideText = (data[2] & 0x80) != 0;
 	const std::string text(reinterpret_cast<const char*>(data.data() + 3), data.size() - 3);
 	// the second run in another role, at 6 to 34 pixels
 	const ngui::FontSpec second = {

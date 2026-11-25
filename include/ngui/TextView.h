@@ -86,7 +86,7 @@ enum class BUndoState : std::uint8_t {
 	(Haiku: Pulse()). CountLines() counts the empty line after a final line
 	break. Input methods (kInputMethodEvent) compose their text inline,
 	on Haiku's colors; the window's platform shows their candidates at the
-	caret. Not yet: drag and drop of text, the context menu, HideTyping(),
+	caret. Not yet: drag and drop of text, the context menu,
 	MakeResizable(), auto scrolling while selecting and the I-beam
 	cursor.
 */
@@ -187,6 +187,17 @@ public:
 									/*!< Whether changes can be undone (by default). */
 			bool				DoesUndo() const;
 									/*!< Whether changes can be undone. */
+			void				HideTyping(bool enabled);
+									/*!< Whether the text is shown as bullets "•", one per
+										character, for passwords (Haiku's password mode).
+										Turning it on deletes the text (as Haiku) and what
+										could undo it. While it is on, the text cannot be
+										cut or copied by the shortcuts (kCut, kCopy), a
+										double click selects all of it, and scripting
+										(BTextControl's "Value" and "Text") cannot read
+										it; Text() still has it. */
+			bool				IsTypingHidden() const;
+									/*!< Whether the text is shown as bullets. */
 	virtual	void				Select(int32 startOffset, int32 endOffset);
 									/*!< Selects the text between the offsets; equal
 										offsets place the caret. */
@@ -476,6 +487,7 @@ private:
 			bool				fSelectable = true;
 			bool				fEditable = true;
 			bool				fWrap = true;
+			bool				fHideTyping = false;
 			int32				fMaxBytes = INT32_MAX;
 			std::vector<uint32>	fDisallowedChars;
 			BHorizontalAlignment fAlignment = BHorizontalAlignment::Left;

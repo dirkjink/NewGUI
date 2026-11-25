@@ -276,12 +276,12 @@ TextLayout::OffsetAt(int32 lineNum, float x) const
 	if (offset == line.end && offset > line.start) {
 		// special case: newlines aren't visible
 		// return the offset of the character preceding the newline
-		if (fText[offset - 1] == '\n')
+		if (_IsChar(offset - 1, '\n'))
 			return offset - 1;
 
 		// special case: return the offset preceding any spaces that
 		// aren't at the end of the buffer
-		if (offset != fText.size() && fText[offset - 1] == ' ')
+		if (offset != fText.size() && _IsChar(offset - 1, ' '))
 			return offset - 1;
 	}
 
@@ -528,7 +528,17 @@ TextLayout::Draw(gfx::Canvas& canvas, gfx::Point origin, const gfx::Color& color
 void
 TextLayout::_Layout(const TextSystem& system)
 {
-	fBoundaries = system.Boundaries(fText);
+	if (fOptions.hideText) {
+		// NewGUI: a caret between the characters, a word the whole text
+		fBoundaries.assign(fText.size() + 1, TextBoundaryFlags());
+		for (std::size_t i = 1; i < fText.size(); i++) {
+			if ((static_cast<unsigned char>(fText[i]) & 0xc0) != 0x80)
+				fBoundaries[i] = TextBoundary::Grapheme;
+		}
+		fBoundaries.front() = TextBoundary::Grapheme | TextBoundary::Word;
+		fBoundaries.back() = TextBoundary::Grapheme | TextBoundary::Word;
+	} else
+		fBoundaries = system.Boundaries(fText);
 	fLines.clear();
 
 	const std::size_t textLength = fText.size();
@@ -603,7 +613,7 @@ TextLayout::_FindLineBreak(const TextSystem& system, std::size_t fromOffset, flo
 		// Just find the next line break
 		std::size_t offset = NextBoundary(fromOffset, TextBoundary::MandatoryLine);
 		std::size_t toOffset = offset;
-		if (IsBoundary(offset, TextBoundary::MandatoryLine) && fText[offset - 1] == '\n')
+		if (IsBoundary(offset, TextBoundary::MandatoryLine) && _IsChar(offset - 1, '\n'))
 			toOffset--;
 
 		*inOutWidth = _Measure(system, fromOffset, toOffset, 0, nullptr, nullptr);
@@ -630,13 +640,13 @@ TextLayout::_FindLineBreak(const TextSystem& system, std::size_t fromOffset, flo
 			// found a line break, we're done!
 			done = true;
 			// do not include the newline into width & height calculations
-			if (fText[chunkEnd - 1] == '\n')
+			if (_IsChar(chunkEnd - 1, '\n'))
 				widthEnd--;
 		}
 
 		std::size_t beforeWhitespace = widthEnd;
 		while (beforeWhitespace > offset
-			&& (fText[beforeWhitespace - 1] == ' ' || fText[beforeWhitespace - 1] == '\t')) {
+			&& (_IsChar(beforeWhitespace - 1, ' ') || _IsChar(beforeWhitespace - 1, '\t'))) {
 			beforeWhitespace--;
 		}
 
@@ -710,6 +720,8 @@ float
 TextLayout::_Measure(const TextSystem& system, std::size_t from, std::size_t to, float x,
 	std::vector<float>* carets, std::vector<Segment>* segments, LineData* visual) const
 {
+	if (fOptions.hideText)
+		return _MeasureHidden(system, from, to, x, carets, segments);
 	if (carets != nullptr)
 		carets->assign(to - from + 1, x);
 
@@ -827,6 +839,57 @@ TextLayout::_Measure(const TextSystem& system, std::size_t from, std::size_t to,
 }
 
 
+// NewGUI: _Measure() of hidden text (Haiku's password mode): each
+// character a bullet in the font of its run, left to right; tabs and line
+// breaks are characters too.
+float
+TextLayout::_MeasureHidden(const TextSystem& system, std::size_t from, std::size_t to,
+	float x, std::vector<float>* carets, std::vector<Segment>* segments) const
+{
+	static constexpr std::string_view kBullet = "\u2022";
+
+	if (carets != nullptr)
+		carets->assign(to - from + 1, x);
+	float position = x;
+	for (std::size_t i = from; i < to;) {
+		const std::size_t j = std::min(_RunEnd(i), to);
+		// its characters as bullets, and the character of each byte
+		std::string bullets;
+		std::vector<std::size_t> character(j - i);
+		for (std::size_t k = i; k < j; k++) {
+			if (k == i || IsBoundary(k, TextBoundary::Grapheme))
+				bullets += kBullet;
+			character[k - i] = bullets.size() / kBullet.size() - 1;
+		}
+		const TextStyleRun& style = _RunAt(i);
+		const std::vector<float> bulletCarets = system.CaretPositions(bullets, style.font,
+			TextDirection::LeftToRight);
+		if (carets != nullptr) {
+			for (std::size_t k = i; k < j; k++)
+				(*carets)[k - from] = position + bulletCarets[character[k - i] * kBullet.size()];
+		}
+		if (segments != nullptr) {
+			segments->push_back({position,
+				system.ShapeRun(bullets, style.font, TextDirection::LeftToRight), style.color});
+		}
+		position += bulletCarets.back();
+		i = j;
+	}
+	if (carets != nullptr)
+		(*carets)[to - from] = position;
+	return position;
+}
+
+
+// Whether the byte at \a offset is \a c; in hidden text no character is a
+// tab, a space or a line break.
+bool
+TextLayout::_IsChar(std::size_t offset, char c) const
+{
+	return !fOptions.hideText && fText[offset] == c;
+}
+
+
 // The carets between graphemes of a line with right-to-left runs, where two
 // graphemes of different directions meet on two places: at the edge of the
 // one in the paragraph's direction (the "strong" caret), else at the
@@ -917,7 +980,7 @@ std::size_t
 TextLayout::_ContentEnd(const Line& line) const
 {
 	// without the line break at its end
-	if (line.end > line.start && fText[line.end - 1] == '\n')
+	if (line.end > line.start && _IsChar(line.end - 1, '\n'))
 		return line.end - 1;
 	return line.end;
 }

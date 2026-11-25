@@ -23,6 +23,7 @@
 #include <ngui/Looper.h>
 #include <ngui/StringItem.h>
 #include <ngui/TextControl.h>
+#include <ngui/TextView.h>
 #include <ngui/Window.h>
 #include <ngui/test/Driver.h>
 
@@ -42,8 +43,8 @@ constexpr std::uint32_t kInvoked = FourCharCode("INVK");
 
 
 // The window "Settings": a box "box" with a check box "check", a text
-// control "name" and a list "list" of four items, which sends kInvoked to
-// the window when invoked.
+// control "name", a list "list" of four items, which sends kInvoked to
+// the window when invoked, and a password field "password" with "secret".
 class SettingsWindow : public BWindow {
 public:
 	SettingsWindow()
@@ -61,6 +62,11 @@ public:
 			list->AddItem(std::make_unique<BStringItem>(item));
 		list->SetInvocationMessage(std::make_unique<BMessage>(kInvoked));
 		box->AddChild(std::move(list));
+		auto password = std::make_unique<BTextControl>(gfx::Rect{10, 172, 250, 188},
+			"password", "Password:", "", nullptr);
+		password->TextView()->HideTyping(true);
+		password->SetText("secret");
+		box->AddChild(std::move(password));
 		AddChild(std::move(box));
 	}
 };
@@ -255,6 +261,36 @@ TEST(ScriptingPropertiesTest, ControlsAnswerTheirProperties)
 	EXPECT_EQ(suites.FindString("suites", 3).value_or(""), "suite/vnd.Be-handler");
 }
 
+
+TEST(ScriptingPropertiesTest, HiddenTextCannotBeReadByScript)
+{
+	// What is tested: The password field of the window (a text control
+	// whose text view hides typing, with "secret"): get "Text" and "Value";
+	// set "Value" to "new", get "Text" again.
+	// Success criteria: Each get is NotSupported, without the text in the
+	// reply; setting works.
+	// Why it matters: Remote control and scripts must not steal passwords
+	// (Haiku's BTextView; specification 20.8, T5), but may fill them in.
+	//
+	// Given
+	Session session;
+	const Target password{"View", "password"};
+
+	// When
+	const BMessage text = session.Get({{"Text"}, password, kSettings});
+	const BMessage value = session.Get({{"Value"}, password, kSettings});
+	const BMessage set = session.Set({{"Value"}, password, kSettings},
+		[](BMessage& message) { (void)message.AddString("data", "new"); });
+	const BMessage after = session.Get({{"Text"}, password, kSettings});
+
+	// Then
+	ASSERT_FALSE(ScriptingResult(text).has_value());
+	EXPECT_EQ(ScriptingResult(text).error().code, ErrorCode::NotSupported);
+	EXPECT_FALSE(text.HasData("result"));
+	EXPECT_EQ(ScriptingResult(value).error().code, ErrorCode::NotSupported);
+	EXPECT_TRUE(ScriptingResult(set).has_value());
+	EXPECT_EQ(ScriptingResult(after).error().code, ErrorCode::NotSupported);
+}
 
 TEST(ScriptingPropertiesTest, ListsSelectAndInvokeByScript)
 {
