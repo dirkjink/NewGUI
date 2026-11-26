@@ -1573,11 +1573,11 @@ TEST(TextSkiaTest, ColumnListViewMatchesItsSnapshot)
 	auto& list = static_cast<BColumnListView&>(*window.AddChild(
 		std::make_unique<BColumnListView>(gfx::Rect{0, 0, 260, 140}, "list", kFollowLeftTop,
 			BViewFlag::Navigable, BBorderStyle::Plain)));
-	auto name = std::make_unique<BStringColumn>("Name", 130, 40, 300);
+	auto name = std::make_unique<BStringColumn>("Name", 130.0f, 40.0f, 300.0f);
 	BColumn* nameColumn = name.get();
 	list.AddColumn(std::move(name), 0);
-	list.AddColumn(std::make_unique<BStringColumn>("Size", 70, 40, 300, TruncationMode::End,
-		BHorizontalAlignment::Right), 1);
+	list.AddColumn(std::make_unique<BStringColumn>("Size", 70.0f, 40.0f, 300.0f,
+		TruncationMode::End, BHorizontalAlignment::Right), 1);
 	auto row = [](const char* rowName, const char* size) {
 		auto made = std::make_unique<BRow>();
 		made->SetField(std::make_unique<BStringField>(rowName), 0);

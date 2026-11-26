@@ -100,10 +100,10 @@ public:
 		auto list = std::make_unique<BColumnListView>(gfx::Rect{0, 0, 300, 200}, "list",
 			kFollowLeftTop, BViewFlag::Navigable);
 		fList = static_cast<BColumnListView*>(fWindow.AddChild(std::move(list)));
-		auto name = std::make_unique<BStringColumn>("Name", 100, 20, 400);
+		auto name = std::make_unique<BStringColumn>("Name", 100.0f, 20.0f, 400.0f);
 		fName = name.get();
 		fList->AddColumn(std::move(name), 0);
-		auto size = std::make_unique<BStringColumn>("Size", 60, 20, 400);
+		auto size = std::make_unique<BStringColumn>("Size", 60.0f, 20.0f, 400.0f);
 		fSize = size.get();
 		fList->AddColumn(std::move(size), 1);
 	}
@@ -347,7 +347,7 @@ TEST(ColumnListViewTest, OnlyVisibleRowsAreSelected)
 	TextSystem::SetDefault(&fixed);
 	BWindow window({0, 0, 400, 300}, "columns");
 	auto& list = static_cast<CountingList&>(*window.AddChild(std::make_unique<CountingList>()));
-	list.AddColumn(std::make_unique<BStringColumn>("Name", 100, 20, 400), 0);
+	list.AddColumn(std::make_unique<BStringColumn>("Name", 100.0f, 20.0f, 400.0f), 0);
 	for (const char* name : {"r0", "r1", "r2", "r3"})
 		ASSERT_TRUE(list.AddRow(MakeRow({name})));
 	BRow* r1 = list.RowAt(1);
@@ -440,7 +440,7 @@ public:
 		BWindow({0, 0, 400, 300}, "columns")
 	{
 		auto list = std::make_unique<RecordingList>(gfx::Rect{0, 0, 300, height}, &fRecords);
-		list->AddColumn(std::make_unique<BStringColumn>("Name", 100, 20, 400), 0);
+		list->AddColumn(std::make_unique<BStringColumn>("Name", 100.0f, 20.0f, 400.0f), 0);
 		for (int i = 0; i < 6; i++)
 			list->AddRow(MakeRow({"Row " + std::to_string(i)}));
 		BRow* row1 = list->RowAt(1);
@@ -676,8 +676,8 @@ TEST(ColumnListViewTest, ScrollBarsFollowRowsAndColumns)
 	auto& list = static_cast<BColumnListView&>(*window.AddChild(
 		std::make_unique<BColumnListView>(gfx::Rect{0, 0, 300, 100}, "list", kFollowLeftTop,
 			BViewFlags{})));
-	list.AddColumn(std::make_unique<BStringColumn>("Name", 200, 20, 400), 0);
-	list.AddColumn(std::make_unique<BStringColumn>("Size", 200, 20, 400), 1);
+	list.AddColumn(std::make_unique<BStringColumn>("Name", 200.0f, 20.0f, 400.0f), 0);
+	list.AddColumn(std::make_unique<BStringColumn>("Size", 200.0f, 20.0f, 400.0f), 1);
 	for (int i = 0; i < 10; i++)
 		ASSERT_TRUE(list.AddRow(MakeRow({"r" + std::to_string(i), "1"})));
 	BView* rows = list.ScrollView();
@@ -758,7 +758,7 @@ public:
 	{
 		auto list = std::make_unique<BColumnListView>(gfx::Rect{0, 0, 300, 200}, "list",
 			kFollowLeftTop, BViewFlags{});
-		list->AddColumn(std::make_unique<BStringColumn>("Name", 100, 20, 400), 0);
+		list->AddColumn(std::make_unique<BStringColumn>("Name", 100.0f, 20.0f, 400.0f), 0);
 		list->AddColumn(std::make_unique<EventColumn>(&fEvents), 0);
 		list->AddRow(MakeRow({"a"}));
 		list->AddRow(MakeRow({"b"}));

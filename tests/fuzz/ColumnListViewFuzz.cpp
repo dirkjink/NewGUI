@@ -86,8 +86,8 @@ NGUI_FUZZ_TARGET(ColumnListView)
 	auto& list = static_cast<ngui::BColumnListView&>(*window.AddChild(
 		std::make_unique<ngui::BColumnListView>(ngui::gfx::Rect{0, 0, 200, 120}, "list",
 			ngui::kFollowLeftTop, ngui::BViewFlags{})));
-	list.AddColumn(std::make_unique<ngui::BStringColumn>("A", 60, 10, 200), 0);
-	list.AddColumn(std::make_unique<ngui::BStringColumn>("B", 60, 10, 200), 1);
+	list.AddColumn(std::make_unique<ngui::BStringColumn>("A", 60.0f, 10.0f, 200.0f), 0);
+	list.AddColumn(std::make_unique<ngui::BStringColumn>("B", 60.0f, 10.0f, 200.0f), 1);
 
 	for (std::size_t i = 0; i + 1 < data.size(); i += 2) {
 		const std::uint8_t op = data[i];
