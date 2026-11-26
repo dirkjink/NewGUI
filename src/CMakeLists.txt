@@ -149,6 +149,8 @@ add_library(ngui
     looks/be/BeControlLook.cpp
     looks/haiku/HaikuControlLook.cpp
     looks/haiku/HaikuLook.cpp
+    looks/flat/FlatControlLook.cpp
+    looks/flat/FlatLook.cpp
     platform/CpuPresenter.cpp
     platform/HeadlessPlatform.cpp
     platform/PlatformRegistry.cpp

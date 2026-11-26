@@ -93,6 +93,7 @@ add_executable(ngui_tests
     look/ControlLookTest.cpp
     look/be/BeLookTest.cpp
     look/haiku/HaikuLookTest.cpp
+    look/flat/FlatLookTest.cpp
     platform/CpuPresenterTest.cpp
     platform/HeadlessPlatformTest.cpp
     platform/PlatformTest.cpp
@@ -202,6 +203,7 @@ if(NGUI_WITH_SKIA)
     add_executable(ngui_skia_tests
         skia/BeLookSkiaTest.cpp
         skia/CompatSkiaTest.cpp
+        skia/FlatLookSkiaTest.cpp
         skia/HaikuLookSkiaTest.cpp
         skia/SkiaBackendTest.cpp
         skia/SkiaSmokeTest.cpp)

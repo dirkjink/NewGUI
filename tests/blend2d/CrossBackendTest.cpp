@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include <ngui/BeLook.h>
+#include <ngui/FlatLook.h>
 #include <ngui/HaikuLook.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/test/Image.h>
@@ -220,6 +221,28 @@ TEST(CrossBackendTest, TheHaikuLookLooksTheSame)
 		"DrawMenuBarBackground", "DrawMenuFieldBackground", "DrawMenuFieldFrame",
 		"DrawMenuItemBackground", "DrawRadioButton", "DrawScrollBarButton",
 		"DrawScrollBarThumb", "DrawSliderBar", "DrawSliderTriangle", "DrawStatusBar"});
+}
+
+
+TEST(CrossBackendTest, TheFlatLookLooksTheSame)
+{
+	// What is tested: Every drawing method of the flat look in every state,
+	// rendered by Skia and Blend2D.
+	// Success criteria: Pixel for pixel the same, except the methods the
+	// Haiku look draws with gradients or rounded corners and three more
+	// the flat look draws so (the gradient of the scroll bar background,
+	// the rounded slider thumb and text control border), which look alike
+	// as in TheBeOSLookLooksTheSame.
+	// Why it matters: Conformance level C2 on all backends (21.4), also for
+	// the look that derives from the Haiku look.
+	//
+	// When / Then
+	ExpectLookAlike(*CreateFlatLook(), {"DrawArrowShape", "DrawButtonBackground",
+		"DrawButtonFrame", "DrawButtonWithPopUpBackground", "DrawCheckBox",
+		"DrawMenuBarBackground", "DrawMenuFieldBackground", "DrawMenuFieldFrame",
+		"DrawMenuItemBackground", "DrawRadioButton", "DrawScrollBarBackground",
+		"DrawScrollBarButton", "DrawScrollBarThumb", "DrawSliderBar", "DrawSliderThumb",
+		"DrawSliderTriangle", "DrawStatusBar", "DrawTextControlBorder"});
 }
 
 

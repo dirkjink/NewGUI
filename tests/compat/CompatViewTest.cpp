@@ -7,6 +7,7 @@
 
 #include "compat/CompatView.h"
 
+#include <limits>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -211,10 +212,13 @@ TEST(CompatViewTest, CoordinatesAreRoundedLikeHaikus)
 TEST(CompatViewTest, BRectKeepsHaikusSemantics)
 {
 	// What is tested: The ported BRect: width, integer width, inset, and the
-	// conversions FromBRect() and BRegion::ToIntRect().
+	// conversions FromBRect() and BRegion::ToIntRect(), also of the largest
+	// BRect.
 	// Success criteria: BRect(0, 0, 9, 9) has Width() 9 and IntegerWidth() 9
 	// as in Haiku, covers 10 pixels after FromBRect(), and the region of it
-	// is IntRect{0, 0, 10, 10}; an invalid BRect gives an empty region.
+	// is IntRect{0, 0, 10, 10}; an invalid BRect gives an empty region; the
+	// largest BRect of floats (the looks' update rectangle) is kept within
+	// ±2^30 instead of overflowing int (undefined behavior).
 	// Why it matters: The ported look code computes with these semantics on
 	// every line; the layer converts only when drawing (specification 17.1).
 	//
@@ -228,6 +232,9 @@ TEST(CompatViewTest, BRectKeepsHaikusSemantics)
 	EXPECT_EQ(FromBRect(rect), (gfx::Rect{0, 0, 10, 10}));
 	EXPECT_EQ(BRegion::ToIntRect(rect), (gfx::IntRect{0, 0, 10, 10}));
 	EXPECT_EQ(BRegion::ToIntRect(BRect()), (gfx::IntRect{0, 0, 0, 0}));
+	const float largest = std::numeric_limits<float>::max();
+	EXPECT_EQ(BRegion::ToIntRect(BRect(-largest, -largest, largest, largest)),
+		(gfx::IntRect{-(1 << 30), -(1 << 30), (1 << 30) + 1, (1 << 30) + 1}));
 	EXPECT_EQ(BRegion(rect).Frame(), rect);
 	EXPECT_EQ(PixelCenter(BPoint(3, 4)), (gfx::Point{3.5f, 4.5f}));
 }

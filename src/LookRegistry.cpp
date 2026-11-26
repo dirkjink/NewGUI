@@ -12,6 +12,7 @@
 
 #include <ngui/AppDefs.h>
 #include <ngui/BeLook.h>
+#include <ngui/FlatLook.h>
 #include <ngui/HaikuLook.h>
 
 
@@ -50,6 +51,7 @@ LookRegistry::Default()
 		// The built-in looks (18.6).
 		registry.Register(std::string(kFallbackId), CreateBeLook);
 		registry.Register("haiku", CreateHaikuLook);
+		registry.Register("flat", CreateFlatLook);
 		const bool selected = registry.SetCurrent(kFallbackId).has_value();
 		// from now on, changes reach the windows
 		registry.fTellsWindows = true;
