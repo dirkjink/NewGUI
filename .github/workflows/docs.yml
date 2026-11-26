@@ -70,7 +70,7 @@ jobs:
       # platform and the snapshot tests count too. SDL3 builds its X11 and
       # Wayland support against the system's development headers.
       - name: Install the window system headers
-        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
+        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev libgl-dev libgles-dev
 
       # From the signed Ubuntu archive; the version is fixed per Ubuntu
       # release (1.9.8 on 24.04, the minimum cmake/NguiApiDocs.cmake asks for).

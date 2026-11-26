@@ -232,6 +232,17 @@ if(NGUI_WITH_SKIA)
         skia/HaikuLookSkiaTest.cpp
         skia/SkiaBackendTest.cpp
         skia/SkiaSmokeTest.cpp)
+    # The GPU surface (phase G) over an OpenGL context of EGL, where there is
+    # EGL (Mesa's llvmpipe in the CI; the test skips without a context).
+    # FindOpenGL makes OpenGL::EGL only with glvnd's libOpenGL, which the
+    # test does not need: EGL alone loads the functions of OpenGL.
+    find_path(NGUI_EGL_INCLUDE_DIR EGL/egl.h)
+    find_library(NGUI_EGL_LIBRARY EGL)
+    if(NGUI_EGL_INCLUDE_DIR AND NGUI_EGL_LIBRARY AND NGUI_WITH_TEXT)
+        target_sources(ngui_skia_tests PRIVATE skia/SkiaGpuTest.cpp)
+        target_include_directories(ngui_skia_tests SYSTEM PRIVATE "${NGUI_EGL_INCLUDE_DIR}")
+        target_link_libraries(ngui_skia_tests PRIVATE "${NGUI_EGL_LIBRARY}")
+    endif()
     target_link_libraries(ngui_skia_tests
         PRIVATE
             ngui::skia

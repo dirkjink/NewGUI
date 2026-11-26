@@ -69,6 +69,32 @@ ImageComparison					CompareImages(const Image& reference, const Image& actual,
 									const Tolerance& tolerance);
 
 
+/*!	The result of CompareRasterizers(). */
+struct RasterizerComparison {
+			bool				passed = false;
+									/*!< They look alike, and the sizes match. */
+			double				meanDifference = 0;
+									/*!< The mean of each pixel's largest component
+										difference, in 1/255. */
+			std::int64_t		strongPixels = 0;
+									/*!< Pixels more than 64/255 apart. */
+			int					maxChannelDifference = 0;
+									/*!< Largest difference of one component. */
+
+			std::string			Describe() const;
+									/*!< One line for a test failure. */
+};
+
+
+/*!	Whether two rasterizers drew the same antialiased drawing alike
+	(specification 21.2: backend against backend, CPU against GPU): their
+	edge pixels cover differently, so many pixels differ a little and a few,
+	at thin diagonals, a lot. Alike means a mean difference of at most
+	3/255 and at most 0.5 % of the pixels more than 64/255 apart. */
+RasterizerComparison			CompareRasterizers(const Image& reference,
+									const Image& actual);
+
+
 constexpr Tolerance
 Tolerance::Exact()
 {
