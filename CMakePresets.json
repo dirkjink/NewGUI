@@ -72,6 +72,15 @@
       }
     },
     {
+      "name": "fuzz-skia",
+      "displayName": "Fuzz with Skia, for the targets that draw with it (requires CC=clang CXX=clang++)",
+      "inherits": "fuzz",
+      "cacheVariables": {
+        "VCPKG_MANIFEST_FEATURES": "tests;text;svg;skia",
+        "NGUI_WITH_SKIA": "ON"
+      }
+    },
+    {
       "name": "skia",
       "displayName": "Skia and SDL3 (vcpkg features skia and sdl3, warnings as errors)",
       "inherits": "base",
@@ -114,6 +123,10 @@
     {
       "name": "fuzz",
       "configurePreset": "fuzz"
+    },
+    {
+      "name": "fuzz-skia",
+      "configurePreset": "fuzz-skia"
     },
     {
       "name": "skia",
