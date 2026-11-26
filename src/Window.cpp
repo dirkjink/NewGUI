@@ -25,6 +25,7 @@
 #include <ngui/MenuItem.h>
 #include <ngui/MessageRunner.h>
 #include <ngui/TextSystem.h>
+#include <ngui/TextView.h>
 #include <ngui/ToolTip.h>
 #include <ngui/gfx/BackendRegistry.h>
 #include <ngui/gfx/Canvas.h>
@@ -35,6 +36,7 @@
 #include "ToolTipPopup.h"
 #include "ScriptingSupport.h"
 #include "WindowList.h"
+#include "record/Recorder.h"
 
 
 namespace ngui {
@@ -58,6 +60,9 @@ std::mutex sWindowsLock;
 std::vector<BMessenger> sWindows;
 // their titles, in the same order (WindowEntries())
 std::vector<std::string> sWindowTitles;
+// their serials, in the same order, and the next one
+std::vector<std::uint64_t> sWindowSerials;
+std::uint64_t sNextWindowSerial = 0;
 
 // The shown windows with BWindowFeel::ModalApp, under sWindowsLock.
 struct ModalWindow {
@@ -207,6 +212,8 @@ BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWin
 		std::scoped_lock lock(sWindowsLock);
 		sWindows.push_back(BMessenger(this));
 		sWindowTitles.push_back(fTitle);
+		fSerial = sNextWindowSerial++;
+		sWindowSerials.push_back(fSerial);
 	}
 	fLook = LookRegistry::DefaultLook();
 	fRoot = std::make_unique<BView>(Bounds(), "root", kFollowAll, BViewFlags());
@@ -257,6 +264,7 @@ BWindow::~BWindow()
 		const auto found = std::ranges::find(sWindows, self);
 		if (found != sWindows.end()) {
 			sWindowTitles.erase(sWindowTitles.begin() + (found - sWindows.begin()));
+			sWindowSerials.erase(sWindowSerials.begin() + (found - sWindows.begin()));
 			sWindows.erase(found);
 		}
 		std::erase_if(sModalWindows, [this](const ModalWindow& modal) {
@@ -870,6 +878,10 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 			// a window with a look of its own keeps it (18.5)
 			if (fOwnLook == nullptr)
 				_LookChanged();
+			return;
+		case detail::kRecordWindowState:
+			// a recording begins: its frame and scale as it has them
+			detail::RecordWindowState(*this, fFrame, fScale);
 			return;
 		case kWindowActivated:
 		{
@@ -1590,8 +1602,49 @@ detail::WindowEntries()
 	std::scoped_lock lock(sWindowsLock);
 	std::vector<WindowEntry> entries;
 	for (std::size_t i = 0; i < sWindows.size(); i++)
-		entries.push_back({sWindows[i], sWindowTitles[i]});
+		entries.push_back({sWindows[i], sWindowTitles[i], sWindowSerials[i]});
 	return entries;
+}
+
+
+std::uint64_t
+detail::NextWindowSerial()
+{
+	std::scoped_lock lock(sWindowsLock);
+	return sNextWindowSerial;
+}
+
+
+std::uint64_t
+WindowAccess::Serial(const BWindow& window)
+{
+	return window.fSerial;
+}
+
+
+std::int32_t
+WindowAccess::PopupIndex(const BWindow& window, const BHandler* handler)
+{
+	for (std::size_t i = 0; i < window.fPopups.size(); i++) {
+		if (window.fPopups[i].get() == handler)
+			return static_cast<std::int32_t>(i);
+	}
+	return -1;
+}
+
+
+bool
+WindowAccess::MasksInput(const BWindow& window)
+{
+	for (const BView* view = window.CurrentFocus(); view != nullptr; view = view->Parent()) {
+		if (view->IsInputPrivate())
+			return true;
+		if (const auto* text = dynamic_cast<const BTextView*>(view);
+				text != nullptr && text->IsTypingHidden()) {
+			return true;
+		}
+	}
+	return false;
 }
 
 

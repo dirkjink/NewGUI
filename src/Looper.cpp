@@ -17,6 +17,8 @@
 #include <ngui/Autolock.h>
 #include <ngui/PropertyInfo.h>
 
+#include "PlatformEvent.h"
+#include "record/Recorder.h"
 #include "LooperPort.h"
 
 
@@ -160,6 +162,10 @@ BLooper::_Dispatch(std::unique_ptr<BMessage> message)
 		fCurrent.reset();
 		return;
 	}
+	// an event of the platform, as the looper gets it (Record & Replay,
+	// specification 20.8), before the filters
+	if (PlatformEventMark::Take(*fCurrent))
+		detail::RecordPlatformEvent(*this, _Target(*fCurrent), *fCurrent);
 	BHandler* handler = _FilteredTarget(fCurrent.get(), _Target(*fCurrent));
 	// a scripting message goes to the handler its specifiers name
 	if (handler != nullptr && fCurrent->HasSpecifiers())

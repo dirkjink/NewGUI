@@ -31,6 +31,7 @@ namespace ngui {
 
 
 class BButton;
+struct WindowAccess;
 class BMenuBar;
 class BMenuItem;
 class BMessageRunner;
@@ -332,6 +333,7 @@ private:
 	friend class BFilePanel;
 	friend class BToolTipManager;
 	friend class ToolTipPopup;
+	friend struct WindowAccess;
 
 			void				_AddDirty(const gfx::Rect& rect);
 			void				_AddDirty(const BView* root, const gfx::Rect& rect);
@@ -383,6 +385,8 @@ private:
 			void				_LookChanged();
 
 			std::string			fTitle;
+			std::uint64_t		fSerial = 0;
+									// its place in the order the windows were made
 			BWindowFlags		fFlags;
 			BWindowFeel			fFeel = BWindowFeel::Normal;
 			std::unique_ptr<BView> fRoot;

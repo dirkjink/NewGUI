@@ -874,6 +874,8 @@ Nach dem Vorbild von Haikus Scripting-Protokoll (`B_GET_PROPERTY`, `B_SET_PROPER
 - **Aufzeichnung:** Eingabeereignisse auf Ebene der Plattform mit Zeitstempeln der `Clock`, dazu Anfangszustand (Fenstergrößen, Look, Skalierung, Einstellungen).
 - **Wiedergabe:** im Headless-Betrieb mit virtueller Uhr. Ein Fehler aus der Praxis wird so zum Regressionstest.
 - **T5: Datenschutz.** Aufzeichnungen können eingegebenen Text enthalten. Aufgezeichnet wird nur nach ausdrücklicher Zustimmung. Passwortfelder werden nie im Klartext aufgezeichnet.
+  - **Zustimmung:** Die Anwendung ruft `BApplication::StartRecording(datei)` erst auf, nachdem der Benutzer zugestimmt hat. Wer die Anwendung mit `NGUI_RECORD=<datei>` startet, stimmt damit zu.
+  - **Die Datei** ist nur für den Benutzer lesbar. `ngui-replay --dump <datei>` zeigt, was sie enthält.
 - Wiedergaben sind nur so deterministisch wie die Anwendung selbst. Netzwerk, Dateisystem und Zufall muss die Anwendung bei Bedarf selbst abstrahieren.
 
 ### 20.9 Einbindung in Test-Frameworks
@@ -1076,7 +1078,7 @@ Grob gesagt umfasst die austauschbare Canvas-Schicht ohne ControlLook, Text und 
 
 13. **Standard-Textmodus im SVG-Export:** `Paths` (originalgetreu) oder `Text` (auswählbar, kleiner, aber von den Schriften beim Betrachter abhängig)?
 14. **Fernsteuerung:** Reicht die Freischaltung nach T4, oder soll zusätzlich jede Verbindung mit einem Token authentifiziert werden?
-15. **Record & Replay:** Welche weiteren Felder außer Passwortfeldern werden standardmäßig maskiert?
+15. **Record & Replay:** ~~Welche weiteren Felder außer Passwortfeldern werden standardmäßig maskiert?~~ **Entschieden (2026-11-25):** keine weiteren. Maskiert werden Passwortfelder (`BTextView::HideTyping()`) und jede View, die die Anwendung mit `BView::SetInputPrivate()` als privat markiert, samt der Views darin. Alles andere wird im Klartext aufgezeichnet, damit eine Wiedergabe echten Text tippt. Maskiert heißt: Jedes getippte Zeichen wird zu „•“, der Tastencode zu 0. Tasten ohne Zeichen und Kürzel mit Command, Control oder Option bleiben erhalten.
 16. **Ablage der Referenzdateien:** Die Matrix aus Look, Backend und Skalierung erzeugt viele Bilder. Git LFS, ein eigenes Referenz-Repository oder nur SVG- und Layout-Snapshots im Haupt-Repository?
 
 ---

@@ -27,6 +27,7 @@
 #include <ngui/LayoutUtils.h>
 #include <ngui/platform/CpuPresenter.h>
 
+#include "PlatformEvent.h"
 #include "SdlEvents.h"
 
 
@@ -805,6 +806,8 @@ SdlPlatform::ProcessEvents()
 			return density > 0 ? density : 1.0f;
 		};
 		for (sdl3::TranslatedEvent& translated : sdl3::Translate(events, context)) {
+			// events of the platform, for Record & Replay
+			PlatformEventMark::Set(translated.message);
 			if (translated.window == sdl3::kApplicationEvent) {
 				(void)AppMessenger().SendMessage(translated.message);
 				continue;

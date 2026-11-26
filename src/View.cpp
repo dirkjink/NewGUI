@@ -1091,6 +1091,20 @@ BView::ToolTip() const
 
 
 void
+BView::SetInputPrivate(bool isPrivate)
+{
+	fInputPrivate = isPrivate;
+}
+
+
+bool
+BView::IsInputPrivate() const
+{
+	return fInputPrivate;
+}
+
+
+void
 BView::ShowToolTip(std::shared_ptr<BToolTip> tip)
 {
 	if (tip == nullptr || fWindow == nullptr)

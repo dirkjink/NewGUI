@@ -412,7 +412,14 @@ CodeName(std::uint32_t code)
 		{kGetProperty, "B_GET_PROPERTY"}, {kSetProperty, "B_SET_PROPERTY"},
 		{kCreateProperty, "B_CREATE_PROPERTY"}, {kDeleteProperty, "B_DELETE_PROPERTY"},
 		{kCountProperties, "B_COUNT_PROPERTIES"}, {kExecuteProperty, "B_EXECUTE_PROPERTY"},
-		{kGetSupportedSuites, "B_GET_SUPPORTED_SUITES"}};
+		{kGetSupportedSuites, "B_GET_SUPPORTED_SUITES"},
+		// the events of the platform (ngui-replay)
+		{kMouseDown, "B_MOUSE_DOWN"}, {kMouseUp, "B_MOUSE_UP"},
+		{kMouseMoved, "B_MOUSE_MOVED"}, {kMouseWheelChanged, "B_MOUSE_WHEEL_CHANGED"},
+		{kKeyDown, "B_KEY_DOWN"}, {kKeyUp, "B_KEY_UP"},
+		{kInputMethodEvent, "B_INPUT_METHOD_EVENT"}, {kWindowResized, "B_WINDOW_RESIZED"},
+		{kWindowMoved, "B_WINDOW_MOVED"}, {kWindowActivated, "B_WINDOW_ACTIVATED"},
+		{kQuitRequested, "B_QUIT_REQUESTED"}};
 	for (const Name& name : kNames) {
 		if (name.code == code)
 			return name.name;
@@ -565,15 +572,29 @@ PropertyTable(const BMessage& table)
 std::string
 DescribeReply(const BMessage& reply)
 {
-	std::string text = "Reply BMessage(" + CodeName(reply.what) + "):\n";
+	return "Reply BMessage(" + CodeName(reply.what) + "):\n" + DescribeFields(reply, "   ");
+}
+
+
+std::string
+MessageName(std::uint32_t what)
+{
+	return CodeName(what);
+}
+
+
+std::string
+DescribeFields(const BMessage& reply, std::string_view indent)
+{
+	std::string text;
 	for (const BFieldInfo& field : reply.Fields()) {
 		for (std::int32_t i = 0; i < field.count; i++) {
 			if (field.type == BTypeCode::Message && field.name == "messages") {
-				text += "   \"messages\" (property table) :\n"
+				text += std::string(indent) + "\"messages\" (property table) :\n"
 					+ PropertyTable(reply.FindMessage("messages", i).value_or(BMessage()));
 				continue;
 			}
-			text += "   \"" + field.name + "\" (" + TypeName(field.type) + ") : "
+			text += std::string(indent) + "\"" + field.name + "\" (" + TypeName(field.type) + ") : "
 				+ ItemText(reply, field, i) + "\n";
 		}
 	}

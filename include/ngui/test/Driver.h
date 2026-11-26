@@ -20,6 +20,7 @@
 
 #include <ngui/Application.h>
 #include <ngui/Clock.h>
+#include <ngui/Recording.h>
 #include <ngui/Error.h>
 #include <ngui/InterfaceDefs.h>
 #include <ngui/Messenger.h>
@@ -248,6 +249,20 @@ public:
 										keys (keys::kTab, keys::kEnter, an arrow, ...) or a
 										character, with \a modifiers, in the active
 										window. */
+			std::expected<void, Error> Replay(const Recording& recording);
+									/*!< Plays \a recording back (specification 20.8): makes
+										its look current, then sends each event to its
+										window, popup or the application as the platform
+										does, at its time: the TestEnvironment's clock moves
+										on to it, and the application gets idle after each
+										event. The windows of its start are the windows now,
+										in the order they were made, the windows made later
+										follow in that order. NotFound if there are not as
+										many windows at the start, or the window or popup of
+										an event is not there when it comes (the application
+										went another way); InvalidArgument without a
+										ManualClock. Masked typing comes as it was recorded,
+										as bullets. */
 
 private:
 	friend class WindowRef;
@@ -256,6 +271,9 @@ private:
 			platform::HeadlessWindow* _KeyWindow() const;
 			std::expected<void, Error> _SendKey(platform::HeadlessWindow* window,
 									std::string_view bytes, BModifierFlags modifiers);
+			std::expected<void, Error> _ReplayEvent(const RecordedEvent& event,
+									const std::vector<std::uint64_t>& startSerials,
+									std::uint64_t firstNewSerial);
 			std::expected<void, Error> _Mouse(platform::HeadlessWindow* window,
 									std::uint32_t what, gfx::Point where, std::int32_t buttons,
 									std::int32_t clicks);
