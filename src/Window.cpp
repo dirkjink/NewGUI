@@ -1897,9 +1897,13 @@ BWindow::_Update()
 			popup->root->Layout(false);
 	}
 	fUpdatePending = false;
+	// The platform renders the frames itself (phase G, on the GPU): the
+	// window hands over its list.
+	const bool platformDraws = fPlatformWindow != nullptr && fPlatformWindow->DrawsLists();
 	// NewGUI: a frame of the content area only if it needs one (not when
 	// only a popup changed).
-	const bool drawMain = fMainUpdateWanted || fSurface == nullptr;
+	const bool drawMain = fMainUpdateWanted || fFrameCount == 0
+		|| (!platformDraws && fSurface == nullptr);
 	fMainUpdateWanted = false;
 	if (fPlatformWindow != nullptr && IsHidden())
 		return;
@@ -1912,7 +1916,14 @@ BWindow::_Update()
 	const TextSystem& text = TextSystem::Default();
 	const gfx::Caps caps = fBackend->Capabilities();
 
-	if (drawMain) {
+	if (drawMain && platformDraws) {
+		const DrawEnvironment environment{caps, Palette::Default(), text, fScale};
+		fLastFrame = fRoot->RecordTree(environment);
+		fFrameCount++;
+		(void)fPlatformWindow->PresentList(fLastFrame,
+			Palette::Default().Get(BColorWhich::PanelBackground));
+		fDirty.clear();
+	} else if (drawMain) {
 		if (fSurface == nullptr) {
 			gfx::NativeWindow native;
 			if (fPlatformWindow != nullptr)
@@ -2200,7 +2211,18 @@ BWindow::_Snapshot(const BSnapshotOptions& options, BView* view)
 std::expected<BBitmap, Error>
 BWindow::_CaptureFrame()
 {
-	if (fSurface == nullptr || fFrameCount == 0)
+	if (fFrameCount == 0)
+		return Failure(ErrorCode::NotFound, "no frame shown yet");
+	// a frame the platform rendered (phase G): what it shows
+	if (fPlatformWindow != nullptr && fPlatformWindow->DrawsLists()) {
+		const auto shown = fPlatformWindow->ReadShownFrame();
+		if (!shown.has_value())
+			return std::unexpected(shown.error());
+		return BitmapOf(gfx::CpuPixels{shown->width, shown->height,
+			static_cast<std::size_t>(shown->width) * 4, gfx::PixelFormat::Rgba8Premul,
+			shown->rgba});
+	}
+	if (fSurface == nullptr)
 		return Failure(ErrorCode::NotFound, "no frame shown yet");
 	const std::optional<gfx::CpuPixels> pixels = fSurface->Pixels();
 	if (!pixels.has_value())

@@ -7,8 +7,11 @@
 
 #include <ngui/platform/SdlPlatform.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <cstddef>
+#include <cstdio>
 #include <deque>
 #include <future>
 #include <map>
@@ -17,6 +20,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -25,8 +29,11 @@
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
 #include <ngui/LayoutUtils.h>
+#include <ngui/TextSystem.h>
+#include <ngui/gfx/BackendRegistry.h>
 #include <ngui/platform/CpuPresenter.h>
 
+#include "Environment.h"
 #include "PlatformEvent.h"
 #include "SdlEvents.h"
 #ifdef NGUI_WITH_ACCESSKIT
@@ -67,6 +74,19 @@ struct WindowState {
 	// a new, empty one when the window's size changes.
 	int						surfaceWidth = 0;
 	int						surfaceHeight = 0;
+
+	// Phase G: a window whose lists the main thread renders on the GPU,
+	// through the window's OpenGL context (SDL allows OpenGL only there).
+	// gl and gpuSurface are used on the main thread only; the window
+	// thread hands over the next frame (PresentList()).
+	SDL_GLContext			gl = nullptr;
+	gfx::SurfaceRef			gpuSurface;
+	gfx::DisplayListRef		pendingFrame;
+	gfx::Color				pendingClear = {1, 1, 1, 1};
+	bool					renderQueued = false;
+	// the frame shown last, for ReadShownFrame(); main thread only
+	gfx::DisplayListRef		shownFrame;
+	gfx::Color				shownClear = {1, 1, 1, 1};
 #ifdef NGUI_WITH_ACCESSKIT
 	// assistive technology (windows, not popups); made and freed on the
 	// main thread
@@ -217,6 +237,37 @@ public:
 	// BCursorID, the image cursor shown last
 	std::map<std::uint8_t, SDL_Cursor*> systemCursors;
 	SDL_Cursor*				imageCursor = nullptr;
+	// Phase G: whether new windows render on the GPU (NGUI_RENDERER=gpu,
+	// SetGpuRendering()); the backend that renders them and the fonts it
+	// has, main thread only, made on first use
+	std::atomic<bool>		gpuWanted = false;
+	std::unique_ptr<gfx::Backend> gpuBackend;
+	bool					gpuBackendTried = false;
+	std::unordered_set<gfx::FontId> gpuFonts;
+	bool					gpuWarned = false;
+
+	// The backend with GPU surfaces that renders GPU windows, or nullptr;
+	// on the main thread.
+	gfx::Backend* GpuBackend()
+	{
+		if (!gpuBackendTried) {
+			gpuBackendTried = true;
+			auto backend = gfx::BackendRegistry::Default().CreatePreferred({});
+			if (backend.has_value() && (*backend)->Capabilities().gpuSurfaces)
+				gpuBackend = std::move(*backend);
+		}
+		return gpuBackend.get();
+	}
+
+	// Hands the fonts of the text system to the GPU backend, those it does
+	// not have yet; on the main thread.
+	void AddGpuFonts()
+	{
+		for (const FontFile& font : TextSystem::Default().Fonts()) {
+			if (gpuFonts.insert(font.id).second)
+				(void)gpuBackend->AddFont(font.id, font.data, font.faceIndex);
+		}
+	}
 
 	bool OnMainThread() const
 	{
@@ -389,6 +440,163 @@ namespace {
 
 
 // A window of SdlPlatform.
+// Phase G: draws \a frame on \a clear into the back buffer of a GPU
+// window, its OpenGL context made current, the surface fitted to the
+// window's size; on the main thread. False if it cannot.
+bool
+DrawGpuFrame(sdl3::PlatformState& platform, WindowState& state, const gfx::DisplayList& frame,
+	const gfx::Color& clear)
+{
+	gfx::Backend* backend = platform.GpuBackend();
+	if (backend == nullptr || state.window == nullptr || state.gl == nullptr
+		|| state.gpuSurface == nullptr || !SDL_GL_MakeCurrent(state.window, state.gl)) {
+		return false;
+	}
+	int width = 0;
+	int height = 0;
+	SDL_GetWindowSizeInPixels(state.window, &width, &height);
+	float scale = 1;
+	{
+		std::scoped_lock lock(state.lock);
+		scale = state.scale;
+	}
+	const gfx::Size device = {static_cast<float>(width), static_cast<float>(height)};
+	if (state.gpuSurface->DeviceSize() != device || state.gpuSurface->Scale() != scale)
+		backend->ResizeSurface(*state.gpuSurface, device, scale);
+	platform.AddGpuFonts();
+	backend->BeginFrame(*state.gpuSurface, clear);
+	backend->Render(frame, {0, 0});
+	backend->EndFrame(*state.gpuSurface);
+	return true;
+}
+
+
+// Phase G: renders the frame the window handed over last and shows it; on
+// the main thread.
+void
+ShowGpuFrame(sdl3::PlatformState& platform, WindowState& state)
+{
+	gfx::DisplayListRef frame;
+	gfx::Color clear;
+	{
+		std::scoped_lock lock(state.lock);
+		state.renderQueued = false;
+		frame = std::move(state.pendingFrame);
+		clear = state.pendingClear;
+	}
+	if (frame == nullptr || !DrawGpuFrame(platform, state, *frame, clear))
+		return;
+	SDL_GL_SwapWindow(state.window);
+	state.shownFrame = std::move(frame);
+	state.shownClear = clear;
+}
+
+
+// Phase G: what a GPU window shows: its last frame drawn again into the
+// back buffer and read with glReadPixels(), past the backend, the top row
+// first; on the main thread.
+std::expected<ShownFrame, Error>
+ReadGpuFrame(sdl3::PlatformState& platform, WindowState& state)
+{
+	if (state.shownFrame == nullptr)
+		return Failure(ErrorCode::NotFound, "no frame shown yet");
+	if (!DrawGpuFrame(platform, state, *state.shownFrame, state.shownClear))
+		return Failure(ErrorCode::NotSupported, "the window cannot draw on the GPU");
+
+	using ReadPixels = void (*)(int, int, int, int, unsigned, unsigned, void*);
+	using Finish = void (*)();
+	using Bind = void (*)(unsigned, unsigned);
+	using PixelStore = void (*)(unsigned, int);
+	const auto read = reinterpret_cast<ReadPixels>(SDL_GL_GetProcAddress("glReadPixels"));
+	const auto finish = reinterpret_cast<Finish>(SDL_GL_GetProcAddress("glFinish"));
+	const auto bindFramebuffer = reinterpret_cast<Bind>(
+		SDL_GL_GetProcAddress("glBindFramebuffer"));
+	const auto bindBuffer = reinterpret_cast<Bind>(SDL_GL_GetProcAddress("glBindBuffer"));
+	const auto pixelStore = reinterpret_cast<PixelStore>(SDL_GL_GetProcAddress("glPixelStorei"));
+	if (read == nullptr || finish == nullptr || bindFramebuffer == nullptr
+		|| bindBuffer == nullptr || pixelStore == nullptr) {
+		return Failure(ErrorCode::NotSupported, "OpenGL lacks glReadPixels()");
+	}
+	// the state the backend may have left: the default framebuffer, no
+	// pixel buffer, tight rows
+	bindFramebuffer(0x8D40, 0);		// GL_FRAMEBUFFER
+	bindBuffer(0x88EB, 0);			// GL_PIXEL_PACK_BUFFER
+	pixelStore(0x0D02, 0);			// GL_PACK_ROW_LENGTH
+	pixelStore(0x0D05, 4);			// GL_PACK_ALIGNMENT
+	finish();
+
+	const gfx::Size device = state.gpuSurface->DeviceSize();
+	ShownFrame shown;
+	shown.width = static_cast<std::int32_t>(device.w);
+	shown.height = static_cast<std::int32_t>(device.h);
+	const auto stride = static_cast<std::size_t>(shown.width) * 4;
+	std::vector<std::byte> bottomUp(stride * static_cast<std::size_t>(shown.height));
+	read(0, 0, shown.width, shown.height, 0x1908, 0x1401, bottomUp.data());	// RGBA, bytes
+	shown.rgba.resize(bottomUp.size());
+	for (std::int32_t y = 0; y < shown.height; y++) {
+		std::copy_n(bottomUp.begin() + static_cast<std::ptrdiff_t>(stride)
+			* (shown.height - 1 - y), stride, shown.rgba.begin()
+			+ static_cast<std::ptrdiff_t>(stride) * y);
+	}
+	return shown;
+}
+
+
+// Phase G: a window with an OpenGL context and a GPU surface over it, or
+// why there is none; on the main thread.
+struct GpuWindow {
+	SDL_Window*				window = nullptr;
+	SDL_GLContext			gl = nullptr;
+	gfx::SurfaceRef			surface;
+};
+
+std::expected<GpuWindow, std::string>
+MakeGpuWindow(sdl3::PlatformState& platform, const WindowSpec& spec, SDL_WindowFlags flags)
+{
+	gfx::Backend* backend = platform.GpuBackend();
+	if (backend == nullptr)
+		return std::unexpected("no backend with GPU surfaces");
+	// what the backend wraps: RGBA8 with a stencil, double buffered
+	(void)SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+	(void)SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+	(void)SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+	(void)SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+	(void)SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+	(void)SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	GpuWindow made;
+	made.window = SDL_CreateWindow(spec.title.c_str(),
+		static_cast<int>(std::lround(spec.frame.Width())),
+		static_cast<int>(std::lround(spec.frame.Height())), flags | SDL_WINDOW_OPENGL);
+	if (made.window == nullptr)
+		return std::unexpected(std::string("SDL: ") + SDL_GetError());
+	made.gl = SDL_GL_CreateContext(made.window);
+	if (made.gl == nullptr) {
+		std::string error = std::string("SDL: ") + SDL_GetError();
+		SDL_DestroyWindow(made.window);
+		return std::unexpected(std::move(error));
+	}
+	// no waiting for the display: the main thread also handles the events
+	(void)SDL_GL_SetSwapInterval(0);
+
+	int width = 0;
+	int height = 0;
+	SDL_GetWindowSizeInPixels(made.window, &width, &height);
+	const float density = SDL_GetWindowPixelDensity(made.window);
+	const float scale = density > 0 ? density : 1;
+	gfx::NativeWindow native = NativeOf(made.window);
+	native.size = {static_cast<float>(width) / scale, static_cast<float>(height) / scale};
+	native.scale = scale;
+	native.glProcAddress = SDL_GL_GetProcAddress;
+	made.surface = backend->CreateWindowSurface(native, gfx::SurfaceKind::Gpu);
+	if (made.surface == nullptr) {
+		(void)SDL_GL_DestroyContext(made.gl);
+		SDL_DestroyWindow(made.window);
+		return std::unexpected("the backend cannot draw into the window's OpenGL context");
+	}
+	return made;
+}
+
+
 class SdlWindow final : public PlatformWindow {
 public:
 	SdlWindow(std::shared_ptr<sdl3::PlatformState> platform, std::shared_ptr<WindowState> state)
@@ -414,8 +622,52 @@ public:
 			// before the window it subclasses
 			state->accessibility.reset();
 #endif
+			// the GPU surface with its context current, then the context
+			if (state->gl != nullptr) {
+				(void)SDL_GL_MakeCurrent(state->window, state->gl);
+				state->gpuSurface.reset();
+				state->pendingFrame.reset();
+				state->shownFrame.reset();
+				(void)SDL_GL_DestroyContext(state->gl);
+				state->gl = nullptr;
+			}
 			SDL_DestroyWindow(state->window);
 			state->window = nullptr;
+		});
+	}
+
+	bool DrawsLists() const override
+	{
+		std::scoped_lock lock(fState->lock);
+		return fState->gl != nullptr;
+	}
+
+	std::expected<void, Error> PresentList(gfx::DisplayListRef frame,
+		const gfx::Color& clear) override
+	{
+		{
+			std::scoped_lock lock(fState->lock);
+			if (fState->window == nullptr)
+				return Failure(ErrorCode::NotFound, "the window is closed");
+			if (fState->gl == nullptr)
+				return Failure(ErrorCode::NotSupported, "the window draws on the CPU");
+			// only the newest frame is drawn
+			fState->pendingFrame = std::move(frame);
+			fState->pendingClear = clear;
+			if (fState->renderQueued)
+				return {};
+			fState->renderQueued = true;
+		}
+		fPlatform->Queue([state = fState, platform = fPlatform] {
+			ShowGpuFrame(*platform, *state);
+		});
+		return {};
+	}
+
+	std::expected<ShownFrame, Error> ReadShownFrame() override
+	{
+		return fPlatform->OnMain([state = fState, platform = fPlatform] {
+			return ReadGpuFrame(*platform, *state);
 		});
 	}
 
@@ -664,6 +916,9 @@ SdlPlatform::Create()
 		return Failure(ErrorCode::NotSupported, std::string("SDL: ") + SDL_GetError());
 	std::unique_ptr<SdlPlatform> platform(new SdlPlatform());
 	platform->fData->mainThread = std::this_thread::get_id();
+	// Phase G on request, until it is the default
+	if (detail::EnvironmentVariable("NGUI_RENDERER").value_or("") == "gpu")
+		platform->fData->gpuWanted = true;
 	platform->fData->wakeEvent = SDL_RegisterEvents(1);
 	if (platform->fData->wakeEvent == 0) {
 		SDL_Quit();
@@ -711,6 +966,8 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 		}
 
 		SDL_Window* window = nullptr;
+		SDL_GLContext gl = nullptr;
+		gfx::SurfaceRef gpuSurface;
 		if (parent != nullptr) {
 			// SDL places a popup relative to its parent's content area; it
 			// gets no keyboard focus.
@@ -743,9 +1000,24 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 				flags |= SDL_WINDOW_RESIZABLE;
 			if (!spec.decorated)
 				flags |= SDL_WINDOW_BORDERLESS;
-			window = SDL_CreateWindow(spec.title.c_str(),
-				static_cast<int>(std::lround(spec.frame.Width())),
-				static_cast<int>(std::lround(spec.frame.Height())), flags);
+			// Phase G on request; without OpenGL on the CPU, said once
+			if (data->gpuWanted) {
+				auto made = MakeGpuWindow(*data, spec, flags);
+				if (made.has_value()) {
+					window = made->window;
+					gl = made->gl;
+					gpuSurface = std::move(made->surface);
+				} else if (!data->gpuWarned) {
+					data->gpuWarned = true;
+					std::fprintf(stderr, "ngui: no GPU rendering (%s), drawing on the CPU\n",
+						made.error().c_str());
+				}
+			}
+			if (window == nullptr) {
+				window = SDL_CreateWindow(spec.title.c_str(),
+					static_cast<int>(std::lround(spec.frame.Width())),
+					static_cast<int>(std::lround(spec.frame.Height())), flags);
+			}
 			if (window == nullptr)
 				return Failure(ErrorCode::NotSupported, std::string("SDL: ") + SDL_GetError());
 			SDL_SetWindowPosition(window, static_cast<int>(std::lround(spec.frame.x0)),
@@ -759,6 +1031,8 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 		state->id = SDL_GetWindowID(window);
 		state->target = spec.target;
 		state->native = NativeOf(window);
+		state->gl = gl;
+		state->gpuSurface = std::move(gpuSurface);
 		UpdateGeometry(*state);
 #ifdef NGUI_WITH_ACCESSKIT
 		// while the window is hidden, as the Windows adapter requires
@@ -1031,6 +1305,20 @@ SdlPlatform::ShowFileDialog(const FileDialogSpec& spec,
 		SDL_DestroyProperties(properties);
 	});
 	return {};
+}
+
+
+void
+SdlPlatform::SetGpuRendering(bool gpu)
+{
+	fData->gpuWanted = gpu;
+}
+
+
+bool
+SdlPlatform::GpuRendering() const
+{
+	return fData->gpuWanted;
 }
 
 
