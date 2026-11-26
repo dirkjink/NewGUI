@@ -43,6 +43,9 @@ add_library(ngui
     CardLayout.cpp
     CheckBox.cpp
     ColorConversion.cpp
+    ColumnListView.cpp
+    ColumnListViewViews.cpp
+    ColumnTypes.cpp
     Clipboard.cpp
     Clock.cpp
     Control.cpp
