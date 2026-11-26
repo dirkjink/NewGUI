@@ -513,7 +513,9 @@ RunReplay(const std::string& arguments)
 {
 	const std::string command = std::string("\"") + NGUI_TEST_REPLAY + "\" " + arguments;
 #ifdef _WIN32
-	FILE* pipe = _popen(command.c_str(), "r");
+	// cmd /c drops the first and the last quote of a command with more than
+	// two: quoted once more, the tool's and the file's quotes stay
+	FILE* pipe = _popen(("\"" + command + "\"").c_str(), "r");
 #else
 	FILE* pipe = popen(command.c_str(), "r");
 #endif
