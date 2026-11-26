@@ -101,6 +101,7 @@ add_library(ngui
     Palette.cpp
     Polygon.cpp
     PopUpMenu.cpp
+    PrintJob.cpp
     RadioButton.cpp
     ScrollBar.cpp
     Shape.cpp
@@ -182,7 +183,16 @@ if(NGUI_WITH_SKIA)
     find_package(unofficial-skia CONFIG REQUIRED)
     add_library(ngui_skia
         gfx/skia/PdfDocument.cpp
-        gfx/skia/SkiaBackend.cpp)
+        gfx/skia/SkiaBackend.cpp
+        print/SkiaPrintService.cpp)
+    # The print systems: GDI on Windows, CUPS (loaded with dlopen) elsewhere.
+    if(WIN32)
+        target_sources(ngui_skia PRIVATE print/GdiPrinters.cpp)
+        target_link_libraries(ngui_skia PRIVATE winspool gdi32)
+    else()
+        target_sources(ngui_skia PRIVATE print/CupsPrinters.cpp)
+        target_link_libraries(ngui_skia PRIVATE ${CMAKE_DL_LIBS})
+    endif()
     add_library(ngui::skia ALIAS ngui_skia)
     target_link_libraries(ngui_skia
         PUBLIC

@@ -123,7 +123,7 @@ PdfDocument::Draw(const DisplayList& list, const Rect& area, Point at, float poi
 	canvas->scale(1 / dotsPerPoint, 1 / dotsPerPoint);
 	canvas->clipRect(SkRect::MakeWH(std::floor(area.Width() * scale + 0.5f),
 		std::floor(area.Height() * scale + 0.5f)), false);
-	fData->backend._RenderVector(canvas, list, {-area.x0, -area.y0}, scale);
+	fData->backend._RenderOnCanvas(canvas, list, {-area.x0, -area.y0}, scale, true);
 	canvas->restore();
 	return {};
 }

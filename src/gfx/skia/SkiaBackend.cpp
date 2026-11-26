@@ -852,9 +852,10 @@ SkiaBackend::Render(const DisplayList& list, Point offset)
 
 
 void
-SkiaBackend::_RenderVector(SkCanvas* canvas, const DisplayList& list, Point offset, float scale)
+SkiaBackend::_RenderOnCanvas(SkCanvas* canvas, const DisplayList& list, Point offset,
+	float scale, bool vector)
 {
-	fData->RenderList(canvas, list, {offset, scale, true}, 0);
+	fData->RenderList(canvas, list, {offset, scale, vector}, 0);
 }
 
 
