@@ -48,7 +48,9 @@ constexpr Name kActionNames[] = {
 	{static_cast<std::uint32_t>(AccessibleAction::Decrement), "decrement"},
 	{static_cast<std::uint32_t>(AccessibleAction::SetValue), "setvalue"},
 	{static_cast<std::uint32_t>(AccessibleAction::Expand), "expand"},
-	{static_cast<std::uint32_t>(AccessibleAction::Collapse), "collapse"}};
+	{static_cast<std::uint32_t>(AccessibleAction::Collapse), "collapse"},
+	{static_cast<std::uint32_t>(AccessibleAction::SetTextSelection), "settextselection"},
+	{static_cast<std::uint32_t>(AccessibleAction::ReplaceSelectedText), "replaceselectedtext"}};
 
 
 // The names of the flags \a bits, separated by ", ".
@@ -92,6 +94,22 @@ NodeLine(const AccessibleNode& node)
 	}
 	if (info.level > 0)
 		line += " level " + std::to_string(info.level);
+	if (info.textSelection.has_value()) {
+		const AccessibleTextSelection& selection = *info.textSelection;
+		line += " selection " + std::to_string(selection.anchor.item) + ":"
+			+ std::to_string(selection.anchor.character) + ".."
+			+ std::to_string(selection.focus.item) + ":"
+			+ std::to_string(selection.focus.character);
+	}
+	if (info.role == AccessibleRole::TextRun) {
+		line += " (" + std::to_string(info.characterLengths.size()) + " characters";
+		if (!info.wordStarts.empty()) {
+			line += ", words at";
+			for (const std::uint8_t start : info.wordStarts)
+				line += " " + std::to_string(start);
+		}
+		line += ")";
+	}
 	if (info.live == AccessibleLive::Polite)
 		line += " live polite";
 	else if (info.live == AccessibleLive::Assertive)
@@ -175,6 +193,8 @@ AccessibleRoleName(AccessibleRole role)
 			return "image";
 		case AccessibleRole::Generic:
 			return "generic";
+		case AccessibleRole::TextRun:
+			return "textrun";
 	}
 	return "none";
 }

@@ -86,7 +86,11 @@ enum class AccessibleRole : std::uint8_t {
 	ProgressIndicator,	/*!< A status bar. */
 	Splitter,			/*!< The divider of a split view. */
 	Image,				/*!< An image or icon. */
-	Generic				/*!< Something else with a name or actions. */
+	Generic,			/*!< Something else with a name or actions. */
+	TextRun				/*!< A piece of a text view's text (a line, or up to 255
+							characters of one), an item of the text's node: its
+							value is the text, with the lengths and positions of its
+							characters. */
 };
 
 
@@ -127,12 +131,43 @@ enum class AccessibleAction : std::uint32_t {
 	SetValue = 1u << 4,		/*!< Set its value: a text ("value") or a number
 								("number"). */
 	Expand = 1u << 5,		/*!< Show an item's children (outline lists). */
-	Collapse = 1u << 6		/*!< Hide an item's children. */
+	Collapse = 1u << 6,		/*!< Hide an item's children. */
+	SetTextSelection = 1u << 7,
+							/*!< Select a text, or place the caret: "anchorItem",
+								"anchorCharacter", "focusItem", "focusCharacter"
+								(int32), positions in the node's text runs. */
+	ReplaceSelectedText = 1u << 8
+							/*!< Replace the selected text by "value" (string), as
+								typing does. */
 };
 NGUI_FLAG_ENUM(AccessibleAction)
 
 /*!	A set of AccessibleAction. */
 using AccessibleActions = Flags<AccessibleAction>;
+
+
+/*!	A place in the text of a node: a character of one of its text runs. */
+struct AccessibleTextPosition {
+			std::int32_t		item = 0;	/*!< The text run: its index among the node's
+												items. */
+			std::int32_t		character = 0;
+									/*!< The character in the run; its number of
+										characters at the end of the run. */
+
+			bool				operator==(const AccessibleTextPosition& other) const = default;
+									/*!< Whether both are the same. */
+};
+
+
+/*!	The selection in the text of a node, or its caret (anchor and focus the
+	same). */
+struct AccessibleTextSelection {
+			AccessibleTextPosition anchor;	/*!< Where the selection began. */
+			AccessibleTextPosition focus;	/*!< Where it ends, the caret. */
+
+			bool				operator==(const AccessibleTextSelection& other) const = default;
+									/*!< Whether both are the same. */
+};
 
 
 /*!	What a view tells assistive technology (BView::GetAccessibleInfo()). */
@@ -156,6 +191,19 @@ struct AccessibleInfo {
 			AccessibleLive		live = AccessibleLive::Off;
 									/*!< Whether a screen reader announces its name when
 										it changes or the node comes. */
+			std::optional<AccessibleTextSelection> textSelection;
+									/*!< A text's selection or caret, in its text runs. */
+			std::vector<std::uint8_t> characterLengths;
+									/*!< A text run's characters (graphemes): their
+										lengths in bytes of its value. */
+			std::vector<std::uint8_t> wordStarts;
+									/*!< A text run's characters that begin a word (after
+										the white space of the one before). */
+			std::vector<float>	characterPositions;
+									/*!< Where its characters begin, from the run's left
+										edge. */
+			std::vector<float>	characterWidths;
+									/*!< How wide they are. */
 
 			bool				operator==(const AccessibleInfo& other) const = default;
 									/*!< Whether all of it is the same. */

@@ -4,8 +4,10 @@ window "Settings"
     radiobutton "Small" [focusable] {click, focus}
     radiobutton "Large" [focusable, checked] {click, focus}
   slider "Volume" = 30 (0..100 by 5) [focusable] {focus, increment, decrement, setvalue}
-  textinput "Name:" = "Ada" [focusable] {click, focus, setvalue}
-  passwordinput "Password:" [focusable] {click, focus, setvalue}
+  textinput "Name:" = "Ada" selection 0:0..0:0 [focusable] {click, focus, setvalue, settextselection, replaceselectedtext}
+    textrun = "Ada" (3 characters, words at 0)
+  passwordinput "Password:" selection 0:0..0:0 [focusable] {click, focus, setvalue, settextselection, replaceselectedtext}
+    textrun = "••••••" (6 characters)
   progressindicator "Copying" = "4 of 10" = 40 (0..100)
   combobox "Size:" = "Medium" [focusable] {click, focus}
   list "Fruits" [focusable] {focus}

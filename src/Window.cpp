@@ -1764,6 +1764,9 @@ BWindow::_AccessibleAction(BMessage* message)
 			*message);
 	} else
 		result = view->PerformAccessibleAction(action, *message);
+	// what changed reaches assistive technology at the next update, also
+	// when nothing is drawn anew (a selection without the focus)
+	_ScheduleUpdate();
 	if (message->IsSourceWaiting())
 		detail::SendScriptingReply(*message, BMessage(kReply), result);
 }

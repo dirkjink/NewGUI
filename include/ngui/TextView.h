@@ -356,12 +356,37 @@ public:
 	// Accessibility
 
 			void				GetAccessibleInfo(AccessibleInfo* info) const override;
-									/*!< Role MultilineTextInput, PasswordInput if it hides typing,
-										Label if it can be neither edited nor selected; its text as
-										value (never a password), ReadOnly, SetValue if editable. */
+									/*!< Role MultilineTextInput, PasswordInput if it hides
+										typing, Label if it can be neither edited nor
+										selected; its text as value (never a password),
+										its selection in its text runs, ReadOnly;
+										SetTextSelection if selectable; SetValue and
+										ReplaceSelectedText if editable. */
+			void				GetAccessibleItems(std::vector<AccessibleItem>* items)
+									const override;
+									/*!< Its text runs (GetAccessibleText()), not for a
+										Label. */
 			std::expected<void, Error> PerformAccessibleAction(AccessibleAction action,
 									const BMessage& data) override;
-									/*!< SetValue ("value") sets the text, if it is editable. */
+									/*!< SetValue ("value") sets the text;
+										SetTextSelection selects between the positions;
+										ReplaceSelectedText replaces the selection by
+										"value". */
+			void				GetAccessibleText(std::vector<AccessibleItem>* runs,
+									std::optional<AccessibleTextSelection>* selection)
+									const;
+									/*!< Its text as text runs, for its node or the node of
+										a control it is part of: a run per line, or per 255
+										characters of a long one, with the line break at
+										its end; an empty run for an empty last line. The
+										characters are graphemes; a text that hides typing
+										gives a bullet per character and no words. Frames
+										in its own coordinates. \a selection, if not
+										nullptr, is its selection in them, the focus
+										where the caret is. */
+			int32				AccessibleTextOffset(AccessibleTextPosition position) const;
+									/*!< The byte offset of \a position in its text runs,
+										-1 if there is no such place. */
 
 protected:
 	virtual	void				InsertText(std::string_view text, int32 offset,

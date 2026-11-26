@@ -127,12 +127,17 @@ public:
 			void				GetAccessibleInfo(AccessibleInfo* info) const override;
 									/*!< Role TextInput, PasswordInput if its text view hides
 										typing; its label as name, its text as value (never
-										a password); ReadOnly if it cannot be edited;
-										Focus, Click and SetValue. */
+										a password), its text view's selection; ReadOnly
+										if it cannot be edited; Focus, Click, SetValue,
+										SetTextSelection and ReplaceSelectedText. */
+			void				GetAccessibleItems(std::vector<AccessibleItem>* items)
+									const override;
+									/*!< Its text view's text runs. */
 			std::expected<void, Error> PerformAccessibleAction(AccessibleAction action,
 									const BMessage& data) override;
 									/*!< Focus and Click make its text view the focus; SetValue
-										("value") sets the text and invokes it. */
+										("value") sets the text and invokes it; the text
+										actions as its text view's. */
 
 protected:
 			void				LayoutInvalidated(bool descendants) override;
