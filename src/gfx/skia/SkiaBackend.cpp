@@ -206,6 +206,8 @@ _Color(const Color& color)
 struct Transform {
 			Point				offset;
 			float				scale;
+			bool				vector = false;
+									// device units mapped by the canvas matrix (PDF)
 
 			SkMatrix			Matrix() const;
 			float				Device(float logical, float shift) const;
@@ -228,13 +230,22 @@ Transform::Device(float logical, float shift) const
 }
 
 
+// A device coordinate as an int: lists may hold any finite number, Skia
+// takes coordinates up to about 2^29.
+int
+_DeviceInt(float device)
+{
+	constexpr float kLimit = 1 << 29;
+	return static_cast<int>(std::clamp(device, -kLimit, kLimit));
+}
+
+
 SkIRect
 Transform::DeviceRect(const Rect& rect) const
 {
-	return SkIRect::MakeLTRB(static_cast<int>(Device(rect.x0, offset.x)),
-		static_cast<int>(Device(rect.y0, offset.y)),
-		static_cast<int>(Device(rect.x1, offset.x)),
-		static_cast<int>(Device(rect.y1, offset.y)));
+	return SkIRect::MakeLTRB(_DeviceInt(Device(rect.x0, offset.x)),
+		_DeviceInt(Device(rect.y0, offset.y)), _DeviceInt(Device(rect.x1, offset.x)),
+		_DeviceInt(Device(rect.y1, offset.y)));
 }
 
 
@@ -351,7 +362,10 @@ SkiaBackend::Data::RenderList(SkCanvas* canvas, const DisplayList& list,
 				rects.push_back(transform.DeviceRect(rect.ToRect()));
 			SkRegion region;
 			region.setRects(rects.data(), static_cast<int>(rects.size()));
-			canvas->clipRegion(region);
+			if (transform.vector)
+				canvas->clipPath(region.getBoundaryPath(), false);
+			else
+				canvas->clipRegion(region);
 		}
 		Draw(canvas, list, op, transform, depth);
 	}
@@ -478,7 +492,7 @@ SkiaBackend::Data::Draw(SkCanvas* canvas, const DisplayList& list, const Op& op,
 			// 6.1), drawn as four device rectangles.
 			const RectRecord& record = op.As<RectRecord>();
 			const SkIRect outer = transform.DeviceRect(record.rect);
-			const int width = static_cast<int>(std::floor(record.paint.strokeWidth
+			const int width = _DeviceInt(std::floor(record.paint.strokeWidth
 				* transform.scale + 0.5f));
 			if (width <= 0)
 				break;
@@ -614,7 +628,8 @@ SkiaBackend::Data::Draw(SkCanvas* canvas, const DisplayList& list, const Op& op,
 			const ListRecord& record = op.As<ListRecord>();
 			if (depth >= kMaxListDepth)
 				break;
-			const Transform child = {transform.offset + record.offset, transform.scale};
+			Transform child = transform;
+			child.offset = transform.offset + record.offset;
 			RenderList(canvas, *list.Children()[record.child], child, depth + 1);
 			break;
 		}
@@ -833,6 +848,13 @@ SkiaBackend::Render(const DisplayList& list, Point offset)
 		return;
 	SkCanvas* canvas = fData->frame->fSurface->getCanvas();
 	fData->RenderList(canvas, list, {offset, fData->frame->fScale}, 0);
+}
+
+
+void
+SkiaBackend::_RenderVector(SkCanvas* canvas, const DisplayList& list, Point offset, float scale)
+{
+	fData->RenderList(canvas, list, {offset, scale, true}, 0);
 }
 
 

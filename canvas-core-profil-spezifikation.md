@@ -785,6 +785,14 @@ public:
 
 Das Skia-Backend kann eine DisplayList zusätzlich in `SkSVGCanvas` oder ein PDF-Dokument (`SkPDF::MakeDocument`) abspielen. Das ist die Grundlage für eine **Druckfunktion** nach dem Vorbild von Haikus `BPrintJob`. Für diesen Weg gelten E1–E3 **nicht**. Wie Text und Clipping im Ergebnis erscheinen, bestimmt Skia.
 
+Umgesetzt ist der PDF-Weg (`ngui_skia`, vcpkg-Feature `pdf` von Skia), das eigene SVG-Backend aus 19.3 bleibt der Weg für SVG:
+
+- **`gfx::PdfDocument`** schreibt Seiten beliebiger Größe in Punkten (1/72 Zoll, Ursprung oben links). `Draw(liste, bereich, position, punkteProPixel)` setzt einen Ausschnitt einer Liste an eine Stelle der Seite, mit `kPdfPointsPerPixel` = 0,75 (96 logische Pixel je Zoll) als Vorgabe.
+- **`gfx::PdfExportBackend`** ist das `ExportBackend` für eine Seite der Größe `bounds × 0,75 × scale` Punkte, `gfx::ExportPdf()` der Kurzweg dazu.
+- **Zeichnen:** Das Backend spielt die Liste als Vektoren ab. Die Kanten von Regel A1 liegen auf einem Raster von `PdfOptions::resolution` (576 dpi: 8 je Punkt, 6 je Pixel bei 96 dpi, damit Kanten auf ganzen Pixeln dort bleiben); Clip-Regionen werden als Pfade gesetzt, weil Regionen die Seitenmatrix nicht kennen. Glyph-Läufe werden zu Text in eingebetteten Schriften, Bilder werden verlustfrei (Deflate) eingebettet.
+- **Determinismus:** Ohne Datum ergeben gleiche Listen gleiche Bytes. Seiten sind höchstens `kPdfMaxPageSize` = 14400 Punkte (200 Zoll) groß.
+- **Aufzeichnen für den Export:** `BWindow::Record()` und `BView::Record()` zeichnen Fenster oder View wie `Snapshot()` neu auf (S1), auf dem Hintergrund des Panels, und geben die Liste zurück; ihre `Bounds()` sind der Bereich.
+
 ### 19.5 Abgrenzung: SVG-Import
 
 SVG-*Icons* in der Oberfläche anzeigen, also SVG lesen und ins Bild rendern, ist nicht Gegenstand dieses Abschnitts. Geeignet wären das SVG-Modul von Skia (`SkSVGDOM`) oder kleine Bibliotheken wie lunasvg bzw. ThorVG. Haikus HVIF-Icons wären ein eigenes Modul.

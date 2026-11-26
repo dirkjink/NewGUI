@@ -2068,10 +2068,11 @@ BitmapOf(const gfx::CpuPixels& pixels)
 
 
 // A future that is ready with \a value.
-std::future<std::expected<BBitmap, Error>>
-Ready(std::expected<BBitmap, Error> value)
+template<typename T>
+std::future<std::expected<T, Error>>
+Ready(std::expected<T, Error> value)
 {
-	std::promise<std::expected<BBitmap, Error>> promise;
+	std::promise<std::expected<T, Error>> promise;
 	promise.set_value(std::move(value));
 	return promise.get_future();
 }
@@ -2079,19 +2080,18 @@ Ready(std::expected<BBitmap, Error> value)
 
 // \a work's result, run on the thread of the window \a window: at once on
 // its own thread, else from a thread of its own that waits for the window.
-std::future<std::expected<BBitmap, Error>>
-OnWindowThread(const BMessenger& window,
-	std::function<std::expected<BBitmap, Error>(BWindow&)> work)
+template<typename T>
+std::future<std::expected<T, Error>>
+OnWindowThread(const BMessenger& window, std::function<std::expected<T, Error>(BWindow&)> work)
 {
 	return std::async(std::launch::async, [window, work = std::move(work)] {
-		std::expected<BBitmap, Error> result = Failure(ErrorCode::NotFound,
-			"the window is gone");
+		std::expected<T, Error> result = Failure(ErrorCode::NotFound, "the window is gone");
 		auto ran = RunOnLooper(window, [&](BLooper& looper) {
 			if (auto* target = dynamic_cast<BWindow*>(&looper))
 				result = work(*target);
 		}, BMessenger::kInfiniteTimeout);
 		if (!ran.has_value())
-			return std::expected<BBitmap, Error>(std::unexpected(ran.error()));
+			return std::expected<T, Error>(std::unexpected(ran.error()));
 		return result;
 	});
 }
@@ -2112,7 +2112,7 @@ BWindow::Snapshot(const BSnapshotOptions& options)
 std::future<std::expected<BBitmap, Error>>
 BWindow::Snapshot(const BMessenger& window, const BSnapshotOptions& options)
 {
-	return OnWindowThread(window, [options](BWindow& target) {
+	return OnWindowThread<BBitmap>(window, [options](BWindow& target) {
 		return target._Snapshot(options, nullptr);
 	});
 }
@@ -2130,7 +2130,85 @@ BWindow::CaptureFrame()
 std::future<std::expected<BBitmap, Error>>
 BWindow::CaptureFrame(const BMessenger& window)
 {
-	return OnWindowThread(window, [](BWindow& target) { return target._CaptureFrame(); });
+	return OnWindowThread<BBitmap>(window, [](BWindow& target) {
+		return target._CaptureFrame();
+	});
+}
+
+
+std::future<std::expected<gfx::DisplayListRef, Error>>
+BWindow::Record(const BSnapshotOptions& options)
+{
+	if (std::this_thread::get_id() == Thread())
+		return Ready(_RecordForExport(options, nullptr));
+	return Record(BMessenger(this), options);
+}
+
+
+std::future<std::expected<gfx::DisplayListRef, Error>>
+BWindow::Record(const BMessenger& window, const BSnapshotOptions& options)
+{
+	return OnWindowThread<gfx::DisplayListRef>(window, [options](BWindow& target) {
+		return target._RecordForExport(options, nullptr);
+	});
+}
+
+
+// The window, or \a view and its children, recorded anew over the area of
+// \a options with \a caps at \a scale, after pending layout and drawing
+// (S1); on the panel background if \a background.
+std::expected<gfx::DisplayListRef, Error>
+BWindow::_Record(const BSnapshotOptions& options, BView* view, const gfx::Caps& caps,
+	float scale, bool background)
+{
+	UpdateIfNeeded();
+	if (view != nullptr && !view->IsLayoutValid())
+		view->Layout(false);
+
+	const DrawEnvironment environment{caps, Palette::Default(), TextSystem::Default(), scale};
+	BView* root = view != nullptr ? view : fRoot.get();
+	const gfx::Rect bounds = view != nullptr ? view->Bounds() : Bounds();
+	const gfx::Rect area = options.area.value_or(bounds);
+	if (!area.IsFinite() || !(area.Width() > 0) || !(area.Height() > 0))
+		return Failure(ErrorCode::InvalidArgument, "an empty area");
+
+	// The window as its frames have it, then its popups at their places on
+	// the screen, each on its menu background.
+	gfx::Canvas canvas({area.x0, area.y0, area.x1, area.y1});
+	if (background) {
+		canvas.FillRect(area,
+			gfx::Paint{.color = Palette::Default().Get(BColorWhich::PanelBackground)});
+	}
+	canvas.DrawList(root->RecordTree(environment), {0, 0});
+	if (view == nullptr && options.includePopups) {
+		for (const std::unique_ptr<PopupSurface>& popup : fPopups) {
+			const gfx::Rect frame = popup->root->Frame();
+			const gfx::Point at{frame.x0 - fFrame.x0, frame.y0 - fFrame.y0};
+			canvas.FillRect({at.x, at.y, at.x + frame.Width(), at.y + frame.Height()},
+				gfx::Paint{.color = Palette::Default().Get(BColorWhich::MenuBackground)});
+			canvas.DrawList(popup->root->RecordTree(environment), at);
+		}
+	}
+	return canvas.Finish();
+}
+
+
+// The window, or \a view and its children, recorded for an export
+// (specification 19): with the capabilities of the options' backend.
+std::expected<gfx::DisplayListRef, Error>
+BWindow::_RecordForExport(const BSnapshotOptions& options, BView* view)
+{
+	gfx::Caps caps;
+	if (!options.backend.empty() || fBackend == nullptr) {
+		auto made = options.backend.empty()
+			? gfx::BackendRegistry::Default().CreatePreferred({})
+			: gfx::BackendRegistry::Default().Create(options.backend);
+		if (!made.has_value())
+			return std::unexpected(made.error());
+		caps = (*made)->Capabilities();
+	} else
+		caps = fBackend->Capabilities();
+	return _Record(options, view, caps, options.scale > 0 ? options.scale : fScale, true);
 }
 
 
@@ -2139,11 +2217,6 @@ BWindow::CaptureFrame(const BMessenger& window)
 std::expected<BBitmap, Error>
 BWindow::_Snapshot(const BSnapshotOptions& options, BView* view)
 {
-	// S1: pending layout and drawing first
-	UpdateIfNeeded();
-	if (view != nullptr && !view->IsLayoutValid())
-		view->Layout(false);
-
 	std::unique_ptr<gfx::Backend> own;
 	gfx::Backend* backend = fBackend.get();
 	if (!options.backend.empty() || backend == nullptr) {
@@ -2162,28 +2235,11 @@ BWindow::_Snapshot(const BSnapshotOptions& options, BView* view)
 	}
 
 	const float scale = options.scale > 0 ? options.scale : fScale;
-	const gfx::Caps caps = backend->Capabilities();
-	const DrawEnvironment environment{caps, Palette::Default(), text, scale};
-	BView* root = view != nullptr ? view : fRoot.get();
-	const gfx::Rect bounds = view != nullptr ? view->Bounds() : Bounds();
-	const gfx::Rect area = options.area.value_or(bounds);
-	if (!(area.Width() > 0) || !(area.Height() > 0))
-		return Failure(ErrorCode::InvalidArgument, "an empty area");
-
-	// The window as its frames have it, then its popups at their places on
-	// the screen, each on its menu background.
-	gfx::Canvas canvas({area.x0, area.y0, area.x1, area.y1});
-	canvas.DrawList(root->RecordTree(environment), {0, 0});
-	if (view == nullptr && options.includePopups) {
-		for (const std::unique_ptr<PopupSurface>& popup : fPopups) {
-			const gfx::Rect frame = popup->root->Frame();
-			const gfx::Point at{frame.x0 - fFrame.x0, frame.y0 - fFrame.y0};
-			canvas.FillRect({at.x, at.y, at.x + frame.Width(), at.y + frame.Height()},
-				gfx::Paint{.color = Palette::Default().Get(BColorWhich::MenuBackground)});
-			canvas.DrawList(popup->root->RecordTree(environment), at);
-		}
-	}
-	const gfx::DisplayListRef list = canvas.Finish();
+	const auto recorded = _Record(options, view, backend->Capabilities(), scale, false);
+	if (!recorded.has_value())
+		return std::unexpected(recorded.error());
+	const gfx::DisplayListRef& list = *recorded;
+	const gfx::Rect area = list->Bounds();
 	// fonts the recording loaded (fallbacks) for the window's backend too
 	if (own == nullptr)
 		_AddFonts(text);

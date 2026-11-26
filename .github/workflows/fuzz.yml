@@ -52,7 +52,9 @@ jobs:
     needs: targets
     if: needs.targets.outputs.targets != '[]'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # A target that draws with Skia builds Skia once (then it comes from the
+    # vcpkg cache); libFuzzer itself stops after SECONDS_PER_TARGET.
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -73,24 +75,44 @@ jobs:
       - name: Install the compiler
         run: .github/scripts/apt-install.sh clang-20 libclang-rt-20-dev
 
+      # Targets that draw with Skia (they include its headers) are built with
+      # the preset that has Skia, against the OpenGL headers Skia's port
+      # needs.
+      - name: Choose the preset
+        id: preset
+        run: |
+          if grep -qE '<ngui/gfx/(PdfDocument|SkiaBackend)[.]h>' "tests/fuzz/${TARGET}Fuzz.cpp"; then
+            echo "preset=fuzz-skia" >> "$GITHUB_OUTPUT"
+          else
+            echo "preset=fuzz" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install the OpenGL headers
+        if: steps.preset.outputs.preset == 'fuzz-skia'
+        run: .github/scripts/apt-install.sh libegl-dev libgl-dev libgles-dev
+
       - name: Set up vcpkg
         uses: ./.github/actions/setup-vcpkg
         with:
-          cache-key: fuzz
+          cache-key: ${{ steps.preset.outputs.preset }}
 
       - name: Build the fuzz target
+        env:
+          PRESET: ${{ steps.preset.outputs.preset }}
         run: |
-          cmake --preset fuzz
-          cmake --build --preset fuzz --target "ngui_fuzz_$TARGET"
+          cmake --preset "$PRESET"
+          cmake --build --preset "$PRESET" --target "ngui_fuzz_$TARGET"
 
       # The working corpus comes first: libFuzzer adds new inputs to the
       # first directory only, so the checked-in corpus stays untouched.
       - name: Fuzz ${{ matrix.target }}
+        env:
+          PRESET: ${{ steps.preset.outputs.preset }}
         run: |
           mkdir -p fuzz-work/corpus fuzz-work/findings
           seeds=()
           if [ -d "tests/fuzz/corpus/$TARGET" ]; then seeds+=("tests/fuzz/corpus/$TARGET"); fi
-          "build/fuzz/tests/ngui_fuzz_$TARGET" \
+          "build/$PRESET/tests/ngui_fuzz_$TARGET" \
             -max_total_time="$SECONDS_PER_TARGET" -timeout=25 -rss_limit_mb=2048 \
             -artifact_prefix=fuzz-work/findings/ \
             fuzz-work/corpus "${seeds[@]}"

@@ -15,7 +15,13 @@
 #include <ngui/gfx/GlyphRun.h>
 
 
+class SkCanvas;
+
+
 namespace ngui::gfx {
+
+
+class PdfDocument;
 
 
 /*!	The Skia backend (specification 13), the target backend: renders
@@ -89,7 +95,15 @@ public:
 										GPU, the caller swaps the buffers. */
 
 private:
+			friend class PdfDocument;
+
 			struct Data;
+
+			// Draws \a list on \a canvas as vectors: at \a offset, \a scale
+			// device units per logical pixel, the canvas mapping them to its
+			// own; clips as paths, since regions ignore the canvas matrix.
+			void				_RenderVector(SkCanvas* canvas, const DisplayList& list,
+									Point offset, float scale);
 
 			std::unique_ptr<Data> fData;
 };

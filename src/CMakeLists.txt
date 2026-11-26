@@ -181,6 +181,7 @@ endif()
 if(NGUI_WITH_SKIA)
     find_package(unofficial-skia CONFIG REQUIRED)
     add_library(ngui_skia
+        gfx/skia/PdfDocument.cpp
         gfx/skia/SkiaBackend.cpp)
     add_library(ngui::skia ALIAS ngui_skia)
     target_link_libraries(ngui_skia
@@ -189,6 +190,12 @@ if(NGUI_WITH_SKIA)
         PRIVATE
             unofficial::skia::skia)
     ngui_configure_target(ngui_skia)
+    # Skia is built without RTTI: UBSan's vptr check would need the type
+    # information of its polymorphic classes (SkCanvas, SkDocument) in the
+    # fuzz build.
+    if(NGUI_FUZZING)
+        target_compile_options(ngui_skia PRIVATE -fno-sanitize=vptr)
+    endif()
 endif()
 
 # The Blend2D backend (specification 14), its own library like Skia's:

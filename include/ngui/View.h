@@ -332,6 +332,16 @@ public:
 										\a options' area in its coordinates, after pending
 										layout and drawing. On the window's thread only;
 										InvalidArgument without a window. */
+			std::expected<gfx::DisplayListRef, Error> Record(
+									const BSnapshotOptions& options = {});
+									/*!< The view and its children recorded anew as a
+										DisplayList, for an export (gfx::ExportSvg(),
+										gfx::ExportPdf(), printing; specification 19): its
+										bounds, or \a options' area in its coordinates,
+										which become the list's Bounds(), on the panel
+										background, after pending layout and drawing. On
+										the window's thread only; InvalidArgument without a
+										window. */
 
 	// Events
 
