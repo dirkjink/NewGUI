@@ -883,6 +883,13 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kAccessibleAction:
 			_AccessibleAction(message);
 			return;
+		case kAnnounce:
+			fAnnouncement = message->GetString("text", "");
+			fAnnouncementLive = static_cast<AccessibleLive>(message->GetInt32("live",
+				static_cast<std::int32_t>(AccessibleLive::Polite)));
+			fAnnouncements++;
+			_ScheduleUpdate();
+			return;
 		case kAccessibilityRequested:
 			// assistive technology listens: the whole tree at the next update
 			fAccessibleTree.reset();
@@ -1610,6 +1617,16 @@ BWindow::GetAccessibleInfo(AccessibleInfo* info) const
 }
 
 
+void
+BWindow::Announce(std::string_view text, AccessibleLive live)
+{
+	BMessage message(kAnnounce);
+	(void)message.AddString("text", text);
+	(void)message.AddInt32("live", static_cast<std::int32_t>(live));
+	(void)PostMessage(message);
+}
+
+
 AccessibleTree
 BWindow::GetAccessibleTree() const
 {
@@ -1679,6 +1696,18 @@ BWindow::GetAccessibleTree() const
 			break;
 		}
 	}
+	// the last announcement: a node of its own, new for each one
+	if (!fAnnouncement.empty()) {
+		AccessibleNode announcement;
+		announcement.id = (tree.nodes.front().id << 32) | fAnnouncements;
+		announcement.info.role = AccessibleRole::Label;
+		announcement.info.name = fAnnouncement;
+		announcement.info.live = fAnnouncementLive;
+		announcement.bounds = {0, 0, 0, 0};
+		tree.nodes.front().children.push_back(announcement.id);
+		tree.nodes.push_back(std::move(announcement));
+	}
+
 	// while menus are tracked, the selected item of the innermost menu
 	if (fMenuTracking != nullptr) {
 		for (const AccessibleNode& node : tree.nodes) {

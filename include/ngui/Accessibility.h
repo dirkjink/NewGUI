@@ -43,6 +43,11 @@ namespace ngui {
 	scripting replies have (0 for done). */
 inline constexpr std::uint32_t kAccessibleAction = FourCharCode("_ACA");
 
+/*!	To a window (from any thread through its messenger): announce "text"
+	(string) to assistive technology, "live" (int32) an AccessibleLive, as
+	BWindow::Announce() does. */
+inline constexpr std::uint32_t kAnnounce = FourCharCode("_ANN");
+
 /*!	From a platform to a window: assistive technology began to listen, the
 	window passes its whole accessibility tree on at its next update
 	(platform::PlatformWindow::UpdateAccessibility()). */
@@ -82,6 +87,14 @@ enum class AccessibleRole : std::uint8_t {
 	Splitter,			/*!< The divider of a split view. */
 	Image,				/*!< An image or icon. */
 	Generic				/*!< Something else with a name or actions. */
+};
+
+
+/*!	How a screen reader announces changes of a view (a live region). */
+enum class AccessibleLive : std::uint8_t {
+	Off,		/*!< Not at all (the default). */
+	Polite,		/*!< When the user is idle, e.g. a status line. */
+	Assertive	/*!< At once, interrupting, e.g. an error. */
 };
 
 
@@ -140,6 +153,9 @@ struct AccessibleInfo {
 			AccessibleActions	actions;	/*!< What it can be asked to do. */
 			std::int32_t		level = 0;	/*!< Its depth in an outline, from 1; 0 if it
 												is in none. */
+			AccessibleLive		live = AccessibleLive::Off;
+									/*!< Whether a screen reader announces its name when
+										it changes or the node comes. */
 
 			bool				operator==(const AccessibleInfo& other) const = default;
 									/*!< Whether all of it is the same. */

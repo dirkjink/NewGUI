@@ -124,6 +124,8 @@ public:
 		:
 		BStringView("label", B_TRANSLATE("Not clicked yet"))
 	{
+		// screen readers announce the count as it changes
+		SetLiveRegion(AccessibleLive::Polite);
 	}
 
 	void MouseDown(gfx::Point where) override

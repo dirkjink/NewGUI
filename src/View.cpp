@@ -1097,6 +1097,7 @@ BView::GetAccessibleInfo(AccessibleInfo* info) const
 		return;
 	info->name = fAccessibleName;
 	info->description = fAccessibleDescription;
+	info->live = fLiveRegion;
 	if (info->description.empty()) {
 		if (const auto* tip = dynamic_cast<const BTextToolTip*>(fToolTip.get()))
 			info->description = tip->Text();
@@ -1130,6 +1131,20 @@ BView::PerformAccessibleItemAction(int32 /*index*/, AccessibleAction /*action*/,
 	const BMessage& /*data*/)
 {
 	return Failure(ErrorCode::NotSupported, "the view has no items");
+}
+
+
+void
+BView::SetLiveRegion(AccessibleLive live)
+{
+	fLiveRegion = live;
+}
+
+
+AccessibleLive
+BView::LiveRegion() const
+{
+	return fLiveRegion;
 }
 
 

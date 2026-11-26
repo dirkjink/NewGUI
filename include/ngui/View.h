@@ -384,6 +384,12 @@ public:
 									AccessibleAction action, const BMessage& data);
 									/*!< Does \a action for its item \a index, on the
 										window's thread; NotSupported by default. */
+			void				SetLiveRegion(AccessibleLive live);
+									/*!< Whether a screen reader announces changes of its
+										name (a status line: Polite; an error:
+										Assertive). Off by default. */
+			AccessibleLive		LiveRegion() const;
+									/*!< As SetLiveRegion() set it. */
 			void				SetAccessibleName(std::string_view name);
 									/*!< Its name for assistive technology, for views
 										without a label (an icon button, a text field with
@@ -619,6 +625,7 @@ private:
 			std::shared_ptr<BToolTip> fToolTip;
 			bool				fInputPrivate = false;
 			std::string			fAccessibleName;
+			AccessibleLive		fLiveRegion = AccessibleLive::Off;
 			std::string			fAccessibleDescription;
 			std::unique_ptr<BCursor> fCursor;
 
