@@ -93,6 +93,7 @@ public:
 private:
 	friend class BLooper;
 	friend class BMessenger;
+	friend class BWindow;
 
 			std::string			fName;
 			BLooper*			fLooper = nullptr;

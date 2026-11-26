@@ -1,0 +1,14 @@
+window "Settings"
+  group "Options"
+    checkbox "Save automatically" [focusable, checked] {click, focus}
+    radiobutton "Small" [focusable] {click, focus}
+    radiobutton "Large" [focusable, checked] {click, focus}
+  slider "Volume" = 30 (0..100 by 5) [focusable] {focus, increment, decrement, setvalue}
+  textinput "Name:" = "Ada" [focusable] {click, focus, setvalue}
+  passwordinput "Password:" [focusable] {click, focus, setvalue}
+  progressindicator "Copying" = "4 of 10" = 40 (0..100)
+  combobox "Size:" = "Medium" [focusable] {focus}
+  list "Fruits" [focusable] {focus}
+  label "Changes apply at once."
+  button "OK" "Closes the window" [focusable, default] {click, focus}
+  button [disabled]

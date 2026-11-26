@@ -101,6 +101,11 @@ public:
 									/*!< Sets a layout for its children; the label view stays
 										out of it. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role Group, its label as name. */
+
 protected:
 			void				LayoutInvalidated(bool descendants) override;
 									/*!< Drops the cached sizes. */

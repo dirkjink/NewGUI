@@ -353,6 +353,16 @@ public:
 			void				GetHeightForWidth(float width, float* min, float* max,
 									float* preferred) override;
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role MultilineTextInput, PasswordInput if it hides typing,
+										Label if it can be neither edited nor selected; its text as
+										value (never a password), ReadOnly, SetValue if editable. */
+			std::expected<void, Error> PerformAccessibleAction(AccessibleAction action,
+									const BMessage& data) override;
+									/*!< SetValue ("value") sets the text, if it is editable. */
+
 protected:
 	virtual	void				InsertText(std::string_view text, int32 offset,
 									const BTextRunArray* runs);

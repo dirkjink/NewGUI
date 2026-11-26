@@ -71,6 +71,11 @@ public:
 			void				Draw(DrawContext& context) override;
 									/*!< Draws the lines in the panel text color. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role Label, its text as name. */
+
 protected:
 			void				LayoutInvalidated(bool descendants = false) override;
 									/*!< Drops the cached height. */

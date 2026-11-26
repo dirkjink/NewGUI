@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <future>
 #include <mutex>
 #include <utility>
@@ -879,6 +880,9 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 			if (fOwnLook == nullptr)
 				_LookChanged();
 			return;
+		case kAccessibleAction:
+			_AccessibleAction(message);
+			return;
 		case detail::kRecordWindowState:
 			// a recording begins: its frame and scale as it has them
 			detail::RecordWindowState(*this, fFrame, fScale);
@@ -1585,6 +1589,102 @@ BWindow::_LastViewChild(BView* parent) const
 			return parent;
 		parent = parent->ChildAt(count - 1);
 	}
+}
+
+
+void
+BWindow::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	if (info == nullptr)
+		return;
+	const bool modal = fFeel == BWindowFeel::ModalApp;
+	info->role = modal ? AccessibleRole::Dialog : AccessibleRole::Window;
+	info->name = fTitle;
+	if (modal)
+		info->states |= AccessibleState::Modal;
+}
+
+
+AccessibleTree
+BWindow::GetAccessibleTree() const
+{
+	AccessibleTree tree;
+	AccessibleNode window;
+	window.id = static_cast<std::uint64_t>(static_cast<const BHandler*>(this)->fToken);
+	GetAccessibleInfo(&window.info);
+	window.bounds = {0, 0, fFrame.Width(), fFrame.Height()};
+	tree.nodes.push_back(std::move(window));
+	tree.focus = tree.nodes.front().id;
+
+	// the shown views, a node for each whose role is not None
+	const std::function<void(const BView*, std::size_t)> add
+		= [&](const BView* view, std::size_t parent) {
+			for (std::int32_t i = 0; i < view->CountChildren(); i++) {
+				const BView* child = view->ChildAt(i);
+				if (child == nullptr || child->IsHidden())
+					continue;
+				AccessibleNode node;
+				child->GetAccessibleInfo(&node.info);
+				if (node.info.role == AccessibleRole::None) {
+					add(child, parent);
+					continue;
+				}
+				node.id = static_cast<std::uint64_t>(
+					static_cast<const BHandler*>(child)->fToken);
+				node.bounds = child->ConvertToWindow(child->Bounds());
+				tree.nodes[parent].children.push_back(node.id);
+				const std::size_t index = tree.nodes.size();
+				tree.nodes.push_back(std::move(node));
+				add(child, index);
+			}
+		};
+	if (fRoot != nullptr)
+		add(fRoot.get(), 0);
+
+	for (const BView* view = fFocus; view != nullptr; view = view->Parent()) {
+		const auto id = static_cast<std::uint64_t>(static_cast<const BHandler*>(view)->fToken);
+		if (tree.Find(id) != nullptr) {
+			tree.focus = id;
+			break;
+		}
+	}
+	if (IsActive()) {
+		for (AccessibleNode& node : tree.nodes) {
+			if (node.id == tree.focus && &node != &tree.nodes.front())
+				node.info.states |= AccessibleState::Focused;
+		}
+	}
+	return tree;
+}
+
+
+BView*
+BWindow::_ViewWithToken(std::int32_t token) const
+{
+	BView* found = nullptr;
+	ForEachView(fRoot.get(), [&](BView* view) {
+		if (static_cast<const BHandler*>(view)->fToken == token)
+			found = view;
+	});
+	return found;
+}
+
+
+// kAccessibleAction: an action of assistive technology for a view.
+void
+BWindow::_AccessibleAction(BMessage* message)
+{
+	const std::int64_t node = message->GetInt64("node", 0);
+	const auto action = static_cast<AccessibleAction>(message->GetInt32("action", 0));
+	std::expected<void, Error> result;
+	BView* view = node > 0 && node <= std::numeric_limits<std::int32_t>::max()
+		? _ViewWithToken(static_cast<std::int32_t>(node)) : nullptr;
+	if (view == nullptr)
+		result = Failure(ErrorCode::NotFound, "no view is that node");
+	else
+		result = view->PerformAccessibleAction(action, *message);
+	if (message->IsSourceWaiting())
+		detail::SendScriptingReply(*message, BMessage(kReply), result);
 }
 
 

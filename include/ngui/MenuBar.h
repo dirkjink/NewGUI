@@ -87,6 +87,11 @@ public:
 			bool				IsTracking() const;
 									/*!< Whether its menus are open. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role MenuBar (its items follow with the menus). */
+
 private:
 	friend class MenuTracker;
 	friend class BWindow;

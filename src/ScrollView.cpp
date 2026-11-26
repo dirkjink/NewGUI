@@ -716,4 +716,16 @@ BScrollView::_Init(std::unique_ptr<BView> target, bool horizontal, bool vertical
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BScrollView::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info != nullptr)
+		info->role = AccessibleRole::ScrollView;
+}
+
+
 } // namespace ngui

@@ -471,4 +471,19 @@ BButton::_SetFlag(std::uint32_t flag, bool set)
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BButton::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BControl::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::Button;
+	if (IsDefault())
+		info->states |= AccessibleState::Default;
+}
+
+
 } // namespace ngui

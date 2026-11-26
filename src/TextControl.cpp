@@ -989,4 +989,58 @@ BTextControl::GetSupportedSuites(BMessage* data)
 	return BControl::GetSupportedSuites(data);
 }
 
+
+// #pragma mark - accessibility
+
+
+void
+BTextControl::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BControl::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	const BTextView* text = TextView();
+	const bool hidden = text != nullptr && text->IsTypingHidden();
+	info->role = hidden ? AccessibleRole::PasswordInput : AccessibleRole::TextInput;
+	if (!hidden)
+		info->value = Text();
+	if (text != nullptr && !text->IsEditable())
+		info->states |= AccessibleState::ReadOnly;
+	if (IsEnabled()) {
+		info->states |= AccessibleState::Focusable;
+		info->actions |= AccessibleAction::Focus;
+		if (text != nullptr && text->IsEditable())
+			info->actions |= AccessibleAction::SetValue;
+	}
+}
+
+
+std::expected<void, Error>
+BTextControl::PerformAccessibleAction(AccessibleAction action, const BMessage& data)
+{
+	if (!IsEnabled())
+		return Failure(ErrorCode::NotSupported, "the text control is disabled");
+	BTextView* text = TextView();
+	switch (action) {
+		case AccessibleAction::Click:
+		case AccessibleAction::Focus:
+			text->MakeFocus(true);
+			return {};
+		case AccessibleAction::SetValue:
+		{
+			const auto value = data.FindString("value");
+			if (!value.has_value())
+				return Failure(ErrorCode::InvalidArgument, "SetValue needs a \"value\"");
+			if (!text->IsEditable())
+				return Failure(ErrorCode::NotSupported, "the text cannot be edited");
+			SetText(*value);
+			(void)Invoke();
+			return {};
+		}
+		default:
+			return BView::PerformAccessibleAction(action, data);
+	}
+}
+
+
 } // namespace ngui

@@ -154,6 +154,23 @@ MatchesLayoutSnapshot(const WindowRef& window, std::string_view name,
 }
 
 
+/*!	The accessibility tree of \a window (AccessibleTree::Text()) against its
+	reference, for EXPECT_ACCESSIBILITY_SNAPSHOT; the backend in the file name
+	is "a11y". */
+inline ::testing::AssertionResult
+MatchesAccessibilitySnapshot(const WindowRef& window, std::string_view name,
+	SnapshotOptions options = {})
+{
+	if (options.backend == "none")
+		options.backend = "a11y";
+	const SnapshotResult result = CheckTextSnapshot(Snapshots(),
+		CurrentSnapshotKey(name, options), "txt", window.AccessibleTree().Text());
+	if (result.Passed())
+		return ::testing::AssertionSuccess() << result.message;
+	return ::testing::AssertionFailure() << result.message;
+}
+
+
 /*!	Whether \a report has no errors, for EXPECT_LINT_CLEAN; lists them
 	otherwise (warnings too). */
 inline ::testing::AssertionResult
@@ -172,6 +189,11 @@ HasNoLintErrors(const LintReport& report)
 	\a name; optional SnapshotOptions. */
 #define EXPECT_LAYOUT_SNAPSHOT(window, ...) \
 	EXPECT_TRUE(::ngui::test::MatchesLayoutSnapshot((window), __VA_ARGS__))
+
+/*!	Expects the accessibility tree of window \a window (a WindowRef) to match
+	snapshot \a name; optional SnapshotOptions. */
+#define EXPECT_ACCESSIBILITY_SNAPSHOT(window, ...) \
+	EXPECT_TRUE(::ngui::test::MatchesAccessibilitySnapshot((window), __VA_ARGS__))
 
 /*!	Expects the LintReport \a report to have no errors. */
 #define EXPECT_LINT_CLEAN(report) \

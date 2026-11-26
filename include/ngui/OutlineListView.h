@@ -155,6 +155,11 @@ public:
 									int32 index) const;
 									/*!< The \a index-th subitem of \a superItem. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role Tree. */
+
 protected:
 			bool				DoMiscellaneous(MiscCode code, MiscData* data) override;
 									/*!< Swaps items with their subitems, replaces in the

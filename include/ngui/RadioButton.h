@@ -72,6 +72,11 @@ public:
 			BAlignment			LayoutAlignment() override;
 									/*!< Left, vertically centered. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role RadioButton, Checked when on. */
+
 private:
 			gfx::Rect			_KnobFrame(const FontHeight& fontHeight) const;
 			gfx::Rect			_KnobFrame() const;

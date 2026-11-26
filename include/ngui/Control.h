@@ -83,6 +83,14 @@ public:
 			std::expected<void, Error> GetSupportedSuites(BMessage* data) override;
 									/*!< "suite/vnd.Be-control" and BView's. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Its label as name, Disabled, Click while enabled. */
+			std::expected<void, Error> PerformAccessibleAction(AccessibleAction action,
+									const BMessage& data) override;
+									/*!< Click as Space does (KeyDown()), while enabled. */
+
 protected:
 			bool				IsFocusChanging() const;
 									/*!< Inside MakeFocus(). */

@@ -306,4 +306,19 @@ BStringView::_StringWidth(std::string_view text)
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BStringView::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::Label;
+	if (info->name.empty())
+		info->name = Text();
+}
+
+
 } // namespace ngui

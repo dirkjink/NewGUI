@@ -144,6 +144,15 @@ public:
 			gfx::Size			PreferredSize() override;
 									/*!< GetPreferredSize(). */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role ScrollBar: the value in its range, the small step;
+										Increment and Decrement. */
+			std::expected<void, Error> PerformAccessibleAction(AccessibleAction action,
+									const BMessage& data) override;
+									/*!< Increment and Decrement by the small step. */
+
 private:
 			class Private;
 			friend class Private;

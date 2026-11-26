@@ -3755,4 +3755,48 @@ BTextView::_UneditableTint() const
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BTextView::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	if (IsTypingHidden())
+		info->role = AccessibleRole::PasswordInput;
+	else if (!fEditable && !fSelectable)
+		info->role = AccessibleRole::Label;
+	else
+		info->role = AccessibleRole::MultilineTextInput;
+	if (info->role == AccessibleRole::Label) {
+		if (info->name.empty())
+			info->name = Text();
+		return;
+	}
+	if (!IsTypingHidden())
+		info->value = Text();
+	if (!fEditable)
+		info->states |= AccessibleState::ReadOnly;
+	else
+		info->actions |= AccessibleAction::SetValue;
+}
+
+
+std::expected<void, Error>
+BTextView::PerformAccessibleAction(AccessibleAction action, const BMessage& data)
+{
+	if (action != AccessibleAction::SetValue)
+		return BView::PerformAccessibleAction(action, data);
+	const auto value = data.FindString("value");
+	if (!value.has_value())
+		return Failure(ErrorCode::InvalidArgument, "SetValue needs a \"value\"");
+	if (!fEditable)
+		return Failure(ErrorCode::NotSupported, "the text cannot be edited");
+	SetText(*value);
+	return {};
+}
+
+
 } // namespace ngui

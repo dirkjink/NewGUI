@@ -1068,4 +1068,16 @@ BOutlineListView::_TakeHidden(BListItem* item)
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BOutlineListView::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BListView::GetAccessibleInfo(info);
+	if (info != nullptr)
+		info->role = AccessibleRole::Tree;
+}
+
+
 } // namespace ngui

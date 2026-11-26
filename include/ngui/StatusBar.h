@@ -107,6 +107,12 @@ public:
 			gfx::Size			PreferredSize() override;
 									/*!< Room for all texts and the bar. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role ProgressIndicator: its label as name, its text
+										as value, the value from 0 to MaxValue(). */
+
 private:
 			void				_SetTextData(std::string& text, std::string_view source);
 			gfx::Rect			_BarFrame() const;

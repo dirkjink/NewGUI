@@ -140,6 +140,12 @@ public:
 									/*!< An item for the menu bar, as
 										CreateLabelLayoutItem(); unlimited in width. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role ComboBox: its label as name, the marked item
+										as value. */
+
 protected:
 			void				LayoutInvalidated(bool descendants) override;
 			void				DoLayout() override;

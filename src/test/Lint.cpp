@@ -135,6 +135,30 @@ ReadsAfter(const gfx::Rect& before, const gfx::Rect& after)
 }
 
 
+// Whether a view of \a info must have a name: one a user works with
+// (an editable text, a control, a list).
+bool
+NeedsName(const AccessibleInfo& info)
+{
+	switch (info.role) {
+		case AccessibleRole::Button:
+		case AccessibleRole::CheckBox:
+		case AccessibleRole::RadioButton:
+		case AccessibleRole::Slider:
+		case AccessibleRole::TextInput:
+		case AccessibleRole::PasswordInput:
+		case AccessibleRole::ComboBox:
+		case AccessibleRole::List:
+		case AccessibleRole::Tree:
+			return true;
+		case AccessibleRole::MultilineTextInput:
+			return !info.states.Has(AccessibleState::ReadOnly);
+		default:
+			return false;
+	}
+}
+
+
 // The checks of one window, on its thread.
 std::vector<LintFinding>
 LintWindow(BWindow& window, const LintOptions& options)
@@ -246,6 +270,19 @@ LintWindow(BWindow& window, const LintOptions& options)
 			previous = &entry;
 		}
 	}
+
+	// controls that assistive technology cannot name
+	if (options.accessibleNames) {
+		for (const Entry& entry : entries) {
+			AccessibleInfo info;
+			entry.view->GetAccessibleInfo(&info);
+			if (NeedsName(info) && info.name.empty()) {
+				add(LintCheck::Unnamed, LintSeverity::Warning, entry.path, "a "
+					+ std::string(AccessibleRoleName(info.role))
+					+ " without a name for screen readers (BView::SetAccessibleName())");
+			}
+		}
+	}
 	return findings;
 }
 
@@ -277,6 +314,8 @@ CheckName(LintCheck check)
 			return "outside";
 		case LintCheck::FocusOrder:
 			return "focus order";
+		case LintCheck::Unnamed:
+			return "unnamed";
 	}
 	return "";
 }

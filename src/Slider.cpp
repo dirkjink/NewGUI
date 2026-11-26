@@ -1227,4 +1227,55 @@ BSlider::_ValidateMinSize()
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BSlider::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BControl::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::Slider;
+	int32 minimum = 0;
+	int32 maximum = 0;
+	GetLimits(&minimum, &maximum);
+	info->numericValue = Value();
+	info->minimum = minimum;
+	info->maximum = maximum;
+	info->step = KeyIncrementValue();
+	info->value = UpdateText();
+	info->actions.Clear(AccessibleAction::Click);
+	if (IsEnabled()) {
+		info->actions |= AccessibleAction::Increment | AccessibleAction::Decrement
+			| AccessibleAction::SetValue;
+	}
+}
+
+
+std::expected<void, Error>
+BSlider::PerformAccessibleAction(AccessibleAction action, const BMessage& data)
+{
+	if (action != AccessibleAction::Increment && action != AccessibleAction::Decrement
+		&& action != AccessibleAction::SetValue) {
+		return BView::PerformAccessibleAction(action, data);
+	}
+	if (!IsEnabled())
+		return Failure(ErrorCode::NotSupported, "the slider is disabled");
+	if (action == AccessibleAction::SetValue) {
+		const auto number = data.FindDouble("number");
+		if (!number.has_value())
+			return Failure(ErrorCode::InvalidArgument, "SetValue needs a \"number\"");
+		const double clamped = std::clamp(*number, -2147483648.0, 2147483647.0);
+		SetValue(static_cast<int32>(std::lround(clamped)));
+		(void)Invoke();
+		return {};
+	}
+	// as the arrow keys do
+	KeyDown(std::string(1, action == AccessibleAction::Increment ? keys::kRightArrow
+		: keys::kLeftArrow));
+	return {};
+}
+
+
 } // namespace ngui

@@ -978,4 +978,25 @@ BMenuField::_MenuBarWidth() const
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BMenuField::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::ComboBox;
+	if (info->name.empty())
+		info->name = Label();
+	if (const BMenu* menu = Menu()) {
+		if (const BMenuItem* marked = menu->FindMarked())
+			info->value = marked->Label();
+	}
+	if (!IsEnabled())
+		info->states |= AccessibleState::Disabled;
+}
+
+
 } // namespace ngui

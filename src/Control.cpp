@@ -319,4 +319,38 @@ BControl::GetSupportedSuites(BMessage* data)
 	return BView::GetSupportedSuites(data);
 }
 
+
+// #pragma mark - accessibility
+
+
+void
+BControl::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	if (info->role == AccessibleRole::None)
+		info->role = AccessibleRole::Generic;
+	if (info->name.empty())
+		info->name = Label();
+	if (!IsEnabled())
+		info->states |= AccessibleState::Disabled;
+	else
+		info->actions |= AccessibleAction::Click;
+}
+
+
+std::expected<void, Error>
+BControl::PerformAccessibleAction(AccessibleAction action, const BMessage& data)
+{
+	if (action != AccessibleAction::Click)
+		return BView::PerformAccessibleAction(action, data);
+	if (!IsEnabled())
+		return Failure(ErrorCode::NotSupported, "the control is disabled");
+	// as Space does
+	KeyDown(std::string(1, keys::kSpace));
+	return {};
+}
+
+
 } // namespace ngui

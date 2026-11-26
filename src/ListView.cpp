@@ -1700,4 +1700,17 @@ BListView::GetSupportedSuites(BMessage* data)
 	return BView::GetSupportedSuites(data);
 }
 
+
+// #pragma mark - accessibility
+
+
+void
+BListView::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info != nullptr)
+		info->role = AccessibleRole::List;
+}
+
+
 } // namespace ngui

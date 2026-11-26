@@ -99,6 +99,11 @@ public:
 			BView*				Target() const;
 									/*!< The target, or nullptr. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role ScrollView. */
+
 protected:
 			void				LayoutInvalidated(bool descendants) override;
 									/*!< Nothing to drop. */

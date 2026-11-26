@@ -19,6 +19,7 @@
 #include <vector>
 
 #include <ngui/Application.h>
+#include <ngui/Accessibility.h>
 #include <ngui/Clock.h>
 #include <ngui/Recording.h>
 #include <ngui/Error.h>
@@ -153,6 +154,9 @@ public:
 			ViewRef				FindByPath(std::string_view path) const;
 									/*!< The view at \a path of names from the window's
 										top views down, separated by "/" ("box/ok"). */
+			ngui::AccessibleTree AccessibleTree() const;
+									/*!< BWindow::GetAccessibleTree() of the window, from
+										its thread; empty if it is gone. */
 
 private:
 	friend class Driver;
@@ -249,6 +253,14 @@ public:
 										keys (keys::kTab, keys::kEnter, an arrow, ...) or a
 										character, with \a modifiers, in the active
 										window. */
+			std::expected<void, Error> PerformAccessibleAction(const WindowRef& window,
+									std::uint64_t node, AccessibleAction action,
+									const BMessage& data = BMessage());
+									/*!< Asks the view \a node of \a window's
+										accessibility tree to do \a action, as assistive
+										technology does (kAccessibleAction with the items
+										of \a data), and waits until idle: the view's
+										answer, NotFound if there is no such node. */
 			std::expected<void, Error> Replay(const Recording& recording);
 									/*!< Plays \a recording back (specification 20.8): makes
 										its look current, then sends each event to its

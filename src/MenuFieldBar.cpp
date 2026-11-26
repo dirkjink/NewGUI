@@ -206,4 +206,12 @@ MenuFieldBar::_Init()
 }
 
 
+void
+MenuFieldBar::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	if (info != nullptr)
+		info->role = AccessibleRole::None;
+}
+
+
 } // namespace ngui
