@@ -12,8 +12,10 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <initializer_list>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -23,6 +25,7 @@
 #include <gtest/gtest.h>
 
 #include <ngui/BeLook.h>
+#include <ngui/Bitmap.h>
 #include <ngui/Box.h>
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
@@ -1613,6 +1616,78 @@ TEST(TextSkiaTest, ColumnListViewMatchesItsSnapshot)
 		// Then
 		ASSERT_TRUE(image.has_value()) << image.error().message;
 		EXPECT_IMAGE_SNAPSHOT(*image, "ColumnListView", {.look = "be", .backend = "skia",
+			.scale = scale, .tolerance = Tolerance::Text()});
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, ColumnTypesMatchTheirSnapshot)
+{
+	// What is tested: A column list view of 300 × 100 without a border and
+	// horizontal scroll bar, in an active window: an integer column
+	// (right aligned), a size column (right aligned), a graph column and a
+	// bitmap column (centered); rows with 42, 512 bytes, 75 % and a blue
+	// square of 12 pixels; 7, 1000 bytes, 100 % (selected, not focused) and
+	// the square; 999, 0 bytes, 0 % and no bitmap; with the bundled font,
+	// rendered by Skia at scale 1 and 2 ("ColumnTypes"). The values are the
+	// same in every locale.
+	// Success criteria: Within the text tolerance of 21.2: the numbers and
+	// sizes at the right edge of their columns; each bar framed in the text
+	// color, filled as far as its value in the control highlight color, with the
+	// value and "%" centered on it; the square centered in its column.
+	// Why it matters: Each field type draws itself; all must fit the row.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	BWindow window({0, 0, 400, 200}, "columns");
+	auto& list = static_cast<BColumnListView&>(*window.AddChild(
+		std::make_unique<BColumnListView>(gfx::Rect{0, 0, 300, 100}, "list", kFollowLeftTop,
+			BViewFlags{}, BBorderStyle::None, false)));
+	list.AddColumn(std::make_unique<BIntegerColumn>("Count", 60.0f, 20.0f, 300.0f,
+		BHorizontalAlignment::Right), 0);
+	list.AddColumn(std::make_unique<BSizeColumn>("Size", 90.0f, 20.0f, 300.0f,
+		BHorizontalAlignment::Right), 1);
+	list.AddColumn(std::make_unique<GraphColumn>("Done", 80.0f, 20.0f, 300.0f), 2);
+	list.AddColumn(std::make_unique<BBitmapColumn>("Icon", 40.0f, 20.0f, 300.0f,
+		BHorizontalAlignment::Center), 3);
+	auto square = std::make_shared<BBitmap>(gfx::Rect{0, 0, 12, 12}, BColorSpace::RGBA32);
+	for (std::size_t i = 0; i < square->BitsLength(); i += 4) {
+		const std::uint8_t pixel[] = {200, 80, 40, 255};
+		std::copy(std::begin(pixel), std::end(pixel), square->Bits().begin()
+			+ static_cast<std::ptrdiff_t>(i));
+	}
+	const struct {
+		std::int32_t count;
+		std::uint64_t size;
+		std::int32_t done;
+		bool icon;
+	} rows[] = {{42, 512, 75, true}, {7, 1000, 100, true}, {999, 0, 0, false}};
+	for (const auto& values : rows) {
+		auto row = std::make_unique<BRow>();
+		row->SetField(std::make_unique<BIntegerField>(values.count), 0);
+		row->SetField(std::make_unique<BSizeField>(values.size), 1);
+		row->SetField(std::make_unique<BIntegerField>(values.done), 2);
+		row->SetField(std::make_unique<BBitmapField>(values.icon ? square : nullptr), 3);
+		list.AddRow(std::move(row));
+	}
+	list.AddToSelection(list.RowAt(1));
+	BMessage activated(kWindowActivated);
+	(void)activated.AddBool("active", true);
+	window.DispatchMessage(&activated, &window);
+	const DisplayListRef recorded = RecordTree(list, *text);
+
+	for (const float scale : {1.0f, 2.0f}) {
+		// When
+		SkiaBackend backend;
+		for (const FontFile& font : text->Fonts())
+			ASSERT_TRUE(backend.AddFont(font.id, font.data));
+		const auto image = RenderToImage(backend, *recorded, scale);
+
+		// Then
+		ASSERT_TRUE(image.has_value()) << image.error().message;
+		EXPECT_IMAGE_SNAPSHOT(*image, "ColumnTypes", {.look = "be", .backend = "skia",
 			.scale = scale, .tolerance = Tolerance::Text()});
 	}
 	TextSystem::SetDefault(nullptr);

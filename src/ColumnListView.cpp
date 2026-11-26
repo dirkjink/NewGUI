@@ -302,6 +302,13 @@ BColumn::GetColumnName(std::string* into) const
 }
 
 
+float
+BColumn::GetPreferredWidth(BField* /*field*/, BView* /*parent*/) const
+{
+	return fWidth;
+}
+
+
 bool
 BColumn::IsVisible() const
 {
@@ -841,6 +848,64 @@ BColumnListView::IsColumnVisible(int32 index) const
 }
 
 
+void
+BColumnListView::SetColumnFlags(BColumnFlags flags)
+{
+	fColumnFlags = flags;
+}
+
+
+BColumnFlags
+BColumnListView::ColumnFlags() const
+{
+	return fColumnFlags;
+}
+
+
+void
+BColumnListView::ResizeColumnToPreferred(int32 index)
+{
+	BColumn* column = ColumnAt(index);
+	if (column == nullptr)
+		return;
+
+	float width = column->fShowHeading ? column->GetPreferredWidth(nullptr, fRowView) : 0.0f;
+	const bool indented = column == _FirstVisibleColumn();
+
+	// all rows, also hidden ones: expanding must not cut fields off
+	struct Pending {
+		BRow*				row;
+		int32				level;
+	};
+	std::vector<Pending> pending;
+	for (std::unique_ptr<BRow>& row : fRows)
+		pending.push_back({row.get(), 0});
+	while (!pending.empty()) {
+		const Pending current = pending.back();
+		pending.pop_back();
+		BField* field = current.row->GetField(column->fFieldID);
+		if (field != nullptr && column->AcceptsField(field)) {
+			float fieldWidth = column->GetPreferredWidth(field, fRowView);
+			if (indented)
+				fieldWidth += static_cast<float>(current.level) * fLatchWidth;
+			width = std::max(width, fieldWidth);
+		}
+		for (std::unique_ptr<BRow>& child : current.row->fChildren)
+			pending.push_back({child.get(), current.level + 1});
+	}
+
+	column->SetWidth(width);
+}
+
+
+void
+BColumnListView::ResizeAllColumnsToPreferred()
+{
+	for (int32 i = 0; i < CountColumns(); i++)
+		ResizeColumnToPreferred(i);
+}
+
+
 // #pragma mark - rows
 
 
@@ -1174,6 +1239,76 @@ BColumnListView::DrawLatch(BView* view, DrawContext& context, gfx::Rect frame, B
 
 	view->Look().DrawArrowShape(context, latch, base,
 		type == BLatchType::Closed ? ArrowDirection::Right : ArrowDirection::Down, {}, tint);
+}
+
+
+void
+BColumnListView::SaveState(BMessage* state) const
+{
+	if (state == nullptr)
+		return;
+
+	for (const std::unique_ptr<BColumn>& column : fColumns) {
+		(void)state->AddInt32("columnID", column->fFieldID);
+		(void)state->AddFloat("columnWidth", column->fWidth);
+		(void)state->AddBool("columnVisible", column->fVisible);
+	}
+	for (const BColumn* column : fSortColumns) {
+		(void)state->AddInt32("sortID", column->fFieldID);
+		(void)state->AddBool("sortAscending", column->fSortAscending);
+	}
+	(void)state->AddBool("sortingEnabled", fSortingEnabled);
+}
+
+
+void
+BColumnListView::LoadState(const BMessage& state)
+{
+	auto find = [this](int32 id, std::size_t from) -> std::size_t {
+		for (std::size_t i = from; i < fColumns.size(); i++) {
+			if (fColumns[i]->fFieldID == id)
+				return i;
+		}
+		return fColumns.size();
+	};
+
+	// the named columns first, in their order
+	std::size_t placed = 0;
+	for (int32 i = 0; auto id = state.FindInt32("columnID", i); i++) {
+		const std::size_t found = find(*id, placed);
+		if (found == fColumns.size())
+			continue;
+
+		std::unique_ptr<BColumn> column = std::move(fColumns[found]);
+		fColumns.erase(fColumns.begin() + static_cast<std::ptrdiff_t>(found));
+		if (auto width = state.FindFloat("columnWidth", i))
+			column->fWidth = std::clamp(*width, column->fMinWidth, column->fMaxWidth);
+		if (auto visible = state.FindBool("columnVisible", i))
+			column->fVisible = *visible;
+		fColumns.insert(fColumns.begin() + static_cast<std::ptrdiff_t>(placed),
+			std::move(column));
+		placed++;
+	}
+
+	if (state.FindInt32("sortID", 0).has_value()) {
+		fSortColumns.clear();
+		for (int32 i = 0; auto id = state.FindInt32("sortID", i); i++) {
+			const std::size_t found = find(*id, 0);
+			if (found == fColumns.size())
+				continue;
+			BColumn* column = fColumns[found].get();
+			if (std::find(fSortColumns.begin(), fSortColumns.end(), column)
+					!= fSortColumns.end()) {
+				continue;
+			}
+			column->fSortAscending = state.FindBool("sortAscending", i).value_or(true);
+			fSortColumns.push_back(column);
+		}
+	}
+	if (auto enabled = state.FindBool("sortingEnabled"))
+		fSortingEnabled = *enabled;
+
+	_SortAll();
 }
 
 
@@ -2025,6 +2160,25 @@ BColumnListView::_TitleClicked(BColumn* column, BModifierFlags modifiers)
 		SetSortColumn(column, true, !column->fSortAscending);
 	else
 		SetSortColumn(column, false, true);
+}
+
+
+int32
+BColumnListView::_IndexOfColumn(const BColumn* column) const
+{
+	for (std::size_t i = 0; i < fColumns.size(); i++) {
+		if (fColumns[i].get() == column)
+			return static_cast<int32>(i);
+	}
+	return -1;
+}
+
+
+int32
+BColumnListView::_CountVisibleColumns() const
+{
+	return static_cast<int32>(std::count_if(fColumns.begin(), fColumns.end(),
+		[](const std::unique_ptr<BColumn>& column) { return column->fVisible; }));
 }
 
 

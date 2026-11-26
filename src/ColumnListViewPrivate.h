@@ -6,6 +6,7 @@
 #pragma once
 
 
+#include <cstdint>
 #include <optional>
 
 #include <ngui/Clock.h>
@@ -17,8 +18,10 @@
 namespace ngui {
 
 
-// The titles of a BColumnListView: scrolled horizontally with the rows; a
-// click on a title sorts by its column.
+// The titles of a BColumnListView: scrolled horizontally with the rows. A
+// click on a title sorts by its column; dragging its right edge resizes it
+// (a double click there fits it), dragging the title moves the column or,
+// off the titles, hides it; a secondary click opens the menu of columns.
 class ColumnTitleView : public BView {
 public:
 								ColumnTitleView(BColumnListView* master);
@@ -28,15 +31,29 @@ public:
 			void				MouseUp(gfx::Point where) override;
 			void				MouseMoved(gfx::Point where, BMouseTransit transit,
 									const BMessage* dragMessage) override;
+			void				MessageReceived(BMessage* message) override;
 
-			BColumn*			PressedColumn() const;
 			// A column is being removed: forget it.
 			void				ForgetColumn(const BColumn* column);
 
+	// The message of the items of the menu of columns, with "index".
+	static constexpr std::uint32_t kToggleColumn = 0x5f43544c;	// '_CTL'
+
 private:
+			BColumn*			_EdgeAt(float x) const;
+			void				_OpenMenu(gfx::Point where);
+			void				_UpdateCursor(gfx::Point where);
+
 			BColumnListView*	fMaster;
 			BColumn*			fPressed = nullptr;
 			bool				fPressedInside = false;
+			bool				fMoving = false;
+			float				fDragStart = 0;
+			BColumn*			fResizing = nullptr;
+			float				fResizeOffset = 0;
+			BColumn*			fLastEdge = nullptr;
+			std::optional<Clock::Time> fLastEdgeTime;
+			bool				fResizeCursor = false;
 };
 
 

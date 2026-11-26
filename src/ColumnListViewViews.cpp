@@ -13,7 +13,10 @@
 #include <iterator>
 
 #include <ngui/ControlLook.h>
+#include <ngui/Cursor.h>
+#include <ngui/MenuItem.h>
 #include <ngui/Message.h>
+#include <ngui/PopUpMenu.h>
 #include <ngui/Palette.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
@@ -32,6 +35,14 @@ namespace {
 // as BListView's
 constexpr float kDoubleClickThreshold = 6.0f;
 constexpr Clock::Time kClickSpeed = 500ms;
+
+// B_SECONDARY_MOUSE_BUTTON
+constexpr int32 kSecondaryMouseButton = 2;
+
+// How far the mouse moves before a pressed title is dragged, and how near
+// the right edge of a title it resizes the column.
+constexpr float kDragThreshold = 4.0f;
+constexpr float kEdgeSlop = 3.0f;
 
 // The sort indicator: its size and the space right of it.
 constexpr float kSortIndicatorSize = 7.0f;
@@ -95,7 +106,7 @@ ColumnTitleView::Draw(DrawContext& context)
 		if (rect.x1 <= bounds.x0 || rect.x0 >= bounds.x1)
 			continue;
 
-		if (column.get() == fPressed && fPressedInside) {
+		if (column.get() == fPressed && (fPressedInside || fMoving)) {
 			gfx::Rect pressed = rect;
 			Look().DrawButtonBackground(context, pressed, base, ControlState::Clicked);
 		}
@@ -134,11 +145,37 @@ ColumnTitleView::Draw(DrawContext& context)
 void
 ColumnTitleView::MouseDown(gfx::Point where)
 {
+	const int32 buttons = Buttons(*this);
+	if ((buttons & kSecondaryMouseButton) != 0) {
+		if (fMaster->fColumnFlags.Has(BColumnFlag::PopUp))
+			_OpenMenu(where);
+		return;
+	}
+
+	BColumn* edge = _EdgeAt(where.x);
+	if (edge != nullptr) {
+		const Clock::Time now = Clock::Default().Now();
+		if (edge == fLastEdge && fLastEdgeTime.has_value() && now - *fLastEdgeTime < kClickSpeed) {
+			fLastEdge = nullptr;
+			fLastEdgeTime.reset();
+			fMaster->ResizeColumnToPreferred(fMaster->_IndexOfColumn(edge));
+			return;
+		}
+		fLastEdge = edge;
+		fLastEdgeTime = now;
+		fResizing = edge;
+		fResizeOffset = where.x - (fMaster->_ColumnLeft(edge) + edge->fWidth);
+		SetMouseEventMask(BEventMask::Pointer);
+		return;
+	}
+
 	fPressed = fMaster->ColumnAt(gfx::Point{where.x, 0});
 	if (fPressed == nullptr)
 		return BView::MouseDown(where);
 
 	fPressedInside = true;
+	fMoving = false;
+	fDragStart = where.x;
 	SetMouseEventMask(BEventMask::Pointer);
 	Invalidate();
 }
@@ -147,15 +184,33 @@ ColumnTitleView::MouseDown(gfx::Point where)
 void
 ColumnTitleView::MouseUp(gfx::Point where)
 {
+	if (fResizing != nullptr) {
+		fResizing = nullptr;
+		_UpdateCursor(where);
+		return;
+	}
 	if (fPressed == nullptr)
 		return BView::MouseUp(where);
 
 	BColumn* column = fPressed;
+	const bool moved = fMoving;
 	const bool inside = fPressedInside;
 	fPressed = nullptr;
 	fPressedInside = false;
+	fMoving = false;
 	Invalidate();
-	if (inside)
+
+	// dragged off the titles: hidden, unless it is the last one shown
+	const gfx::Rect bounds = Bounds();
+	const bool off = where.y < bounds.y0 - bounds.Height()
+		|| where.y >= bounds.y1 + bounds.Height();
+	if (off && fMaster->fColumnFlags.Has(BColumnFlag::Remove)
+		&& fMaster->_CountVisibleColumns() > 1) {
+		fMaster->SetColumnVisible(column, false);
+		return;
+	}
+
+	if (!moved && inside)
 		fMaster->_TitleClicked(column, fMaster->_Modifiers());
 }
 
@@ -164,12 +219,38 @@ void
 ColumnTitleView::MouseMoved(gfx::Point where, BMouseTransit transit,
 	const BMessage* dragMessage)
 {
-	if (fPressed == nullptr)
+	if (fResizing != nullptr) {
+		fResizing->SetWidth(where.x - fResizeOffset - fMaster->_ColumnLeft(fResizing));
+		return;
+	}
+
+	if (fPressed == nullptr) {
+		_UpdateCursor(transit == BMouseTransit::Exited ? gfx::Point{-1e9f, 0} : where);
 		return BView::MouseMoved(where, transit, dragMessage);
+	}
+
+	if (!fMoving && fMaster->fColumnFlags.Has(BColumnFlag::Move)
+		&& std::fabs(where.x - fDragStart) > kDragThreshold) {
+		fMoving = true;
+	}
+
+	if (fMoving) {
+		// past the middle of a neighbor: change places with it
+		BColumn* target = fMaster->ColumnAt(gfx::Point{where.x, 0});
+		if (target != nullptr && target != fPressed) {
+			const float left = fMaster->_ColumnLeft(target);
+			const float middle = left + target->fWidth / 2;
+			const float pressedLeft = fMaster->_ColumnLeft(fPressed);
+			if ((left > pressedLeft && where.x > middle)
+				|| (left < pressedLeft && where.x < middle)) {
+				fMaster->MoveColumn(fPressed, fMaster->_IndexOfColumn(target));
+			}
+		}
+	}
 
 	const gfx::Rect bounds = Bounds();
 	const bool inside = where.y >= bounds.y0 && where.y < bounds.y1
-		&& fMaster->ColumnAt(gfx::Point{where.x, 0}) == fPressed;
+		&& (fMoving || fMaster->ColumnAt(gfx::Point{where.x, 0}) == fPressed);
 	if (inside != fPressedInside) {
 		fPressedInside = inside;
 		Invalidate();
@@ -177,10 +258,16 @@ ColumnTitleView::MouseMoved(gfx::Point where, BMouseTransit transit,
 }
 
 
-BColumn*
-ColumnTitleView::PressedColumn() const
+void
+ColumnTitleView::MessageReceived(BMessage* message)
 {
-	return fPressed;
+	if (message->what != kToggleColumn)
+		return BView::MessageReceived(message);
+
+	BColumn* column = fMaster->ColumnAt(message->GetInt32("index", -1));
+	if (column == nullptr || (column->fVisible && fMaster->_CountVisibleColumns() <= 1))
+		return;
+	fMaster->SetColumnVisible(column, !column->fVisible);
 }
 
 
@@ -190,7 +277,74 @@ ColumnTitleView::ForgetColumn(const BColumn* column)
 	if (fPressed == column) {
 		fPressed = nullptr;
 		fPressedInside = false;
+		fMoving = false;
 	}
+	if (fResizing == column)
+		fResizing = nullptr;
+	if (fLastEdge == column) {
+		fLastEdge = nullptr;
+		fLastEdgeTime.reset();
+	}
+}
+
+
+BColumn*
+ColumnTitleView::_EdgeAt(float x) const
+{
+	if (!fMaster->fColumnFlags.Has(BColumnFlag::Resize))
+		return nullptr;
+
+	float left = fMaster->fLatchWidth;
+	for (const std::unique_ptr<BColumn>& column : fMaster->fColumns) {
+		if (!column->fVisible)
+			continue;
+		left += column->fWidth;
+		if (std::fabs(x - left) <= kEdgeSlop)
+			return column.get();
+	}
+	return nullptr;
+}
+
+
+void
+ColumnTitleView::_OpenMenu(gfx::Point where)
+{
+	auto menu = std::make_unique<BPopUpMenu>("columns", false, false);
+	const bool lastShown = fMaster->_CountVisibleColumns() <= 1;
+	for (int32 i = 0; i < fMaster->CountColumns(); i++) {
+		const BColumn* column = fMaster->ColumnAt(i);
+		std::string name;
+		column->GetColumnName(&name);
+		if (name.empty())
+			continue;
+
+		auto message = std::make_unique<BMessage>(kToggleColumn);
+		(void)message->AddInt32("index", i);
+		auto item = std::make_unique<BMenuItem>(name, std::move(message));
+		item->SetMarked(column->fVisible);
+		item->SetEnabled(!column->fVisible || !lastShown);
+		(void)item->SetTarget(this);
+		(void)menu->AddItem(std::move(item));
+	}
+	if (menu->CountItems() == 0)
+		return;
+
+	(void)BPopUpMenu::Go(std::move(menu), ConvertToScreen(where), {.autoInvoke = true});
+}
+
+
+void
+ColumnTitleView::_UpdateCursor(gfx::Point where)
+{
+	const bool edge = _EdgeAt(where.x) != nullptr;
+	if (edge == fResizeCursor)
+		return;
+
+	fResizeCursor = edge;
+	if (edge)
+		SetViewCursor(BCursor(BCursorID::ResizeEastWest));
+	else
+		ClearViewCursor();
 }
 
 
