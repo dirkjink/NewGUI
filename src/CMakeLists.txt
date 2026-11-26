@@ -181,6 +181,7 @@ endif()
 if(NGUI_WITH_SKIA)
     find_package(unofficial-skia CONFIG REQUIRED)
     add_library(ngui_skia
+        gfx/skia/PdfDocument.cpp
         gfx/skia/SkiaBackend.cpp)
     add_library(ngui::skia ALIAS ngui_skia)
     target_link_libraries(ngui_skia

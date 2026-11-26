@@ -248,6 +248,21 @@ public:
 										before the first. From any thread while it lives. */
 	static	std::future<std::expected<BBitmap, Error>> CaptureFrame(const BMessenger& window);
 									/*!< CaptureFrame() of the window \a window. */
+			std::future<std::expected<gfx::DisplayListRef, Error>> Record(
+									const BSnapshotOptions& options = {});
+									/*!< The window recorded anew as a DisplayList, for an
+										export (gfx::ExportSvg(), gfx::ExportPdf(),
+										printing; specification 19): its current views
+										after pending layout and drawing (S1) on the panel
+										background, over its bounds or \a options' area,
+										which become the list's Bounds(); drawn for
+										\a options' backend (the window's if empty) at its
+										scale. From any thread while it lives. */
+	static	std::future<std::expected<gfx::DisplayListRef, Error>> Record(
+									const BMessenger& window,
+									const BSnapshotOptions& options = {});
+									/*!< Record() of the window \a window; NotFound if it
+										is gone. */
 
 	// Keyboard shortcuts
 
@@ -382,6 +397,11 @@ private:
 			std::expected<BBitmap, Error> _Snapshot(const BSnapshotOptions& options,
 									BView* view);
 			std::expected<BBitmap, Error> _CaptureFrame();
+			std::expected<gfx::DisplayListRef, Error> _Record(
+									const BSnapshotOptions& options, BView* view,
+									const gfx::Caps& caps, float scale, bool background);
+			std::expected<gfx::DisplayListRef, Error> _RecordForExport(
+									const BSnapshotOptions& options, BView* view);
 			void				_ScheduleUpdate();
 	static	BWindow*			_DispatchingWindow();
 			void				_SetTextInputArea(gfx::Rect rect, int32 cursor);

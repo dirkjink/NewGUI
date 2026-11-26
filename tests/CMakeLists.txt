@@ -17,6 +17,9 @@ endif()
 if(NOT NGUI_WITH_SVG)
     list(FILTER fuzzTargetSources EXCLUDE REGEX "/VectorIconFuzz\\.cpp$")
 endif()
+if(NOT NGUI_WITH_SKIA)
+    list(FILTER fuzzTargetSources EXCLUDE REGEX "/PdfExportFuzz\\.cpp$")
+endif()
 
 add_executable(ngui_tests
     AccessibilityTest.cpp
@@ -158,6 +161,10 @@ target_link_libraries(ngui_tests
         ngui::ngui
         ngui::testkit
         ngui::testkit_main)
+# The fuzz target of the PDF export draws with Skia.
+if(NGUI_WITH_SKIA)
+    target_link_libraries(ngui_tests PRIVATE ngui::skia)
+endif()
 
 # The text subsystem with its bundled fonts (vcpkg feature text).
 if(NGUI_WITH_TEXT)
@@ -211,6 +218,9 @@ if(NGUI_FUZZING)
         if(NGUI_WITH_SVG)
             target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::svg)
         endif()
+        if(NGUI_WITH_SKIA)
+            target_link_libraries(ngui_fuzz_${name} PRIVATE ngui::skia)
+        endif()
         ngui_configure_target(ngui_fuzz_${name})
         target_link_options(ngui_fuzz_${name} PRIVATE -fsanitize=fuzzer)
         list(APPEND fuzzTargetNames ${name})
@@ -243,6 +253,16 @@ if(NGUI_WITH_SKIA)
         target_include_directories(ngui_skia_tests SYSTEM PRIVATE "${NGUI_EGL_INCLUDE_DIR}")
         target_link_libraries(ngui_skia_tests PRIVATE "${NGUI_EGL_LIBRARY}")
     endif()
+    # What a PDF shows and says, read by poppler where it is installed.
+    find_program(NGUI_PDFTOPPM pdftoppm)
+    find_program(NGUI_PDFTOTEXT pdftotext)
+    if(NGUI_PDFTOPPM)
+        target_compile_definitions(ngui_skia_tests PRIVATE NGUI_TEST_PDFTOPPM="${NGUI_PDFTOPPM}")
+    endif()
+    if(NGUI_PDFTOTEXT)
+        target_compile_definitions(ngui_skia_tests
+            PRIVATE NGUI_TEST_PDFTOTEXT="${NGUI_PDFTOTEXT}")
+    endif()
     target_link_libraries(ngui_skia_tests
         PRIVATE
             ngui::skia
@@ -251,7 +271,8 @@ if(NGUI_WITH_SKIA)
             unofficial::skia::skia)
     # Text drawn with the bundled fonts (vcpkg feature text).
     if(NGUI_WITH_TEXT)
-        target_sources(ngui_skia_tests PRIVATE skia/TextSkiaTest.cpp skia/SnapshotSkiaTest.cpp)
+        target_sources(ngui_skia_tests PRIVATE skia/PdfDocumentTest.cpp skia/TextSkiaTest.cpp
+            skia/SnapshotSkiaTest.cpp)
         target_link_libraries(ngui_skia_tests PRIVATE ngui::text)
     endif()
     # The alert's type icon (vcpkg feature svg).

@@ -826,6 +826,15 @@ BView::Snapshot(const BSnapshotOptions& options)
 }
 
 
+std::expected<gfx::DisplayListRef, Error>
+BView::Record(const BSnapshotOptions& options)
+{
+	if (Window() == nullptr)
+		return Failure(ErrorCode::InvalidArgument, "the view has no window");
+	return Window()->_RecordForExport(options, this);
+}
+
+
 gfx::DisplayListRef
 BView::RecordTree(const DrawEnvironment& environment)
 {
