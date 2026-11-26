@@ -23,6 +23,8 @@ namespace ngui {
 	- Built into the toolkit, not loaded as an add-on.
 	- No parent view: a flat button takes its base color instead of the
 	  parent's low color, as in the Haiku look.
+	- A slider's bar is filled left of the thumb with the left fill color,
+	  as in the Haiku look (Haiku's flat look swaps the two colors).
 */
 std::shared_ptr<const ControlLook> CreateFlatLook();
 

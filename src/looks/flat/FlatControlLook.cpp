@@ -15,6 +15,8 @@
  * - No parent view: a flat button takes its base color instead of the
  *   parent's low color, as in HaikuControlLook.
  * - ui_color() without a view reads the Palette given to the constructor.
+ * - DrawSliderBar() fills each side of the thumb with its own color, as
+ *   HaikuControlLook does; Haiku's flat look swaps them.
  *
  * Authors (Haiku):
  *		Stephan Aßmus, superstippi@gmx.de
@@ -761,15 +763,17 @@ FlatControlLook::DrawSliderBar(BView* view, BRect rect, const BRect& updateRect,
 	}
 
 	// fill the background for the corners, exclude the middle bar for now
+	// NewGUI: each side in its own fill color, as HaikuControlLook does;
+	// Haiku's flat look swaps them (the fill color right of the thumb).
 	view->PushState();
-	view->ClipToRect(rightBarSide);
+	view->ClipToRect(leftBarSide);
 
 	DrawSliderBar(view, rect, updateRect, base, leftFillColor, flags, orientation);
 
 	view->PopState();
 
 	view->PushState();
-	view->ClipToRect(leftBarSide);
+	view->ClipToRect(rightBarSide);
 
 	DrawSliderBar(view, rect, updateRect, base, rightFillColor, flags,
 		orientation);
