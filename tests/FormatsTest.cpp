@@ -71,6 +71,28 @@ TEST(FormatsTest, TheCLocaleIsTheSameEverywhere)
 }
 
 
+TEST(FormatsTest, TheLongDateLeavesTheTimeOutCompletely)
+{
+	// What is tested: The long date of 2026-11-25 (UTC) in the system's
+	// locale "C.UTF-8", whose date and time pattern (D_T_FMT) is
+	// "%a %b %e %H:%M:%S %Y" in the C library.
+	// Success criteria: "Wed Nov 25 2026": the time and the colons between
+	// its parts are gone, no spaces are left over. Skipped where the
+	// system has no "C.UTF-8" (Windows).
+	// Why it matters: The long date stands alone in date columns and
+	// labels; leftovers of the time ("Wed Nov 25 :: 2026") read as
+	// garbage (module G7).
+	//
+	// Given
+	if (!BNumberFormat("C.UTF-8").IsSystemLocale())
+		GTEST_SKIP() << "the system has no C.UTF-8";
+	const BDateFormat dates("C.UTF-8");
+
+	// When / Then
+	EXPECT_EQ(dates.Format(kTime, BDateFormatStyle::Long, true), "Wed Nov 25 2026");
+}
+
+
 TEST(FormatsTest, DigitsAreGroupedAsCSays)
 {
 	// What is tested: LocalizeNumber() with German separators and groups of

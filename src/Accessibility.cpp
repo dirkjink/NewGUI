@@ -94,6 +94,14 @@ NodeLine(const AccessibleNode& node)
 	}
 	if (info.level > 0)
 		line += " level " + std::to_string(info.level);
+	if (info.rowCount.has_value())
+		line += " rows " + std::to_string(*info.rowCount);
+	if (info.columnCount.has_value())
+		line += " columns " + std::to_string(*info.columnCount);
+	if (info.rowIndex.has_value())
+		line += " row " + std::to_string(*info.rowIndex);
+	if (info.columnIndex.has_value())
+		line += " column " + std::to_string(*info.columnIndex);
 	if (info.textSelection.has_value()) {
 		const AccessibleTextSelection& selection = *info.textSelection;
 		line += " selection " + std::to_string(selection.anchor.item) + ":"
@@ -195,6 +203,16 @@ AccessibleRoleName(AccessibleRole role)
 			return "generic";
 		case AccessibleRole::TextRun:
 			return "textrun";
+		case AccessibleRole::Table:
+			return "table";
+		case AccessibleRole::TreeTable:
+			return "treetable";
+		case AccessibleRole::Row:
+			return "row";
+		case AccessibleRole::Cell:
+			return "cell";
+		case AccessibleRole::ColumnHeader:
+			return "columnheader";
 	}
 	return "none";
 }

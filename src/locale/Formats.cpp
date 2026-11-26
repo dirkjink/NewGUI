@@ -256,12 +256,14 @@ struct SystemLocale {
 };
 
 
-// \a pattern without the conversions of a time of day and the spaces they
-// leave: D_T_FMT's date.
+// \a pattern without the conversions of a time of day and what they
+// leave: the separators between them (C's "%H:%M:%S"), the spaces, a comma
+// at the end. D_T_FMT's date.
 std::string
 WithoutTime(std::string_view pattern)
 {
 	std::string result;
+	bool afterTime = false;
 	for (std::size_t i = 0; i < pattern.size(); i++) {
 		if (pattern[i] == '%' && i + 1 < pattern.size()) {
 			std::size_t at = i + 1;
@@ -272,23 +274,28 @@ WithoutTime(std::string_view pattern)
 			constexpr std::string_view kTimeConversions = "HIklMSpPrRTXZzs";
 			if (at < pattern.size()
 				&& kTimeConversions.find(pattern[at]) != std::string_view::npos) {
+				afterTime = true;
 				i = at;
 				continue;
 			}
+			afterTime = false;
 			result.append(pattern.substr(i, at + 1 - i));
 			i = at;
 			continue;
 		}
+		if (afterTime && (pattern[i] == ':' || pattern[i] == '.'))
+			continue;
+		afterTime = false;
 		result.push_back(pattern[i]);
 	}
-	// the spaces the time left
+	// the spaces the time left, and a comma before it
 	std::string tidy;
 	for (const char c : result) {
 		if (c == ' ' && (tidy.empty() || tidy.back() == ' '))
 			continue;
 		tidy.push_back(c);
 	}
-	while (!tidy.empty() && tidy.back() == ' ')
+	while (!tidy.empty() && (tidy.back() == ' ' || tidy.back() == ','))
 		tidy.pop_back();
 	return tidy;
 }

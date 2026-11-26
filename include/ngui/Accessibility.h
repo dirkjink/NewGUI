@@ -87,10 +87,15 @@ enum class AccessibleRole : std::uint8_t {
 	Splitter,			/*!< The divider of a split view. */
 	Image,				/*!< An image or icon. */
 	Generic,			/*!< Something else with a name or actions. */
-	TextRun				/*!< A piece of a text view's text (a line, or up to 255
+	TextRun,			/*!< A piece of a text view's text (a line, or up to 255
 							characters of one), an item of the text's node: its
 							value is the text, with the lengths and positions of its
 							characters. */
+	Table,				/*!< Rows in columns (BColumnListView). */
+	TreeTable,			/*!< A table whose rows have subrows. */
+	Row,				/*!< A row of a table, its cells its items. */
+	Cell,				/*!< A cell of a row. */
+	ColumnHeader		/*!< The title of a column, in the first row. */
 };
 
 
@@ -188,6 +193,14 @@ struct AccessibleInfo {
 			AccessibleActions	actions;	/*!< What it can be asked to do. */
 			std::int32_t		level = 0;	/*!< Its depth in an outline, from 1; 0 if it
 												is in none. */
+			std::optional<std::int32_t> rowCount;
+									/*!< A table's rows, its title row too. */
+			std::optional<std::int32_t> columnCount;
+									/*!< A table's columns. */
+			std::optional<std::int32_t> rowIndex;
+									/*!< A row's or cell's row, from 0 (the titles). */
+			std::optional<std::int32_t> columnIndex;
+									/*!< A cell's or column header's column, from 0. */
 			AccessibleLive		live = AccessibleLive::Off;
 									/*!< Whether a screen reader announces its name when
 										it changes or the node comes. */
@@ -211,10 +224,15 @@ struct AccessibleInfo {
 
 
 /*!	A part of a view that is no view of its own, for assistive technology:
-	a list item, a tab, a menu item (BView::GetAccessibleItems()). */
+	a list item, a tab, a menu item, a row of a table and its cells
+	(BView::GetAccessibleItems()). An item with the state Focused takes the
+	focus while its view has it (a table's focus row). */
 struct AccessibleItem {
 			AccessibleInfo		info;		/*!< What it is. */
 			gfx::Rect			frame;		/*!< Where it is, in its view's coordinates. */
+			std::int32_t		parent = -1;
+									/*!< The earlier item it lies in (a row for its
+										cells), or -1: the view. */
 
 			bool				operator==(const AccessibleItem& other) const = default;
 									/*!< Whether all of it is the same. */

@@ -10,6 +10,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -19,6 +20,8 @@
 #include <ngui/Box.h>
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
+#include <ngui/ColumnListView.h>
+#include <ngui/ColumnTypes.h>
 #include <ngui/ListView.h>
 #include <ngui/Looper.h>
 #include <ngui/TabView.h>
@@ -632,6 +635,155 @@ TEST(AccessibilityTest, ItemsAreNodesOfTheirViews)
 		"    tab \"Advanced\" [selected] {click}\n"), std::string::npos);
 	EXPECT_NE(final.Text().find("treeitem \"Fruit\" level 1 [expanded]"), std::string::npos);
 }
+
+// A window with a column list "Files" (Name and Size, sorted by Name):
+// Documents (collapsed, with Notes.md of 300 bytes) and README of 12 bytes;
+// the list has the focus.
+class TableWindow : public BWindow {
+public:
+	TableWindow()
+		:
+		BWindow({100, 100, 500, 400}, "Table", BWindowLook::Titled)
+	{
+		auto list = std::make_unique<BColumnListView>(gfx::Rect{10, 10, 390, 200}, "files",
+			kFollowLeftTop, BViewFlag::Navigable);
+		list->SetAccessibleName("Files");
+		auto name = std::make_unique<BStringColumn>("Name", 150.0f, 20.0f, 300.0f);
+		BColumn* nameColumn = name.get();
+		list->AddColumn(std::move(name), 0);
+		list->AddColumn(std::make_unique<BSizeColumn>("Size", 80.0f, 20.0f, 300.0f), 1);
+		list->SetSortColumn(nameColumn, false, true);
+		auto documents = std::make_unique<BRow>();
+		documents->SetField(std::make_unique<BStringField>("Documents"), 0);
+		BRow* folder = documents.get();
+		list->AddRow(std::move(documents));
+		auto notes = std::make_unique<BRow>();
+		notes->SetField(std::make_unique<BStringField>("Notes.md"), 0);
+		notes->SetField(std::make_unique<BSizeField>(300), 1);
+		list->AddRow(std::move(notes), folder);
+		auto readme = std::make_unique<BRow>();
+		readme->SetField(std::make_unique<BStringField>("README"), 0);
+		readme->SetField(std::make_unique<BSizeField>(12), 1);
+		list->AddRow(std::move(readme));
+		AddChild(std::move(list))->MakeFocus(true);
+	}
+};
+
+
+TEST(AccessibilityTest, TablesAreRowsOfCells)
+{
+	// What is tested: The tree of a window with a column list of Name and
+	// Size, with Documents (collapsed, with Notes.md) and README; then actions
+	// on its items: Expand on Documents; Click on the size cell of README;
+	// Focus on Notes.md; Click on the column header Size; Collapse on
+	// Documents; the layout lint with the list named and unnamed.
+	// Success criteria: The list is a tree table with its rows (the titles'
+	// too) and columns; its first item is the titles' row of column
+	// headers, then a row for each shown row, with its level, Expanded or
+	// Collapsed, and a cell for each column, named by the field's text
+	// (an empty cell for a missing field). Expand shows Notes.md at level 2;
+	// a click on a cell selects its row; Focus makes a row the focus row,
+	// and the window's focus goes to it; the header sorts by Size (the row
+	// without a size last); Collapse hides Notes.md again. The lint warns
+	// of the table only once its name is taken away.
+	// Why it matters: Screen readers read tables row by row and cell by
+	// cell, with the column titles (toolkit scope 11.3).
+	//
+	// Given
+	WindowApp<TableWindow> app("Table");
+	Driver& driver = app.Drive();
+	WindowRef window = app.Window();
+	(void)driver.ClickAt(window, {395, 395});
+	const AccessibleTree tree = window.AccessibleTree();
+	const AccessibleNode* files = tree.FindByName("Files");
+	ASSERT_NE(files, nullptr);
+	// the rows (and their cells) by the name of their first cell
+	const auto row = [](const AccessibleTree& in, std::string_view name) -> std::uint64_t {
+		for (const AccessibleNode& node : in.nodes) {
+			if (node.info.role != AccessibleRole::Row || node.children.empty())
+				continue;
+			const AccessibleNode* first = in.Find(node.children.front());
+			if (first != nullptr && first->info.name == name)
+				return node.id;
+		}
+		return 0;
+	};
+	const auto table = [](const AccessibleTree& in) {
+		const std::string text = in.Text();
+		const std::size_t from = text.find("  treetable \"Files\"");
+		return from == std::string::npos ? text : text.substr(from, text.find("    scrollbar",
+			from) - from);
+	};
+
+	// When
+	const auto expanded = driver.PerformAccessibleAction(window, row(tree, "Documents"),
+		AccessibleAction::Expand);
+	const AccessibleTree open = window.AccessibleTree();
+	const AccessibleNode* readme = open.Find(row(open, "README"));
+	ASSERT_NE(readme, nullptr);
+	const auto clicked = driver.PerformAccessibleAction(window, readme->children.back(),
+		AccessibleAction::Click);
+	const auto focused = driver.PerformAccessibleAction(window, row(open, "Notes.md"),
+		AccessibleAction::Focus);
+	const AccessibleTree focus = window.AccessibleTree();
+	const AccessibleNode* titles = open.Find(open.Find(files->id)->children.front());
+	ASSERT_NE(titles, nullptr);
+	const auto sorted = driver.PerformAccessibleAction(window, titles->children.back(),
+		AccessibleAction::Click);
+	const AccessibleTree bySize = window.AccessibleTree();
+	// items are counted by their place: Documents moved
+	const auto collapsed = driver.PerformAccessibleAction(window, row(bySize, "Documents"),
+		AccessibleAction::Collapse);
+	const AccessibleTree after = window.AccessibleTree();
+	const auto unnamed = [&window] {
+		std::vector<std::string> found;
+		for (const LintFinding& finding : Lint(window).findings) {
+			if (finding.check == LintCheck::Unnamed)
+				found.push_back(finding.path + ": " + finding.message);
+		}
+		return found;
+	};
+	const std::vector<std::string> named = unnamed();
+	(void)window.Find("files").Run([](BView& view) { view.SetAccessibleName(""); });
+	const std::vector<std::string> nameless = unnamed();
+
+	// Then
+	EXPECT_EQ(table(tree),
+		"  treetable \"Files\" rows 3 columns 2 [focusable, focused] {focus}\n"
+		"    row row 0\n"
+		"      columnheader \"Name\" row 0 column 0 {click}\n"
+		"      columnheader \"Size\" row 0 column 1 {click}\n"
+		"    row level 1 row 1 [collapsed] {click, focus, expand}\n"
+		"      cell \"Documents\" row 1 column 0\n"
+		"      cell row 1 column 1\n"
+		"    row level 1 row 2 {click, focus}\n"
+		"      cell \"README\" row 2 column 0\n"
+		"      cell \"12 bytes\" row 2 column 1\n");
+	EXPECT_EQ(files->children.front(), (files->id << 32) | 1);
+	EXPECT_TRUE(expanded.has_value());
+	EXPECT_NE(table(open).find("    row level 2 row 2 {click, focus}\n"
+		"      cell \"Notes.md\" row 2 column 0\n"
+		"      cell \"300 bytes\" row 2 column 1\n"), std::string::npos) << table(open);
+	EXPECT_NE(table(open).find("rows 4 columns 2"), std::string::npos);
+	EXPECT_TRUE(clicked.has_value());
+	EXPECT_TRUE(focused.has_value());
+	EXPECT_EQ(focus.focus, row(focus, "Notes.md"));
+	EXPECT_NE(table(focus).find("    row level 2 row 2 [focused] {click, focus}\n"),
+		std::string::npos) << table(focus);
+	EXPECT_NE(table(focus).find("    row level 1 row 3 [selected] {click, focus}\n"
+		"      cell \"README\""), std::string::npos) << table(focus);
+	EXPECT_TRUE(sorted.has_value());
+	EXPECT_NE(table(bySize).find("    row level 1 row 1 [selected] {click, focus}\n"
+		"      cell \"README\""), std::string::npos) << table(bySize);
+	EXPECT_TRUE(collapsed.has_value());
+	EXPECT_NE(table(after).find("    row level 1 row 2 [focused, collapsed] {click, focus, "
+		"expand}\n      cell \"Documents\""), std::string::npos) << table(after);
+	EXPECT_EQ(table(after).find("Notes.md"), std::string::npos);
+	EXPECT_TRUE(named.empty());
+	ASSERT_EQ(nameless.size(), 1u);
+	EXPECT_EQ(nameless[0].substr(0, 18), "files: a treetable");
+}
+
 
 TEST(AccessibilityTest, AnnouncementsAreNodesOfTheirOwn)
 {

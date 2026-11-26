@@ -1662,13 +1662,20 @@ BWindow::GetAccessibleTree() const
 		tree.nodes.push_back(std::move(node));
 		std::vector<AccessibleItem> items;
 		view->GetAccessibleItems(&items);
+		// where each item's node is, for the items that lie in it
+		std::vector<std::size_t> itemNodes;
+		itemNodes.reserve(items.size());
 		for (std::size_t i = 0; i < items.size(); i++) {
 			AccessibleNode item;
 			item.id = (token << 32) | (static_cast<std::uint64_t>(i) + 1);
 			item.info = std::move(items[i].info);
 			item.bounds = view->ConvertToWindow(items[i].frame).OffsetByCopy(offset.x,
 				offset.y);
-			tree.nodes[index].children.push_back(item.id);
+			const std::int32_t in = items[i].parent;
+			const std::size_t parentNode = in >= 0 && static_cast<std::size_t>(in) < i
+				? itemNodes[static_cast<std::size_t>(in)] : index;
+			tree.nodes[parentNode].children.push_back(item.id);
+			itemNodes.push_back(tree.nodes.size());
 			tree.nodes.push_back(std::move(item));
 		}
 		addChildren(view, index, offset);
@@ -1696,6 +1703,16 @@ BWindow::GetAccessibleTree() const
 			break;
 		}
 	}
+	// an item of the focused view that has the focus itself (a table's
+	// focus row)
+	if (tree.focus != tree.nodes.front().id) {
+		for (const AccessibleNode& node : tree.nodes) {
+			if (node.id >> 32 == tree.focus && node.info.states.Has(AccessibleState::Focused)) {
+				tree.focus = node.id;
+				break;
+			}
+		}
+	}
 	// the last announcement: a node of its own, new for each one
 	if (!fAnnouncement.empty()) {
 		AccessibleNode announcement;
@@ -1717,11 +1734,12 @@ BWindow::GetAccessibleTree() const
 			}
 		}
 	}
-	if (IsActive()) {
-		for (AccessibleNode& node : tree.nodes) {
-			if (node.id == tree.focus && &node != &tree.nodes.front())
-				node.info.states |= AccessibleState::Focused;
-		}
+	// only the focus is focused, while the window is active
+	for (AccessibleNode& node : tree.nodes) {
+		if (IsActive() && node.id == tree.focus && &node != &tree.nodes.front())
+			node.info.states |= AccessibleState::Focused;
+		else
+			node.info.states.Clear(AccessibleState::Focused);
 	}
 	return tree;
 }

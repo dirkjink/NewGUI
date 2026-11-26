@@ -215,6 +215,68 @@ TEST(AccessKitBridgeTest, TextRunsAndTheirSelection)
 	EXPECT_EQ(other->GetInt32("anchorItem", -2), -1);
 }
 
+TEST(AccessKitBridgeTest, TablesKeepTheirRowsAndColumns)
+{
+	// What is tested: MakeTreeUpdate() of a window with a tree table (node
+	// 20, 2 rows and 2 columns): its titles' row (item 0) with the column
+	// header "Name" (column 0), and a row at level 1 (row 1) with the cell
+	// "a" (column 0).
+	// Success criteria: The roles become TreeGrid, Row, ColumnHeader and
+	// Cell; the table has its row and column counts, the rows and cells
+	// their row and column indices, the row its level; cells are children
+	// of their row.
+	// Why it matters: Screen readers announce a cell with its row and
+	// column, and the column's title (toolkit scope 11.3).
+	//
+	// Given
+	const auto item = [](std::uint64_t index) { return (std::uint64_t{20} << 32) | index; };
+	AccessibleTree tree;
+	tree.nodes.push_back(Node(7, AccessibleRole::Window, "Files", {0, 0, 300, 200}, {20}));
+	AccessibleNode table = Node(20, AccessibleRole::TreeTable, "Files", {10, 10, 290, 190},
+		{item(1), item(3)});
+	table.info.rowCount = 2;
+	table.info.columnCount = 2;
+	tree.nodes.push_back(table);
+	AccessibleNode titles = Node(item(1), AccessibleRole::Row, "", {10, 10, 290, 29},
+		{item(2)});
+	titles.info.rowIndex = 0;
+	tree.nodes.push_back(titles);
+	AccessibleNode header = Node(item(2), AccessibleRole::ColumnHeader, "Name",
+		{25, 10, 125, 29});
+	header.info.rowIndex = 0;
+	header.info.columnIndex = 0;
+	tree.nodes.push_back(header);
+	AccessibleNode row = Node(item(3), AccessibleRole::Row, "", {10, 29, 290, 46},
+		{item(4)});
+	row.info.rowIndex = 1;
+	row.info.level = 1;
+	tree.nodes.push_back(row);
+	AccessibleNode cell = Node(item(4), AccessibleRole::Cell, "a", {25, 29, 125, 46});
+	cell.info.rowIndex = 1;
+	cell.info.columnIndex = 0;
+	tree.nodes.push_back(cell);
+	tree.focus = 20;
+
+	// When
+	const std::string text = Debug(MakeTreeUpdate(tree, 1));
+
+	// Then
+	const auto has = [&](const std::string& part) {
+		return text.find(part) != std::string::npos;
+	};
+	EXPECT_TRUE(has("role: TreeGrid, children: [#" + std::to_string(item(1)) + ", #"
+		+ std::to_string(item(3)) + "], label: \"Files\", row_count: 2, column_count: 2"))
+		<< text;
+	EXPECT_TRUE(has("role: Row, children: [#" + std::to_string(item(2)) + "]")) << text;
+	EXPECT_TRUE(has("role: ColumnHeader")) << text;
+	EXPECT_TRUE(has("role: Row, children: [#" + std::to_string(item(4)) + "]")) << text;
+	EXPECT_TRUE(has("role: Cell")) << text;
+	EXPECT_TRUE(has("row_index: 1")) << text;
+	EXPECT_TRUE(has("column_index: 0")) << text;
+	EXPECT_TRUE(has("level: 1")) << text;
+}
+
+
 TEST(AccessKitBridgeTest, ActionRequestsBecomeMessages)
 {
 	// What is tested: ActionMessage() of AccessKit's requests: Click of

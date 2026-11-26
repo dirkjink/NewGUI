@@ -99,6 +99,9 @@ public:
 									/*!< Compares the strings as described above. */
 			bool				AcceptsField(const BField* field) const override;
 									/*!< Whether \a field is a BStringField. */
+			void				GetFieldText(BField* field, std::string* into)
+									const override;
+									/*!< The string. */
 			float				GetPreferredWidth(BField* field, BView* parent)
 									const override;
 									/*!< The width of the string and the margins (of the
@@ -144,6 +147,9 @@ public:
 									/*!< Earlier first. */
 			bool				AcceptsField(const BField* field) const override;
 									/*!< Whether \a field is a BDateField. */
+			void				GetFieldText(BField* field, std::string* into)
+									const override;
+									/*!< The longest form. */
 			float				GetPreferredWidth(BField* field, BView* parent)
 									const override;
 									/*!< The width of the longest form and the margins. */
@@ -189,6 +195,9 @@ public:
 									/*!< Smaller first. */
 			bool				AcceptsField(const BField* field) const override;
 									/*!< Whether \a field is a BSizeField. */
+			void				GetFieldText(BField* field, std::string* into)
+									const override;
+									/*!< The size as drawn. */
 			float				GetPreferredWidth(BField* field, BView* parent)
 									const override;
 									/*!< The width of the size and the margins. */
@@ -230,6 +239,9 @@ public:
 									/*!< Smaller first. */
 			bool				AcceptsField(const BField* field) const override;
 									/*!< Whether \a field is a BIntegerField. */
+			void				GetFieldText(BField* field, std::string* into)
+									const override;
+									/*!< The number as drawn. */
 			float				GetPreferredWidth(BField* field, BView* parent)
 									const override;
 									/*!< The width of the number and the margins. */
@@ -253,6 +265,9 @@ public:
 									gfx::Rect rect, const gfx::Color& textColor) override;
 									/*!< The bar with the value; values outside 0 to 100
 										are drawn as the nearest. */
+			void				GetFieldText(BField* field, std::string* into)
+									const override;
+									/*!< The value and "%". */
 };
 
 

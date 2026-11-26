@@ -218,6 +218,14 @@ BStringColumn::AcceptsField(const BField* field) const
 }
 
 
+void
+BStringColumn::GetFieldText(BField* field, std::string* into) const
+{
+	if (into != nullptr)
+		*into = static_cast<BStringField*>(field)->String();
+}
+
+
 float
 BStringColumn::GetPreferredWidth(BField* field, BView* parent) const
 {
@@ -292,6 +300,14 @@ bool
 BDateColumn::AcceptsField(const BField* field) const
 {
 	return dynamic_cast<const BDateField*>(field) != nullptr;
+}
+
+
+void
+BDateColumn::GetFieldText(BField* field, std::string* into) const
+{
+	if (into != nullptr)
+		*into = _Form(static_cast<BDateField*>(field)->UnixTime(), 0);
 }
 
 
@@ -376,6 +392,14 @@ bool
 BSizeColumn::AcceptsField(const BField* field) const
 {
 	return dynamic_cast<const BSizeField*>(field) != nullptr;
+}
+
+
+void
+BSizeColumn::GetFieldText(BField* field, std::string* into) const
+{
+	if (into != nullptr)
+		*into = FormatSize(static_cast<BSizeField*>(field)->Size());
 }
 
 
@@ -464,6 +488,14 @@ BIntegerColumn::AcceptsField(const BField* field) const
 }
 
 
+void
+BIntegerColumn::GetFieldText(BField* field, std::string* into) const
+{
+	if (into != nullptr)
+		*into = fNumberFormat.Format(std::int64_t{static_cast<BIntegerField*>(field)->Value()});
+}
+
+
 float
 BIntegerColumn::GetPreferredWidth(BField* field, BView* parent) const
 {
@@ -507,6 +539,16 @@ GraphColumn::DrawField(BField* field, BView* owner, DrawContext& context, gfx::R
 	context.canvas.FillRect({frame.x1 - 1, frame.y0, frame.x1, frame.y1}, line);
 
 	DrawString(std::to_string(value) + "%", owner, context, rect, textColor);
+}
+
+
+void
+GraphColumn::GetFieldText(BField* field, std::string* into) const
+{
+	if (into != nullptr) {
+		*into = std::to_string(std::clamp(static_cast<BIntegerField*>(field)->Value(), 0, 100))
+			+ "%";
+	}
 }
 
 

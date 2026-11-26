@@ -102,6 +102,16 @@ RoleOf(const AccessibleInfo& info)
 			return ACCESSKIT_ROLE_IMAGE;
 		case AccessibleRole::TextRun:
 			return ACCESSKIT_ROLE_TEXT_RUN;
+		case AccessibleRole::Table:
+			return ACCESSKIT_ROLE_TABLE;
+		case AccessibleRole::TreeTable:
+			return ACCESSKIT_ROLE_TREE_GRID;
+		case AccessibleRole::Row:
+			return ACCESSKIT_ROLE_ROW;
+		case AccessibleRole::Cell:
+			return ACCESSKIT_ROLE_CELL;
+		case AccessibleRole::ColumnHeader:
+			return ACCESSKIT_ROLE_COLUMN_HEADER;
 		case AccessibleRole::None:
 		case AccessibleRole::Generic:
 			break;
@@ -176,6 +186,18 @@ MakeNode(const AccessibleNode& node, bool root, double scale)
 		accesskit_node_set_numeric_value_step(made, *info.step);
 	if (info.level > 0)
 		accesskit_node_set_level(made, static_cast<std::size_t>(info.level));
+	// tables
+	const auto count = [](std::int32_t value) {
+		return static_cast<std::size_t>(std::max(value, 0));
+	};
+	if (info.rowCount.has_value())
+		accesskit_node_set_row_count(made, count(*info.rowCount));
+	if (info.columnCount.has_value())
+		accesskit_node_set_column_count(made, count(*info.columnCount));
+	if (info.rowIndex.has_value())
+		accesskit_node_set_row_index(made, count(*info.rowIndex));
+	if (info.columnIndex.has_value())
+		accesskit_node_set_column_index(made, count(*info.columnIndex));
 	// text runs and the selection in them
 	if (!info.characterLengths.empty()) {
 		accesskit_node_set_character_lengths(made, info.characterLengths.size(),

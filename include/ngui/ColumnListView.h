@@ -157,7 +157,8 @@ private:
 	derive from it.
 
 	Differences to Haiku: the drawing hooks get the DrawContext and the
-	color to draw text in; GetColumnName() fills a std::string.
+	color to draw text in; GetColumnName() fills a std::string. New:
+	GetFieldText() for screen readers.
 */
 class BColumn {
 public:
@@ -205,6 +206,9 @@ public:
 	virtual	void				GetColumnName(std::string* into) const;
 									/*!< Hook: its name, as in the menu of columns; empty
 										(the column is not in the menu). */
+	virtual	void				GetFieldText(BField* field, std::string* into) const;
+									/*!< Hook: \a field as text, for assistive technology
+										(the name of its cell); empty. */
 	virtual	float				GetPreferredWidth(BField* field, BView* parent) const;
 									/*!< Hook: how wide the column wants to be for
 										\a field, or for its title if \a field is
@@ -543,6 +547,27 @@ public:
 									/*!< Unlimited. */
 			void				DoLayout() override;
 									/*!< Places titles, rows, scroll bars and status view. */
+
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role Table (TreeTable if a row has subrows), with
+										the number of rows (the titles' row too) and of
+										visible columns. */
+			void				GetAccessibleItems(std::vector<AccessibleItem>* items)
+									const override;
+									/*!< A Row of ColumnHeaders (the column names), then a
+										Row for each shown row (Selected, Expanded or
+										Collapsed, Focused for the focus row; its level in
+										a TreeTable) with a Cell for each visible column
+										(BColumn::GetFieldText()). */
+			std::expected<void, Error> PerformAccessibleItemAction(int32 index,
+									AccessibleAction action, const BMessage& data) override;
+									/*!< On a column header, Click sorts as a click on the
+										title. On a row or its cells, Click selects the row
+										alone, Focus makes it the focus row (and focuses
+										the list), Expand and Collapse show and hide its
+										subrows. */
 
 private:
 	friend class BRow;
