@@ -27,6 +27,8 @@
 #include <ngui/Button.h>
 #include <ngui/CheckBox.h>
 #include <ngui/Clock.h>
+#include <ngui/ColumnListView.h>
+#include <ngui/ColumnTypes.h>
 #include <ngui/InterfaceDefs.h>
 #include <ngui/Font.h>
 #include <ngui/LayoutBuilder.h>
@@ -1540,6 +1542,77 @@ TEST(TextSkiaTest, OutlineListViewMatchesItsSnapshot)
 		// Then
 		ASSERT_TRUE(image.has_value()) << image.error().message;
 		EXPECT_IMAGE_SNAPSHOT(*image, "OutlineListView", {.look = "be", .backend = "skia",
+			.scale = scale, .tolerance = Tolerance::Text()});
+	}
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(TextSkiaTest, ColumnListViewMatchesItsSnapshot)
+{
+	// What is tested: A column list view of 260 × 140 with a plain border
+	// and both scroll bars, focused in an active window: the columns Name
+	// (130 pixels) and Size (70, right aligned), sorted by Name; the rows
+	// Documents (expanded, with Letter.txt and Notes.md), Pictures
+	// (collapsed, with Cat.png) and README; Notes.md selected and the focus
+	// row; with the bundled font, rendered by Skia at scale 1 and 2
+	// ("ColumnListView").
+	// Success criteria: Within the text tolerance of 21.2: the titles on a
+	// button background with separators, an arrow pointing up right of
+	// Name; latches pointing down at Documents and right at Pictures, the
+	// subrows indented by the latch width; sizes at the right edge of their
+	// column; Notes.md on the selection background with the focus frame;
+	// a light line below each row.
+	// Why it matters: Titles, latches, indentation, fields and selection
+	// are drawn by different parts; all must line up.
+	//
+	// Given
+	const auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	BWindow window({0, 0, 300, 200}, "columns");
+	auto& list = static_cast<BColumnListView&>(*window.AddChild(
+		std::make_unique<BColumnListView>(gfx::Rect{0, 0, 260, 140}, "list", kFollowLeftTop,
+			BViewFlag::Navigable, BBorderStyle::Plain)));
+	auto name = std::make_unique<BStringColumn>("Name", 130, 40, 300);
+	BColumn* nameColumn = name.get();
+	list.AddColumn(std::move(name), 0);
+	list.AddColumn(std::make_unique<BStringColumn>("Size", 70, 40, 300, TruncationMode::End,
+		BHorizontalAlignment::Right), 1);
+	auto row = [](const char* rowName, const char* size) {
+		auto made = std::make_unique<BRow>();
+		made->SetField(std::make_unique<BStringField>(rowName), 0);
+		if (size != nullptr)
+			made->SetField(std::make_unique<BStringField>(size), 1);
+		return made;
+	};
+	list.SetSortColumn(nameColumn, false, true);
+	list.AddRow(row("README", "1 KB"));
+	list.AddRow(row("Pictures", nullptr));
+	list.AddRow(row("Documents", nullptr));
+	BRow* documents = list.RowAt(0);
+	BRow* pictures = list.RowAt(1);
+	list.AddRow(row("Notes.md", "3 KB"), documents);
+	list.AddRow(row("Letter.txt", "12 KB"), documents);
+	list.AddRow(row("Cat.png", "250 KB"), pictures);
+	list.ExpandOrCollapse(documents, true);
+	BRow* notes = list.RowAt(1, documents);
+	list.SetFocusRow(notes, true);
+	list.MakeFocus(true);
+	BMessage activated(kWindowActivated);
+	(void)activated.AddBool("active", true);
+	window.DispatchMessage(&activated, &window);
+	const DisplayListRef recorded = RecordTree(list, *text);
+
+	for (const float scale : {1.0f, 2.0f}) {
+		// When
+		SkiaBackend backend;
+		for (const FontFile& font : text->Fonts())
+			ASSERT_TRUE(backend.AddFont(font.id, font.data));
+		const auto image = RenderToImage(backend, *recorded, scale);
+
+		// Then
+		ASSERT_TRUE(image.has_value()) << image.error().message;
+		EXPECT_IMAGE_SNAPSHOT(*image, "ColumnListView", {.look = "be", .backend = "skia",
 			.scale = scale, .tolerance = Tolerance::Text()});
 	}
 	TextSystem::SetDefault(nullptr);

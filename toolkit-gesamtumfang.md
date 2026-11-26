@@ -74,7 +74,7 @@ Abgeschätzt werden die Teile des Toolkits, die die Spezifikation nicht abdeckt:
 | W6 Alert, About, ToolTips | 2.991 (mit InterfaceDefs) | — | 1.500 – 2.500 |
 | W7 Öffentliche Grafiktypen (Bitmap ohne Server, Font als Fassade zum Text-Subsystem, Shape, Polygon) | 4.388 | — | 1.000 – 1.900 |
 | **Summe Controls und Widgets** | | | **23.100 – 33.200** |
-| *W8 optional:* ColumnListView | 4.592 | 0,7 – 0,9 | *3.200 – 4.200* |
+| *W8 optional:* ColumnListView (eigene Implementierung nach Haikus API, siehe Abschnitt 11) | 4.592 | 0,7 – 0,9 | *3.200 – 4.200* |
 
 ## 6. Text-Subsystem
 
@@ -157,3 +157,7 @@ Das MVP umfasst also schon rund zwei Drittel des Gesamtumfangs. Grundgerüst, La
    - **Fünfter Schritt:** Texte als Text-Läufe mit Zeichen, Wörtern, Positionen, Schreibmarke und Auswahl; Screenreader können die Auswahl setzen und den ausgewählten Text ersetzen.
    - **Offen:** NSAccessibility (macOS), sobald die CI einen macOS-Build hat.
 4. Welche externen Bibliotheken werden für BiDi und Zeilenumbruch verwendet: ICU (vollständig, groß) oder SheenBidi/fribidi und libunibreak (klein)? **Teilweise entschieden:** libunibreak für Zeilen-, Wort- und Graphemgrenzen (X4); die BiDi-Bibliothek wird mit BiDi gewählt.
+5. ~~Wie kommt die ColumnListView ins Projekt?~~ **Entschieden (2026-11-26):** als eigene Implementierung nach Haikus API, nicht als Port. Haikus `ColumnListView.cpp` und `ColumnTypes.cpp` stehen unter der Open Tracker License; NewGUI bleibt reines MIT.
+   - **Erster Schritt:** der Kern: Zeilen mit Unterzeilen, Spalten mit Titeln, Auswahl, Tastatur, Bildlauf und Sortieren; `BTitledColumn`, `BStringField` und `BStringColumn`.
+   - **Zweiter Schritt:** Spalten mit der Maus verschieben und in der Breite ändern, das Menü der Spalten, `SaveState()` und `LoadState()`, die übrigen Feldtypen.
+   - **Dritter Schritt:** Barrierefreiheit (Tabelle, Zeilen, Zellen), Demo und Test-Kit.
