@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <expected>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -37,6 +38,14 @@ struct LookSelection {
 			std::string			id;			/*!< The look that is current now. */
 			std::string			warning;	/*!< Why the setting was not used; empty if
 												it was. For the caller to log. */
+};
+
+
+/*!	The result of LookRegistry::LoadPlugins(). */
+struct LookPluginReport {
+			std::vector<std::string> ids;		/*!< The looks registered, in order. */
+			std::vector<std::string> warnings;	/*!< The plugins refused and why, for the
+													caller to log. */
 };
 
 
@@ -118,6 +127,24 @@ public:
 										the setting, kFallbackId if it is empty. If that
 										fails, kFallbackId with a warning (L9). Fails only if
 										the fallback fails as well. */
+
+			std::expected<std::string, Error> LoadPlugin(const std::filesystem::path& file);
+									/*!< Loads the look plugin \a file (18.6, made with
+										NGUI_LOOK_PLUGIN(); `dlopen`, under Windows
+										`LoadLibrary`), makes its look and registers it;
+										gives its id. The plugin stays loaded while its look
+										lives. Fails with NotFound if the file cannot be
+										loaded, InvalidArgument if it is no look plugin or
+										its id is taken, NotSupported if it was built
+										otherwise (LookPluginBuildKey()) or declines the
+										interface version (L12). Plugins run with the rights
+										of the program: load only what the program or its
+										user chose. */
+			LookPluginReport	LoadPlugins(const std::filesystem::path& directory);
+									/*!< LoadPlugin() for every shared library in
+										\a directory (.so, under Windows .dll, under macOS
+										.dylib), in the order of their names, not in
+										subdirectories. */
 
 private:
 			struct Entry {
