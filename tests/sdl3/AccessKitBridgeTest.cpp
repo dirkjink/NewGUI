@@ -137,6 +137,84 @@ TEST(AccessKitBridgeTest, TreesBecomeAccessKitsUpdates)
 }
 
 
+TEST(AccessKitBridgeTest, TextRunsAndTheirSelection)
+{
+	// What is tested: MakeTreeUpdate() of a window with a text field (node
+	// 16, "Ada" selected from character 1 to 3) and its text run (item 0:
+	// node 16 times 2^32 plus 1) with lengths, word starts, positions and
+	// widths; an empty field with an empty run; ActionMessage() of a
+	// SetTextSelection between two characters
+	// of that run, and of one into another node's run.
+	// Success criteria: The run is a TextRun with the value, lengths, word
+	// starts, positions and widths; the empty run has an empty value (not
+	// none, which AccessKit cannot read); the field's text selection names the
+	// run's node; the action gives the item and characters, and item -1
+	// for a run of another node.
+	// Why it matters: Screen readers read and move the caret through
+	// AccessKit's text runs (toolkit scope 11.3).
+	//
+	// Given
+	const std::uint64_t runId = (std::uint64_t{16} << 32) | 1;
+	AccessibleTree tree;
+	const std::uint64_t emptyRunId = (std::uint64_t{18} << 32) | 1;
+	tree.nodes.push_back(Node(7, AccessibleRole::Window, "Form", {0, 0, 300, 200}, {16, 18}));
+	AccessibleNode field = Node(16, AccessibleRole::TextInput, "Name:", {10, 10, 210, 30},
+		{runId});
+	field.info.value = "Ada";
+	field.info.textSelection = AccessibleTextSelection{{0, 1}, {0, 3}};
+	tree.nodes.push_back(field);
+	AccessibleNode run = Node(runId, AccessibleRole::TextRun, "", {60, 12, 81, 26});
+	run.info.value = "Ada";
+	run.info.characterLengths = {1, 1, 1};
+	run.info.wordStarts.push_back(0);
+	run.info.characterPositions = {0, 7, 14};
+	run.info.characterWidths = {7, 7, 7};
+	tree.nodes.push_back(run);
+	tree.nodes.push_back(Node(18, AccessibleRole::TextInput, "Empty", {10, 40, 210, 60},
+		{emptyRunId}));
+	tree.nodes.push_back(Node(emptyRunId, AccessibleRole::TextRun, "", {60, 42, 61, 56}));
+	tree.focus = 16;
+	accesskit_action_request select{};
+	select.action = ACCESSKIT_ACTION_SET_TEXT_SELECTION;
+	select.target_node = 16;
+	select.data.has_value = true;
+	select.data.value.tag = ACCESSKIT_ACTION_DATA_SET_TEXT_SELECTION;
+	select.data.value.set_text_selection = {{runId, 0}, {runId, 2}};
+	accesskit_action_request foreign = select;
+	foreign.data.value.set_text_selection = {{(std::uint64_t{17} << 32) | 1, 0},
+		{runId, 2}};
+
+	// When
+	const std::string text = Debug(MakeTreeUpdate(tree, 1));
+	const auto selected = ActionMessage(select);
+	const auto other = ActionMessage(foreign);
+
+	// Then
+	const auto has = [&](const std::string& part) {
+		return text.find(part) != std::string::npos;
+	};
+	EXPECT_TRUE(has("role: TextRun")) << text;
+	EXPECT_TRUE(has("value: \"Ada\"")) << text;
+	EXPECT_TRUE(has("character_lengths: [1, 1, 1]")) << text;
+	EXPECT_TRUE(has("word_starts: [0]")) << text;
+	EXPECT_TRUE(has("character_positions: [0.0, 7.0, 14.0]")) << text;
+	EXPECT_TRUE(has("character_widths: [7.0, 7.0, 7.0]")) << text;
+	EXPECT_TRUE(has("(#" + std::to_string(emptyRunId) + ", Node { role: TextRun, value: \"\""))
+		<< text;
+	EXPECT_TRUE(has("#" + std::to_string(runId))) << text;
+	EXPECT_TRUE(has("character_index: 1")) << text;
+	EXPECT_TRUE(has("character_index: 3")) << text;
+	ASSERT_TRUE(selected.has_value());
+	EXPECT_EQ(selected->GetInt32("action", 0),
+		static_cast<std::int32_t>(AccessibleAction::SetTextSelection));
+	EXPECT_EQ(selected->GetInt32("anchorItem", -2), 0);
+	EXPECT_EQ(selected->GetInt32("anchorCharacter", -2), 0);
+	EXPECT_EQ(selected->GetInt32("focusItem", -2), 0);
+	EXPECT_EQ(selected->GetInt32("focusCharacter", -2), 2);
+	ASSERT_TRUE(other.has_value());
+	EXPECT_EQ(other->GetInt32("anchorItem", -2), -1);
+}
+
 TEST(AccessKitBridgeTest, ActionRequestsBecomeMessages)
 {
 	// What is tested: ActionMessage() of AccessKit's requests: Click of

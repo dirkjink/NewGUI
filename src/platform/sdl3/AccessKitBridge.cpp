@@ -21,6 +21,8 @@
 #include "platform/sdl3/AccessKitBridge.h"
 #include "platform/sdl3/AccessKitTree.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <limits>
 
 #include <ngui/Version.h>
@@ -98,6 +100,8 @@ RoleOf(const AccessibleInfo& info)
 			return ACCESSKIT_ROLE_SPLITTER;
 		case AccessibleRole::Image:
 			return ACCESSKIT_ROLE_IMAGE;
+		case AccessibleRole::TextRun:
+			return ACCESSKIT_ROLE_TEXT_RUN;
 		case AccessibleRole::None:
 		case AccessibleRole::Generic:
 			break;
@@ -119,7 +123,18 @@ constexpr ActionPair kActions[] = {
 	{AccessibleAction::Decrement, ACCESSKIT_ACTION_DECREMENT},
 	{AccessibleAction::SetValue, ACCESSKIT_ACTION_SET_VALUE},
 	{AccessibleAction::Expand, ACCESSKIT_ACTION_EXPAND},
-	{AccessibleAction::Collapse, ACCESSKIT_ACTION_COLLAPSE}};
+	{AccessibleAction::Collapse, ACCESSKIT_ACTION_COLLAPSE},
+	{AccessibleAction::SetTextSelection, ACCESSKIT_ACTION_SET_TEXT_SELECTION},
+	{AccessibleAction::ReplaceSelectedText, ACCESSKIT_ACTION_REPLACE_SELECTED_TEXT}};
+
+
+// The node of item \a item of the node \a owner (Window.cpp gives items such
+// ids).
+std::uint64_t
+ItemId(std::uint64_t owner, std::int32_t item)
+{
+	return (owner << 32) | (static_cast<std::uint64_t>(item) + 1);
+}
 
 
 accesskit_tree_info*
@@ -144,7 +159,9 @@ MakeNode(const AccessibleNode& node, bool root, double scale)
 		accesskit_node_set_label(made, info.name.c_str());
 	if (!info.description.empty())
 		accesskit_node_set_description(made, info.description.c_str());
-	if (!info.value.empty())
+	// a text run always has a value, empty for an empty line (AccessKit
+	// panics without one when assistive technology reads its text)
+	if (!info.value.empty() || info.role == AccessibleRole::TextRun)
 		accesskit_node_set_value(made, info.value.c_str());
 	else if (info.role == AccessibleRole::Label && !info.name.empty())
 		// AccessKit reads static text from the value (AT-SPI's name and text)
@@ -159,6 +176,29 @@ MakeNode(const AccessibleNode& node, bool root, double scale)
 		accesskit_node_set_numeric_value_step(made, *info.step);
 	if (info.level > 0)
 		accesskit_node_set_level(made, static_cast<std::size_t>(info.level));
+	// text runs and the selection in them
+	if (!info.characterLengths.empty()) {
+		accesskit_node_set_character_lengths(made, info.characterLengths.size(),
+			info.characterLengths.data());
+	}
+	if (!info.wordStarts.empty())
+		accesskit_node_set_word_starts(made, info.wordStarts.size(), info.wordStarts.data());
+	if (!info.characterPositions.empty()) {
+		accesskit_node_set_character_positions(made, info.characterPositions.size(),
+			info.characterPositions.data());
+	}
+	if (!info.characterWidths.empty()) {
+		accesskit_node_set_character_widths(made, info.characterWidths.size(),
+			info.characterWidths.data());
+	}
+	if (info.textSelection.has_value()) {
+		const AccessibleTextSelection& selection = *info.textSelection;
+		accesskit_node_set_text_selection(made, {
+			{ItemId(node.id, selection.anchor.item),
+				static_cast<std::size_t>(std::max(selection.anchor.character, 0))},
+			{ItemId(node.id, selection.focus.item),
+				static_cast<std::size_t>(std::max(selection.focus.character, 0))}});
+	}
 	if (info.live == AccessibleLive::Polite)
 		accesskit_node_set_live(made, ACCESSKIT_LIVE_POLITE);
 	else if (info.live == AccessibleLive::Assertive)
@@ -247,6 +287,23 @@ ActionMessage(const accesskit_action_request& request)
 			(void)message.AddString("value", data.value);
 		else if (data.tag == ACCESSKIT_ACTION_DATA_NUMERIC_VALUE)
 			(void)message.AddDouble("number", data.numeric_value);
+		else if (data.tag == ACCESSKIT_ACTION_DATA_SET_TEXT_SELECTION) {
+			// positions in text runs: items of the target's node
+			const accesskit_text_selection& selection = data.set_text_selection;
+			const auto item = [&](accesskit_node_id id) -> std::int32_t {
+				if (id >> 32 != request.target_node)
+					return -1;
+				return static_cast<std::int32_t>(id & 0xffffffffu) - 1;
+			};
+			const auto character = [](std::size_t index) {
+				return static_cast<std::int32_t>(std::min<std::size_t>(index,
+					static_cast<std::size_t>(std::numeric_limits<std::int32_t>::max())));
+			};
+			(void)message.AddInt32("anchorItem", item(selection.anchor.node));
+			(void)message.AddInt32("anchorCharacter", character(selection.anchor.character_index));
+			(void)message.AddInt32("focusItem", item(selection.focus.node));
+			(void)message.AddInt32("focusCharacter", character(selection.focus.character_index));
+		}
 	}
 	return message;
 }

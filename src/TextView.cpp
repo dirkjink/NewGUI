@@ -3758,6 +3758,61 @@ BTextView::_UneditableTint() const
 // #pragma mark - accessibility
 
 
+namespace {
+
+
+// A text run of a text view: its bytes and where each character begins.
+struct TextRunPiece {
+	std::size_t					start = 0;
+	std::size_t					end = 0;
+	std::vector<std::size_t>	characters;
+};
+
+
+// AccessKit's limit: indices of characters in a run are bytes.
+constexpr std::size_t kRunCharacters = 255;
+
+
+bool
+IsSpace(char c)
+{
+	return c == ' ' || c == '\t' || c == '\n';
+}
+
+
+} // namespace
+
+
+// The runs of the text: a piece per line, or per 255 characters of one; an
+// empty piece for an empty text or an empty last line.
+static std::vector<TextRunPiece>
+RunPieces(const TextLayout& layout, std::size_t length)
+{
+	std::vector<TextRunPiece> pieces;
+	for (int32 i = 0; i < layout.CountLines(); i++) {
+		const TextLayout::Line& line = layout.LineAt(i);
+		TextRunPiece piece;
+		piece.start = line.start;
+		for (std::size_t offset = line.start; offset < line.end;) {
+			if (piece.characters.size() == kRunCharacters) {
+				piece.end = offset;
+				pieces.push_back(std::move(piece));
+				piece = TextRunPiece{};
+				piece.start = offset;
+			}
+			piece.characters.push_back(offset);
+			offset = std::min(layout.NextBoundary(offset, TextBoundary::Grapheme), line.end);
+		}
+		piece.end = line.end;
+		if (!piece.characters.empty() || pieces.empty() || line.start == length)
+			pieces.push_back(std::move(piece));
+	}
+	if (pieces.empty())
+		pieces.push_back(TextRunPiece{0, 0, {}});
+	return pieces;
+}
+
+
 void
 BTextView::GetAccessibleInfo(AccessibleInfo* info) const
 {
@@ -3777,26 +3832,147 @@ BTextView::GetAccessibleInfo(AccessibleInfo* info) const
 	}
 	if (!IsTypingHidden())
 		info->value = Text();
+	GetAccessibleText(nullptr, &info->textSelection);
+	if (fSelectable)
+		info->actions |= AccessibleAction::SetTextSelection;
 	if (!fEditable)
 		info->states |= AccessibleState::ReadOnly;
 	else
-		info->actions |= AccessibleAction::SetValue;
+		info->actions |= AccessibleAction::SetValue | AccessibleAction::ReplaceSelectedText;
+}
+
+
+void
+BTextView::GetAccessibleItems(std::vector<AccessibleItem>* items) const
+{
+	if (items == nullptr || (!fEditable && !fSelectable && !IsTypingHidden()))
+		return;
+	GetAccessibleText(items, nullptr);
+}
+
+
+void
+BTextView::GetAccessibleText(std::vector<AccessibleItem>* runs,
+	std::optional<AccessibleTextSelection>* selection) const
+{
+	const std::vector<TextRunPiece> pieces = RunPieces(fLayout, fText.size());
+	const bool hidden = IsTypingHidden();
+	if (runs != nullptr) {
+		for (const TextRunPiece& piece : pieces) {
+			AccessibleItem run;
+			run.info.role = AccessibleRole::TextRun;
+			float height = 0;
+			const gfx::Point start = PointAt(static_cast<int32>(piece.start), &height);
+			for (std::size_t k = 0; k < piece.characters.size(); k++) {
+				const std::size_t offset = piece.characters[k];
+				const std::size_t next = k + 1 < piece.characters.size()
+					? piece.characters[k + 1] : piece.end;
+				if (hidden) {
+					run.info.value += "\u2022";
+					run.info.characterLengths.push_back(3);
+				} else {
+					run.info.value.append(fText, offset, next - offset);
+					run.info.characterLengths.push_back(
+						static_cast<std::uint8_t>(std::min<std::size_t>(next - offset, 255)));
+					// a word begins after white space, and where the layout
+					// sees one begin that is no white space
+					if (!IsSpace(fText[offset]) && fLayout.IsBoundary(offset, TextBoundary::Word))
+						run.info.wordStarts.push_back(static_cast<std::uint8_t>(k));
+				}
+				const float x = PointAt(static_cast<int32>(offset)).x;
+				const float after = fText[offset] == '\n' ? x
+					: PointAt(static_cast<int32>(next)).x;
+				run.info.characterPositions.push_back(x - start.x);
+				run.info.characterWidths.push_back(std::max(after - x, 0.0f));
+			}
+			float right = start.x;
+			if (!run.info.characterPositions.empty()) {
+				right = start.x + run.info.characterPositions.back()
+					+ run.info.characterWidths.back();
+			}
+			run.frame = {start.x, start.y, std::max(right, start.x + 1), start.y + height};
+			runs->push_back(std::move(run));
+		}
+	}
+	if (selection != nullptr) {
+		// where a byte offset is in the runs
+		const auto position = [&](int32 offset) {
+			const auto at = static_cast<std::size_t>(std::clamp(offset, 0, TextLength()));
+			for (std::size_t i = 0; i < pieces.size(); i++) {
+				const TextRunPiece& piece = pieces[i];
+				const bool last = i + 1 == pieces.size();
+				if (at < piece.start || (at >= piece.end && !(last && at == piece.end)))
+					continue;
+				const auto before = std::ranges::count_if(piece.characters,
+					[&](std::size_t character) { return character < at; });
+				return AccessibleTextPosition{static_cast<std::int32_t>(i),
+					static_cast<std::int32_t>(before)};
+			}
+			return AccessibleTextPosition{static_cast<std::int32_t>(pieces.size() - 1), 0};
+		};
+		const bool caretAtStart = fCaretOffset == fSelStart && fSelStart != fSelEnd;
+		*selection = AccessibleTextSelection{position(caretAtStart ? fSelEnd : fSelStart),
+			position(caretAtStart ? fSelStart : fSelEnd)};
+	}
+}
+
+
+int32
+BTextView::AccessibleTextOffset(AccessibleTextPosition position) const
+{
+	const std::vector<TextRunPiece> pieces = RunPieces(fLayout, fText.size());
+	if (position.item < 0 || static_cast<std::size_t>(position.item) >= pieces.size()
+		|| position.character < 0) {
+		return -1;
+	}
+	const TextRunPiece& piece = pieces[static_cast<std::size_t>(position.item)];
+	const auto character = static_cast<std::size_t>(position.character);
+	if (character > piece.characters.size())
+		return -1;
+	return static_cast<int32>(character < piece.characters.size() ? piece.characters[character]
+		: piece.end);
 }
 
 
 std::expected<void, Error>
 BTextView::PerformAccessibleAction(AccessibleAction action, const BMessage& data)
 {
-	if (action != AccessibleAction::SetValue)
-		return BView::PerformAccessibleAction(action, data);
-	const auto value = data.FindString("value");
-	if (!value.has_value())
-		return Failure(ErrorCode::InvalidArgument, "SetValue needs a \"value\"");
-	if (!fEditable)
-		return Failure(ErrorCode::NotSupported, "the text cannot be edited");
-	SetText(*value);
-	return {};
+	switch (action) {
+		case AccessibleAction::SetValue:
+		case AccessibleAction::ReplaceSelectedText:
+		{
+			const auto value = data.FindString("value");
+			if (!value.has_value())
+				return Failure(ErrorCode::InvalidArgument, "the action needs a \"value\"");
+			if (!fEditable)
+				return Failure(ErrorCode::NotSupported, "the text cannot be edited");
+			if (action == AccessibleAction::SetValue) {
+				SetText(*value);
+				return {};
+			}
+			// at the selection, the caret after the new text
+			const int32 at = fSelStart;
+			Delete();
+			Insert(at, *value);
+			const int32 after = at + static_cast<int32>(value->size());
+			Select(after, after);
+			return {};
+		}
+		case AccessibleAction::SetTextSelection:
+		{
+			if (!fSelectable)
+				return Failure(ErrorCode::NotSupported, "the text cannot be selected");
+			const int32 anchor = AccessibleTextOffset({data.GetInt32("anchorItem", -1),
+				data.GetInt32("anchorCharacter", -1)});
+			const int32 focus = AccessibleTextOffset({data.GetInt32("focusItem", -1),
+				data.GetInt32("focusCharacter", -1)});
+			if (anchor < 0 || focus < 0)
+				return Failure(ErrorCode::InvalidArgument, "no such place in the text");
+			Select(std::min(anchor, focus), std::max(anchor, focus));
+			return {};
+		}
+		default:
+			return BView::PerformAccessibleAction(action, data);
+	}
 }
-
-
 } // namespace ngui

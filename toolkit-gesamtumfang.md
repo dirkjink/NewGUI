@@ -154,5 +154,6 @@ Das MVP umfasst also schon rund zwei Drittel des Gesamtumfangs. Grundgerüst, La
    - **Zweiter Schritt:** die Brücke zu AT-SPI (Linux) und UI Automation (Windows) in der SDL-Plattform. NSAccessibility (macOS) folgt, sobald die CI einen macOS-Build hat.
    - **Dritter Schritt:** Listen, Bäume, Tabs und Menüs mit ihren Einträgen, offene Menüs im Baum ihres Fensters.
    - **Vierter Schritt:** Ankündigungen: `BWindow::Announce()` und Live-Regionen (`BView::SetLiveRegion()`).
-   - **Danach:** Texte mit Schreibmarke und Auswahl.
+   - **Fünfter Schritt:** Texte als Text-Läufe mit Zeichen, Wörtern, Positionen, Schreibmarke und Auswahl; Screenreader können die Auswahl setzen und den ausgewählten Text ersetzen.
+   - **Offen:** NSAccessibility (macOS), sobald die CI einen macOS-Build hat.
 4. Welche externen Bibliotheken werden für BiDi und Zeilenumbruch verwendet: ICU (vollständig, groß) oder SheenBidi/fribidi und libunibreak (klein)? **Teilweise entschieden:** libunibreak für Zeilen-, Wort- und Graphemgrenzen (X4); die BiDi-Bibliothek wird mit BiDi gewählt.

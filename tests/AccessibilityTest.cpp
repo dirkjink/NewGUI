@@ -249,8 +249,12 @@ TEST(AccessibilityTest, TheTreeSaysWhatTheWindowShows)
 		"    radiobutton \"Large\" [focusable, checked] {click, focus}\n"
 		"  slider \"Volume\" = 30 (0..100 by 5) [focusable] {focus, increment, decrement, "
 		"setvalue}\n"
-		"  textinput \"Name:\" = \"Ada\" [focusable] {click, focus, setvalue}\n"
-		"  passwordinput \"Password:\" [focusable] {click, focus, setvalue}\n"
+		"  textinput \"Name:\" = \"Ada\" selection 0:0..0:0 [focusable] {click, focus, "
+		"setvalue, settextselection, replaceselectedtext}\n"
+		"    textrun = \"Ada\" (3 characters, words at 0)\n"
+		"  passwordinput \"Password:\" selection 0:0..0:0 [focusable] {click, focus, "
+		"setvalue, settextselection, replaceselectedtext}\n"
+		"    textrun = \"\u2022\u2022\u2022\u2022\u2022\u2022\" (6 characters)\n"
 		"  progressindicator \"Copying\" = \"4 of 10\" = 40 (0..100)\n"
 		"  combobox \"Size:\" = \"Medium\" [focusable] {click, focus}\n"
 		"  list \"Fruits\" [focusable] {focus}\n"
@@ -635,13 +639,15 @@ TEST(AccessibilityTest, AnnouncementsAreNodesOfTheirOwn)
 	// listening (headless): the static note made a polite live region;
 	// BWindow::Announce("Saved") on the window's thread; kAnnounce "Saved"
 	// again from the test's thread; an assertive "Disk full"; an empty
-	// announcement.
+	// announcement; the caret of the name field moved by SetTextSelection.
 	// Success criteria: The note is "live polite". After the first
 	// announcement the window's last child is a label "Saved", live polite,
 	// with the id window token times 2^32 plus 1; the second has the same
 	// text but a new id (plus 2), so that it is announced again; the third
 	// is "live assertive" and the only announcement node; after the empty
 	// one there is none. Each announcement is passed on to the platform.
+	// Moving the caret of the unfocused name field (SetTextSelection), which
+	// draws nothing anew, passes the tree with the new caret on as well.
 	// Why it matters: Screen readers announce what a program says without
 	// a view of its own, and changes of status lines (toolkit scope 11.3).
 	//
@@ -676,6 +682,16 @@ TEST(AccessibilityTest, AnnouncementsAreNodesOfTheirOwn)
 	const std::size_t afterSecond = platformWindow->CountAccessibleUpdates();
 	const AccessibleTree third = announce("Disk full", AccessibleLive::Assertive);
 	const AccessibleTree cleared = announce("", AccessibleLive::Polite);
+	// an action that draws nothing anew still passes the tree on
+	const std::size_t beforeSelect = platformWindow->CountAccessibleUpdates();
+	BMessage caret;
+	(void)caret.AddInt32("anchorItem", 0);
+	(void)caret.AddInt32("anchorCharacter", 2);
+	(void)caret.AddInt32("focusItem", 0);
+	(void)caret.AddInt32("focusCharacter", 2);
+	const auto moved = driver.PerformAccessibleAction(window, IdOf(cleared, "Name:"),
+		AccessibleAction::SetTextSelection, caret);
+	const std::optional<AccessibleTree> pushed = platformWindow->LastAccessibleTree();
 
 	// Then
 	const std::uint64_t windowId = first.nodes.front().id;
@@ -696,6 +712,160 @@ TEST(AccessibilityTest, AnnouncementsAreNodesOfTheirOwn)
 	EXPECT_NE(third.Text().find("  label \"Disk full\" live assertive\n"), std::string::npos);
 	EXPECT_EQ(third.Text().find("\"Saved\""), std::string::npos);
 	EXPECT_EQ(cleared.Text().find("Disk full"), std::string::npos);
+	EXPECT_TRUE(moved.has_value()) << moved.error().message;
+	EXPECT_GT(platformWindow->CountAccessibleUpdates(), beforeSelect);
+	ASSERT_TRUE(pushed.has_value());
+	const AccessibleNode* name = pushed->FindByName("Name:");
+	ASSERT_NE(name, nullptr);
+	EXPECT_EQ(name->info.textSelection, (AccessibleTextSelection{{0, 2}, {0, 2}}));
+}
+
+// A window with an editable text view "editor" (no wrapping) and a read-only
+// one "notes".
+class TextWindow : public BWindow {
+public:
+	TextWindow()
+		:
+		BWindow({100, 100, 500, 400}, "Text", BWindowLook::Titled)
+	{
+		auto editor = std::make_unique<BTextView>(gfx::Rect{10, 10, 390, 200}, "editor",
+			gfx::Rect{0, 0, 380, 190});
+		editor->SetAccessibleName("Editor");
+		editor->SetWordWrap(false);
+		AddChild(std::move(editor));
+		auto notes = std::make_unique<BTextView>(gfx::Rect{10, 210, 390, 290}, "notes",
+			gfx::Rect{0, 0, 380, 80});
+		notes->SetAccessibleName("Notes");
+		notes->SetText("Fixed");
+		notes->MakeEditable(false);
+		AddChild(std::move(notes));
+	}
+};
+
+
+TEST(AccessibilityTest, TextHasRunsAndASelection)
+{
+	// What is tested: The editor with "Hello w\xC3\xB6rld\nSecond line" ("ö" two
+	// bytes), "\xC3\xB6r" selected with the caret at its end; with 300 times "a";
+	// with "end\n" and the caret at the end; then SetTextSelection of
+	// "Second", ReplaceSelectedText by "First", and both on the read-only
+	// notes or with a place that is not there.
+	// Success criteria: A run per line, the line break at the end of the
+	// first: 12 characters (the "ö" two bytes long), words at 0 and 6;
+	// positions at 7 pixels a byte from the run's left edge (FixedTextSystem),
+	// the "ö" 14 wide, the line break 0; the selection 0:7..0:9. 300
+	// characters are two runs of 255 and 45. "end\n" has an empty last run,
+	// and the caret is at its start. SetTextSelection selects bytes 13 to
+	// 19; ReplaceSelectedText makes "Hello w\xC3\xB6rld\nFirst line", the caret
+	// after "First" (byte 18). The
+	// read-only notes do not replace (NotSupported), a place past a run
+	// is InvalidArgument.
+	// Why it matters: Screen readers read text by character, word and line
+	// and follow the caret (toolkit scope 11.3); AccessKit needs runs of at
+	// most 255 characters.
+	//
+	// Given
+	WindowApp<TextWindow> app("Text");
+	Driver& driver = app.Drive();
+	WindowRef window = app.Window();
+	const auto set = [&](const char* text, int32 from, int32 to) {
+		(void)window.Find("editor").Run([&](BView& view) {
+			auto& editor = static_cast<BTextView&>(view);
+			editor.SetText(text);
+			editor.Select(from, to);
+		});
+		(void)driver.WaitForIdle();
+		return window.AccessibleTree();
+	};
+	const auto runsOf = [](const AccessibleTree& tree, std::string_view name) {
+		std::vector<const AccessibleNode*> runs;
+		const AccessibleNode* node = tree.FindByName(name);
+		if (node != nullptr) {
+			for (const std::uint64_t child : node->children)
+				runs.push_back(tree.Find(child));
+		}
+		return runs;
+	};
+
+	// When
+	const AccessibleTree lines = set("Hello w\xC3\xB6rld\nSecond line", 7, 10);
+	const AccessibleTree longLine = set(std::string(300, 'a').c_str(), 0, 0);
+	const AccessibleTree ended = set("end\n", 4, 4);
+	(void)set("Hello w\xC3\xB6rld\nSecond line", 0, 0);
+	const std::uint64_t editor = window.AccessibleTree().FindByName("Editor")->id;
+	BMessage second;
+	(void)second.AddInt32("anchorItem", 1);
+	(void)second.AddInt32("anchorCharacter", 0);
+	(void)second.AddInt32("focusItem", 1);
+	(void)second.AddInt32("focusCharacter", 6);
+	const auto selected = driver.PerformAccessibleAction(window, editor,
+		AccessibleAction::SetTextSelection, second);
+	int32 start = -1;
+	int32 end = -1;
+	(void)window.Find("editor").Run([&](BView& view) {
+		static_cast<BTextView&>(view).GetSelection(&start, &end);
+	});
+	BMessage first;
+	(void)first.AddString("value", "First");
+	const auto replaced = driver.PerformAccessibleAction(window, editor,
+		AccessibleAction::ReplaceSelectedText, first);
+	const std::string text = window.Find("editor").Text();
+	int32 caret = -1;
+	int32 caretEnd = -1;
+	(void)window.Find("editor").Run([&](BView& view) {
+		static_cast<BTextView&>(view).GetSelection(&caret, &caretEnd);
+	});
+	const auto readOnly = driver.PerformAccessibleAction(window,
+		window.AccessibleTree().FindByName("Notes")->id, AccessibleAction::ReplaceSelectedText,
+		first);
+	BMessage past;
+	(void)past.AddInt32("anchorItem", 0);
+	(void)past.AddInt32("anchorCharacter", 40);
+	(void)past.AddInt32("focusItem", 0);
+	(void)past.AddInt32("focusCharacter", 40);
+	const auto nowhere = driver.PerformAccessibleAction(window, editor,
+		AccessibleAction::SetTextSelection, past);
+
+	// Then
+	const AccessibleNode* node = lines.FindByName("Editor");
+	ASSERT_NE(node, nullptr);
+	EXPECT_EQ(node->info.role, AccessibleRole::MultilineTextInput);
+	EXPECT_EQ(node->info.textSelection, (AccessibleTextSelection{{0, 7}, {0, 9}}));
+	const std::vector<const AccessibleNode*> runs = runsOf(lines, "Editor");
+	ASSERT_EQ(runs.size(), 2u);
+	ASSERT_TRUE(runs[0] != nullptr && runs[1] != nullptr);
+	EXPECT_EQ(runs[0]->info.role, AccessibleRole::TextRun);
+	EXPECT_EQ(runs[0]->info.value, "Hello w\xC3\xB6rld\n");
+	EXPECT_EQ(runs[0]->info.characterLengths,
+		(std::vector<std::uint8_t>{1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1}));
+	EXPECT_EQ(runs[0]->info.wordStarts, (std::vector<std::uint8_t>{0, 6}));
+	ASSERT_EQ(runs[0]->info.characterPositions.size(), 12u);
+	EXPECT_EQ(runs[0]->info.characterPositions[1], 7.0f);
+	EXPECT_EQ(runs[0]->info.characterPositions[7], 49.0f);
+	EXPECT_EQ(runs[0]->info.characterWidths[7], 14.0f);
+	EXPECT_EQ(runs[0]->info.characterPositions[8], 63.0f);
+	EXPECT_EQ(runs[0]->info.characterWidths[11], 0.0f);
+	EXPECT_EQ(runs[1]->info.value, "Second line");
+	EXPECT_EQ(runs[1]->info.wordStarts, (std::vector<std::uint8_t>{0, 7}));
+	EXPECT_GT(runs[1]->bounds.y0, runs[0]->bounds.y0);
+	const std::vector<const AccessibleNode*> longRuns = runsOf(longLine, "Editor");
+	ASSERT_EQ(longRuns.size(), 2u);
+	EXPECT_EQ(longRuns[0]->info.characterLengths.size(), 255u);
+	EXPECT_EQ(longRuns[1]->info.characterLengths.size(), 45u);
+	const std::vector<const AccessibleNode*> endedRuns = runsOf(ended, "Editor");
+	ASSERT_EQ(endedRuns.size(), 2u);
+	EXPECT_EQ(endedRuns[1]->info.value, "");
+	EXPECT_EQ(ended.FindByName("Editor")->info.textSelection,
+		(AccessibleTextSelection{{1, 0}, {1, 0}}));
+	EXPECT_TRUE(selected.has_value()) << selected.error().message;
+	EXPECT_EQ(start, 13);
+	EXPECT_EQ(end, 19);
+	EXPECT_TRUE(replaced.has_value()) << replaced.error().message;
+	EXPECT_EQ(text, "Hello w\xC3\xB6rld\nFirst line");
+	EXPECT_EQ(caret, 18);
+	EXPECT_EQ(caretEnd, 18);
+	EXPECT_EQ(readOnly.error().code, ErrorCode::NotSupported);
+	EXPECT_EQ(nowhere.error().code, ErrorCode::InvalidArgument);
 }
 
 TEST(AccessibilityTest, TheTreeMatchesItsSnapshot)
@@ -724,11 +894,18 @@ TEST(AccessibilityTest, EveryRoleHasAName)
 	//
 	// Given
 	std::vector<std::string> names;
-	for (int role = 0; role <= static_cast<int>(AccessibleRole::Generic); role++)
+	for (int role = 0; role <= static_cast<int>(AccessibleRole::TextRun); role++)
 		names.emplace_back(AccessibleRoleName(static_cast<AccessibleRole>(role)));
 	AccessibleTree broken;
-	broken.nodes.push_back({1, {AccessibleRole::Window, "W", {}, {}, {}, {}, {}, {}, {}, {}},
-		{0, 0, 10, 10}, {2}});
+	AccessibleNode window;
+	window.id = 1;
+	window.info.role = AccessibleRole::Window;
+	window.info.name = "W";
+	window.bounds = {0, 0, 10, 10};
+	// not `= {2}`: GCC warns wrongly about the bounds of the initializer
+	// list (-Warray-bounds) in optimized builds, as in Window.cpp
+	window.children.push_back(2);
+	broken.nodes.push_back(window);
 
 	// When
 	const std::string text = broken.Text();

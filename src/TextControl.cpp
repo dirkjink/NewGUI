@@ -1004,6 +1004,13 @@ BTextControl::GetAccessibleInfo(AccessibleInfo* info) const
 	info->role = hidden ? AccessibleRole::PasswordInput : AccessibleRole::TextInput;
 	if (!hidden)
 		info->value = Text();
+	if (text != nullptr) {
+		text->GetAccessibleText(nullptr, &info->textSelection);
+		if (text->IsSelectable())
+			info->actions |= AccessibleAction::SetTextSelection;
+		if (text->IsEditable())
+			info->actions |= AccessibleAction::ReplaceSelectedText;
+	}
 	if (text != nullptr && !text->IsEditable())
 		info->states |= AccessibleState::ReadOnly;
 	if (IsEnabled()) {
@@ -1037,9 +1044,27 @@ BTextControl::PerformAccessibleAction(AccessibleAction action, const BMessage& d
 			(void)Invoke();
 			return {};
 		}
+		case AccessibleAction::SetTextSelection:
+		case AccessibleAction::ReplaceSelectedText:
+			return text->PerformAccessibleAction(action, data);
 		default:
 			return BView::PerformAccessibleAction(action, data);
 	}
+}
+
+
+void
+BTextControl::GetAccessibleItems(std::vector<AccessibleItem>* items) const
+{
+	const BTextView* text = TextView();
+	if (items == nullptr || text == nullptr)
+		return;
+	// the text view's runs, moved into the control's coordinates
+	const std::size_t first = items->size();
+	text->GetAccessibleText(items, nullptr);
+	const gfx::Point origin = text->Frame().LeftTop();
+	for (std::size_t i = first; i < items->size(); i++)
+		(*items)[i].frame.OffsetBy(origin.x, origin.y);
 }
 
 
