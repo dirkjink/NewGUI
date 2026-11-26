@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include <ngui/Accessibility.h>
 #include <ngui/LayoutUtils.h>
 #include <ngui/Message.h>
 #include <ngui/Messenger.h>
@@ -296,6 +297,14 @@ BColumn::MouseUp(BColumnListView* /*parent*/, BRow* /*row*/, BField* /*field*/)
 
 void
 BColumn::GetColumnName(std::string* into) const
+{
+	if (into != nullptr)
+		into->clear();
+}
+
+
+void
+BColumn::GetFieldText(BField* /*field*/, std::string* into) const
 {
 	if (into != nullptr)
 		into->clear();
@@ -1517,6 +1526,151 @@ void
 BColumnListView::DoLayout()
 {
 	_LayoutChildren();
+}
+
+
+// #pragma mark - accessibility
+
+
+void
+BColumnListView::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+
+	const bool tree = std::any_of(fRows.begin(), fRows.end(),
+		[](const std::unique_ptr<BRow>& row) { return !row->fChildren.empty(); });
+	info->role = tree ? AccessibleRole::TreeTable : AccessibleRole::Table;
+	info->rowCount = static_cast<std::int32_t>(_VisibleRows().size()) + 1;
+	info->columnCount = _CountVisibleColumns();
+}
+
+
+void
+BColumnListView::GetAccessibleItems(std::vector<AccessibleItem>* items) const
+{
+	if (items == nullptr)
+		return;
+
+	std::vector<BColumn*> columns;
+	for (const std::unique_ptr<BColumn>& column : fColumns) {
+		if (column->fVisible)
+			columns.push_back(column.get());
+	}
+	AccessibleInfo listInfo;
+	GetAccessibleInfo(&listInfo);
+	const bool tree = listInfo.role == AccessibleRole::TreeTable;
+
+	// the titles: a row of column headers
+	AccessibleItem titles;
+	titles.info.role = AccessibleRole::Row;
+	titles.info.rowIndex = 0;
+	titles.frame = fTitleView->Frame();
+	items->push_back(std::move(titles));
+	const gfx::Rect titleBounds = fTitleView->Bounds();
+	for (std::size_t j = 0; j < columns.size(); j++) {
+		AccessibleItem header;
+		header.info.role = AccessibleRole::ColumnHeader;
+		columns[j]->GetColumnName(&header.info.name);
+		header.info.rowIndex = 0;
+		header.info.columnIndex = static_cast<std::int32_t>(j);
+		if (fSortingEnabled)
+			header.info.actions |= AccessibleAction::Click;
+		const float left = _ColumnLeft(columns[j]);
+		header.frame = fTitleView->ConvertToParent(gfx::Rect{left, titleBounds.y0,
+			left + columns[j]->fWidth, titleBounds.y1});
+		header.parent = 0;
+		items->push_back(std::move(header));
+	}
+
+	// the rows, with a cell for each column
+	const std::vector<VisibleRow>& rows = _VisibleRows();
+	const float width = std::max(_ContentWidth(), fRowView->Bounds().x1);
+	for (std::size_t k = 0; k < rows.size(); k++) {
+		const VisibleRow& shown = rows[k];
+		BRow* row = shown.row;
+		AccessibleItem entry;
+		entry.info.role = AccessibleRole::Row;
+		entry.info.rowIndex = static_cast<std::int32_t>(k) + 1;
+		if (tree)
+			entry.info.level = shown.level + 1;
+		if (row->fIsSelected)
+			entry.info.states |= AccessibleState::Selected;
+		if (row == fFocusRow)
+			entry.info.states |= AccessibleState::Focused;
+		entry.info.actions = AccessibleAction::Click | AccessibleAction::Focus;
+		if (row->HasLatch()) {
+			entry.info.states |= row->fIsExpanded ? AccessibleState::Expanded
+				: AccessibleState::Collapsed;
+			entry.info.actions |= row->fIsExpanded ? AccessibleAction::Collapse
+				: AccessibleAction::Expand;
+		}
+		entry.frame = fRowView->ConvertToParent(gfx::Rect{0, shown.top, width,
+			shown.top + row->fHeight});
+		const auto rowItem = static_cast<std::int32_t>(items->size());
+		items->push_back(std::move(entry));
+
+		for (std::size_t j = 0; j < columns.size(); j++) {
+			AccessibleItem cell;
+			cell.info.role = AccessibleRole::Cell;
+			BField* field = row->GetField(columns[j]->fFieldID);
+			if (field != nullptr && columns[j]->AcceptsField(field))
+				columns[j]->GetFieldText(field, &cell.info.name);
+			cell.info.rowIndex = static_cast<std::int32_t>(k) + 1;
+			cell.info.columnIndex = static_cast<std::int32_t>(j);
+			cell.frame = fRowView->ConvertToParent(_FieldRect(shown, columns[j]));
+			cell.parent = rowItem;
+			items->push_back(std::move(cell));
+		}
+	}
+}
+
+
+std::expected<void, Error>
+BColumnListView::PerformAccessibleItemAction(int32 index, AccessibleAction action,
+	const BMessage& /*data*/)
+{
+	std::vector<BColumn*> columns;
+	for (const std::unique_ptr<BColumn>& column : fColumns) {
+		if (column->fVisible)
+			columns.push_back(column.get());
+	}
+	const auto perRow = static_cast<int32>(columns.size()) + 1;
+	if (index < 0)
+		return Failure(ErrorCode::NotFound, "no such item");
+
+	// the titles' row and its column headers
+	if (index < perRow) {
+		if (index == 0 || action != AccessibleAction::Click || !fSortingEnabled)
+			return Failure(ErrorCode::NotSupported, "the item does not take this action");
+		_TitleClicked(columns[static_cast<std::size_t>(index - 1)], {});
+		return {};
+	}
+
+	// a row or one of its cells
+	const std::vector<VisibleRow>& rows = _VisibleRows();
+	const auto shown = static_cast<std::size_t>((index - perRow) / perRow);
+	if (shown >= rows.size())
+		return Failure(ErrorCode::NotFound, "no such item");
+	BRow* row = rows[shown].row;
+	switch (action) {
+		case AccessibleAction::Click:
+			_ClickRow(row, {});
+			return {};
+		case AccessibleAction::Focus:
+			MakeFocus(true);
+			SetFocusRow(row);
+			return {};
+		case AccessibleAction::Expand:
+		case AccessibleAction::Collapse:
+			if (!row->HasLatch())
+				return Failure(ErrorCode::NotSupported, "the row has no subrows");
+			ExpandOrCollapse(row, action == AccessibleAction::Expand);
+			return {};
+		default:
+			return Failure(ErrorCode::NotSupported, "the item does not take this action");
+	}
 }
 
 

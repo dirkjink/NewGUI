@@ -106,6 +106,28 @@ msgid "Lists"
 msgstr "Listen"
 
 msgctxt "Demo"
+msgid "Files"
+msgstr "Dateien"
+
+msgctxt "Demo"
+msgid "Name"
+msgstr "Name"
+
+msgctxt "Demo"
+msgid "Size"
+msgstr "Größe"
+
+msgctxt "Demo"
+msgid "Modified"
+msgstr "Geändert"
+
+msgctxt "Demo"
+msgid "%d file"
+msgid_plural "%d files"
+msgstr[0] "%d Datei"
+msgstr[1] "%d Dateien"
+
+msgctxt "Demo"
 msgid "File"
 msgstr "Datei"
 

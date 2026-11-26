@@ -30,8 +30,10 @@
 // styled by the Text menu (Alt+B bold, Alt+L large, Alt+P plain); a
 // BTextControl asks for a name, and the label greets it when Enter is
 // pressed or the field is left. A page with lists shows a BListView and a
-// BOutlineListView. Text dragged from another application drops into the
-// notes; files dropped on the window are listed in an alert. File > Open
+// BOutlineListView; a page of files a BColumnListView (sortable by each
+// title, its columns to move, resize and hide, its folders to expand).
+// Text dragged from another application drops into the notes; files
+// dropped on the window are listed in an alert. File > Open
 // shows the system's file dialog (BFilePanel). The texts are translated
 // (B_TRANSLATE(), a German catalog comes with it; NGUI_LANGUAGE=x-pseudo
 // pseudo-localizes them).
@@ -40,7 +42,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <ctime>
+#include <functional>
+#include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -51,6 +56,8 @@
 #include <ngui/Button.h>
 #include <ngui/Catalog.h>
 #include <ngui/CheckBox.h>
+#include <ngui/ColumnListView.h>
+#include <ngui/ColumnTypes.h>
 #include <ngui/DateFormat.h>
 #include <ngui/FilePanel.h>
 #include <ngui/Font.h>
@@ -283,6 +290,8 @@ public:
 			.Add(std::move(classesScroll), 1.0f);
 		tabs->AddTab(std::move(lists));
 		tabs->TabAt(2)->SetLabel(B_TRANSLATE("Lists"));
+		tabs->AddTab(MakeFiles());
+		tabs->TabAt(3)->SetLabel(B_TRANSLATE("Files"));
 		tabs->AddTab(std::make_unique<BStringView>("About",
 			"NewGUI: Haiku's Interface Kit on SDL3 and Skia"));
 
@@ -354,6 +363,15 @@ public:
 			const std::string name(fName->Text());
 			fLabel->SetText(name.empty() ? B_TRANSLATE("Not clicked yet")
 				: B_TRANSLATE("Hello, ") + name);
+			return;
+		}
+		if (message->what == kChosen
+			&& message->GetPointer("source", nullptr) == static_cast<const BView*>(fFiles)) {
+			// the table: the name of the selected row
+			if (const BRow* row = fFiles->CurrentSelection()) {
+				if (const auto* name = dynamic_cast<const BStringField*>(row->GetField(0)))
+					fLabel->SetText(B_TRANSLATE("Chosen: ") + name->String());
+			}
 			return;
 		}
 		if (message->what == kChosen) {
@@ -468,10 +486,80 @@ private:
 	BSlider* fSlider = nullptr;
 	BListView* fKits = nullptr;
 	BOutlineListView* fClasses = nullptr;
+	BColumnListView* fFiles = nullptr;
 	BStatusBar* fStatus = nullptr;
 	BTabView* fTabs = nullptr;
 	std::unique_ptr<BFilePanel> fOpenPanel;
 	BTextView* fNotes = nullptr;
+
+	// The page of files: folders with their files, by name, size and date;
+	// a double click or Enter names the row in the label. Left of the
+	// horizontal scroll bar, how many files there are.
+	std::unique_ptr<BView> MakeFiles()
+	{
+		auto files = std::make_unique<BColumnListView>("files", BViewFlag::Navigable,
+			BBorderStyle::Plain);
+		files->SetAccessibleName(B_TRANSLATE("Files"));
+		auto name = std::make_unique<BStringColumn>(B_TRANSLATE("Name"), 180.0f, 60.0f, 400.0f);
+		BColumn* nameColumn = name.get();
+		files->AddColumn(std::move(name), 0);
+		files->AddColumn(std::make_unique<BSizeColumn>(B_TRANSLATE("Size"), 90.0f, 50.0f,
+			200.0f, BHorizontalAlignment::Right), 1);
+		files->AddColumn(std::make_unique<BDateColumn>(B_TRANSLATE("Modified"), 170.0f, 60.0f,
+			400.0f), 2);
+		files->SetSortColumn(nameColumn, false, true);
+
+		struct File {
+			const char* folder;
+			const char* name;
+			std::uint64_t size;
+			std::time_t modified;
+		};
+		const File list[] = {
+			{"Documents", "Letter.txt", 2'348, 1'764'000'000},
+			{"Documents", "Notes.md", 512, 1'764'150'000},
+			{"Pictures", "Cat.png", 256'000, 1'760'000'000},
+			{"Pictures", "Holiday.jpg", 3'400'000, 1'750'000'000},
+			{nullptr, "README", 1'024, 1'764'100'000}};
+		auto row = [](const char* rowName, std::optional<std::uint64_t> size,
+			std::time_t modified) {
+			auto made = std::make_unique<BRow>();
+			made->SetField(std::make_unique<BStringField>(rowName), 0);
+			if (size.has_value())
+				made->SetField(std::make_unique<BSizeField>(*size), 1);
+			made->SetField(std::make_unique<BDateField>(modified), 2);
+			return made;
+		};
+		// the folders as they come; rows keep their place in memory while
+		// sorting moves them
+		std::map<std::string, BRow*, std::less<>> folders;
+		int fileCount = 0;
+		for (const File& file : list) {
+			BRow* folder = nullptr;
+			if (file.folder != nullptr) {
+				auto found = folders.find(file.folder);
+				if (found == folders.end()) {
+					auto made = row(file.folder, std::nullopt, file.modified);
+					found = folders.emplace(file.folder, made.get()).first;
+					files->AddRow(std::move(made));
+				}
+				folder = found->second;
+			}
+			files->AddRow(row(file.name, file.size, file.modified), folder);
+			fileCount++;
+		}
+		files->ExpandOrCollapse(files->RowAt(0), true);
+
+		std::string countText = B_TRANSLATE_PLURAL("%d file", "%d files", fileCount);
+		if (const std::size_t at = countText.find("%d"); at != std::string::npos)
+			countText.replace(at, 2, std::to_string(fileCount));
+		auto status = std::make_unique<BStringView>("file count", countText);
+		status->ResizeTo(90, 14);
+		files->AddStatusView(std::move(status));
+		files->SetInvocationMessage(std::make_unique<BMessage>(kChosen));
+		fFiles = files.get();
+		return files;
+	}
 
 	// The Text menu: the selected notes (or what is typed next) plain, bold,
 	// large or red.

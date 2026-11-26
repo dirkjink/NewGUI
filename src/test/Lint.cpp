@@ -150,6 +150,8 @@ NeedsName(const AccessibleInfo& info)
 		case AccessibleRole::ComboBox:
 		case AccessibleRole::List:
 		case AccessibleRole::Tree:
+		case AccessibleRole::Table:
+		case AccessibleRole::TreeTable:
 			return true;
 		case AccessibleRole::MultilineTextInput:
 			return !info.states.Has(AccessibleState::ReadOnly);
