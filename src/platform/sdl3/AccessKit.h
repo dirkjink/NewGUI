@@ -19,6 +19,8 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+// names of NewGUI's own
+#undef CreateWindow
 #undef SendMessage
 #endif
 

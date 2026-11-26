@@ -22,10 +22,16 @@
 #include <SDL3/SDL.h>
 
 #include <ngui/Accessibility.h>
-#include <ngui/Message.h>
 #include <ngui/Messenger.h>
 
-#include "platform/sdl3/AccessKit.h"
+
+// AccessKit's types, declared only: its header brings windows.h, whose
+// macros (CreateWindow, SendMessage) would break the platform's code.
+struct accesskit_action_request;
+struct accesskit_tree_update;
+struct accesskit_unix_adapter;
+struct accesskit_windows_subclassing_adapter;
+
 
 
 namespace ngui::platform::sdl3 {
@@ -36,19 +42,6 @@ inline constexpr bool kHasAccessKitAdapter = true;
 #else
 inline constexpr bool kHasAccessKitAdapter = false;
 #endif
-
-
-// The node of \a node as AccessKit has it; the window's node (the tree's
-// first) scales logical to device pixels by \a scale.
-accesskit_node* MakeNode(const AccessibleNode& node, bool root, double scale);
-// The whole of \a tree as an update; the caller owns it.
-accesskit_tree_update* MakeTreeUpdate(const AccessibleTree& tree, double scale);
-// A tree of the window alone (node \a id, \a title), before the window
-// passed its own on.
-accesskit_tree_update* MakePlaceholderUpdate(std::uint64_t id, const std::string& title);
-// \a request as kAccessibleAction for the window; nullopt for an action
-// NewGUI does not take.
-std::optional<BMessage> ActionMessage(const accesskit_action_request& request);
 
 
 // The adapter of one window, made on the main thread before the window is

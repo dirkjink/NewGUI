@@ -883,9 +883,9 @@ SdlPlatform::ProcessEvents()
 #ifdef NGUI_WITH_ACCESSKIT
 					if (state->accessibility != nullptr) {
 						const gfx::Rect& frame = state->frame;
-						state->accessibility->SetBounds(frame.x0 * state->scale,
-							frame.y0 * state->scale, frame.x1 * state->scale,
-							frame.y1 * state->scale);
+						const double scale = state->scale;
+						state->accessibility->SetBounds(frame.x0 * scale, frame.y0 * scale,
+							frame.x1 * scale, frame.y1 * scale);
 					}
 #endif
 				}
