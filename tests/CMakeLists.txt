@@ -310,6 +310,11 @@ if(NGUI_WITH_SDL3)
             "${PROJECT_SOURCE_DIR}/src"
             "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_sdl3_tests)
+    # GPU windows (phase G) render with Skia
+    if(NGUI_WITH_SKIA)
+        target_sources(ngui_sdl3_tests PRIVATE sdl3/SdlGpuTest.cpp)
+        target_link_libraries(ngui_sdl3_tests PRIVATE ngui::skia ngui::testkit)
+    endif()
     # the bridge to AccessKit (vcpkg feature accessibility)
     if(NGUI_WITH_ACCESSKIT)
         find_package(unofficial-accesskit-c CONFIG REQUIRED)

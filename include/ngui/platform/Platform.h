@@ -22,6 +22,8 @@
 #include <ngui/Messenger.h>
 #include <ngui/SupportDefs.h>
 #include <ngui/gfx/Backend.h>
+#include <ngui/gfx/Color.h>
+#include <ngui/gfx/DisplayList.h>
 #include <ngui/gfx/IntRect.h>
 #include <ngui/gfx/NativeWindow.h>
 #include <ngui/gfx/Point.h>
@@ -41,6 +43,15 @@ struct DisplayInfo {
 
 
 class PlatformWindow;
+
+
+/*!	The pixels a window shows (PlatformWindow::ReadShownFrame()):
+	premultiplied RGBA, 8 bits each, the top row first, without padding. */
+struct ShownFrame {
+			std::int32_t		width = 0;		/*!< Width in device pixels. */
+			std::int32_t		height = 0;		/*!< Height in device pixels. */
+			std::vector<std::byte> rgba;		/*!< `width * height * 4` bytes. */
+};
 
 
 /*!	What a new window looks like (module P1). Look and feel of BWindow
@@ -127,6 +138,25 @@ public:
 										a CPU surface of the window's size (the CPU
 										presenter, specification 12). The pixels are copied
 										before it returns. */
+
+	// The platform renders the frames (phase G): the window hands over its
+	// DisplayList instead of pixels.
+
+	virtual	bool				DrawsLists() const;
+									/*!< Whether the platform renders this window's frames
+										itself (e.g. on the GPU), so that the window calls
+										PresentList() instead of Present(); false by
+										default. */
+	virtual	std::expected<void, Error> PresentList(gfx::DisplayListRef frame,
+									const gfx::Color& clear);
+									/*!< Shows \a frame, the whole content area in logical
+										pixels, on \a clear, rendered by the platform at
+										the window's scale; from the window's thread, the
+										list is kept. NotSupported by default. */
+	virtual	std::expected<ShownFrame, Error> ReadShownFrame();
+									/*!< What the window shows of the last PresentList()
+										(BWindow::CaptureFrame()). NotSupported by
+										default. */
 };
 
 

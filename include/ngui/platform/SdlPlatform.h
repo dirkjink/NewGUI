@@ -89,6 +89,17 @@ public:
 										dialog (Windows' and macOS' own; under Linux the
 										xdg-desktop-portal's, without one zenity's). */
 
+			void				SetGpuRendering(bool gpu);
+									/*!< Whether windows made from now on render on the GPU
+										(phase G): the main thread draws their lists
+										through an OpenGL context of each window with the
+										backend of the BackendRegistry that has GPU
+										surfaces; without OpenGL, such a backend or a
+										context they draw on the CPU (said once on stderr).
+										Popups always draw on the CPU. Off by default;
+										NGUI_RENDERER=gpu turns it on at Create(). */
+			bool				GpuRendering() const;
+									/*!< Whether new windows render on the GPU. */
 			void				RunOnMainThread(std::function<void()> work);
 									/*!< Runs \a work on the main thread: at once if called
 										there, otherwise during the next ProcessEvents(). */

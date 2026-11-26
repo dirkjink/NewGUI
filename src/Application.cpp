@@ -412,6 +412,28 @@ platform::PlatformWindow::IsAccessibilityActive() const
 }
 
 
+bool
+platform::PlatformWindow::DrawsLists() const
+{
+	return false;
+}
+
+
+std::expected<void, Error>
+platform::PlatformWindow::PresentList(gfx::DisplayListRef /*frame*/,
+	const gfx::Color& /*clear*/)
+{
+	return Failure(ErrorCode::NotSupported, "the platform does not render lists");
+}
+
+
+std::expected<platform::ShownFrame, Error>
+platform::PlatformWindow::ReadShownFrame()
+{
+	return Failure(ErrorCode::NotSupported, "the platform does not render lists");
+}
+
+
 void
 platform::PlatformWindow::UpdateAccessibility(const AccessibleTree& /*tree*/)
 {
