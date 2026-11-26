@@ -685,11 +685,13 @@ Haiku kann den Look zur Laufzeit nicht wechseln. Der Grund steht als Kommentar i
 ```cpp
 extern "C" ngui::ControlLook* ngui_create_control_look(uint32_t interfaceVersion);
 extern "C" void               ngui_destroy_control_look(ngui::ControlLook*);
+extern "C" const char*        ngui_look_plugin_build_key();   // LookPluginBuildKey()
 ```
 
 - Die Plugins werden aus konfigurierten Verzeichnissen geladen (`dlopen` bzw. `LoadLibrary`).
 - **L12:** Ein Plugin MUSS `nullptr` zurückgeben, wenn `interfaceVersion` nicht zu seiner Version passt. Der Lader verwirft es dann mit einer Warnung.
-- Weil die Schnittstelle aus C++-vtables besteht, MÜSSEN Plugin und Toolkit mit demselben Compiler, derselben Standardbibliothek und derselben Hauptversion des Toolkits gebaut sein. Eine stabile C-ABI für Looks ist ausdrücklich **kein** Ziel dieser Spezifikation.
+- Weil die Schnittstelle aus C++-vtables besteht, MÜSSEN Plugin und Toolkit mit demselben Compiler, derselben Standardbibliothek und derselben Hauptversion des Toolkits gebaut sein. Eine stabile C-ABI für Looks ist ausdrücklich **kein** Ziel dieser Spezifikation. Der Lader prüft das über einen Build-Schlüssel (Version des Toolkits, Compiler und Hauptversion, Standardbibliothek, bei MSVC Laufzeitbibliothek und Iterator-Debug-Stufe), den beide Seiten mit `LookPluginBuildKey()` bilden; das Makro `NGUI_LOOK_PLUGIN()` definiert die drei Funktionen.
+- **Umgesetzt (2026-11-26):** `libngui` ist statisch und positionsunabhängig gebaut, ein Plugin bindet sie statisch ein und hat damit eine eigene Kopie des Codes. Es zeichnet deshalb nur über seinen `DrawContext` (L3), nicht über globale Objekte des Toolkits. Geladen wird nur über die API oder aus den Verzeichnissen in `NGUI_LOOK_PATH`, nicht aus einem Standardordner.
 - Das Plugin wird erst entladen, wenn sein letztes Look-Objekt zerstört ist. Dafür sorgt ein Deleter im `shared_ptr`, der die Bibliothek referenziert.
 
 ### 18.7 Tests

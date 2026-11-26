@@ -39,6 +39,7 @@ add_executable(ngui_tests
     FlagsTest.cpp
     InvokerTest.cpp
     LockerTest.cpp
+    LookPluginTest.cpp
     ListViewTest.cpp
     LookRegistryTest.cpp
     LooperTest.cpp
@@ -120,6 +121,30 @@ target_include_directories(ngui_tests
     PRIVATE
         "${PROJECT_SOURCE_DIR}/src"
         "${CMAKE_CURRENT_SOURCE_DIR}")
+
+# The look plugins of LookPluginTest (plugin/TestLookPlugin.cpp, one per
+# variant), in a directory of their own with a file that is no plugin; the
+# generator expression keeps multi-config generators from adding a
+# subdirectory per configuration.
+set(lookPluginDir "${CMAKE_CURRENT_BINARY_DIR}/lookplugins")
+file(MAKE_DIRECTORY "${lookPluginDir}")
+file(WRITE "${lookPluginDir}/readme.txt" "Not a look plugin.\n")
+foreach(variant IN ITEMS "0;test_look_plugin" "1;test_look_plugin_old"
+        "2;test_look_plugin_other_build" "3;test_look_plugin_none" "4;test_look_plugin_twin")
+    list(GET variant 0 number)
+    list(GET variant 1 name)
+    add_library(${name} MODULE plugin/TestLookPlugin.cpp)
+    ngui_configure_target(${name})
+    target_compile_definitions(${name} PRIVATE NGUI_TEST_PLUGIN_VARIANT=${number})
+    target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(${name} PRIVATE ngui::ngui)
+    set_target_properties(${name} PROPERTIES
+        PREFIX ""
+        CXX_VISIBILITY_PRESET hidden
+        LIBRARY_OUTPUT_DIRECTORY "${lookPluginDir}$<0:>")
+    add_dependencies(ngui_tests ${name})
+endforeach()
+target_compile_definitions(ngui_tests PRIVATE NGUI_TEST_LOOK_PLUGIN_DIR="${lookPluginDir}")
 
 target_compile_definitions(ngui_tests
     PRIVATE

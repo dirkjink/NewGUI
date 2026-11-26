@@ -52,6 +52,7 @@ add_library(ngui
     Cursor.cpp
     ControlLook.cpp
     Locker.cpp
+    LookPlugins.cpp
     LookRegistry.cpp
     Looper.cpp
     LooperPort.cpp
@@ -166,6 +167,10 @@ target_include_directories(ngui
         "${CMAKE_CURRENT_SOURCE_DIR}")
 
 ngui_configure_target(ngui)
+# Look plugins link libngui statically (specification 18.6), so it is
+# position independent; they are loaded with dlopen() (CMAKE_DL_LIBS).
+set_target_properties(ngui PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(ngui PRIVATE ${CMAKE_DL_LIBS})
 # remote control over AF_UNIX sockets (Winsock)
 if(WIN32)
     target_link_libraries(ngui PRIVATE ws2_32)

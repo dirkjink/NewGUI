@@ -7,7 +7,10 @@
 
 #include <ngui/Application.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdio>
+#include <filesystem>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -109,6 +112,28 @@ BApplication::BApplication(std::string_view signature, int argc, char** argv)
 			sExists = true;
 			sMessenger = BMessenger(this);
 			fRegistered = true;
+		}
+	}
+	// Look plugins from the directories in NGUI_LOOK_PATH (specification
+	// 18.6), before the look is chosen, so that the setting may name one;
+	// separated as PATH is (";" under Windows, ":" elsewhere).
+	if (const std::optional<std::string> path = detail::EnvironmentVariable(
+			"NGUI_LOOK_PATH"); path.has_value() && !path->empty()) {
+#if defined(_WIN32)
+		constexpr char kSeparator = ';';
+#else
+		constexpr char kSeparator = ':';
+#endif
+		std::size_t start = 0;
+		while (start <= path->size()) {
+			const std::size_t end = std::min(path->find(kSeparator, start), path->size());
+			if (end > start) {
+				const LookPluginReport report = LookRegistry::Default().LoadPlugins(
+					std::filesystem::path(path->substr(start, end - start)));
+				for (const std::string& warning : report.warnings)
+					std::fprintf(stderr, "ngui: look plugin: %s\n", warning.c_str());
+			}
+			start = end + 1;
 		}
 	}
 	// The look of the user's setting ngui.controlLook (specification 18.4),
