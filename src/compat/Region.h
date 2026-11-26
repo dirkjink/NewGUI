@@ -12,6 +12,7 @@
 // bottom plus one).
 
 
+#include <algorithm>
 #include <cmath>
 
 #include <ngui/gfx/IntRect.h>
@@ -58,8 +59,15 @@ BRegion::ToIntRect(BRect rect)
 {
 	if (!rect.IsValid())
 		return {0, 0, 0, 0};
-	return {static_cast<int32>(floorf(rect.left)), static_cast<int32>(floorf(rect.top)),
-		static_cast<int32>(ceilf(rect.right)) + 1, static_cast<int32>(ceilf(rect.bottom)) + 1};
+	// NewGUI: kept within 2^30 before the conversion, which would be
+	// undefined for the huge update rectangle the looks get (kUpdateAll in
+	// PortedLook.h); Haiku converts unchecked.
+	static constexpr float kLimit = 1 << 30;
+	const auto edge = [](float value) {
+		return static_cast<int32>(std::clamp(value, -kLimit, kLimit));
+	};
+	return {edge(floorf(rect.left)), edge(floorf(rect.top)), edge(ceilf(rect.right)) + 1,
+		edge(ceilf(rect.bottom)) + 1};
 }
 
 

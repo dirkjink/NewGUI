@@ -232,6 +232,31 @@ TEST(SnapshotSkiaTest, TheFormInTheHaikuLook)
 }
 
 
+TEST(SnapshotSkiaTest, TheFormInTheFlatLook)
+{
+	// What is tested: The form of SnapshotsAreWhatTheWindowShows, opened
+	// while the flat look is current, against its reference snapshot.
+	// Success criteria: It matches SnapshotSkiaTest_Form.flat.skia.1x.png
+	// within the text tolerance: the same controls, texts and layout as in
+	// the Haiku look, with the flat look's buttons, menu field, text field
+	// and frames.
+	// Why it matters: The flat look derives from the Haiku look and keeps
+	// its metrics; with real controls, their layout and labels it must look
+	// as Haiku's flat look does.
+	//
+	// Given
+	const CurrentLook flat("flat");
+	FormApp app;
+
+	// When
+	WindowRef window = app.Window();
+
+	// Then
+	EXPECT_IMAGE_SNAPSHOT(window, "Form",
+		{.look = "flat", .backend = "skia", .tolerance = Tolerance::Text()});
+}
+
+
 TEST(SnapshotSkiaTest, SwitchingTheLookIsLikeStartingInIt)
 {
 	// What is tested: The form opened in the BeOS look, then the current
