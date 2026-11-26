@@ -1748,4 +1748,73 @@ MenuScroller::Draw(DrawContext& context)
 	}
 }
 
+
+// #pragma mark - accessibility
+
+
+void
+BMenu::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::Menu;
+	// an open menu is called as the item it opened from
+	if (info->name.empty() && Superitem() != nullptr)
+		info->name = Superitem()->Label();
+	if (!IsEnabled())
+		info->states |= AccessibleState::Disabled;
+}
+
+
+void
+BMenu::GetAccessibleItems(std::vector<AccessibleItem>* items) const
+{
+	if (items == nullptr)
+		return;
+	for (int32 i = 0; i < CountItems(); i++) {
+		const BMenuItem* item = ItemAt(i);
+		AccessibleItem entry;
+		entry.frame = item->Frame();
+		if (dynamic_cast<const BSeparatorItem*>(item) != nullptr) {
+			entry.info.role = AccessibleRole::Splitter;
+			items->push_back(std::move(entry));
+			continue;
+		}
+		entry.info.role = AccessibleRole::MenuItem;
+		entry.info.name = item->Label();
+		if (item->IsMarked())
+			entry.info.states |= AccessibleState::Checked;
+		if (item->IsSelected())
+			entry.info.states |= AccessibleState::Selected;
+		if (const BMenu* submenu = item->Submenu()) {
+			entry.info.states |= submenu->_IsShown() ? AccessibleState::Expanded
+				: AccessibleState::Collapsed;
+		}
+		if (!item->IsEnabled() || !IsEnabled())
+			entry.info.states |= AccessibleState::Disabled;
+		else
+			entry.info.actions |= AccessibleAction::Click;
+		items->push_back(std::move(entry));
+	}
+}
+
+
+std::expected<void, Error>
+BMenu::PerformAccessibleItemAction(int32 index, AccessibleAction action, const BMessage& data)
+{
+	BMenuItem* item = ItemAt(index);
+	if (item == nullptr)
+		return Failure(ErrorCode::NotFound, "no such item");
+	if (action != AccessibleAction::Click)
+		return BView::PerformAccessibleItemAction(index, action, data);
+	if (!item->IsEnabled() || !IsEnabled() || dynamic_cast<BSeparatorItem*>(item) != nullptr)
+		return Failure(ErrorCode::NotSupported, "the item is disabled");
+	BWindow* window = _RootWindow();
+	if (window == nullptr || window->fMenuTracking == nullptr)
+		return Failure(ErrorCode::NotSupported, "the menu is not open");
+	window->fMenuTracking->Choose(item);
+	return {};
+}
+
 } // namespace ngui

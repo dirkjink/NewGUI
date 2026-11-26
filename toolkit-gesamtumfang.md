@@ -152,5 +152,6 @@ Das MVP umfasst also schon rund zwei Drittel des Gesamtumfangs. Grundgerüst, La
 3. ~~Wann folgt die Barrierefreiheit?~~ **Entschieden (2026-11-26):** nach Scripting und Fernsteuerung, über AccessKit-C 0.23 (MIT/Apache-2.0). Die Bibliothek kommt als vcpkg-Overlay-Port der fertigen Bibliotheken ins Projekt. Sie ist für viele Produkte Pflicht, in der EU z. B. durch den European Accessibility Act.
    - **Erster Schritt:** ein Modell im Toolkit, ohne die Bibliothek. Jede View gibt Rolle, Name, Wert, Zustände und Aktionen an, jedes Fenster bildet daraus einen Baum (`<ngui/Accessibility.h>`). Dazu kommen Snapshots und eine Lint-Regel im Test-Kit.
    - **Zweiter Schritt:** die Brücke zu AT-SPI (Linux) und UI Automation (Windows) in der SDL-Plattform. NSAccessibility (macOS) folgt, sobald die CI einen macOS-Build hat.
-   - **Danach:** Listen, Menüs und Tabs mit ihren Einträgen.
+   - **Dritter Schritt:** Listen, Bäume, Tabs und Menüs mit ihren Einträgen, offene Menüs im Baum ihres Fensters.
+   - **Danach:** Ankündigungen (Live-Regionen) und Texte mit Schreibmarke und Auswahl.
 4. Welche externen Bibliotheken werden für BiDi und Zeilenumbruch verwendet: ICU (vollständig, groß) oder SheenBidi/fribidi und libunibreak (klein)? **Teilweise entschieden:** libunibreak für Zeilen-, Wort- und Graphemgrenzen (X4); die BiDi-Bibliothek wird mit BiDi gewählt.

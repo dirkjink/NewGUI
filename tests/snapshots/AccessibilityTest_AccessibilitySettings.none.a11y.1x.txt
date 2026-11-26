@@ -7,7 +7,7 @@ window "Settings"
   textinput "Name:" = "Ada" [focusable] {click, focus, setvalue}
   passwordinput "Password:" [focusable] {click, focus, setvalue}
   progressindicator "Copying" = "4 of 10" = 40 (0..100)
-  combobox "Size:" = "Medium" [focusable] {focus}
+  combobox "Size:" = "Medium" [focusable] {click, focus}
   list "Fruits" [focusable] {focus}
   label "Changes apply at once."
   button "OK" "Closes the window" [focusable, default] {click, focus}

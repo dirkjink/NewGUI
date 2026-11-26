@@ -47,6 +47,7 @@
 #include <ngui/Palette.h>
 #include <ngui/PropertyInfo.h>
 #include <ngui/ScrollBar.h>
+#include <ngui/StringItem.h>
 #include <ngui/ScrollView.h>
 #include <ngui/TextSystem.h>
 #include <ngui/Window.h>
@@ -1712,5 +1713,44 @@ BListView::GetAccessibleInfo(AccessibleInfo* info) const
 		info->role = AccessibleRole::List;
 }
 
+
+void
+BListView::GetAccessibleItems(std::vector<AccessibleItem>* items) const
+{
+	if (items == nullptr)
+		return;
+	for (int32 i = 0; i < CountItems(); i++) {
+		const BListItem* item = ItemAt(i);
+		AccessibleItem entry;
+		entry.info.role = AccessibleRole::ListItem;
+		if (const auto* text = dynamic_cast<const BStringItem*>(item))
+			entry.info.name = text->Text();
+		if (IsItemSelected(i))
+			entry.info.states |= AccessibleState::Selected;
+		if (!item->IsEnabled())
+			entry.info.states |= AccessibleState::Disabled;
+		else
+			entry.info.actions |= AccessibleAction::Click;
+		// NewGUI: ItemFrame() changes nothing
+		entry.frame = const_cast<BListView*>(this)->ItemFrame(i);
+		items->push_back(std::move(entry));
+	}
+}
+
+
+std::expected<void, Error>
+BListView::PerformAccessibleItemAction(int32 index, AccessibleAction action,
+	const BMessage& data)
+{
+	if (index < 0 || index >= CountItems())
+		return Failure(ErrorCode::NotFound, "no such item");
+	if (action != AccessibleAction::Click)
+		return BView::PerformAccessibleItemAction(index, action, data);
+	if (!ItemAt(index)->IsEnabled())
+		return Failure(ErrorCode::NotSupported, "the item is disabled");
+	Select(index);
+	ScrollToSelection();
+	return {};
+}
 
 } // namespace ngui

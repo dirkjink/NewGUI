@@ -46,7 +46,9 @@ constexpr Name kActionNames[] = {
 	{static_cast<std::uint32_t>(AccessibleAction::Focus), "focus"},
 	{static_cast<std::uint32_t>(AccessibleAction::Increment), "increment"},
 	{static_cast<std::uint32_t>(AccessibleAction::Decrement), "decrement"},
-	{static_cast<std::uint32_t>(AccessibleAction::SetValue), "setvalue"}};
+	{static_cast<std::uint32_t>(AccessibleAction::SetValue), "setvalue"},
+	{static_cast<std::uint32_t>(AccessibleAction::Expand), "expand"},
+	{static_cast<std::uint32_t>(AccessibleAction::Collapse), "collapse"}};
 
 
 // The names of the flags \a bits, separated by ", ".
@@ -88,6 +90,8 @@ NodeLine(const AccessibleNode& node)
 			line += ")";
 		}
 	}
+	if (info.level > 0)
+		line += " level " + std::to_string(info.level);
 	if (!info.description.empty())
 		line += " \"" + info.description + "\"";
 	const std::string states = Names(info.states.Raw(), kStateNames);

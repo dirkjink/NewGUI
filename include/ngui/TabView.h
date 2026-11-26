@@ -221,6 +221,18 @@ public:
 			int32				IndexOf(const BTab* tab) const;
 									/*!< The index of \a tab, or -1. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role TabList. */
+			void				GetAccessibleItems(std::vector<AccessibleItem>* items)
+									const override;
+									/*!< Its tabs: Tab with the label as name, Selected for the
+										selected one, Disabled; Click. */
+			std::expected<void, Error> PerformAccessibleItemAction(int32 index,
+									AccessibleAction action, const BMessage& data) override;
+									/*!< Click selects the tab. */
+
 private:
 			void				_InitObject(bool layouted, BButtonWidth width);
 			void				_InitContainerView(bool layouted);

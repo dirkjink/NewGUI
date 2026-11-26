@@ -376,6 +376,14 @@ public:
 										Space does). NotSupported for an action it does
 										not take, InvalidArgument without the data
 										SetValue needs. */
+	virtual	void				GetAccessibleItems(std::vector<AccessibleItem>* items) const;
+									/*!< Its parts that are no views (list items, tabs,
+										menu items), as nodes below it, before its child
+										views; none by default. */
+	virtual	std::expected<void, Error> PerformAccessibleItemAction(int32 index,
+									AccessibleAction action, const BMessage& data);
+									/*!< Does \a action for its item \a index, on the
+										window's thread; NotSupported by default. */
 			void				SetAccessibleName(std::string_view name);
 									/*!< Its name for assistive technology, for views
 										without a label (an icon button, a text field with

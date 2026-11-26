@@ -1080,4 +1080,47 @@ BOutlineListView::GetAccessibleInfo(AccessibleInfo* info) const
 }
 
 
+void
+BOutlineListView::GetAccessibleItems(std::vector<AccessibleItem>* items) const
+{
+	if (items == nullptr)
+		return;
+	const std::size_t first = items->size();
+	BListView::GetAccessibleItems(items);
+	for (std::size_t i = first; i < items->size(); i++) {
+		AccessibleItem& entry = (*items)[i];
+		const BListItem* item = ItemAt(static_cast<int32>(i - first));
+		entry.info.role = AccessibleRole::TreeItem;
+		entry.info.level = static_cast<std::int32_t>(item->OutlineLevel()) + 1;
+		if (item->HasSubitems()) {
+			if (item->IsExpanded()) {
+				entry.info.states |= AccessibleState::Expanded;
+				entry.info.actions |= AccessibleAction::Collapse;
+			} else {
+				entry.info.states |= AccessibleState::Collapsed;
+				entry.info.actions |= AccessibleAction::Expand;
+			}
+		}
+	}
+}
+
+
+std::expected<void, Error>
+BOutlineListView::PerformAccessibleItemAction(int32 index, AccessibleAction action,
+	const BMessage& data)
+{
+	if (action != AccessibleAction::Expand && action != AccessibleAction::Collapse)
+		return BListView::PerformAccessibleItemAction(index, action, data);
+	BListItem* item = ItemAt(index);
+	if (item == nullptr)
+		return Failure(ErrorCode::NotFound, "no such item");
+	if (!item->HasSubitems())
+		return Failure(ErrorCode::NotSupported, "the item has no subitems");
+	if (action == AccessibleAction::Expand)
+		Expand(item);
+	else
+		Collapse(item);
+	return {};
+}
+
 } // namespace ngui

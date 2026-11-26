@@ -185,11 +185,27 @@ BMenuBar::_InitData()
 void
 BMenuBar::GetAccessibleInfo(AccessibleInfo* info) const
 {
-	BView::GetAccessibleInfo(info);
+	BMenu::GetAccessibleInfo(info);
 	if (info == nullptr)
 		return;
 	info->role = AccessibleRole::MenuBar;
 }
 
+
+std::expected<void, Error>
+BMenuBar::PerformAccessibleItemAction(int32 index, AccessibleAction action,
+	const BMessage& data)
+{
+	if (action != AccessibleAction::Click || fTracker->IsTracking())
+		return BMenu::PerformAccessibleItemAction(index, action, data);
+	const BMenuItem* item = ItemAt(index);
+	if (item == nullptr)
+		return Failure(ErrorCode::NotFound, "no such item");
+	if (!item->IsEnabled() || !IsEnabled())
+		return Failure(ErrorCode::NotSupported, "the item is disabled");
+	// as the keyboard opens it
+	StartMenuBar(index, true, true);
+	return {};
+}
 
 } // namespace ngui

@@ -144,7 +144,10 @@ public:
 
 			void				GetAccessibleInfo(AccessibleInfo* info) const override;
 									/*!< Role ComboBox: its label as name, the marked item
-										as value. */
+										as value; Click. */
+			std::expected<void, Error> PerformAccessibleAction(AccessibleAction action,
+									const BMessage& data) override;
+									/*!< Click opens its menu, as Space does. */
 
 protected:
 			void				LayoutInvalidated(bool descendants) override;

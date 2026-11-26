@@ -117,7 +117,9 @@ constexpr ActionPair kActions[] = {
 	{AccessibleAction::Focus, ACCESSKIT_ACTION_FOCUS},
 	{AccessibleAction::Increment, ACCESSKIT_ACTION_INCREMENT},
 	{AccessibleAction::Decrement, ACCESSKIT_ACTION_DECREMENT},
-	{AccessibleAction::SetValue, ACCESSKIT_ACTION_SET_VALUE}};
+	{AccessibleAction::SetValue, ACCESSKIT_ACTION_SET_VALUE},
+	{AccessibleAction::Expand, ACCESSKIT_ACTION_EXPAND},
+	{AccessibleAction::Collapse, ACCESSKIT_ACTION_COLLAPSE}};
 
 
 accesskit_tree_info*
@@ -155,6 +157,8 @@ MakeNode(const AccessibleNode& node, bool root, double scale)
 		accesskit_node_set_max_numeric_value(made, *info.maximum);
 	if (info.step.has_value())
 		accesskit_node_set_numeric_value_step(made, *info.step);
+	if (info.level > 0)
+		accesskit_node_set_level(made, static_cast<std::size_t>(info.level));
 
 	const AccessibleStates states = info.states;
 	if (states.Has(AccessibleState::Disabled))

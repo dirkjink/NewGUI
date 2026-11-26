@@ -90,7 +90,12 @@ public:
 	// Accessibility
 
 			void				GetAccessibleInfo(AccessibleInfo* info) const override;
-									/*!< Role MenuBar (its items follow with the menus). */
+									/*!< Role MenuBar; its items as BMenu's. */
+			std::expected<void, Error> PerformAccessibleItemAction(int32 index,
+									AccessibleAction action, const BMessage& data) override;
+									/*!< Click opens the item's menu, as the keyboard does; while
+										its menus are open, as BMenu's. */
+
 
 private:
 	friend class MenuTracker;

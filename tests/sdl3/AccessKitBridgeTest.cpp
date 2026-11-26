@@ -53,14 +53,16 @@ TEST(AccessKitBridgeTest, TreesBecomeAccessKitsUpdates)
 	// What is tested: MakeTreeUpdate() of a window at scale 2 with a check
 	// box that is on, an unchecked radio button, a slider at 30 of 0 to 100
 	// by 5, a password field, the default button and a disabled one, a
-	// label, the focus on the check box; and MakePlaceholderUpdate().
+	// label, an expanded tree item at level 2, the focus on the check box;
+	// and MakePlaceholderUpdate().
 	// Success criteria: In AccessKit's own description of the update: the
 	// window is the root with its children, scaled by 2; each node has its
 	// role (the default button DefaultButton), label, bounds and actions;
 	// the check box is toggled True, the radio button False; the slider has
 	// its numbers (AccessKit orders the actions itself); the password
 	// field no value; the disabled button is disabled; the label's text is
-	// its value too (AccessKit's static text); the focus is the check
+	// its value too (AccessKit's static text); the tree item has its level,
+	// expanded and Collapse; the focus is the check
 	// box; the toolkit is NewGUI with its version. The placeholder is the
 	// window alone, focused.
 	// Why it matters: Screen readers get the tree as NewGUI has it, in
@@ -69,7 +71,7 @@ TEST(AccessKitBridgeTest, TreesBecomeAccessKitsUpdates)
 	// Given
 	AccessibleTree tree;
 	tree.nodes.push_back(Node(7, AccessibleRole::Window, "Settings", {0, 0, 300, 200},
-		{8, 9, 10, 11, 12, 13, 14}));
+		{8, 9, 10, 11, 12, 13, 14, 15}));
 	AccessibleNode check = Node(8, AccessibleRole::CheckBox, "Save", {10, 10, 110, 30});
 	check.info.states = AccessibleState::Checked | AccessibleState::Focusable;
 	check.info.actions = AccessibleAction::Click | AccessibleAction::Focus;
@@ -92,6 +94,11 @@ TEST(AccessKitBridgeTest, TreesBecomeAccessKitsUpdates)
 	off.info.states = AccessibleState::Disabled;
 	tree.nodes.push_back(off);
 	tree.nodes.push_back(Node(14, AccessibleRole::Label, "Not clicked yet", {10, 130, 210, 150}));
+	AccessibleNode fruit = Node(15, AccessibleRole::TreeItem, "Fruit", {220, 10, 290, 30});
+	fruit.info.level = 2;
+	fruit.info.states = AccessibleState::Expanded;
+	fruit.info.actions = AccessibleAction::Collapse;
+	tree.nodes.push_back(fruit);
 	tree.focus = 8;
 
 	// When
@@ -102,7 +109,7 @@ TEST(AccessKitBridgeTest, TreesBecomeAccessKitsUpdates)
 	const auto has = [&](const std::string& part) {
 		return text.find(part) != std::string::npos;
 	};
-	EXPECT_TRUE(has("(#7, Node { role: Window, children: [#8, #9, #10, #11, #12, #13, #14], "
+	EXPECT_TRUE(has("(#7, Node { role: Window, children: [#8, #9, #10, #11, #12, #13, #14, #15], "
 		"label: \"Settings\", transform: Affine([2.0, 0.0, 0.0, 2.0, 0.0, 0.0]), "
 		"bounds: Rect { x0: 0.0, y0: 0.0, x1: 300.0, y1: 200.0 } })")) << text;
 	EXPECT_TRUE(has("(#8, Node { role: CheckBox, actions: [Click, Focus], label: \"Save\", "
@@ -118,6 +125,9 @@ TEST(AccessKitBridgeTest, TreesBecomeAccessKitsUpdates)
 		"toolkit_version: Some(\"" + std::string(kVersionString) + "\") })"));
 	EXPECT_TRUE(has("role: Label, label: \"Not clicked yet\", value: \"Not clicked yet\""))
 		<< text;
+	EXPECT_TRUE(has("role: TreeItem, actions: [Collapse], label: \"Fruit\""));
+	EXPECT_TRUE(has("level: 2")) << text;
+	EXPECT_TRUE(has("expanded: true")) << text;
 	EXPECT_TRUE(has("focus: #8 }"));
 	EXPECT_NE(placeholder.find("nodes: [(#5, Node { role: Window, label: \"Main\" })]"),
 		std::string::npos) << placeholder;
@@ -129,8 +139,8 @@ TEST(AccessKitBridgeTest, ActionRequestsBecomeMessages)
 {
 	// What is tested: ActionMessage() of AccessKit's requests: Click of
 	// node 8; SetValue of node 10 with the number 80; SetValue of node 11
-	// with the text "Grace"; Increment; a ScrollDown, which NewGUI does not
-	// take.
+	// with the text "Grace"; Increment; Expand; a ScrollDown, which NewGUI
+	// does not take.
 	// Success criteria: kAccessibleAction with "node" and "action" as
 	// AccessibleAction; the number as "number", the text as "value";
 	// nothing for ScrollDown.
@@ -157,6 +167,9 @@ TEST(AccessKitBridgeTest, ActionRequestsBecomeMessages)
 	accesskit_action_request increment{};
 	increment.action = ACCESSKIT_ACTION_INCREMENT;
 	increment.target_node = 10;
+	accesskit_action_request expand{};
+	expand.action = ACCESSKIT_ACTION_EXPAND;
+	expand.target_node = 15;
 	accesskit_action_request scroll{};
 	scroll.action = ACCESSKIT_ACTION_SCROLL_DOWN;
 	scroll.target_node = 10;
@@ -166,6 +179,7 @@ TEST(AccessKitBridgeTest, ActionRequestsBecomeMessages)
 	const auto numbered = ActionMessage(number);
 	const auto texted = ActionMessage(text);
 	const auto incremented = ActionMessage(increment);
+	const auto expanded = ActionMessage(expand);
 	const auto scrolled = ActionMessage(scroll);
 
 	// Then
@@ -182,6 +196,8 @@ TEST(AccessKitBridgeTest, ActionRequestsBecomeMessages)
 	ASSERT_TRUE(incremented.has_value());
 	EXPECT_EQ(incremented->GetInt32("action", 0),
 		static_cast<std::int32_t>(AccessibleAction::Increment));
+	ASSERT_TRUE(expanded.has_value());
+	EXPECT_EQ(expanded->GetInt32("action", 0), static_cast<std::int32_t>(AccessibleAction::Expand));
 	EXPECT_FALSE(scrolled.has_value());
 }
 

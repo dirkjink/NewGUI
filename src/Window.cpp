@@ -1621,36 +1621,71 @@ BWindow::GetAccessibleTree() const
 	tree.nodes.push_back(std::move(window));
 	tree.focus = tree.nodes.front().id;
 
-	// the shown views, a node for each whose role is not None
-	const std::function<void(const BView*, std::size_t)> add
-		= [&](const BView* view, std::size_t parent) {
-			for (std::int32_t i = 0; i < view->CountChildren(); i++) {
-				const BView* child = view->ChildAt(i);
-				if (child == nullptr || child->IsHidden())
-					continue;
-				AccessibleNode node;
-				child->GetAccessibleInfo(&node.info);
-				if (node.info.role == AccessibleRole::None) {
-					add(child, parent);
-					continue;
-				}
-				node.id = static_cast<std::uint64_t>(
-					static_cast<const BHandler*>(child)->fToken);
-				node.bounds = child->ConvertToWindow(child->Bounds());
-				tree.nodes[parent].children.push_back(node.id);
-				const std::size_t index = tree.nodes.size();
-				tree.nodes.push_back(std::move(node));
-				add(child, index);
-			}
-		};
+	// the shown views, a node for each whose role is not None, its items
+	// first; \a offset moves a popup's views into window coordinates
+	std::function<void(const BView*, std::size_t, gfx::Point)> visit;
+	const auto addChildren = [&](const BView* view, std::size_t parent, gfx::Point offset) {
+		for (std::int32_t i = 0; i < view->CountChildren(); i++)
+			visit(view->ChildAt(i), parent, offset);
+	};
+	visit = [&](const BView* view, std::size_t parent, gfx::Point offset) {
+		if (view == nullptr || view->IsHidden())
+			return;
+		AccessibleNode node;
+		view->GetAccessibleInfo(&node.info);
+		if (node.info.role == AccessibleRole::None) {
+			addChildren(view, parent, offset);
+			return;
+		}
+		const auto token = static_cast<std::uint64_t>(static_cast<const BHandler*>(view)->fToken);
+		node.id = token;
+		node.bounds = view->ConvertToWindow(view->Bounds()).OffsetByCopy(offset.x, offset.y);
+		tree.nodes[parent].children.push_back(node.id);
+		const std::size_t index = tree.nodes.size();
+		tree.nodes.push_back(std::move(node));
+		std::vector<AccessibleItem> items;
+		view->GetAccessibleItems(&items);
+		for (std::size_t i = 0; i < items.size(); i++) {
+			AccessibleNode item;
+			item.id = (token << 32) | (static_cast<std::uint64_t>(i) + 1);
+			item.info = std::move(items[i].info);
+			item.bounds = view->ConvertToWindow(items[i].frame).OffsetByCopy(offset.x,
+				offset.y);
+			tree.nodes[index].children.push_back(item.id);
+			tree.nodes.push_back(std::move(item));
+		}
+		addChildren(view, index, offset);
+	};
 	if (fRoot != nullptr)
-		add(fRoot.get(), 0);
+		addChildren(fRoot.get(), 0, {0, 0});
+	// open menus (not tooltips), where they are on the screen
+	const gfx::Point origin = _SurfaceOrigin(nullptr);
+	for (const std::unique_ptr<PopupSurface>& popup : fPopups) {
+		// a menu in its frame (MenuFrame), not a tooltip
+		bool menu = false;
+		ForEachView(popup->root.get(), [&](BView* view) {
+			menu = menu || dynamic_cast<const BMenu*>(view) != nullptr;
+		});
+		if (!menu)
+			continue;
+		const gfx::Point at = _SurfaceOrigin(popup->root.get());
+		visit(popup->root.get(), 0, {at.x - origin.x, at.y - origin.y});
+	}
 
 	for (const BView* view = fFocus; view != nullptr; view = view->Parent()) {
 		const auto id = static_cast<std::uint64_t>(static_cast<const BHandler*>(view)->fToken);
 		if (tree.Find(id) != nullptr) {
 			tree.focus = id;
 			break;
+		}
+	}
+	// while menus are tracked, the selected item of the innermost menu
+	if (fMenuTracking != nullptr) {
+		for (const AccessibleNode& node : tree.nodes) {
+			if (node.info.role == AccessibleRole::MenuItem
+				&& node.info.states.Has(AccessibleState::Selected)) {
+				tree.focus = node.id;
+			}
 		}
 	}
 	if (IsActive()) {
@@ -1667,10 +1702,14 @@ BView*
 BWindow::_ViewWithToken(std::int32_t token) const
 {
 	BView* found = nullptr;
-	ForEachView(fRoot.get(), [&](BView* view) {
+	const auto match = [&](BView* view) {
 		if (static_cast<const BHandler*>(view)->fToken == token)
 			found = view;
-	});
+	};
+	ForEachView(fRoot.get(), match);
+	// and the views of open popups (menus)
+	for (const std::unique_ptr<PopupSurface>& popup : fPopups)
+		ForEachView(popup->root.get(), match);
 	return found;
 }
 
@@ -1682,11 +1721,19 @@ BWindow::_AccessibleAction(BMessage* message)
 	const std::int64_t node = message->GetInt64("node", 0);
 	const auto action = static_cast<AccessibleAction>(message->GetInt32("action", 0));
 	std::expected<void, Error> result;
-	BView* view = node > 0 && node <= std::numeric_limits<std::int32_t>::max()
-		? _ViewWithToken(static_cast<std::int32_t>(node)) : nullptr;
+	// a view's token, or its token times 2^32 plus one of its items' index + 1
+	const auto id = static_cast<std::uint64_t>(node);
+	const std::uint64_t token = id >> 32 != 0 ? id >> 32 : id;
+	const auto item = static_cast<std::int64_t>(id >> 32 != 0 ? (id & 0xffffffffu) : 0) - 1;
+	BView* view = node > 0 && token <= static_cast<std::uint64_t>(
+			std::numeric_limits<std::int32_t>::max())
+		? _ViewWithToken(static_cast<std::int32_t>(token)) : nullptr;
 	if (view == nullptr)
 		result = Failure(ErrorCode::NotFound, "no view is that node");
-	else
+	else if (item >= 0) {
+		result = view->PerformAccessibleItemAction(static_cast<int32>(item), action,
+			*message);
+	} else
 		result = view->PerformAccessibleAction(action, *message);
 	if (message->IsSourceWaiting())
 		detail::SendScriptingReply(*message, BMessage(kReply), result);

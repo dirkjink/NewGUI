@@ -315,6 +315,20 @@ MenuTracker::Stop(BMenuItem* chosen)
 
 
 void
+MenuTracker::Choose(BMenuItem* item)
+{
+	if (!fTracking || item == nullptr || !item->IsEnabled())
+		return;
+	if (item->Submenu() != nullptr) {
+		if (BMenu* menu = item->Menu())
+			menu->_SelectItem(item, true, true);
+		return;
+	}
+	Stop(item);
+}
+
+
+void
 MenuTracker::TrackMouse(std::uint32_t /*what*/, gfx::Point screen, std::uint32_t buttons)
 {
 	if (!fTracking)

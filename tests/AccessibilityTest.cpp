@@ -21,6 +21,12 @@
 #include <ngui/CheckBox.h>
 #include <ngui/ListView.h>
 #include <ngui/Looper.h>
+#include <ngui/TabView.h>
+#include <ngui/StringItem.h>
+#include <ngui/SeparatorItem.h>
+#include <ngui/OutlineListView.h>
+#include <ngui/Menu.h>
+#include <ngui/MenuBar.h>
 #include <ngui/MenuField.h>
 #include <ngui/MenuItem.h>
 #include <ngui/PopUpMenu.h>
@@ -139,22 +145,25 @@ private:
 };
 
 
-// The application with the settings window, headless.
-class SettingsApp {
+// The application with a window of \a TestWindow (titled \a title),
+// headless.
+template<typename TestWindow>
+class WindowApp {
 public:
-	SettingsApp()
+	explicit WindowApp(std::string title)
 		:
 		fApp("application/x-vnd.ngui-accessibility-test"),
-		fDriver(fApp)
+		fDriver(fApp),
+		fTitle(std::move(title))
 	{
 		TextSystem::SetDefault(&fText);
-		auto window = std::make_unique<SettingsWindow>();
+		auto window = std::make_unique<TestWindow>();
 		window->Show();
 		fWindow = *BLooper::Run(std::move(window));
 		(void)fDriver.WaitForIdle();
 	}
 
-	~SettingsApp()
+	~WindowApp()
 	{
 		(void)fWindow.SendMessage(kQuitRequested);
 		(void)fWindow.WaitForLooperQuit(5s);
@@ -168,7 +177,7 @@ public:
 
 	WindowRef Window()
 	{
-		return fDriver.Window("Settings");
+		return fDriver.Window(fTitle);
 	}
 
 private:
@@ -176,7 +185,19 @@ private:
 	FixedTextSystem fText;
 	BApplication fApp;
 	Driver fDriver;
+	std::string fTitle;
 	BMessenger fWindow;
+};
+
+
+// The settings window's application.
+class SettingsApp : public WindowApp<SettingsWindow> {
+public:
+	SettingsApp()
+		:
+		WindowApp("Settings")
+	{
+	}
 };
 
 
@@ -226,7 +247,7 @@ TEST(AccessibilityTest, TheTreeSaysWhatTheWindowShows)
 		"  textinput \"Name:\" = \"Ada\" [focusable] {click, focus, setvalue}\n"
 		"  passwordinput \"Password:\" [focusable] {click, focus, setvalue}\n"
 		"  progressindicator \"Copying\" = \"4 of 10\" = 40 (0..100)\n"
-		"  combobox \"Size:\" = \"Medium\" [focusable] {focus}\n"
+		"  combobox \"Size:\" = \"Medium\" [focusable] {click, focus}\n"
 		"  list \"Fruits\" [focusable] {focus}\n"
 		"  label \"Changes apply at once.\"\n"
 		"  button \"OK\" \"Closes the window\" [focusable, default] {click, focus}\n"
@@ -250,14 +271,16 @@ TEST(AccessibilityTest, ActionsComeToTheViews)
 	// 80 on the slider; SetValue "Grace" and Focus on the text field (with
 	// the window active); SetValue on the password field; Click on the
 	// disabled button, Increment on the OK button, SetValue on the slider
-	// without a number, and a node that does not exist.
+	// without a number, and a node that does not exist; then Click on the
+	// menu field.
 	// Success criteria: The check box is off and its window got its
 	// message; the slider is at 35, then 80; the text field has "Grace"
 	// and the focus (Focused, the tree's focus; its text view is not a
 	// node); the password field has the new text, which the tree still
 	// does not show. The disabled button and the Increment are
 	// NotSupported, the slider without a number InvalidArgument, the
-	// missing node NotFound.
+	// missing node NotFound. The menu field's menu opens, called as its
+	// marked item, which is checked.
 	// Why it matters: Screen readers work controls as keyboards do; a
 	// view says no to what it cannot do.
 	//
@@ -304,6 +327,9 @@ TEST(AccessibilityTest, ActionsComeToTheViews)
 	const auto missing = driver.PerformAccessibleAction(window, 999999,
 		AccessibleAction::Click);
 	const AccessibleTree after = window.AccessibleTree();
+	const auto sizes = driver.PerformAccessibleAction(window, IdOf(tree, "Size:"),
+		AccessibleAction::Click);
+	const std::string menu = window.AccessibleTree().Text();
 
 	// Then
 	EXPECT_TRUE(clicked.has_value()) << clicked.error().message;
@@ -327,6 +353,10 @@ TEST(AccessibilityTest, ActionsComeToTheViews)
 	EXPECT_EQ(unsupported.error().code, ErrorCode::NotSupported);
 	EXPECT_EQ(noNumber.error().code, ErrorCode::InvalidArgument);
 	EXPECT_EQ(missing.error().code, ErrorCode::NotFound);
+	EXPECT_TRUE(sizes.has_value()) << sizes.error().message;
+	EXPECT_NE(menu.find("  menu \"Medium\"\n"
+		"    menuitem \"Small\" {click}\n"
+		"    menuitem \"Medium\" [checked] {click}\n"), std::string::npos) << menu;
 }
 
 
@@ -422,6 +452,176 @@ TEST(AccessibilityTest, TheWindowPassesItsTreeOnWhileSomeoneListens)
 	EXPECT_FALSE(save->info.states.Has(AccessibleState::Checked));
 	EXPECT_EQ(unchanged, clicked);
 	EXPECT_EQ(stopped, unchanged);
+}
+
+constexpr std::uint32_t kQuit = FourCharCode("QUIT");
+
+
+// A window with a menu bar (File: Open, a separator, Quit; Edit: Copy), a
+// list of two fruits with Banana selected, an outline of Fruit (with
+// Apple under it) and Vegetables, and a tab view with General and
+// Advanced. It counts kQuit.
+class ItemsWindow : public BWindow {
+public:
+	ItemsWindow()
+		:
+		BWindow({100, 100, 500, 400}, "Items", BWindowLook::Titled)
+	{
+		auto bar = std::make_unique<BMenuBar>(gfx::Rect{0, 0, 400, 20}, "bar");
+		auto file = std::make_unique<BMenu>("File");
+		(void)file->AddItem(std::make_unique<BMenuItem>("Open", nullptr));
+		(void)file->AddItem(std::make_unique<BSeparatorItem>());
+		(void)file->AddItem(std::make_unique<BMenuItem>("Quit",
+			std::make_unique<BMessage>(kQuit)));
+		(void)bar->AddItem(std::make_unique<BMenuItem>(std::move(file)));
+		auto edit = std::make_unique<BMenu>("Edit");
+		(void)edit->AddItem(std::make_unique<BMenuItem>("Copy", nullptr));
+		(void)bar->AddItem(std::make_unique<BMenuItem>(std::move(edit)));
+		AddChild(std::move(bar));
+
+		auto fruits = std::make_unique<BListView>(gfx::Rect{10, 30, 190, 80}, "fruits");
+		fruits->SetAccessibleName("Fruits");
+		(void)fruits->AddItem(std::make_unique<BStringItem>("Apple"));
+		(void)fruits->AddItem(std::make_unique<BStringItem>("Banana"));
+		fruits->Select(1);
+		AddChild(std::move(fruits));
+		auto outline = std::make_unique<BOutlineListView>(gfx::Rect{200, 30, 390, 100},
+			"outline");
+		outline->SetAccessibleName("Food");
+		(void)outline->AddItem(std::make_unique<BStringItem>("Fruit"));
+		(void)outline->AddItem(std::make_unique<BStringItem>("Apple", 1));
+		(void)outline->AddItem(std::make_unique<BStringItem>("Vegetables"));
+		AddChild(std::move(outline));
+		auto tabs = std::make_unique<BTabView>(gfx::Rect{10, 110, 390, 290}, "tabs");
+		tabs->AddTab(std::make_unique<BView>(gfx::Rect{0, 0, 100, 100}, "General",
+			kFollowAll, BViewFlags()));
+		tabs->AddTab(std::make_unique<BView>(gfx::Rect{0, 0, 100, 100}, "Advanced",
+			kFollowAll, BViewFlags()));
+		AddChild(std::move(tabs));
+	}
+
+	void MessageReceived(BMessage* message) override
+	{
+		if (message->what == kQuit) {
+			fQuits++;
+			return;
+		}
+		BWindow::MessageReceived(message);
+	}
+
+	int fQuits = 0;
+};
+
+
+TEST(AccessibilityTest, ItemsAreNodesOfTheirViews)
+{
+	// What is tested: The tree of the items window, then actions on items:
+	// Click on Apple in the list; Collapse and Expand of Fruit; Click on
+	// the Advanced tab; Click on the File menu of the bar, the tree with
+	// the open menu; Click on Quit in it.
+	// Success criteria: The items are nodes below their views, with ids of
+	// the view's token times 2^32 plus index + 1: the bar's menus as menu
+	// items (collapsed), the list's items with Banana selected, the outline's with
+	// their levels and Fruit expanded, the tabs with General selected.
+	// Clicking Apple selects it alone; Collapse hides Apple under Fruit,
+	// Expand shows it again; Click selects the tab. Clicking File opens its
+	// menu: the tree has it below the window, called File, its items with
+	// the separator as splitter; the focus is on File, expanded (as Haiku
+	// opens a menu on a click, no item selected). Clicking Quit invokes it
+	// (the window counts it) and closes the menu.
+	// Why it matters: Screen readers read and work lists, outlines, tabs
+	// and menus item by item (toolkit scope 11.3).
+	//
+	// Given
+	WindowApp<ItemsWindow> app("Items");
+	Driver& driver = app.Drive();
+	WindowRef window = app.Window();
+	(void)driver.ClickAt(window, {395, 395});
+	const AccessibleTree tree = window.AccessibleTree();
+	const AccessibleNode* fruits = tree.FindByName("Fruits");
+	const AccessibleNode* food = tree.FindByName("Food");
+	const AccessibleNode* bar = nullptr;
+	const AccessibleNode* tabs = nullptr;
+	for (const AccessibleNode& node : tree.nodes) {
+		if (node.info.role == AccessibleRole::MenuBar)
+			bar = &node;
+		if (node.info.role == AccessibleRole::TabList)
+			tabs = &node;
+	}
+	ASSERT_TRUE(fruits != nullptr && food != nullptr && bar != nullptr && tabs != nullptr);
+	const auto child = [&](const AccessibleNode* node, std::size_t index) {
+		return index < node->children.size() ? node->children[index] : 0;
+	};
+
+	// When
+	const auto apple = driver.PerformAccessibleAction(window, child(fruits, 0),
+		AccessibleAction::Click);
+	const auto collapsed = driver.PerformAccessibleAction(window, child(food, 0),
+		AccessibleAction::Collapse);
+	const std::size_t whileCollapsed = window.AccessibleTree().Find(food->id)->children.size();
+	const auto expanded = driver.PerformAccessibleAction(window, child(food, 0),
+		AccessibleAction::Expand);
+	const auto advanced = driver.PerformAccessibleAction(window, child(tabs, 1),
+		AccessibleAction::Click);
+	const auto opened = driver.PerformAccessibleAction(window, child(bar, 0),
+		AccessibleAction::Click);
+	const AccessibleTree open = window.AccessibleTree();
+	const AccessibleNode* menu = nullptr;
+	for (const AccessibleNode& node : open.nodes) {
+		if (node.info.role == AccessibleRole::Menu)
+			menu = &node;
+	}
+	ASSERT_NE(menu, nullptr);
+	const std::uint64_t quit = child(menu, 2);
+	const auto chosen = driver.PerformAccessibleAction(window, quit, AccessibleAction::Click);
+	const AccessibleTree after = window.AccessibleTree();
+	int quits = -1;
+	(void)window.Find("bar").Run([&](BView& view) {
+		quits = static_cast<ItemsWindow*>(view.Window())->fQuits;
+	});
+
+	// Then
+	const std::uint64_t token = fruits->id;
+	EXPECT_EQ(fruits->children, (std::vector<std::uint64_t>{(token << 32) | 1,
+		(token << 32) | 2}));
+	EXPECT_EQ(tree.Text().substr(tree.Text().find("  menubar")),
+		"  menubar\n"
+		"    menuitem \"File\" [collapsed] {click}\n"
+		"    menuitem \"Edit\" [collapsed] {click}\n"
+		"  list \"Fruits\" [focusable] {focus}\n"
+		"    listitem \"Apple\" {click}\n"
+		"    listitem \"Banana\" [selected] {click}\n"
+		"  tree \"Food\" [focusable] {focus}\n"
+		"    treeitem \"Fruit\" level 1 [expanded] {click, collapse}\n"
+		"    treeitem \"Apple\" level 2 {click}\n"
+		"    treeitem \"Vegetables\" level 1 {click}\n"
+		"  tablist [focusable] {focus}\n"
+		"    tab \"General\" [selected] {click}\n"
+		"    tab \"Advanced\" {click}\n") << tree.Text();
+	EXPECT_TRUE(apple.has_value()) << apple.error().message;
+	EXPECT_TRUE(collapsed.has_value());
+	EXPECT_EQ(whileCollapsed, 2u);
+	EXPECT_TRUE(expanded.has_value());
+	EXPECT_TRUE(advanced.has_value());
+	EXPECT_TRUE(opened.has_value()) << opened.error().message;
+	EXPECT_NE(open.Text().find("  menu \"File\"\n"
+		"    menuitem \"Open\" {click}\n"
+		"    splitter\n"
+		"    menuitem \"Quit\" {click}\n"), std::string::npos) << open.Text();
+	EXPECT_EQ(open.focus, child(bar, 0));
+	EXPECT_NE(open.Text().find("menuitem \"File\" [focused, selected, expanded]"),
+		std::string::npos);
+	EXPECT_TRUE(chosen.has_value()) << chosen.error().message;
+	EXPECT_EQ(quits, 1);
+	EXPECT_EQ(after.Text().find("  menu \"File\""), std::string::npos);
+	const AccessibleTree final = after;
+	const AccessibleNode* finalFruits = final.FindByName("Fruits");
+	ASSERT_NE(finalFruits, nullptr);
+	EXPECT_NE(final.Text().find("    listitem \"Apple\" [selected] {click}\n"
+		"    listitem \"Banana\" {click}\n"), std::string::npos);
+	EXPECT_NE(final.Text().find("    tab \"General\" {click}\n"
+		"    tab \"Advanced\" [selected] {click}\n"), std::string::npos);
+	EXPECT_NE(final.Text().find("treeitem \"Fruit\" level 1 [expanded]"), std::string::npos);
 }
 
 TEST(AccessibilityTest, TheTreeMatchesItsSnapshot)

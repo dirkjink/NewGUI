@@ -21,6 +21,7 @@ namespace ngui {
 
 
 class BMenu;
+class BMenuItem;
 
 
 // The arrows above and below a menu that is higher than the screen
@@ -109,6 +110,9 @@ public:
 	virtual	void				Tick() = 0;
 	// The mouse wheel turned by \a deltaY (kMouseWheelChanged).
 	virtual	void				TrackWheel(float deltaY, bool shift) = 0;
+	// Assistive technology chose \a item of an open menu: a submenu opens,
+	// any other item is invoked, as with Enter.
+	virtual	void				Choose(BMenuItem* item) = 0;
 };
 
 

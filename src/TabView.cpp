@@ -1146,4 +1146,53 @@ BTabView::_LayoutContainerView(bool layouted)
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BTabView::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info != nullptr)
+		info->role = AccessibleRole::TabList;
+}
+
+
+void
+BTabView::GetAccessibleItems(std::vector<AccessibleItem>* items) const
+{
+	if (items == nullptr)
+		return;
+	for (int32 i = 0; i < CountTabs(); i++) {
+		const BTab* tab = TabAt(i);
+		AccessibleItem entry;
+		entry.info.role = AccessibleRole::Tab;
+		entry.info.name = tab->Label();
+		if (i == Selection())
+			entry.info.states |= AccessibleState::Selected;
+		if (!tab->IsEnabled())
+			entry.info.states |= AccessibleState::Disabled;
+		else
+			entry.info.actions |= AccessibleAction::Click;
+		entry.frame = TabFrame(i);
+		items->push_back(std::move(entry));
+	}
+}
+
+
+std::expected<void, Error>
+BTabView::PerformAccessibleItemAction(int32 index, AccessibleAction action,
+	const BMessage& data)
+{
+	const BTab* tab = TabAt(index);
+	if (tab == nullptr)
+		return Failure(ErrorCode::NotFound, "no such tab");
+	if (action != AccessibleAction::Click)
+		return BView::PerformAccessibleItemAction(index, action, data);
+	if (!tab->IsEnabled())
+		return Failure(ErrorCode::NotSupported, "the tab is disabled");
+	Select(index);
+	return {};
+}
+
 } // namespace ngui
