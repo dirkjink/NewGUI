@@ -169,4 +169,12 @@ TextInput::_TextControl()
 }
 
 
+void
+TextInput::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	if (info != nullptr)
+		info->role = AccessibleRole::None;
+}
+
+
 } // namespace ngui

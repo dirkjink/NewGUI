@@ -310,4 +310,21 @@ BCheckBox::_NextState() const
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BCheckBox::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BControl::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::CheckBox;
+	if (Value() == kControlOn)
+		info->states |= AccessibleState::Checked;
+	else if (Value() == kControlPartiallyOn)
+		info->states |= AccessibleState::Mixed;
+}
+
+
 } // namespace ngui

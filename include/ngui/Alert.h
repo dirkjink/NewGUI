@@ -134,6 +134,9 @@ public:
 									/*!< Where an alert of that size goes on the screen:
 										centered, a quarter down. */
 
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role Alert, its text as description. */
+
 private:
 	class KeyFilter;
 

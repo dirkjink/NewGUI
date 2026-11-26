@@ -19,6 +19,7 @@ if(NOT NGUI_WITH_SVG)
 endif()
 
 add_executable(ngui_tests
+    AccessibilityTest.cpp
     AlertTest.cpp
     ApplicationTest.cpp
     BitmapTest.cpp

@@ -38,6 +38,8 @@ public:
 			void				FrameResized(float width, float height) override;
 			void				MakeFocus(bool focused = true) override;
 			void				SetMaxContentWidth(float width) override;
+			// part of its menu field, which is the accessible node
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
 			void				SetEnabled(bool enabled) override;
 
 			void				TogglePopUpMarker(bool show)

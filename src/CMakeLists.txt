@@ -34,6 +34,7 @@ add_library(ngui
     ${embeddedIcons}
     AbstractLayout.cpp
     AbstractLayoutItem.cpp
+    Accessibility.cpp
     Alert.cpp
     Bitmap.cpp
     Application.cpp

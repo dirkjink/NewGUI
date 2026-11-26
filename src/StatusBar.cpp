@@ -519,4 +519,23 @@ BStatusBar::_Background(const DrawContext& context) const
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BStatusBar::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::ProgressIndicator;
+	if (info->name.empty())
+		info->name = Label();
+	info->value = Text();
+	info->numericValue = CurrentValue();
+	info->minimum = 0.0;
+	info->maximum = MaxValue();
+}
+
+
 } // namespace ngui

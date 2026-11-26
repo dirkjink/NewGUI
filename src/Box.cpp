@@ -599,4 +599,19 @@ BBox::_ValidateLayoutData()
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BBox::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::Group;
+	if (info->name.empty())
+		info->name = Label();
+}
+
+
 } // namespace ngui

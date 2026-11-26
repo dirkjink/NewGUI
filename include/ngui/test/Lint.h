@@ -28,7 +28,9 @@ enum class LintCheck : std::uint8_t {
 	Truncated,		/*!< A view cut a text to fit (the text system's report). */
 	BelowMinimum,	/*!< A view is smaller than its minimum size. */
 	Outside,		/*!< A view reaches beyond its parent or the window. */
-	FocusOrder		/*!< Tab goes against the reading order. */
+	FocusOrder,		/*!< Tab goes against the reading order. */
+	Unnamed			/*!< A control has no name for assistive technology (its
+						label is empty and BView::SetAccessibleName() not set). */
 };
 
 
@@ -58,6 +60,9 @@ struct LintOptions {
 										are not checked. */
 			bool				focusOrder = true;
 									/*!< Whether to warn about the focus order. */
+			bool				accessibleNames = true;
+									/*!< Whether to warn about controls without a name
+										for assistive technology. */
 };
 
 
@@ -91,11 +96,13 @@ struct LintConfiguration {
 
 /*!	Checks the views of \a window (specification 20.6): visible siblings
 	that overlap, texts cut to fit, views smaller than their minimum size,
-	views beyond their parent or the window, and (a warning) navigable views
+	views beyond their parent or the window, and (warnings) navigable views
 	whose focus order goes against the reading order (left to right, top to
-	bottom). Runs on the window's thread; hidden views are left out. The
-	truncation check draws each view anew; a view that cuts a text is not
-	reported below its minimum as well (the same cause). */
+	bottom) and controls without a name for assistive technology (buttons,
+	check boxes, sliders, text fields, menu fields, lists). Runs on the
+	window's thread; hidden views are left out. The truncation check draws
+	each view anew; a view that cuts a text is not reported below its
+	minimum as well (the same cause). */
 LintReport Lint(const WindowRef& window, const LintOptions& options = {});
 
 /*!	The layout snapshot of \a window (specification 20.5): a line per view,

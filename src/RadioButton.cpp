@@ -263,4 +263,19 @@ BRadioButton::_KnobFrame(const FontHeight& fontHeight) const
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BRadioButton::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BControl::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::RadioButton;
+	if (Value() == kControlOn)
+		info->states |= AccessibleState::Checked;
+}
+
+
 } // namespace ngui

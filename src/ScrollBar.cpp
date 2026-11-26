@@ -1174,4 +1174,41 @@ BScrollBar::_MinSize() const
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BScrollBar::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::ScrollBar;
+	float minimum = 0;
+	float maximum = 0;
+	GetRange(&minimum, &maximum);
+	float small = 0;
+	float large = 0;
+	GetSteps(&small, &large);
+	info->numericValue = Value();
+	info->minimum = minimum;
+	info->maximum = maximum;
+	info->step = small;
+	info->actions |= AccessibleAction::Increment | AccessibleAction::Decrement;
+}
+
+
+std::expected<void, Error>
+BScrollBar::PerformAccessibleAction(AccessibleAction action, const BMessage& data)
+{
+	if (action != AccessibleAction::Increment && action != AccessibleAction::Decrement)
+		return BView::PerformAccessibleAction(action, data);
+	float small = 0;
+	float large = 0;
+	GetSteps(&small, &large);
+	SetValue(Value() + (action == AccessibleAction::Increment ? small : -small));
+	return {};
+}
+
+
 } // namespace ngui

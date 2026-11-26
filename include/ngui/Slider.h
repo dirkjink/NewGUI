@@ -204,6 +204,18 @@ public:
 			gfx::Size			PreferredSize() override;
 									/*!< At least 101 along the bar. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role Slider: the value with its limits, the key
+										increment as step, UpdateText() as text;
+										Increment, Decrement and SetValue instead of
+										Click. */
+			std::expected<void, Error> PerformAccessibleAction(AccessibleAction action,
+									const BMessage& data) override;
+									/*!< Increment and Decrement as the arrow keys do, SetValue
+										("number") as SetValue() and Invoke(). */
+
 protected:
 			void				LayoutInvalidated(bool descendants) override;
 									/*!< Drops the cached minimum size. */

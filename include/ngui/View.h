@@ -13,6 +13,7 @@
 #include <string_view>
 #include <vector>
 
+#include <ngui/Accessibility.h>
 #include <ngui/Bitmap.h>
 #include <ngui/ControlLook.h>
 #include <ngui/Error.h>
@@ -357,6 +358,36 @@ public:
 									/*!< NewGUI: the cursor of SetViewCursor(), or
 										nullptr. */
 
+	// Accessibility (toolkit scope 11.3, ngui/Accessibility.h)
+
+	virtual	void				GetAccessibleInfo(AccessibleInfo* info) const;
+									/*!< What it tells assistive technology. The view's
+										own: role None (left out of the tree), the name and
+										description set below (the description by default
+										its text tooltip), Focusable if it is navigable,
+										and Focus then. The toolkit's classes add their
+										role, value, states and actions; a name set here
+										wins over their label. */
+	virtual	std::expected<void, Error> PerformAccessibleAction(AccessibleAction action,
+									const BMessage& data);
+									/*!< Does \a action of assistive technology, on the
+										window's thread: Focus makes a navigable view the
+										focus; the toolkit's classes do theirs (Click as
+										Space does). NotSupported for an action it does
+										not take, InvalidArgument without the data
+										SetValue needs. */
+			void				SetAccessibleName(std::string_view name);
+									/*!< Its name for assistive technology, for views
+										without a label (an icon button, a text field with
+										a label beside it); empty for the label. */
+			const std::string&	AccessibleName() const;
+									/*!< The name set, or empty. */
+			void				SetAccessibleDescription(std::string_view description);
+									/*!< More about it for assistive technology; empty
+										for its text tooltip. */
+			const std::string&	AccessibleDescription() const;
+									/*!< The description set, or empty. */
+
 	// Record & Replay (specification 20.8)
 
 			void				SetInputPrivate(bool isPrivate);
@@ -579,6 +610,8 @@ private:
 			gfx::DisplayListRef	fListAfterChildren;
 			std::shared_ptr<BToolTip> fToolTip;
 			bool				fInputPrivate = false;
+			std::string			fAccessibleName;
+			std::string			fAccessibleDescription;
 			std::unique_ptr<BCursor> fCursor;
 
 			// Layout, as Haiku's BView::LayoutData

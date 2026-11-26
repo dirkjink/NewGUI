@@ -20,6 +20,7 @@
 #include <ngui/Control.h>
 #include <ngui/LocaleRoster.h>
 #include <ngui/LookRegistry.h>
+#include <ngui/PropertyInfo.h>
 #include <ngui/StringView.h>
 #include <ngui/TextControl.h>
 #include <ngui/TextView.h>
@@ -346,6 +347,18 @@ WindowRef::FindIf(const std::function<bool(BView&)>& matches) const
 }
 
 
+ngui::AccessibleTree
+WindowRef::AccessibleTree() const
+{
+	ngui::AccessibleTree tree;
+	(void)RunOnLooper(fTarget, [&](BLooper& looper) {
+		if (const auto* window = dynamic_cast<const BWindow*>(&looper))
+			tree = window->GetAccessibleTree();
+	}, kQueryTimeout);
+	return tree;
+}
+
+
 ViewRef
 WindowRef::FindByLabel(std::string_view label) const
 {
@@ -491,6 +504,27 @@ Driver::Advance(Clock::Time duration)
 		return idle;
 	clock->Advance(duration);
 	return WaitForIdle();
+}
+
+
+std::expected<void, Error>
+Driver::PerformAccessibleAction(const WindowRef& window, std::uint64_t node,
+	AccessibleAction action, const BMessage& data)
+{
+	if (auto idle = WaitForIdle(); !idle.has_value())
+		return idle;
+	BMessage message(data);
+	message.what = kAccessibleAction;
+	(void)message.RemoveName("node");
+	(void)message.RemoveName("action");
+	(void)message.AddInt64("node", static_cast<std::int64_t>(node));
+	(void)message.AddInt32("action", static_cast<std::int32_t>(action));
+	BMessage reply;
+	if (auto sent = window.fTarget.SendMessage(message, &reply); !sent.has_value())
+		return sent;
+	if (auto idle = WaitForIdle(); !idle.has_value())
+		return idle;
+	return ScriptingResult(reply);
 }
 
 

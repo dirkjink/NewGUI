@@ -37,6 +37,9 @@ public:
 
 			void				Paste(BClipboard* clipboard) override;
 
+	// part of its text control, which is the accessible node
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+
 protected:
 			void				InsertText(std::string_view text, int32 offset,
 									const BTextRunArray* runs) override;

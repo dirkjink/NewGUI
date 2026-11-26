@@ -77,6 +77,11 @@ public:
 			void				SetPartialStateToOff(bool partialToOff);
 									/*!< Sets where partially on goes. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role CheckBox, Checked when on, Mixed when partly on. */
+
 protected:
 			void				LayoutInvalidated(bool descendants = false) override;
 									/*!< Drops the cached preferred size. */

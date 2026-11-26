@@ -319,6 +319,20 @@ public:
 			std::expected<void, Error> GetSupportedSuites(BMessage* data) override;
 									/*!< "suite/vnd.Be-window" and BLooper's. */
 
+	// Accessibility (toolkit scope 11.3, ngui/Accessibility.h)
+
+	virtual	void				GetAccessibleInfo(AccessibleInfo* info) const;
+									/*!< The window's: role Window (Dialog and Modal for
+										BWindowFeel::ModalApp), its title as name. */
+			AccessibleTree		GetAccessibleTree() const;
+									/*!< The accessibility tree of the window, on its
+										thread: the window, then its shown views whose role
+										is not None, each under the nearest such parent,
+										with its bounds in window coordinates. The focus
+										is the focus view or the nearest exposed view it is
+										in, Focused while the window is active.
+										kAccessibleAction does an action of a node. */
+
 private:
 	friend class BApplication;
 	friend class BView;
@@ -340,6 +354,8 @@ private:
 			gfx::Point			_SurfaceOrigin(const BView* root) const;
 			void				_RootFrameChanged(BView* root);
 			PopupSurface*		_PopupOf(const BView* root) const;
+			BView*				_ViewWithToken(std::int32_t token) const;
+			void				_AccessibleAction(BMessage* message);
 			void				_PopupEvent(PopupSurface* popup, BMessage* message);
 			void				_WheelToMenus(const BMessage* message);
 			BView*				_OpenPopup(std::unique_ptr<BView> view, bool tooltip);

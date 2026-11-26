@@ -109,6 +109,11 @@ public:
 			gfx::Size			PreferredSize() override;
 									/*!< Room for the label and the look's frame. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role Button, Default if it is the default button. */
+
 protected:
 			void				LayoutInvalidated(bool descendants = false) override;
 									/*!< Drops the cached preferred size. */

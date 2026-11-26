@@ -1091,6 +1091,63 @@ BView::ToolTip() const
 
 
 void
+BView::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	if (info == nullptr)
+		return;
+	info->name = fAccessibleName;
+	info->description = fAccessibleDescription;
+	if (info->description.empty()) {
+		if (const auto* tip = dynamic_cast<const BTextToolTip*>(fToolTip.get()))
+			info->description = tip->Text();
+	}
+	if (Flags().Has(BViewFlag::Navigable)) {
+		info->states |= AccessibleState::Focusable;
+		info->actions |= AccessibleAction::Focus;
+	}
+}
+
+
+std::expected<void, Error>
+BView::PerformAccessibleAction(AccessibleAction action, const BMessage& /*data*/)
+{
+	if (action == AccessibleAction::Focus && Flags().Has(BViewFlag::Navigable)) {
+		MakeFocus(true);
+		return {};
+	}
+	return Failure(ErrorCode::NotSupported, "the view does not take this action");
+}
+
+
+void
+BView::SetAccessibleName(std::string_view name)
+{
+	fAccessibleName = name;
+}
+
+
+const std::string&
+BView::AccessibleName() const
+{
+	return fAccessibleName;
+}
+
+
+void
+BView::SetAccessibleDescription(std::string_view description)
+{
+	fAccessibleDescription = description;
+}
+
+
+const std::string&
+BView::AccessibleDescription() const
+{
+	return fAccessibleDescription;
+}
+
+
+void
 BView::SetInputPrivate(bool isPrivate)
 {
 	fInputPrivate = isPrivate;

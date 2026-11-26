@@ -179,4 +179,17 @@ BMenuBar::_InitData()
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BMenuBar::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BView::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::MenuBar;
+}
+
+
 } // namespace ngui

@@ -203,6 +203,11 @@ public:
 			gfx::Rect			ItemFrame(int32 index);
 									/*!< Where item \a index is drawn. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role List; Focus (its items follow later). */
+
 protected:
 	/*!	What DoMiscellaneous() is asked to do. */
 	enum class MiscCode : std::uint8_t {

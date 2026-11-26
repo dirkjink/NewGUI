@@ -649,4 +649,19 @@ BAlert::_Go(std::unique_ptr<BAlert> alert)
 }
 
 
+// #pragma mark - accessibility
+
+
+void
+BAlert::GetAccessibleInfo(AccessibleInfo* info) const
+{
+	BWindow::GetAccessibleInfo(info);
+	if (info == nullptr)
+		return;
+	info->role = AccessibleRole::Alert;
+	if (const BTextView* text = TextView(); text != nullptr && info->description.empty())
+		info->description = text->Text();
+}
+
+
 } // namespace ngui
