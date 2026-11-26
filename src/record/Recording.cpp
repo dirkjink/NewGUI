@@ -103,7 +103,10 @@ std::FILE*
 OpenPrivate(const std::filesystem::path& path)
 {
 #ifdef _WIN32
-	return _wfopen(path.c_str(), L"wb");
+	std::FILE* file = nullptr;
+	if (_wfopen_s(&file, path.c_str(), L"wb") != 0)
+		return nullptr;
+	return file;
 #else
 	const int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
 	if (fd < 0)
