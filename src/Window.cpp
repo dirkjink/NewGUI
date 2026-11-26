@@ -883,6 +883,11 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kAccessibleAction:
 			_AccessibleAction(message);
 			return;
+		case kAccessibilityRequested:
+			// assistive technology listens: the whole tree at the next update
+			fAccessibleTree.reset();
+			_ScheduleUpdate();
+			return;
 		case detail::kRecordWindowState:
 			// a recording begins: its frame and scale as it has them
 			detail::RecordWindowState(*this, fFrame, fScale);
@@ -1841,6 +1846,24 @@ BWindow::_Update()
 
 	for (const std::unique_ptr<PopupSurface>& popup : fPopups)
 		_UpdatePopup(*popup, caps, text);
+	_UpdateAccessibility();
+}
+
+
+// Passes the accessibility tree on to the platform when it changed, while
+// assistive technology listens.
+void
+BWindow::_UpdateAccessibility()
+{
+	if (fPlatformWindow == nullptr || !fPlatformWindow->IsAccessibilityActive()) {
+		fAccessibleTree.reset();
+		return;
+	}
+	AccessibleTree tree = GetAccessibleTree();
+	if (fAccessibleTree.has_value() && *fAccessibleTree == tree)
+		return;
+	fPlatformWindow->UpdateAccessibility(tree);
+	fAccessibleTree = std::move(tree);
 }
 
 

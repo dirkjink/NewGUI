@@ -72,7 +72,7 @@ jobs:
         if: matrix.build-mode == 'manual'
         run: >-
           cmake --preset skia -DNGUI_BUILD_TESTS=OFF -DNGUI_BUILD_EXAMPLES=OFF
-          -DVCPKG_MANIFEST_FEATURES="text;svg;skia;sdl3;blend2d"
+          -DVCPKG_MANIFEST_FEATURES="text;svg;skia;sdl3;blend2d;accessibility"
 
       # Overlay databases (incremental PR analysis) need build-mode none.
       # For C++ the manual build stays: it is more precise, and a build-less

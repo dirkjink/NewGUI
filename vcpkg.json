@@ -82,6 +82,12 @@
           "platform": "linux"
         }
       ]
+    },
+    "accessibility": {
+      "description": "Accessibility for screen readers through AccessKit (toolkit scope 11.3): its C bindings, the prebuilt static libraries of release 0.23.2 (overlay port ports/accesskit-c), for the SDL3 platform: AT-SPI on Linux, UI Automation on Windows.",
+      "dependencies": [
+        "accesskit-c"
+      ]
     }
   }
 }

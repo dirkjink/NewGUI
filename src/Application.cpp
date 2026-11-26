@@ -380,6 +380,19 @@ platform::PlatformWindow::ClearComposition()
 }
 
 
+bool
+platform::PlatformWindow::IsAccessibilityActive() const
+{
+	return false;
+}
+
+
+void
+platform::PlatformWindow::UpdateAccessibility(const AccessibleTree& /*tree*/)
+{
+}
+
+
 void
 BApplication::SetCursor(const BCursor& cursor)
 {

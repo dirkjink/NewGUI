@@ -264,7 +264,7 @@ jobs:
       # Everything that ships: the default dependencies, the text subsystem,
       # Skia and SDL3, without the test-only "tests" feature.
       - name: Install the shipped dependencies
-        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=text --x-feature=svg --x-feature=skia --x-feature=sdl3 --x-install-root=build/sbom/vcpkg_installed'
+        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=text --x-feature=svg --x-feature=skia --x-feature=sdl3 --x-feature=accessibility --x-install-root=build/sbom/vcpkg_installed'
 
       - name: Generate the SPDX SBOM of the shipped dependencies
         run: python3 .github/scripts/vcpkg-sbom.py build/sbom/vcpkg_installed/x64-linux build/sbom/newgui.spdx.json

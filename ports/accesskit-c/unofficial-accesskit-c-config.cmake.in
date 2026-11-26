@@ -1,0 +1,22 @@
+# The static library of AccessKit's C bindings and what it links against,
+# as the release's accesskit-config.cmake has it.
+get_filename_component(_accesskit_prefix "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+if(NOT TARGET unofficial::accesskit-c::accesskit)
+    add_library(unofficial::accesskit-c::accesskit STATIC IMPORTED)
+    set_target_properties(unofficial::accesskit-c::accesskit PROPERTIES
+        IMPORTED_LOCATION "${_accesskit_prefix}/lib/@library_name@"
+        IMPORTED_LINK_INTERFACE_LANGUAGES C
+        INTERFACE_INCLUDE_DIRECTORIES "${_accesskit_prefix}/include")
+    if(WIN32)
+        set_property(TARGET unofficial::accesskit-c::accesskit PROPERTY INTERFACE_LINK_LIBRARIES
+            bcrypt ntdll propsys runtimeobject uiautomationcore userenv ws2_32)
+    elseif(APPLE)
+        set_property(TARGET unofficial::accesskit-c::accesskit PROPERTY INTERFACE_LINK_LIBRARIES
+            "-framework AppKit" "-framework Foundation" "-framework CoreFoundation" objc c++)
+    else()
+        find_package(Threads REQUIRED)
+        set_property(TARGET unofficial::accesskit-c::accesskit PROPERTY INTERFACE_LINK_LIBRARIES
+            Threads::Threads m ${CMAKE_DL_LIBS})
+    endif()
+endif()
+unset(_accesskit_prefix)

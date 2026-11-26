@@ -276,6 +276,14 @@ if(NGUI_WITH_SDL3)
             SDL3::SDL3)
     # internal headers (PlatformEvent.h)
     target_include_directories(ngui_sdl3 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    # Screen readers through AccessKit (toolkit scope 11.3; vcpkg feature
+    # accessibility, overlay port ports/accesskit-c).
+    if(NGUI_WITH_ACCESSKIT)
+        find_package(unofficial-accesskit-c CONFIG REQUIRED)
+        target_sources(ngui_sdl3 PRIVATE platform/sdl3/AccessKitBridge.cpp)
+        target_link_libraries(ngui_sdl3 PRIVATE unofficial::accesskit-c::accesskit)
+        target_compile_definitions(ngui_sdl3 PRIVATE NGUI_WITH_ACCESSKIT=1)
+    endif()
     ngui_configure_target(ngui_sdl3)
 endif()
 

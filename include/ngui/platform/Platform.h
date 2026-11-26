@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include <ngui/Accessibility.h>
 #include <ngui/Error.h>
 #include <ngui/Messenger.h>
 #include <ngui/SupportDefs.h>
@@ -109,6 +110,17 @@ public:
 	virtual	void				ClearComposition();
 									/*!< Ends an input method's composition, dropping its
 										text. Nothing by default. */
+	virtual	bool				IsAccessibilityActive() const;
+									/*!< Whether assistive technology (a screen reader)
+										listens to the window: then the window passes its
+										accessibility tree on when it changes. False by
+										default. A platform that begins to listen sends
+										kAccessibilityRequested to the target; actions come
+										as kAccessibleAction. */
+	virtual	void				UpdateAccessibility(const AccessibleTree& tree);
+									/*!< The window's accessibility tree, from the window's
+										thread, while IsAccessibilityActive(). Nothing by
+										default. */
 	virtual	std::expected<void, Error> Present(const gfx::CpuPixels& pixels,
 									std::span<const gfx::IntRect> dirty) = 0;
 									/*!< Shows the \a dirty device-pixel areas of \a pixels,

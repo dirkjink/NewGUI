@@ -29,6 +29,9 @@
 
 #include "PlatformEvent.h"
 #include "SdlEvents.h"
+#ifdef NGUI_WITH_ACCESSKIT
+#include "platform/sdl3/AccessKitBridge.h"
+#endif
 
 
 namespace ngui::platform {
@@ -64,6 +67,11 @@ struct WindowState {
 	// a new, empty one when the window's size changes.
 	int						surfaceWidth = 0;
 	int						surfaceHeight = 0;
+#ifdef NGUI_WITH_ACCESSKIT
+	// assistive technology (windows, not popups); made and freed on the
+	// main thread
+	std::unique_ptr<sdl3::AccessKitBridge> accessibility;
+#endif
 };
 
 
@@ -402,6 +410,10 @@ public:
 				std::scoped_lock guard(platform->lock);
 				platform->windows.erase(state->id);
 			}
+#ifdef NGUI_WITH_ACCESSKIT
+			// before the window it subclasses
+			state->accessibility.reset();
+#endif
 			SDL_DestroyWindow(state->window);
 			state->window = nullptr;
 		});
@@ -428,6 +440,42 @@ public:
 			if (state->window != nullptr)
 				(void)SDL_RaiseWindow(state->window);
 		});
+	}
+
+	bool IsAccessibilityActive() const override
+	{
+#ifdef NGUI_WITH_ACCESSKIT
+		return fState->accessibility != nullptr && fState->accessibility->IsActive();
+#else
+		return false;
+#endif
+	}
+
+	void UpdateAccessibility(const AccessibleTree& tree) override
+	{
+#ifdef NGUI_WITH_ACCESSKIT
+		if (fState->accessibility == nullptr)
+			return;
+		float scale = 1;
+		{
+			std::scoped_lock lock(fState->lock);
+			scale = fState->scale;
+		}
+		fState->accessibility->SetTree(tree, scale);
+		_Main([state = fState] {
+			sdl3::AccessKitBridge* bridge = nullptr;
+			{
+				std::scoped_lock lock(state->lock);
+				if (state->window != nullptr)
+					bridge = state->accessibility.get();
+			}
+			// without the window's lock: the adapter may call back
+			if (bridge != nullptr)
+				bridge->Push();
+		});
+#else
+		(void)tree;
+#endif
 	}
 
 	void ClearComposition() override
@@ -712,6 +760,11 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 		state->target = spec.target;
 		state->native = NativeOf(window);
 		UpdateGeometry(*state);
+#ifdef NGUI_WITH_ACCESSKIT
+		// while the window is hidden, as the Windows adapter requires
+		if (!spec.popup)
+			state->accessibility = sdl3::AccessKitBridge::Create(window, spec.target, spec.title);
+#endif
 		{
 			std::scoped_lock guard(data->lock);
 			data->windows[state->id] = state;
@@ -827,7 +880,22 @@ SdlPlatform::ProcessEvents()
 				if (translated.message.what == kWindowResized
 					|| translated.message.what == kWindowMoved) {
 					UpdateGeometry(*state);
+#ifdef NGUI_WITH_ACCESSKIT
+					if (state->accessibility != nullptr) {
+						const gfx::Rect& frame = state->frame;
+						const double scale = state->scale;
+						state->accessibility->SetBounds(frame.x0 * scale, frame.y0 * scale,
+							frame.x1 * scale, frame.y1 * scale);
+					}
+#endif
 				}
+#ifdef NGUI_WITH_ACCESSKIT
+				if (translated.message.what == kWindowActivated
+					&& state->accessibility != nullptr) {
+					state->accessibility->SetFocused(
+						translated.message.GetBool("active", false));
+				}
+#endif
 				target = state->target;
 			}
 			(void)target.SendMessage(translated.message);

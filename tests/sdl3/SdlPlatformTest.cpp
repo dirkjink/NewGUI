@@ -158,6 +158,45 @@ TEST(SdlPlatformTest, ItRunsWithoutADisplay)
 }
 
 
+TEST(SdlPlatformTest, WithoutAScreenReaderWindowsPassNoTree)
+{
+	// What is tested: A window of the platform (with AccessKit's adapter
+	// where the build has it) while no assistive technology listens: no
+	// D-Bus session in the CI on Linux, the offscreen driver's window
+	// without a native handle on Windows; UpdateAccessibility() of a tree
+	// anyway; the window closed.
+	// Success criteria: IsAccessibilityActive() is false; neither the
+	// update nor closing the window fails or blocks.
+	// Why it matters: Without a screen reader the toolkit builds no trees,
+	// and the adapter never stands in the way (toolkit scope 11.3).
+	//
+	// Given
+	RunningApp app;
+	ASSERT_NE(app.Platform(), nullptr);
+	WindowSpec spec;
+	spec.title = "quiet";
+	spec.frame = {10, 20, 110, 120};
+	std::unique_ptr<PlatformWindow> window = *app.Platform()->CreateWindow(spec);
+	AccessibleTree tree;
+	AccessibleNode root;
+	root.id = 1;
+	root.info.role = AccessibleRole::Window;
+	root.info.name = "quiet";
+	tree.nodes.push_back(root);
+	tree.focus = 1;
+
+	// When
+	window->Show();
+	const bool active = window->IsAccessibilityActive();
+	window->UpdateAccessibility(tree);
+	window.reset();
+
+	// Then
+	EXPECT_FALSE(active);
+	EXPECT_EQ(window, nullptr);
+}
+
+
 TEST(SdlPlatformTest, WindowsShowWhatIsPresented)
 {
 	// What is tested: A window created from another thread, its geometry,
