@@ -64,6 +64,7 @@ public:
 									std::uint32_t buttons) override;
 			bool				TrackKey(std::uint32_t what, std::string_view bytes) override;
 			void				CancelTracking() override;
+			void				Choose(BMenuItem* item) override;
 			void				ViewDetached(BView* view) override;
 
 private:

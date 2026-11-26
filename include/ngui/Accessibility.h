@@ -111,8 +111,10 @@ enum class AccessibleAction : std::uint32_t {
 	Focus = 1u << 1,		/*!< Give it the keyboard focus. */
 	Increment = 1u << 2,	/*!< Step its value up (sliders, scroll bars). */
 	Decrement = 1u << 3,	/*!< Step its value down. */
-	SetValue = 1u << 4		/*!< Set its value: a text ("value") or a number
+	SetValue = 1u << 4,		/*!< Set its value: a text ("value") or a number
 								("number"). */
+	Expand = 1u << 5,		/*!< Show an item's children (outline lists). */
+	Collapse = 1u << 6		/*!< Hide an item's children. */
 };
 NGUI_FLAG_ENUM(AccessibleAction)
 
@@ -136,15 +138,30 @@ struct AccessibleInfo {
 			std::optional<double> step;		/*!< What Increment() adds. */
 			AccessibleStates	states;		/*!< Its states. */
 			AccessibleActions	actions;	/*!< What it can be asked to do. */
+			std::int32_t		level = 0;	/*!< Its depth in an outline, from 1; 0 if it
+												is in none. */
 
 			bool				operator==(const AccessibleInfo& other) const = default;
 									/*!< Whether all of it is the same. */
 };
 
 
+/*!	A part of a view that is no view of its own, for assistive technology:
+	a list item, a tab, a menu item (BView::GetAccessibleItems()). */
+struct AccessibleItem {
+			AccessibleInfo		info;		/*!< What it is. */
+			gfx::Rect			frame;		/*!< Where it is, in its view's coordinates. */
+
+			bool				operator==(const AccessibleItem& other) const = default;
+									/*!< Whether all of it is the same. */
+};
+
+
 /*!	A node of a window's accessibility tree. */
 struct AccessibleNode {
-			std::uint64_t		id = 0;		/*!< Stable while the view lives: its token. */
+			std::uint64_t		id = 0;		/*!< Stable while the view lives: its token;
+												for item i of a view, the view's token
+												times 2^32 plus i + 1. */
 			AccessibleInfo		info;		/*!< What it is. */
 			gfx::Rect			bounds;		/*!< Where it is, in window coordinates
 												(logical pixels). */

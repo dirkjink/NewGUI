@@ -206,7 +206,14 @@ public:
 	// Accessibility
 
 			void				GetAccessibleInfo(AccessibleInfo* info) const override;
-									/*!< Role List; Focus (its items follow later). */
+									/*!< Role List; Focus. */
+			void				GetAccessibleItems(std::vector<AccessibleItem>* items)
+									const override;
+									/*!< Its items: ListItem, the text of a BStringItem as name,
+										Selected, Disabled; Click. */
+			std::expected<void, Error> PerformAccessibleItemAction(int32 index,
+									AccessibleAction action, const BMessage& data) override;
+									/*!< Click selects the item (alone), as a click does. */
 
 protected:
 	/*!	What DoMiscellaneous() is asked to do. */

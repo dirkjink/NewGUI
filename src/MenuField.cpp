@@ -996,7 +996,21 @@ BMenuField::GetAccessibleInfo(AccessibleInfo* info) const
 	}
 	if (!IsEnabled())
 		info->states |= AccessibleState::Disabled;
+	else
+		info->actions |= AccessibleAction::Click;
 }
 
+
+std::expected<void, Error>
+BMenuField::PerformAccessibleAction(AccessibleAction action, const BMessage& data)
+{
+	if (action != AccessibleAction::Click)
+		return BView::PerformAccessibleAction(action, data);
+	if (!IsEnabled())
+		return Failure(ErrorCode::NotSupported, "the menu field is disabled");
+	// as Space does
+	KeyDown(std::string(1, keys::kSpace));
+	return {};
+}
 
 } // namespace ngui

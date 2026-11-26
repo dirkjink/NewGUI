@@ -176,6 +176,22 @@ public:
 			bool				MoveItem(int32 indexFrom, int32 indexTo);
 									/*!< Moves an item to another index. */
 
+	// Accessibility
+
+			void				GetAccessibleInfo(AccessibleInfo* info) const override;
+									/*!< Role Menu (an open one, called as the item it opened
+										from; BMenuBar's MenuBar). */
+			void				GetAccessibleItems(std::vector<AccessibleItem>* items)
+									const override;
+									/*!< Its items: MenuItem with the label as name, Checked when
+										marked, Selected when selected, Expanded or Collapsed
+										with a submenu, Disabled; separators as Splitter;
+										Click. */
+			std::expected<void, Error> PerformAccessibleItemAction(int32 index,
+									AccessibleAction action, const BMessage& data) override;
+									/*!< Click chooses the item of an open menu (a submenu opens),
+										as Enter does. */
+
 protected:
 								BMenu(gfx::Rect frame, std::string_view name,
 									BResizingMode resizingMode, BViewFlags flags,

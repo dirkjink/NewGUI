@@ -1120,6 +1120,20 @@ BView::PerformAccessibleAction(AccessibleAction action, const BMessage& /*data*/
 
 
 void
+BView::GetAccessibleItems(std::vector<AccessibleItem>* /*items*/) const
+{
+}
+
+
+std::expected<void, Error>
+BView::PerformAccessibleItemAction(int32 /*index*/, AccessibleAction /*action*/,
+	const BMessage& /*data*/)
+{
+	return Failure(ErrorCode::NotSupported, "the view has no items");
+}
+
+
+void
 BView::SetAccessibleName(std::string_view name)
 {
 	fAccessibleName = name;

@@ -340,6 +340,7 @@ private:
 			class PopupSurface;
 			struct Shortcut;
 	friend class MenuTracker;
+	friend class BMenu;
 	friend class BMenuItem;
 	friend class BAlert;
 	friend class BPopUpMenu;

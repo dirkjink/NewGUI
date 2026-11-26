@@ -159,6 +159,15 @@ public:
 
 			void				GetAccessibleInfo(AccessibleInfo* info) const override;
 									/*!< Role Tree. */
+			void				GetAccessibleItems(std::vector<AccessibleItem>* items)
+									const override;
+									/*!< Its shown items: TreeItem with their level (from 1);
+										Expanded or Collapsed, Expand or Collapse, if they have
+										subitems. */
+			std::expected<void, Error> PerformAccessibleItemAction(int32 index,
+									AccessibleAction action, const BMessage& data) override;
+									/*!< Expand and Collapse as Expand() and Collapse(); the
+										rest as BListView's. */
 
 protected:
 			bool				DoMiscellaneous(MiscCode code, MiscData* data) override;
