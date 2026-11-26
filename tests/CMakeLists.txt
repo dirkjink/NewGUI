@@ -270,6 +270,13 @@ if(NGUI_WITH_SDL3)
             "${PROJECT_SOURCE_DIR}/src"
             "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_sdl3_tests)
+    # the bridge to AccessKit (vcpkg feature accessibility)
+    if(NGUI_WITH_ACCESSKIT)
+        find_package(unofficial-accesskit-c CONFIG REQUIRED)
+        target_sources(ngui_sdl3_tests PRIVATE sdl3/AccessKitBridgeTest.cpp)
+        target_link_libraries(ngui_sdl3_tests PRIVATE unofficial::accesskit-c::accesskit)
+        target_compile_definitions(ngui_sdl3_tests PRIVATE NGUI_WITH_ACCESSKIT=1)
+    endif()
     gtest_discover_tests(ngui_sdl3_tests
         DISCOVERY_MODE PRE_TEST
         PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT ${testTimeout})

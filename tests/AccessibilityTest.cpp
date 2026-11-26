@@ -35,6 +35,7 @@
 #include <ngui/test/Driver.h>
 #include <ngui/test/GTest.h>
 #include <ngui/test/Lint.h>
+#include <ngui/platform/HeadlessPlatform.h>
 
 #include "support/FixedTextSystem.h"
 
@@ -368,6 +369,60 @@ TEST(AccessibilityTest, TheLintWarnsOfControlsWithoutAName)
 	EXPECT_TRUE(after.empty());
 }
 
+
+TEST(AccessibilityTest, TheWindowPassesItsTreeOnWhileSomeoneListens)
+{
+	// What is tested: The settings window on the headless platform: before
+	// assistive technology listens; after it begins (SetAccessibilityActive,
+	// kAccessibilityRequested); after a click on the check box; after an
+	// update that changes nothing; after it stops and the check box is
+	// clicked again.
+	// Success criteria: Nothing is passed on before it listens; then the
+	// whole tree, equal to the window's; after the click a tree in which
+	// the check box is off; an update without a change passes nothing on;
+	// after it stops, nothing more.
+	// Why it matters: Screen readers learn of each change, and a window
+	// nobody listens to builds no trees (toolkit scope 11.3).
+	//
+	// Given
+	SettingsApp app;
+	Driver& driver = app.Drive();
+	WindowRef window = app.Window();
+	platform::HeadlessWindow* platformWindow = window.PlatformWindow();
+	ASSERT_NE(platformWindow, nullptr);
+
+	// When
+	const std::size_t before = platformWindow->CountAccessibleUpdates();
+	platformWindow->SetAccessibilityActive(true);
+	(void)driver.WaitForIdle();
+	const std::size_t first = platformWindow->CountAccessibleUpdates();
+	const std::optional<AccessibleTree> initial = platformWindow->LastAccessibleTree();
+	const AccessibleTree current = window.AccessibleTree();
+	(void)driver.Click(window.Find("save"));
+	(void)driver.WaitForIdle();
+	const std::size_t clicked = platformWindow->CountAccessibleUpdates();
+	const std::optional<AccessibleTree> afterClick = platformWindow->LastAccessibleTree();
+	(void)window.Find("note").Run([](BView& view) { view.Invalidate(); });
+	(void)driver.WaitForIdle();
+	const std::size_t unchanged = platformWindow->CountAccessibleUpdates();
+	platformWindow->SetAccessibilityActive(false);
+	(void)driver.Click(window.Find("save"));
+	(void)driver.WaitForIdle();
+	const std::size_t stopped = platformWindow->CountAccessibleUpdates();
+
+	// Then
+	EXPECT_EQ(before, 0u);
+	EXPECT_EQ(first, 1u);
+	ASSERT_TRUE(initial.has_value());
+	EXPECT_EQ(initial->nodes, current.nodes);
+	EXPECT_GT(clicked, first);
+	ASSERT_TRUE(afterClick.has_value());
+	const AccessibleNode* save = afterClick->FindByName("Save automatically");
+	ASSERT_NE(save, nullptr);
+	EXPECT_FALSE(save->info.states.Has(AccessibleState::Checked));
+	EXPECT_EQ(unchanged, clicked);
+	EXPECT_EQ(stopped, unchanged);
+}
 
 TEST(AccessibilityTest, TheTreeMatchesItsSnapshot)
 {

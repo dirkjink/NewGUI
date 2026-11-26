@@ -13,6 +13,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -73,6 +74,11 @@ public:
 			std::expected<void, Error> Present(const gfx::CpuPixels& pixels,
 									std::span<const gfx::IntRect> dirty) override;
 									/*!< Keeps a copy of \a pixels as the last frame. */
+			bool				IsAccessibilityActive() const override;
+									/*!< As SetAccessibilityActive() set it; false at
+										first. */
+			void				UpdateAccessibility(const AccessibleTree& tree) override;
+									/*!< Keeps \a tree as the last one and counts it. */
 
 			std::string			Title() const;
 									/*!< The title. */
@@ -97,6 +103,15 @@ public:
 			std::expected<void, Error> RequestClose() const;
 									/*!< Asks it to close, as its close button does
 										(kQuitRequested). */
+			void				SetAccessibilityActive(bool active);
+									/*!< Acts as assistive technology that begins to
+										listen (kAccessibilityRequested to its BWindow)
+										or stops, for tests. */
+			std::optional<AccessibleTree> LastAccessibleTree() const;
+									/*!< The tree its BWindow passed on last, nullopt
+										before the first. */
+			std::size_t			CountAccessibleUpdates() const;
+									/*!< How many trees its BWindow passed on. */
 
 private:
 	friend class HeadlessPlatform;
@@ -118,6 +133,9 @@ private:
 			bool				fShown = false;
 			std::shared_ptr<const PresentedFrame> fLastFrame;
 			std::size_t			fFrames = 0;
+			bool				fAccessibilityActive = false;
+			std::optional<AccessibleTree> fAccessibleTree;
+			std::size_t			fAccessibleUpdates = 0;
 };
 
 

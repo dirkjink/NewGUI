@@ -43,6 +43,11 @@ namespace ngui {
 	scripting replies have (0 for done). */
 inline constexpr std::uint32_t kAccessibleAction = FourCharCode("_ACA");
 
+/*!	From a platform to a window: assistive technology began to listen, the
+	window passes its whole accessibility tree on at its next update
+	(platform::PlatformWindow::UpdateAccessibility()). */
+inline constexpr std::uint32_t kAccessibilityRequested = FourCharCode("_ARQ");
+
 
 /*!	What a view is to assistive technology. */
 enum class AccessibleRole : std::uint8_t {
@@ -131,6 +136,9 @@ struct AccessibleInfo {
 			std::optional<double> step;		/*!< What Increment() adds. */
 			AccessibleStates	states;		/*!< Its states. */
 			AccessibleActions	actions;	/*!< What it can be asked to do. */
+
+			bool				operator==(const AccessibleInfo& other) const = default;
+									/*!< Whether all of it is the same. */
 };
 
 
@@ -142,6 +150,9 @@ struct AccessibleNode {
 												(logical pixels). */
 			std::vector<std::uint64_t> children;
 									/*!< Its children's ids, in order. */
+
+			bool				operator==(const AccessibleNode& other) const = default;
+									/*!< Whether all of it is the same. */
 };
 
 
@@ -160,6 +171,10 @@ struct AccessibleTree {
 									/*!< A line per node, indented by depth: role, name,
 										value, states and actions (the accessibility
 										snapshot). Stable across platforms. */
+
+			bool				operator==(const AccessibleTree& other) const = default;
+									/*!< Whether nodes and focus are the same (a window
+										passes a tree on only when it changed). */
 };
 
 

@@ -356,6 +356,7 @@ private:
 			PopupSurface*		_PopupOf(const BView* root) const;
 			BView*				_ViewWithToken(std::int32_t token) const;
 			void				_AccessibleAction(BMessage* message);
+			void				_UpdateAccessibility();
 			void				_PopupEvent(PopupSurface* popup, BMessage* message);
 			void				_WheelToMenus(const BMessage* message);
 			BView*				_OpenPopup(std::unique_ptr<BView> view, bool tooltip);
@@ -416,6 +417,8 @@ private:
 			float				fScale = 1;
 			std::vector<gfx::Rect> fDirty;
 			gfx::DisplayListRef	fLastFrame;
+			std::optional<AccessibleTree> fAccessibleTree;
+									// what the platform has, while it listens
 			std::uint64_t		fFrameCount = 0;
 			BView*				fFocus = nullptr;
 			BView*				fMouseView = nullptr;

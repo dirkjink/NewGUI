@@ -151,5 +151,6 @@ Das MVP umfasst also schon rund zwei Drittel des Gesamtumfangs. Grundgerüst, La
 2. ~~Kommt BiDi gleich ins MVP oder später?~~ **Entschieden:** später. Die TextView ist im MVP nur LTR; Absatzlayout, Trefferprüfung und Cursorbewegung (X6, `TextLayout`) sind so geschnitten, dass BiDi ohne API-Bruch dazukommt.
 3. ~~Wann folgt die Barrierefreiheit?~~ **Entschieden (2026-11-26):** nach Scripting und Fernsteuerung, über AccessKit-C 0.23 (MIT/Apache-2.0). Die Bibliothek kommt als vcpkg-Overlay-Port der fertigen Bibliotheken ins Projekt. Sie ist für viele Produkte Pflicht, in der EU z. B. durch den European Accessibility Act.
    - **Erster Schritt:** ein Modell im Toolkit, ohne die Bibliothek. Jede View gibt Rolle, Name, Wert, Zustände und Aktionen an, jedes Fenster bildet daraus einen Baum (`<ngui/Accessibility.h>`). Dazu kommen Snapshots und eine Lint-Regel im Test-Kit.
-   - **Danach:** die Brücke zu AT-SPI, UI Automation und NSAccessibility in der SDL-Plattform, anschließend Listen, Menüs und Tabs.
+   - **Zweiter Schritt:** die Brücke zu AT-SPI (Linux) und UI Automation (Windows) in der SDL-Plattform. NSAccessibility (macOS) folgt, sobald die CI einen macOS-Build hat.
+   - **Danach:** Listen, Menüs und Tabs mit ihren Einträgen.
 4. Welche externen Bibliotheken werden für BiDi und Zeilenumbruch verwendet: ICU (vollständig, groß) oder SheenBidi/fribidi und libunibreak (klein)? **Teilweise entschieden:** libunibreak für Zeilen-, Wort- und Graphemgrenzen (X4); die BiDi-Bibliothek wird mit BiDi gewählt.

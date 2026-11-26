@@ -246,6 +246,52 @@ HeadlessWindow::CountFrames() const
 }
 
 
+bool
+HeadlessWindow::IsAccessibilityActive() const
+{
+	std::scoped_lock lock(fLock);
+	return fAccessibilityActive;
+}
+
+
+void
+HeadlessWindow::UpdateAccessibility(const AccessibleTree& tree)
+{
+	std::scoped_lock lock(fLock);
+	fAccessibleTree = tree;
+	fAccessibleUpdates++;
+}
+
+
+void
+HeadlessWindow::SetAccessibilityActive(bool active)
+{
+	{
+		std::scoped_lock lock(fLock);
+		fAccessibilityActive = active;
+	}
+	// not an input event (Record & Replay leaves it out)
+	if (active)
+		(void)Target().SendMessage(kAccessibilityRequested);
+}
+
+
+std::optional<AccessibleTree>
+HeadlessWindow::LastAccessibleTree() const
+{
+	std::scoped_lock lock(fLock);
+	return fAccessibleTree;
+}
+
+
+std::size_t
+HeadlessWindow::CountAccessibleUpdates() const
+{
+	std::scoped_lock lock(fLock);
+	return fAccessibleUpdates;
+}
+
+
 std::expected<void, Error>
 HeadlessWindow::Send(const BMessage& message) const
 {
