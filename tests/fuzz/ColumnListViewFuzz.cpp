@@ -17,6 +17,7 @@
 #include <ngui/ColumnListView.h>
 #include <ngui/ColumnTypes.h>
 #include <ngui/InterfaceDefs.h>
+#include <ngui/Message.h>
 #include <ngui/Window.h>
 
 
@@ -68,7 +69,8 @@ NGUI_FUZZ_TARGET(ColumnListView)
 	// selects, deselects, swaps rows, changes and updates a field, sorts by
 	// either column, clears the sort columns, toggles sorting, presses the
 	// keys, sets the focus row, switches the selection mode, hides and
-	// moves columns, sets the latch width and clears the list; rows of 0 to
+	// moves columns, saves and loads the state, fits the columns to their
+	// fields, sets the latch width and clears the list; rows of 0 to
 	// 15.5 pixels, some without the second field.
 	// Success criteria: No crash, leak or sanitizer report; after every
 	// operation each row of the tree is shown exactly when all its parents
@@ -171,7 +173,17 @@ NGUI_FUZZ_TARGET(ColumnListView)
 				break;
 			}
 			case 14:
-				if ((op & 0x10) != 0)
+				if ((op & 0x40) != 0) {
+					ngui::BMessage state;
+					list.SaveState(&state);
+					list.MoveColumn(list.ColumnAt(0), 1);
+					list.LoadState(state);
+				} else if ((op & 0x80) != 0) {
+					if ((arg & 1) != 0)
+						list.ResizeAllColumnsToPreferred();
+					else
+						list.ResizeColumnToPreferred(arg % 3);
+				} else if ((op & 0x10) != 0)
 					list.SetColumnVisible(arg % 2, !list.IsColumnVisible(arg % 2));
 				else if ((op & 0x20) != 0)
 					list.MoveColumn(list.ColumnAt(arg % 2), (arg / 2) % 3);

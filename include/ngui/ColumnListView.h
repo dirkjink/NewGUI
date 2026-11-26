@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <ngui/Clock.h>
+#include <ngui/Flags.h>
 #include <ngui/InterfaceDefs.h>
 #include <ngui/Invoker.h>
 #include <ngui/ListView.h>
@@ -39,6 +40,23 @@ enum class BLatchType : std::uint8_t {
 	Pressed,	/*!< B_PRESSED_LATCH: the mouse is pressed on it. */
 	Closed		/*!< B_CLOSED_LATCH: the subrows are hidden. */
 };
+
+
+/*!	What the user may do with the columns of a column list view (Haiku's
+	column_flags). */
+enum class BColumnFlag : std::uint32_t {
+	Move = 1u << 0,		/*!< B_ALLOW_COLUMN_MOVE: drag a title to another place. */
+	Resize = 1u << 1,	/*!< B_ALLOW_COLUMN_RESIZE: drag the right edge of a title;
+							a double click on it fits the column to its fields. */
+	PopUp = 1u << 2,	/*!< B_ALLOW_COLUMN_POPUP: a secondary click on the titles
+							opens a menu that shows and hides columns. */
+	Remove = 1u << 3	/*!< B_ALLOW_COLUMN_REMOVE: a title dragged off the titles
+							hides its column. */
+};
+NGUI_FLAG_ENUM(BColumnFlag)
+
+/*!	A set of BColumnFlag. */
+using BColumnFlags = Flags<BColumnFlag>;
 
 
 /*!	The colors of a column list view (Haiku's ColumnListViewColor). Each
@@ -185,7 +203,12 @@ public:
 										MouseDown(). */
 
 	virtual	void				GetColumnName(std::string* into) const;
-									/*!< Hook: its name, as in a menu of columns; empty. */
+									/*!< Hook: its name, as in the menu of columns; empty
+										(the column is not in the menu). */
+	virtual	float				GetPreferredWidth(BField* field, BView* parent) const;
+									/*!< Hook: how wide the column wants to be for
+										\a field, or for its title if \a field is
+										nullptr; its width. */
 
 			bool				IsVisible() const;
 									/*!< Whether it is shown. */
@@ -242,6 +265,11 @@ private:
 	A double click or Enter invokes. The list has scroll bars and a place
 	for a status view left of the horizontal one.
 
+	As the column flags allow (SetColumnFlags(), all by default), the user
+	drags a title to move its column, its right edge to resize it (a double
+	click there fits it), a title off the titles to hide its column, and
+	opens the menu of columns with a secondary click on the titles.
+
 	Each change of the selection calls SelectionChanged(), which sends the
 	selection message; invoking calls ItemInvoked(), which sends the
 	invocation message, both with "when" and "source". Messages go to the
@@ -265,8 +293,10 @@ private:
 	- No drag and drop of rows (InitiateDrag() and MessageDropped() do not
 	  exist), no fonts per part (rows and titles use the plain font), no
 	  deprecated color methods; SetEditMode() does not exist.
-	- Not yet: resizing and moving columns with the mouse, the menu of
-	  columns, SaveState() and LoadState(), SetColumnFlags().
+	- SaveState() and LoadState() keep the columns by their logical field
+	  index, in a message of their own layout.
+	- The menu of columns opens with any secondary click on the titles;
+	  the last visible column cannot be hidden.
 */
 class BColumnListView : public BView, public BInvoker {
 public:
@@ -389,6 +419,18 @@ public:
 									/*!< Shows or hides the column at place \a index. */
 			bool				IsColumnVisible(int32 index) const;
 									/*!< Whether the column at place \a index is shown. */
+			void				SetColumnFlags(BColumnFlags flags);
+									/*!< What the user may do with the columns (default:
+										all). */
+			BColumnFlags		ColumnFlags() const;
+									/*!< What the user may do with the columns. */
+			void				ResizeColumnToPreferred(int32 index);
+									/*!< Fits the column at place \a index to its title
+										and the fields of all rows (BColumn::
+										GetPreferredWidth()), the first visible column with
+										their indentation. */
+			void				ResizeAllColumnsToPreferred();
+									/*!< Fits every column. */
 
 	// Rows
 
@@ -466,6 +508,16 @@ public:
 									BLatchType type, BRow* row);
 									/*!< Hook: draws the latch of \a row in \a frame, an
 										arrow pointing right (closed) or down (open). */
+			void				SaveState(BMessage* state) const;
+									/*!< Adds the order, widths and visibility of the
+										columns ("columnID", "columnWidth",
+										"columnVisible", in order) and the sorting
+										("sortID", "sortAscending", "sortingEnabled") to
+										\a state. */
+			void				LoadState(const BMessage& state);
+									/*!< Puts the columns named in \a state (by logical
+										field index) first, in its order, with its widths
+										and visibility, and sorts as it says. */
 			BView*				ScrollView() const;
 									/*!< The view the rows are drawn in. */
 			void				Refresh();
@@ -543,6 +595,8 @@ private:
 			void				_ClickRow(BRow* row, BModifierFlags modifiers);
 			void				_MoveFocus(int32 visibleIndex, BModifierFlags modifiers);
 			void				_TitleClicked(BColumn* column, BModifierFlags modifiers);
+			int32				_IndexOfColumn(const BColumn* column) const;
+			int32				_CountVisibleColumns() const;
 			BModifierFlags		_Modifiers() const;
 
 			std::vector<std::unique_ptr<BColumn>> fColumns;
@@ -563,6 +617,8 @@ private:
 			BBorderStyle		fBorderStyle = BBorderStyle::None;
 			float				fLatchWidth = 15.0f;
 			bool				fSortingEnabled = true;
+			BColumnFlags		fColumnFlags = BColumnFlag::Move | BColumnFlag::Resize
+									| BColumnFlag::PopUp | BColumnFlag::Remove;
 			bool				fMouseTracking = false;
 };
 

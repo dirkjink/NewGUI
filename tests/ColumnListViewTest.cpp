@@ -526,6 +526,9 @@ public:
 			: kTitles + static_cast<float>(row) * kRow + kRow / 2};
 		Mouse(kMouseDown, where, 1, modifiers);
 		Mouse(kMouseUp, where, 0, modifiers);
+		// the window must have seen the click before the time moves on
+		BMessage reply;
+		(void)fWindow.SendMessage(BMessage(kAsk), &reply);
 		fClock.Advance(1s);
 	}
 
@@ -838,6 +841,300 @@ TEST(ColumnListViewTest, ColumnsThatWantEventsGetTheMouse)
 		"up b", "moved a 171 0"}));
 	EXPECT_EQ(reply.GetString("selected", ""), "a");
 	TextSystem::SetDefault(nullptr);
+}
+
+
+// A running window with a list at 0, 0 of 300 × 200 (no border, no
+// horizontal scroll bar) with the columns Name (100 pixels), Size (60) and
+// Kind (80), each at least 20 wide, and the rows b/10/x and a/1/y. kAsk is
+// answered with each column as "name width" (or "name hidden") in order,
+// the number of sort columns and the number of popups; kFlags sets the
+// column flags.
+class TitleWindow : public BWindow {
+public:
+	TitleWindow()
+		:
+		BWindow({0, 0, 400, 300}, "columns")
+	{
+		auto list = std::make_unique<BColumnListView>(gfx::Rect{0, 0, 300, 200}, "list",
+			kFollowLeftTop, BViewFlag::Navigable, BBorderStyle::None, false);
+		list->AddColumn(std::make_unique<BStringColumn>("Name", 100.0f, 20.0f, 400.0f), 0);
+		list->AddColumn(std::make_unique<BStringColumn>("Size", 60.0f, 20.0f, 400.0f), 1);
+		list->AddColumn(std::make_unique<BStringColumn>("Kind", 80.0f, 20.0f, 400.0f), 2);
+		list->AddRow(MakeRow({"b", "10", "x"}));
+		list->AddRow(MakeRow({"a", "1", "y"}));
+		fList = static_cast<BColumnListView*>(AddChild(std::move(list)));
+	}
+
+	void MessageReceived(BMessage* message) override
+	{
+		if (message->what == kFlags) {
+			fList->SetColumnFlags(BColumnFlags::FromRaw(
+				static_cast<std::uint32_t>(message->GetInt32("flags", 0))));
+			return;
+		}
+		if (message->what != kAsk) {
+			BWindow::MessageReceived(message);
+			return;
+		}
+		BMessage reply(kAsk);
+		for (int32 i = 0; i < fList->CountColumns(); i++) {
+			const BColumn* column = fList->ColumnAt(i);
+			std::string name;
+			column->GetColumnName(&name);
+			(void)reply.AddString("column", name + " " + (column->IsVisible()
+				? std::to_string(static_cast<int>(column->Width())) : std::string("hidden")));
+		}
+		(void)reply.AddInt32("sorted", fList->CountSortColumns());
+		(void)reply.AddInt32("popups", CountPopups());
+		(void)message->SendReply(reply);
+	}
+
+	static constexpr std::uint32_t kFlags = FourCharCode("flgs");
+
+private:
+	BColumnListView* fList = nullptr;
+};
+
+
+// A running TitleWindow with a ManualClock and the fixed text system.
+class RunningTitles {
+public:
+	RunningTitles()
+	{
+		Clock::SetDefault(&fClock);
+		TextSystem::SetDefault(&fText);
+		fWindow = *BLooper::Run(std::make_unique<TitleWindow>());
+	}
+
+	~RunningTitles()
+	{
+		(void)fWindow.SendMessage(kQuitRequested);
+		(void)fWindow.WaitForLooperQuit(5s);
+		TextSystem::SetDefault(nullptr);
+		Clock::SetDefault(nullptr);
+	}
+
+	void Mouse(std::uint32_t what, gfx::Point where, std::int32_t buttons)
+	{
+		BMessage message(what);
+		(void)message.AddPoint("where", where);
+		(void)message.AddInt32("buttons", buttons);
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	// Pressed at x on the titles, moved to \a to and released there.
+	void Drag(float x, gfx::Point to)
+	{
+		Mouse(kMouseDown, {x, kTitles / 2}, 1);
+		Mouse(kMouseMoved, to, 1);
+		Mouse(kMouseUp, to, 0);
+		// the window must have seen the drag before the time moves on
+		(void)Columns();
+		fClock.Advance(1s);
+	}
+
+	void Key(char byte)
+	{
+		BMessage message(kKeyDown);
+		(void)message.AddString("bytes", std::string(1, byte));
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	void SetFlags(BColumnFlags flags)
+	{
+		BMessage message(TitleWindow::kFlags);
+		(void)message.AddInt32("flags", static_cast<std::int32_t>(flags.Raw()));
+		EXPECT_TRUE(fWindow.SendMessage(message).has_value());
+	}
+
+	std::vector<std::string> Columns(int32* sorted = nullptr, int32* popups = nullptr)
+	{
+		BMessage reply;
+		(void)fWindow.SendMessage(BMessage(kAsk), &reply);
+		(void)fWindow.SendMessage(BMessage(kAsk), &reply);
+		std::vector<std::string> columns;
+		for (std::int32_t i = 0; auto column = reply.FindString("column", i); i++)
+			columns.emplace_back(*column);
+		if (sorted != nullptr)
+			*sorted = reply.GetInt32("sorted", -1);
+		if (popups != nullptr)
+			*popups = reply.GetInt32("popups", -1);
+		return columns;
+	}
+
+private:
+	ManualClock fClock;
+	test::FixedTextSystem fText;
+	BMessenger fWindow;
+};
+
+
+TEST(ColumnListViewTest, TitlesResizeMoveAndHideColumns)
+{
+	// What is tested: In a running list with the columns Name (100), Size
+	// (60) and Kind (80) after the latch area of 15: the right edge of Name
+	// (x 115) dragged 30 pixels right, then to x 0; two quick clicks on the
+	// right edge of Size; the title Kind dragged left onto the right half of
+	// Size, then onto the left half; the title Size dragged far below the
+	// titles; a click on the title Name.
+	// Success criteria: Dragging an edge sets the width (130), at least the
+	// minimum (20); a double click on an edge fits the column to its title
+	// and fields ("Size" and the margins: 4 × 7 + 16 = 44). A title moves
+	// past a neighbor only beyond the neighbor's middle, and is not sorted
+	// by then; dragged off the titles, a column is hidden. A plain click
+	// still sorts.
+	// Why it matters: Users arrange the columns of a table to their needs;
+	// this is how they do it.
+	//
+	// Given
+	RunningTitles titles;
+
+	// When
+	titles.Drag(115, {145, kTitles / 2});
+	const std::vector<std::string> wider = titles.Columns();
+	titles.Drag(145, {0, kTitles / 2});
+	const std::vector<std::string> narrowest = titles.Columns();
+	titles.Drag(35, {125, kTitles / 2});
+	const float sizeEdge = 15 + 110 + 60;
+	titles.Mouse(kMouseDown, {sizeEdge, kTitles / 2}, 1);
+	titles.Mouse(kMouseUp, {sizeEdge, kTitles / 2}, 0);
+	titles.Mouse(kMouseDown, {sizeEdge, kTitles / 2}, 1);
+	titles.Mouse(kMouseUp, {sizeEdge, kTitles / 2}, 0);
+	const std::vector<std::string> fitted = titles.Columns();
+	// Name 15–125, Size 125–169 (middle 147), Kind 169–249
+	titles.Drag(200, {150, kTitles / 2});
+	const std::vector<std::string> notPast = titles.Columns();
+	titles.Drag(200, {140, kTitles / 2});
+	int32 sortedAfterMove = -1;
+	const std::vector<std::string> moved = titles.Columns(&sortedAfterMove);
+	// Name 15–125, Kind 125–205, Size 205–249
+	titles.Drag(230, {230, 120});
+	const std::vector<std::string> hidden = titles.Columns();
+	titles.Drag(50, {50, kTitles / 2});
+	int32 sortedAfterClick = -1;
+	(void)titles.Columns(&sortedAfterClick);
+
+	// Then
+	EXPECT_EQ(wider, (std::vector<std::string>{"Name 130", "Size 60", "Kind 80"}));
+	EXPECT_EQ(narrowest, (std::vector<std::string>{"Name 20", "Size 60", "Kind 80"}));
+	EXPECT_EQ(fitted, (std::vector<std::string>{"Name 110", "Size 44", "Kind 80"}));
+	EXPECT_EQ(notPast, fitted);
+	EXPECT_EQ(moved, (std::vector<std::string>{"Name 110", "Kind 80", "Size 44"}));
+	EXPECT_EQ(sortedAfterMove, 0);
+	EXPECT_EQ(hidden, (std::vector<std::string>{"Name 110", "Kind 80", "Size hidden"}));
+	EXPECT_EQ(sortedAfterClick, 1);
+}
+
+
+TEST(ColumnListViewTest, TheMenuOfColumnsShowsAndHidesThem)
+{
+	// What is tested: In a running list with the columns Name, Size and
+	// Kind, a quick secondary click on the titles, then Down and Enter;
+	// the same again; then the column flags without PopUp and a secondary
+	// click.
+	// Success criteria: The click opens a menu of the columns that stays
+	// open; with the first item (Name) under the mouse, Down and Enter
+	// choose Size, which is hidden, and the menu closes; chosen again, Size
+	// is shown again. Without the flag no menu opens.
+	// Why it matters: The menu is how a hidden column comes back.
+	//
+	// Given
+	RunningTitles titles;
+
+	// When
+	auto choose = [&titles](int32* popups) {
+		titles.Mouse(kMouseDown, {50, kTitles / 2}, 2);
+		titles.Mouse(kMouseUp, {50, kTitles / 2}, 0);
+		(void)titles.Columns(nullptr, popups);
+		titles.Key(keys::kDownArrow);
+		titles.Key(keys::kEnter);
+		return titles.Columns();
+	};
+	int32 opened = 0;
+	const std::vector<std::string> hidden = choose(&opened);
+	int32 closed = -1;
+	(void)titles.Columns(nullptr, &closed);
+	const std::vector<std::string> shown = choose(nullptr);
+	titles.SetFlags(BColumnFlag::Move | BColumnFlag::Resize);
+	titles.Mouse(kMouseDown, {50, kTitles / 2}, 2);
+	titles.Mouse(kMouseUp, {50, kTitles / 2}, 0);
+	int32 withoutFlag = -1;
+	(void)titles.Columns(nullptr, &withoutFlag);
+
+	// Then
+	EXPECT_EQ(opened, 1);
+	EXPECT_EQ(closed, 0);
+	EXPECT_EQ(hidden, (std::vector<std::string>{"Name 100", "Size hidden", "Kind 80"}));
+	EXPECT_EQ(shown, (std::vector<std::string>{"Name 100", "Size 60", "Kind 80"}));
+	EXPECT_EQ(withoutFlag, 0);
+}
+
+
+TEST(ColumnListViewTest, StateKeepsTheArrangementOfTheColumns)
+{
+	// What is tested: A list with the columns Name, Size and Kind and the
+	// rows b and a: Kind moved first and 50 wide, Size hidden, sorted by
+	// Name descending; its state saved and loaded into a second list with
+	// the columns in their first order (and one with a field index the
+	// first does not have), sorted by Kind; then the columns of the second
+	// list fitted to their contents, with a subrow abcdef/333/xxxxxx below
+	// a.
+	// Success criteria: The second list takes the order, widths and
+	// visibility of the saved columns, the unknown column stays behind
+	// them; it sorts as saved and its rows follow (b before a). Fitting
+	// gives each column the widest of its title and fields with the
+	// margins (16); the first column counts the subrow's indentation (15)
+	// even while it is hidden.
+	// Why it matters: Applications keep the user's arrangement of a table
+	// across runs with these messages.
+	//
+	// Given
+	ListFixture first;
+	auto kind = std::make_unique<BStringColumn>("Kind", 80.0f, 20.0f, 400.0f);
+	BColumn* firstKind = kind.get();
+	first.List().AddColumn(std::move(kind), 2);
+	first.List().MoveColumn(firstKind, 0);
+	firstKind->SetWidth(50);
+	first.List().SetColumnVisible(first.Size(), false);
+	first.List().SetSortColumn(first.Name(), false, false);
+	BMessage state;
+
+	ListFixture second;
+	BColumnListView& list = second.List();
+	list.AddColumn(std::make_unique<BStringColumn>("Kind", 80.0f, 20.0f, 400.0f), 2);
+	list.AddColumn(std::make_unique<BStringColumn>("Other", 70.0f, 20.0f, 400.0f), 7);
+	list.SetSortColumn(list.ColumnAt(2), false, true);
+	ASSERT_TRUE(list.AddRow(MakeRow({"a", "1", "z"})));
+	ASSERT_TRUE(list.AddRow(MakeRow({"b", "22", "y"})));
+	ASSERT_TRUE(list.AddRow(MakeRow({"abcdef", "333", "xxxxxx"}), list.RowAt(0)));
+
+	// When
+	first.List().SaveState(&state);
+	list.LoadState(state);
+	std::vector<std::string> columns;
+	for (int32 i = 0; i < list.CountColumns(); i++) {
+		std::string name;
+		list.ColumnAt(i)->GetColumnName(&name);
+		columns.push_back(name + " " + (list.IsColumnVisible(i)
+			? std::to_string(static_cast<int>(list.ColumnAt(i)->Width())) : "hidden"));
+	}
+	const std::vector<std::string> rows = Names(list);
+	const bool ascending = list.IsSortAscending(list.SortColumnAt(0));
+	list.SetColumnVisible(second.Size(), true);
+	list.ResizeAllColumnsToPreferred();
+
+	// Then
+	EXPECT_EQ(columns, (std::vector<std::string>{"Kind 50", "Name 100", "Size hidden",
+		"Other 70"}));
+	EXPECT_EQ(list.CountSortColumns(), 1);
+	EXPECT_EQ(list.SortColumnAt(0), second.Name());
+	EXPECT_FALSE(ascending);
+	EXPECT_EQ(rows, (std::vector<std::string>{"b", "a"}));
+	EXPECT_EQ(list.ColumnAt(0)->Width(), 6 * 7 + 16 + 15);
+	EXPECT_EQ(list.ColumnAt(1)->Width(), 6 * 7 + 16);
+	EXPECT_EQ(list.ColumnAt(2)->Width(), 4 * 7 + 16);
+	EXPECT_EQ(list.ColumnAt(3)->Width(), 5 * 7 + 16);
 }
 
 

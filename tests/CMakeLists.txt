@@ -27,6 +27,7 @@ add_executable(ngui_tests
     ClipboardTest.cpp
     ClockTest.cpp
     ColumnListViewTest.cpp
+    ColumnTypesTest.cpp
     ContainerTest.cpp
     ControlTest.cpp
     CursorTest.cpp
