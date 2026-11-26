@@ -92,6 +92,10 @@ NodeLine(const AccessibleNode& node)
 	}
 	if (info.level > 0)
 		line += " level " + std::to_string(info.level);
+	if (info.live == AccessibleLive::Polite)
+		line += " live polite";
+	else if (info.live == AccessibleLive::Assertive)
+		line += " live assertive";
 	if (!info.description.empty())
 		line += " \"" + info.description + "\"";
 	const std::string states = Names(info.states.Raw(), kStateNames);

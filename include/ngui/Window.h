@@ -324,6 +324,14 @@ public:
 	virtual	void				GetAccessibleInfo(AccessibleInfo* info) const;
 									/*!< The window's: role Window (Dialog and Modal for
 										BWindowFeel::ModalApp), its title as name. */
+			void				Announce(std::string_view text,
+									AccessibleLive live = AccessibleLive::Polite);
+									/*!< Has assistive technology announce \a text ("Saved",
+										"3 results"): a node of its own below the window,
+										new for each announcement, so that the same text
+										is announced again; empty \a text takes the last
+										one away. On the window's thread; other threads
+										send kAnnounce to its messenger. */
 			AccessibleTree		GetAccessibleTree() const;
 									/*!< The accessibility tree of the window, on its
 										thread: the window, then its shown views whose role
@@ -419,6 +427,10 @@ private:
 			std::vector<gfx::Rect> fDirty;
 			gfx::DisplayListRef	fLastFrame;
 			std::optional<AccessibleTree> fAccessibleTree;
+			std::string			fAnnouncement;
+			AccessibleLive		fAnnouncementLive = AccessibleLive::Polite;
+			std::uint32_t		fAnnouncements = 0;
+									// the last announcement and how many there were
 									// what the platform has, while it listens
 			std::uint64_t		fFrameCount = 0;
 			BView*				fFocus = nullptr;

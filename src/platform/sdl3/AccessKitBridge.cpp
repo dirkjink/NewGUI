@@ -159,6 +159,10 @@ MakeNode(const AccessibleNode& node, bool root, double scale)
 		accesskit_node_set_numeric_value_step(made, *info.step);
 	if (info.level > 0)
 		accesskit_node_set_level(made, static_cast<std::size_t>(info.level));
+	if (info.live == AccessibleLive::Polite)
+		accesskit_node_set_live(made, ACCESSKIT_LIVE_POLITE);
+	else if (info.live == AccessibleLive::Assertive)
+		accesskit_node_set_live(made, ACCESSKIT_LIVE_ASSERTIVE);
 
 	const AccessibleStates states = info.states;
 	if (states.Has(AccessibleState::Disabled))

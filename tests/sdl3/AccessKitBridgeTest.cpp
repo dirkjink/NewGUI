@@ -62,7 +62,7 @@ TEST(AccessKitBridgeTest, TreesBecomeAccessKitsUpdates)
 	// its numbers (AccessKit orders the actions itself); the password
 	// field no value; the disabled button is disabled; the label's text is
 	// its value too (AccessKit's static text); the tree item has its level,
-	// expanded and Collapse; the focus is the check
+	// expanded, Collapse and live Polite; the focus is the check
 	// box; the toolkit is NewGUI with its version. The placeholder is the
 	// window alone, focused.
 	// Why it matters: Screen readers get the tree as NewGUI has it, in
@@ -98,6 +98,7 @@ TEST(AccessKitBridgeTest, TreesBecomeAccessKitsUpdates)
 	fruit.info.level = 2;
 	fruit.info.states = AccessibleState::Expanded;
 	fruit.info.actions = AccessibleAction::Collapse;
+	fruit.info.live = AccessibleLive::Polite;
 	tree.nodes.push_back(fruit);
 	tree.focus = 8;
 
@@ -128,6 +129,7 @@ TEST(AccessKitBridgeTest, TreesBecomeAccessKitsUpdates)
 	EXPECT_TRUE(has("role: TreeItem, actions: [Collapse], label: \"Fruit\""));
 	EXPECT_TRUE(has("level: 2")) << text;
 	EXPECT_TRUE(has("expanded: true")) << text;
+	EXPECT_TRUE(has("live: Polite")) << text;
 	EXPECT_TRUE(has("focus: #8 }"));
 	EXPECT_NE(placeholder.find("nodes: [(#5, Node { role: Window, label: \"Main\" })]"),
 		std::string::npos) << placeholder;

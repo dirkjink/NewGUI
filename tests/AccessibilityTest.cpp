@@ -180,6 +180,11 @@ public:
 		return fDriver.Window(fTitle);
 	}
 
+	BMessenger Messenger() const
+	{
+		return fWindow;
+	}
+
 private:
 	TestEnvironment fEnvironment;
 	FixedTextSystem fText;
@@ -622,6 +627,75 @@ TEST(AccessibilityTest, ItemsAreNodesOfTheirViews)
 	EXPECT_NE(final.Text().find("    tab \"General\" {click}\n"
 		"    tab \"Advanced\" [selected] {click}\n"), std::string::npos);
 	EXPECT_NE(final.Text().find("treeitem \"Fruit\" level 1 [expanded]"), std::string::npos);
+}
+
+TEST(AccessibilityTest, AnnouncementsAreNodesOfTheirOwn)
+{
+	// What is tested: The settings window with assistive technology
+	// listening (headless): the static note made a polite live region;
+	// BWindow::Announce("Saved") on the window's thread; kAnnounce "Saved"
+	// again from the test's thread; an assertive "Disk full"; an empty
+	// announcement.
+	// Success criteria: The note is "live polite". After the first
+	// announcement the window's last child is a label "Saved", live polite,
+	// with the id window token times 2^32 plus 1; the second has the same
+	// text but a new id (plus 2), so that it is announced again; the third
+	// is "live assertive" and the only announcement node; after the empty
+	// one there is none. Each announcement is passed on to the platform.
+	// Why it matters: Screen readers announce what a program says without
+	// a view of its own, and changes of status lines (toolkit scope 11.3).
+	//
+	// Given
+	SettingsApp app;
+	Driver& driver = app.Drive();
+	WindowRef window = app.Window();
+	platform::HeadlessWindow* platformWindow = window.PlatformWindow();
+	ASSERT_NE(platformWindow, nullptr);
+	platformWindow->SetAccessibilityActive(true);
+	(void)window.Find("note").Run([](BView& view) {
+		view.SetLiveRegion(AccessibleLive::Polite);
+		view.Invalidate();
+	});
+	(void)driver.WaitForIdle();
+	const std::size_t before = platformWindow->CountAccessibleUpdates();
+	const auto announce = [&](const char* text, AccessibleLive live) {
+		BMessage message(kAnnounce);
+		(void)message.AddString("text", text);
+		(void)message.AddInt32("live", static_cast<std::int32_t>(live));
+		(void)app.Messenger().SendMessage(message);
+		(void)driver.WaitForIdle();
+		return window.AccessibleTree();
+	};
+
+	// When
+	(void)window.Find("note").Run([](BView& view) { view.Window()->Announce("Saved"); });
+	(void)driver.WaitForIdle();
+	const AccessibleTree first = window.AccessibleTree();
+	const std::size_t afterFirst = platformWindow->CountAccessibleUpdates();
+	const AccessibleTree second = announce("Saved", AccessibleLive::Polite);
+	const std::size_t afterSecond = platformWindow->CountAccessibleUpdates();
+	const AccessibleTree third = announce("Disk full", AccessibleLive::Assertive);
+	const AccessibleTree cleared = announce("", AccessibleLive::Polite);
+
+	// Then
+	const std::uint64_t windowId = first.nodes.front().id;
+	const auto last = [](const AccessibleTree& tree) {
+		return tree.Find(tree.nodes.front().children.back());
+	};
+	EXPECT_NE(first.Text().find("label \"Changes apply at once.\" live polite"),
+		std::string::npos) << first.Text();
+	ASSERT_NE(last(first), nullptr);
+	EXPECT_EQ(last(first)->id, (windowId << 32) | 1);
+	EXPECT_EQ(last(first)->info.name, "Saved");
+	EXPECT_EQ(last(first)->info.live, AccessibleLive::Polite);
+	EXPECT_GT(afterFirst, before);
+	ASSERT_NE(last(second), nullptr);
+	EXPECT_EQ(last(second)->id, (windowId << 32) | 2);
+	EXPECT_EQ(last(second)->info.name, "Saved");
+	EXPECT_GT(afterSecond, afterFirst);
+	EXPECT_NE(third.Text().find("  label \"Disk full\" live assertive\n"), std::string::npos);
+	EXPECT_EQ(third.Text().find("\"Saved\""), std::string::npos);
+	EXPECT_EQ(cleared.Text().find("Disk full"), std::string::npos);
 }
 
 TEST(AccessibilityTest, TheTreeMatchesItsSnapshot)
