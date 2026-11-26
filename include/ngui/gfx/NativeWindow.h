@@ -32,6 +32,19 @@ struct NativeWindow {
 			std::uintptr_t		window = 0;			/*!< The window handle. */
 			Size				size = {0, 0};		/*!< The content area, logical pixels. */
 			float				scale = 1;			/*!< Device pixels per logical pixel. */
+
+	/*!	A function of OpenGL. */
+	using GlFunction = void (*)();
+	/*!	Looks up a function of OpenGL by name, as SDL_GL_GetProcAddress()
+		does. */
+	using GlProcAddress = GlFunction (*)(const char* name);
+
+			GlProcAddress		glProcAddress = nullptr;
+									/*!< For SurfaceKind::Gpu (specification 13.3): the
+										window has an OpenGL context, current on the
+										calling thread, whose default framebuffer shows
+										the content area; this loads its functions.
+										nullptr: no OpenGL. */
 };
 
 

@@ -418,7 +418,7 @@ Das Skia-Backend ist das **Ziel-Backend** und wird als erstes implementiert, zun
 
 - **CPU-Raster (Phase 1):** Die Surface ist eine Raster-Surface im Format N32 mit vormultipliziertem Alpha (`SkSurfaces::Raster(SkImageInfo::MakeN32Premul(w, h))`, in älteren Milestones `SkSurface::MakeRaster…`). Nach `EndFrame` übernimmt der **CPU-Presenter** der Backend-Infrastruktur (M11) die Pixel und kopiert die geänderten Bereiche ins Fenster, z. B. über eine SDL-Textur oder einen Blit der Plattform.
 - **Farbraum:** Die Surface bekommt keinen `SkColorSpace`. Damit wird im kodierten Raum gemischt, wie in 4.3 verlangt.
-- **GPU (Phase G):** Ganesh (GL, Vulkan, Metal) oder Graphite, angefordert über `SurfaceKind::Gpu`. Player und Abbildung der Operationen bleiben gleich, nur das Anlegen der Surface, Swapchain und Flush unterscheiden sich.
+- **GPU (Phase G):** Ganesh (GL, Vulkan, Metal) oder Graphite, angefordert über `SurfaceKind::Gpu`. Player und Abbildung der Operationen bleiben gleich, nur das Anlegen der Surface, Swapchain und Flush unterscheiden sich. **Umgesetzt (2026-11-26):** Ganesh mit OpenGL über den Framebuffer 0 eines GL-Kontexts, der auf dem aufrufenden Thread aktuell ist (`NativeWindow::glProcAddress` lädt seine Funktionen); `EndFrame` übergibt die Befehle an die GPU, das Tauschen der Puffer übernimmt die Plattform. Da SDL3 OpenGL nur auf dem Hauptthread erlaubt, zeichnet die SDL-Plattform GPU-Fenster dort. Getestet gegen die CPU-Referenz unter Mesas llvmpipe (EGL-Pbuffer, `CompareRasterizers()`).
 - **Offscreen-Surfaces** für Tests sind immer CPU-Raster-Surfaces und damit deterministisch.
 
 ### 13.4 Text
@@ -909,6 +909,7 @@ Nach dem Vorbild von Haikus Scripting-Protokoll (`B_GET_PROPERTY`, `B_SET_PROPER
 | AA-Geometrie (Ellipsen, abgerundete Ecken, Bögen, Diagonalen) | ≤ 1 % abweichende Pixel, maximale Kanaldifferenz ≤ 32/255 |
 | Gradienten | maximale Kanaldifferenz ≤ 3/255 |
 | Text | ≤ 3 % abweichende Pixel im Bounding-Box-Bereich, Positionen der Grundlinie identisch |
+| AA-Geometrie zweier Rasterer (Backend gegen Backend, CPU gegen GPU), auch viele Elemente in einem Bild | mittlere Kanaldifferenz ≤ 3/255, höchstens 0,5 % der Pixel mehr als 64/255 auseinander (`CompareRasterizers()`; kalibriert mit Skia gegen Blend2D und Skia auf Mesas llvmpipe gegen Skias CPU-Raster) |
 
 ### 21.3 Testkorpus
 

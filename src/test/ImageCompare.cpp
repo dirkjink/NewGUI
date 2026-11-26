@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 
 
 namespace ngui::test {
@@ -69,6 +70,51 @@ CompareImages(const Image& reference, const Image& actual, const Tolerance& tole
 	result.passed = result.maxChannelDifference <= tolerance.maxChannelDifference
 		&& fraction <= tolerance.maxDifferingFraction;
 	return result;
+}
+
+
+RasterizerComparison
+CompareRasterizers(const Image& reference, const Image& actual)
+{
+	// Measured with Skia and Blend2D 0.12 over every drawing method of the
+	// BeOS and Haiku looks (the mean at most 2.04/255, more than 64/255 at
+	// most 10 of 4,000 pixels) and with Skia on Mesa's llvmpipe against
+	// Skia's CPU raster (the galleries of the three looks: the mean at most
+	// 0.17/255, none more than 64/255).
+	constexpr double kMeanLimit = 3;
+	constexpr double kStrongLimit = 0.005;
+
+	RasterizerComparison result;
+	if (reference.Width() != actual.Width() || reference.Height() != actual.Height()
+		|| reference.IsEmpty()) {
+		return result;
+	}
+	double sum = 0;
+	for (std::int32_t y = 0; y < reference.Height(); y++) {
+		for (std::int32_t x = 0; x < reference.Width(); x++) {
+			const Rgba8 p = reference.At(x, y);
+			const Rgba8 q = actual.At(x, y);
+			const int difference = std::max({std::abs(p.r - q.r), std::abs(p.g - q.g),
+				std::abs(p.b - q.b), std::abs(p.a - q.a)});
+			sum += difference;
+			result.strongPixels += difference > 64 ? 1 : 0;
+			result.maxChannelDifference = std::max(result.maxChannelDifference, difference);
+		}
+	}
+	const double pixels = static_cast<double>(reference.Width()) * reference.Height();
+	result.meanDifference = sum / pixels;
+	result.passed = result.meanDifference <= kMeanLimit
+		&& static_cast<double>(result.strongPixels) / pixels <= kStrongLimit;
+	return result;
+}
+
+
+std::string
+RasterizerComparison::Describe() const
+{
+	return "mean difference " + std::to_string(meanDifference) + ", "
+		+ std::to_string(strongPixels) + " pixels more than 64 apart, largest "
+		+ std::to_string(maxChannelDifference);
 }
 
 

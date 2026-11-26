@@ -182,9 +182,12 @@ jobs:
           cache-key: skia-gcc-13
 
       # SDL3 builds its X11 and Wayland support against the system's
-      # development headers (vcpkg port sdl3, features x11 and wayland).
+      # development headers (vcpkg port sdl3, features x11 and wayland);
+      # Skia's OpenGL backend needs those of EGL, OpenGL and GLES. Mesa's
+      # software renderer (llvmpipe) gives the GPU tests an OpenGL context
+      # without a GPU (phase G).
       - name: Install the window system headers
-        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
+        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev libgl-dev libgles-dev libegl-mesa0 libgl1-mesa-dri
 
       - name: Configure, build and test with Skia and SDL3
         run: cmake --workflow --preset skia
@@ -259,7 +262,7 @@ jobs:
           cache-key: skia-gcc-13
 
       - name: Install the window system headers
-        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
+        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev libgl-dev libgles-dev
 
       # Everything that ships: the default dependencies, the text subsystem,
       # Skia and SDL3, without the test-only "tests" feature.

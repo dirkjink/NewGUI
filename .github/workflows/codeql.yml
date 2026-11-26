@@ -57,7 +57,7 @@ jobs:
 
       - name: Install the window system headers
         if: matrix.build-mode == 'manual'
-        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev
+        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev libgl-dev libgles-dev
 
       - name: Set up vcpkg
         if: matrix.build-mode == 'manual'

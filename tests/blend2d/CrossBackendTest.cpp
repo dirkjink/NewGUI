@@ -67,46 +67,6 @@ Compare(const DisplayList& list, float scale, const Tolerance& tolerance)
 }
 
 
-// How far two renderings of the same antialiased drawing by two rasterizers
-// may differ: their edge pixels cover differently, so many pixels differ a
-// little, a few at thin diagonal strokes a lot. Measured with Skia and
-// Blend2D 0.12 over every drawing method of both looks: the mean at most
-// 2.04/255, more than 64/255 at most 10 of 4,000 pixels (eight arrows drawn
-// on top of each other).
-constexpr double kMeanLimit = 3;
-constexpr double kStrongLimit = 0.005;
-
-
-// Whether \a a and \a b look alike in that sense; \a description says how
-// far apart they are.
-bool
-LookAlike(const Image& a, const Image& b, std::string* description)
-{
-	if (a.Width() != b.Width() || a.Height() != b.Height() || a.IsEmpty())
-		return false;
-	double sum = 0;
-	std::int64_t strong = 0;
-	int largest = 0;
-	for (std::int32_t y = 0; y < a.Height(); y++) {
-		for (std::int32_t x = 0; x < a.Width(); x++) {
-			const Rgba8 p = a.At(x, y);
-			const Rgba8 q = b.At(x, y);
-			const int difference = std::max({std::abs(p.r - q.r), std::abs(p.g - q.g),
-				std::abs(p.b - q.b), std::abs(p.a - q.a)});
-			sum += difference;
-			strong += difference > 64 ? 1 : 0;
-			largest = std::max(largest, difference);
-		}
-	}
-	const double pixels = static_cast<double>(a.Width()) * a.Height();
-	const double mean = sum / pixels;
-	const double strongFraction = static_cast<double>(strong) / pixels;
-	*description = "mean difference " + std::to_string(mean) + ", " + std::to_string(strong)
-		+ " pixels more than 64 apart, largest " + std::to_string(largest);
-	return mean <= kMeanLimit && strongFraction <= kStrongLimit;
-}
-
-
 TEST(CrossBackendTest, AxisParallelPrimitivesArePixelIdentical)
 {
 	// What is tested: Rectangles with fractional edges, frames of width 1
@@ -178,9 +138,9 @@ ExpectLookAlike(const ControlLook& look, const std::set<std::string>& antialiase
 					<< ": " << comparison.Describe();
 				continue;
 			}
-			std::string description;
-			EXPECT_TRUE(LookAlike(reference, actual, &description)) << call.name << " flags "
-				<< state.Raw() << ": " << description;
+			const RasterizerComparison alike = CompareRasterizers(reference, actual);
+			EXPECT_TRUE(alike.passed) << call.name << " flags " << state.Raw() << ": "
+				<< alike.Describe();
 		}
 	}
 }
@@ -273,8 +233,8 @@ TEST(CrossBackendTest, TextLooksTheSame)
 	const auto [reference, actual] = RenderBoth(*list, 1, (*text)->Fonts());
 
 	// Then
-	std::string description;
-	EXPECT_TRUE(LookAlike(reference, actual, &description)) << description;
+	const RasterizerComparison alike = CompareRasterizers(reference, actual);
+	EXPECT_TRUE(alike.passed) << alike.Describe();
 }
 
 

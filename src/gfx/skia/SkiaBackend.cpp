@@ -36,6 +36,16 @@
 #include "include/effects/SkGradient.h"
 #include "include/encode/SkPngEncoder.h"
 #include "include/ports/SkFontMgr_empty.h"
+#if defined(SK_GL)
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
+#include "include/gpu/ganesh/gl/GrGLAssembleInterface.h"
+#include "include/gpu/ganesh/gl/GrGLBackendSurface.h"
+#include "include/gpu/ganesh/gl/GrGLDirectContext.h"
+#include "include/gpu/ganesh/gl/GrGLInterface.h"
+#include "include/gpu/ganesh/gl/GrGLTypes.h"
+#endif
 
 #include <ngui/gfx/DisplayList.h>
 #include <ngui/gfx/ImageRegistry.h>
@@ -53,17 +63,25 @@ namespace {
 constexpr int kMaxListDepth = 256;
 
 
+// A raster surface, or with a context a GPU surface over the default
+// framebuffer of an OpenGL context (phase G).
 class SkiaSurface : public Surface {
 public:
 								SkiaSurface(sk_sp<SkSurface> surface, float scale);
+								~SkiaSurface() override;
 
 			Size				DeviceSize() const override;
 			float				Scale() const override;
 			SurfaceKind			Kind() const override;
 			std::optional<CpuPixels> Pixels() const override;
+									// A GPU surface's pixels are read back.
 
 			sk_sp<SkSurface>	fSurface;
 			float				fScale;
+#if defined(SK_GL)
+			sk_sp<GrDirectContext> fContext;
+#endif
+	mutable	std::vector<std::byte> fReadback;
 };
 
 
@@ -75,9 +93,22 @@ SkiaSurface::SkiaSurface(sk_sp<SkSurface> surface, float scale)
 }
 
 
+SkiaSurface::~SkiaSurface()
+{
+	// the surface before its context, which frees the GPU objects (the
+	// OpenGL context is current, as when it was made)
+	fSurface.reset();
+#if defined(SK_GL)
+	fContext.reset();
+#endif
+}
+
+
 Size
 SkiaSurface::DeviceSize() const
 {
+	if (fSurface == nullptr)
+		return {0, 0};
 	return {static_cast<float>(fSurface->width()), static_cast<float>(fSurface->height())};
 }
 
@@ -92,6 +123,10 @@ SkiaSurface::Scale() const
 SurfaceKind
 SkiaSurface::Kind() const
 {
+#if defined(SK_GL)
+	if (fContext != nullptr)
+		return SurfaceKind::Gpu;
+#endif
 	return SurfaceKind::CpuRaster;
 }
 
@@ -99,8 +134,24 @@ SkiaSurface::Kind() const
 std::optional<CpuPixels>
 SkiaSurface::Pixels() const
 {
+#if defined(SK_GL)
+	if (fContext != nullptr) {
+		if (fSurface == nullptr)
+			return std::nullopt;
+		// read back from the GPU, top row first
+		const SkImageInfo info = SkImageInfo::MakeN32Premul(fSurface->width(),
+			fSurface->height());
+		fReadback.resize(info.computeMinByteSize());
+		if (!fSurface->readPixels(info, fReadback.data(), info.minRowBytes(), 0, 0))
+			return std::nullopt;
+		return CpuPixels{info.width(), info.height(), info.minRowBytes(),
+			info.colorType() == kBGRA_8888_SkColorType ? PixelFormat::Bgra8Premul
+				: PixelFormat::Rgba8Premul,
+			fReadback};
+	}
+#endif
 	SkPixmap pixmap;
-	if (!fSurface->peekPixels(&pixmap))
+	if (fSurface == nullptr || !fSurface->peekPixels(&pixmap))
 		return std::nullopt;
 	const PixelFormat format = pixmap.colorType() == kBGRA_8888_SkColorType
 		? PixelFormat::Bgra8Premul : PixelFormat::Rgba8Premul;
@@ -119,6 +170,28 @@ _MakeRaster(Size device)
 	// No color space: blending in the encoded space (specification 4.3).
 	return SkSurfaces::Raster(SkImageInfo::MakeN32Premul(width, height));
 }
+
+
+#if defined(SK_GL)
+// The default framebuffer of the current OpenGL context as a surface of
+// \a device pixels: RGBA8 with an 8-bit stencil, its origin at the bottom.
+sk_sp<SkSurface>
+_WrapFramebuffer(GrDirectContext* context, Size device)
+{
+	const int width = static_cast<int>(std::lround(device.w));
+	const int height = static_cast<int>(std::lround(device.h));
+	if (width <= 0 || height <= 0)
+		return nullptr;
+	constexpr GrGLenum kRgba8 = 0x8058;	// GL_RGBA8
+	const GrGLFramebufferInfo framebuffer{0, kRgba8};
+	const GrBackendRenderTarget target = GrBackendRenderTargets::MakeGL(width, height, 0, 8,
+		framebuffer);
+	const SkSurfaceProps properties;
+	// no color space: blending in the encoded space (specification 4.3)
+	return SkSurfaces::WrapBackendRenderTarget(context, target, kBottomLeft_GrSurfaceOrigin,
+		kRGBA_8888_SkColorType, nullptr, &properties);
+}
+#endif
 
 
 SkColor4f
@@ -627,8 +700,13 @@ SkiaBackend::EncodePng(const PixelData& pixels)
 Caps
 SkiaBackend::Capabilities() const
 {
-	// FillPath and StrokePath (extended profile) are drawn natively.
+	// FillPath and StrokePath (extended profile) are drawn natively; with
+	// OpenGL GPU surfaces (phase G).
+#if defined(SK_GL)
+	return Caps{.gpuSurfaces = true, .bezierPaths = true, .concavePolygons = true};
+#else
 	return Caps{.bezierPaths = true, .concavePolygons = true};
+#endif
 }
 
 
@@ -661,12 +739,39 @@ SkiaBackend::ReleaseImage(ImageHandle image)
 SurfaceRef
 SkiaBackend::CreateWindowSurface(const NativeWindow& window, SurfaceKind kind)
 {
+	const Size device = {std::round(window.size.w * window.scale),
+		std::round(window.size.h * window.scale)};
+#if defined(SK_GL)
+	// A GPU surface over the default framebuffer of the window's OpenGL
+	// context, current on this thread (phase G, 13.3).
+	if (kind == SurfaceKind::Gpu) {
+		if (window.glProcAddress == nullptr || !device.IsFinite() || !(window.scale > 0)
+			|| !std::isfinite(window.scale)) {
+			return nullptr;
+		}
+		NativeWindow::GlProcAddress lookup = window.glProcAddress;
+		const sk_sp<const GrGLInterface> gl = GrGLMakeAssembledInterface(&lookup,
+			[](void* context, const char name[]) -> GrGLFuncPtr {
+				return (*static_cast<NativeWindow::GlProcAddress*>(context))(name);
+			});
+		if (gl == nullptr)
+			return nullptr;
+		sk_sp<GrDirectContext> context = GrDirectContexts::MakeGL(gl);
+		if (context == nullptr)
+			return nullptr;
+		sk_sp<SkSurface> surface = _WrapFramebuffer(context.get(), device);
+		if (surface == nullptr)
+			return nullptr;
+		auto made = std::make_shared<SkiaSurface>(std::move(surface), window.scale);
+		made->fContext = std::move(context);
+		return made;
+	}
+#endif
 	// A CPU surface of the window's size in device pixels; the CPU
 	// presenter shows it (specification 12).
 	if (kind != SurfaceKind::CpuRaster)
 		return nullptr;
-	return CreateOffscreenSurface({std::round(window.size.w * window.scale),
-		std::round(window.size.h * window.scale)}, window.scale);
+	return CreateOffscreenSurface(device, window.scale);
 }
 
 
@@ -688,6 +793,15 @@ SkiaBackend::ResizeSurface(Surface& surface, Size device, float scale)
 	auto* skia = dynamic_cast<SkiaSurface*>(&surface);
 	if (skia == nullptr || !device.IsFinite() || !(scale > 0) || !std::isfinite(scale))
 		return;
+#if defined(SK_GL)
+	if (skia->fContext != nullptr) {
+		// the framebuffer has the window's new size already
+		skia->fSurface.reset();
+		skia->fSurface = _WrapFramebuffer(skia->fContext.get(), device);
+		skia->fScale = scale;
+		return;
+	}
+#endif
 	sk_sp<SkSurface> raster = _MakeRaster(device);
 	if (!raster)
 		return;
@@ -700,6 +814,9 @@ void
 SkiaBackend::BeginFrame(Surface& surface, const Color& clear)
 {
 	fData->frame = dynamic_cast<SkiaSurface*>(&surface);
+	// a GPU surface whose framebuffer could not be wrapped anew has none
+	if (fData->frame != nullptr && fData->frame->fSurface == nullptr)
+		fData->frame = nullptr;
 	if (fData->frame == nullptr)
 		return;
 	SkCanvas* canvas = fData->frame->fSurface->getCanvas();
@@ -724,6 +841,11 @@ SkiaBackend::EndFrame(Surface& surface)
 {
 	if (fData->frame != &surface)
 		return;
+#if defined(SK_GL)
+	// to the GPU; the platform swaps the buffers
+	if (fData->frame->fContext != nullptr)
+		fData->frame->fContext->flushAndSubmit(fData->frame->fSurface.get(), GrSyncCpu::kNo);
+#endif
 	fData->frame = nullptr;
 }
 

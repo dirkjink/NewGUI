@@ -16,14 +16,15 @@
       ]
     },
     "skia": {
-      "description": "Skia backend (CPU raster): PNG for screenshots, FreeType for typefaces made from the text subsystem's font files (specification 13.4); no GPU, no fontconfig (finding fonts is the text subsystem's job), no HarfBuzz/ICU (shaping too). FreeType is listed directly to switch off its default features (brotli, bzip2): vcpkg honours default-features false of a transitive dependency only if the manifest says so too.",
+      "description": "Skia backend (CPU raster, and OpenGL GPU surfaces for phase G): PNG for screenshots, FreeType for typefaces made from the text subsystem's font files (specification 13.4); no Vulkan, Metal or Direct3D, no fontconfig (finding fonts is the text subsystem's job), no HarfBuzz/ICU (shaping too). FreeType is listed directly to switch off its default features (brotli, bzip2): vcpkg honours default-features false of a transitive dependency only if the manifest says so too.",
       "dependencies": [
         {
           "name": "skia",
           "default-features": false,
           "features": [
             "png",
-            "freetype"
+            "freetype",
+            "gl"
           ]
         },
         {

@@ -60,15 +60,21 @@ public:
 										Thread-safe. */
 
 			Caps				Capabilities() const override;
-									/*!< The core profile. */
+									/*!< The core profile, paths, and GPU surfaces if
+										Skia is built with OpenGL (phase G). */
 			ImageHandle			CreateImage(const PixelData& pixels) override;
 									/*!< An SkImage copy of \a pixels; 0 if invalid. */
 			void				ReleaseImage(ImageHandle image) override;
 									/*!< Frees the image. */
 			SurfaceRef			CreateWindowSurface(const NativeWindow& window,
 									SurfaceKind kind) override;
-									/*!< A CPU raster surface of the window's size;
-										nullptr for SurfaceKind::Gpu. */
+									/*!< A CPU raster surface of the window's size, or for
+										SurfaceKind::Gpu one over the default framebuffer
+										of the window's OpenGL context
+										(NativeWindow::glProcAddress, current on this
+										thread, which must also be current when the
+										surface is resized, drawn and destroyed); nullptr
+										if that fails or Skia has no OpenGL. */
 			SurfaceRef			CreateOffscreenSurface(Size device, float scale) override;
 									/*!< A CPU raster surface of \a device pixels, rounded. */
 			void				ResizeSurface(Surface& surface, Size device,
@@ -79,7 +85,8 @@ public:
 			void				Render(const DisplayList& list, Point offset) override;
 									/*!< Draws \a list at \a offset (logical pixels). */
 			void				EndFrame(Surface& surface) override;
-									/*!< Ends the frame. */
+									/*!< Ends the frame; a GPU surface's commands go to the
+										GPU, the caller swaps the buffers. */
 
 private:
 			struct Data;
