@@ -117,6 +117,11 @@ jobs:
           "$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-feature=text --x-feature=svg --x-feature=skia --x-feature=sdl3 --x-feature=accessibility --x-install-root=build/sbom/vcpkg_installed
           python3 .github/scripts/vcpkg-sbom.py build/sbom/vcpkg_installed/x64-linux dist/newgui-"$VERSION".spdx.json
 
+      # vcpkg's new packages for later runs, also when the step failed
+      - name: Keep the vcpkg packages
+        if: always()
+        uses: ./.github/actions/save-vcpkg
+
       - name: Upload assets to the release
         env:
           GH_TOKEN: ${{ github.token }}

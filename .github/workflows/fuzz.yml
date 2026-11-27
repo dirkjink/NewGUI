@@ -103,6 +103,11 @@ jobs:
           cmake --preset "$PRESET"
           cmake --build --preset "$PRESET" --target "ngui_fuzz_$TARGET"
 
+      # vcpkg's new packages for later runs, also when the step failed
+      - name: Keep the vcpkg packages
+        if: always()
+        uses: ./.github/actions/save-vcpkg
+
       # The working corpus comes first: libFuzzer adds new inputs to the
       # first directory only, so the checked-in corpus stays untouched.
       - name: Fuzz ${{ matrix.target }}
