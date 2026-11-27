@@ -11,8 +11,10 @@ if(NOT TARGET unofficial::accesskit-c::accesskit)
         set_property(TARGET unofficial::accesskit-c::accesskit PROPERTY INTERFACE_LINK_LIBRARIES
             bcrypt ntdll propsys runtimeobject uiautomationcore userenv ws2_32)
     elseif(APPLE)
+        # Not libc++ as the release's file has it: the C++ driver links it
+        # anyway, and Apple's ld warns about it twice on the line.
         set_property(TARGET unofficial::accesskit-c::accesskit PROPERTY INTERFACE_LINK_LIBRARIES
-            "-framework AppKit" "-framework Foundation" "-framework CoreFoundation" objc c++)
+            "-framework AppKit" "-framework Foundation" "-framework CoreFoundation" objc)
     else()
         find_package(Threads REQUIRED)
         set_property(TARGET unofficial::accesskit-c::accesskit PROPERTY INTERFACE_LINK_LIBRARIES

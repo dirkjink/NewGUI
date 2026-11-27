@@ -270,6 +270,21 @@ jobs:
           cmake --build --preset skia
           ctest --preset skia
 
+      # A crash leaves no trace in the test output on macOS: the failed
+      # tests of the SDL platform again under lldb, for the backtraces.
+      - name: Backtrace of failed SDL tests
+        if: failure()
+        working-directory: build/skia/tests
+        env:
+          SDL_VIDEODRIVER: offscreen
+        run: |
+          log=../Testing/Temporary/LastTestsFailed.log
+          failed=$(grep -E "Sdl(Platform|Gpu)Test" "$log" | sed 's/^[0-9]*://' | paste -sd: -)
+          if [ -n "$failed" ]; then
+            lldb --batch -o run -k "thread backtrace all" -k quit \
+              -- ./ngui_sdl3_tests --gtest_filter="$failed" || true
+          fi
+
       # The HTML reports of failed snapshots (specification 20.5, 20.9).
       - name: Keep the snapshot report
         if: failure()

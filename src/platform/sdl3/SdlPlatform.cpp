@@ -542,6 +542,36 @@ ReadGpuFrame(sdl3::PlatformState& platform, WindowState& state)
 }
 
 
+// A window the CPU presenter draws, popup if \a parent is given (\a x and
+// \a y then relative to it). Without a graphics context of SDL: under macOS
+// SDL gives a window without one of OpenGL, Metal or Vulkan an OpenGL
+// context, which fails where there is no OpenGL (the offscreen driver
+// without EGL).
+SDL_Window*
+CreateCpuWindow(const std::string& title, int width, int height, SDL_WindowFlags flags,
+	SDL_Window* parent = nullptr, int x = 0, int y = 0)
+{
+	const SDL_PropertiesID properties = SDL_CreateProperties();
+	if (properties == 0)
+		return nullptr;
+	(void)SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING, title.c_str());
+	(void)SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, width);
+	(void)SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height);
+	(void)SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER,
+		static_cast<Sint64>(flags));
+	(void)SDL_SetBooleanProperty(properties,
+		SDL_PROP_WINDOW_CREATE_EXTERNAL_GRAPHICS_CONTEXT_BOOLEAN, true);
+	if (parent != nullptr) {
+		(void)SDL_SetPointerProperty(properties, SDL_PROP_WINDOW_CREATE_PARENT_POINTER, parent);
+		(void)SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_X_NUMBER, x);
+		(void)SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_Y_NUMBER, y);
+	}
+	SDL_Window* window = SDL_CreateWindowWithProperties(properties);
+	SDL_DestroyProperties(properties);
+	return window;
+}
+
+
 // Phase G: a window with an OpenGL context and a GPU surface over it, or
 // why there is none; on the main thread.
 struct GpuWindow {
@@ -985,13 +1015,13 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 			// which ends the menus' tracking. The keys go to that window.
 			// A tooltip takes no input at all (SDL gives it no input region
 			// under Wayland).
-			window = SDL_CreatePopupWindow(parentHandle,
-				static_cast<int>(std::lround(offset.x)), static_cast<int>(std::lround(offset.y)),
+			window = CreateCpuWindow(spec.title,
 				static_cast<int>(std::lround(spec.frame.Width())),
 				static_cast<int>(std::lround(spec.frame.Height())),
 				(spec.tooltip ? SDL_WINDOW_TOOLTIP : SDL_WINDOW_POPUP_MENU)
 					| SDL_WINDOW_NOT_FOCUSABLE | SDL_WINDOW_HIDDEN
-					| SDL_WINDOW_HIGH_PIXEL_DENSITY);
+					| SDL_WINDOW_HIGH_PIXEL_DENSITY, parentHandle,
+				static_cast<int>(std::lround(offset.x)), static_cast<int>(std::lround(offset.y)));
 			if (window == nullptr)
 				return Failure(ErrorCode::NotSupported, std::string("SDL: ") + SDL_GetError());
 		} else {
@@ -1014,7 +1044,7 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 				}
 			}
 			if (window == nullptr) {
-				window = SDL_CreateWindow(spec.title.c_str(),
+				window = CreateCpuWindow(spec.title,
 					static_cast<int>(std::lround(spec.frame.Width())),
 					static_cast<int>(std::lround(spec.frame.Height())), flags);
 			}
