@@ -8,8 +8,8 @@
 
 // The bridge between a window's accessibility tree (ngui/Accessibility.h)
 // and AccessKit's adapter of the platform (toolkit scope 11.3): AT-SPI on
-// Linux, UI Automation on Windows. Not yet on macOS, which has no build in
-// the CI.
+// Linux, UI Automation on Windows, NSAccessibility on macOS (where SDL's
+// window is an NSWindow, not with the offscreen driver).
 
 
 #include <atomic>
@@ -29,6 +29,7 @@
 // macros (CreateWindow, SendMessage) would break the platform's code.
 struct accesskit_action_request;
 struct accesskit_tree_update;
+struct accesskit_macos_subclassing_adapter;
 struct accesskit_unix_adapter;
 struct accesskit_windows_subclassing_adapter;
 
@@ -37,7 +38,7 @@ struct accesskit_windows_subclassing_adapter;
 namespace ngui::platform::sdl3 {
 
 
-#if defined(_WIN32) || defined(__linux__)
+#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
 inline constexpr bool kHasAccessKitAdapter = true;
 #else
 inline constexpr bool kHasAccessKitAdapter = false;
@@ -88,6 +89,8 @@ private:
 			accesskit_windows_subclassing_adapter* fAdapter = nullptr;
 #elif defined(__linux__)
 			accesskit_unix_adapter* fAdapter = nullptr;
+#elif defined(__APPLE__)
+			accesskit_macos_subclassing_adapter* fAdapter = nullptr;
 #endif
 };
 

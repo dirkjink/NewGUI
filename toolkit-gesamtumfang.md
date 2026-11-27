@@ -156,7 +156,7 @@ Das MVP umfasst also schon rund zwei Drittel des Gesamtumfangs. Grundgerüst, La
    - **Vierter Schritt:** Ankündigungen: `BWindow::Announce()` und Live-Regionen (`BView::SetLiveRegion()`).
    - **Fünfter Schritt:** Texte als Text-Läufe mit Zeichen, Wörtern, Positionen, Schreibmarke und Auswahl; Screenreader können die Auswahl setzen und den ausgewählten Text ersetzen.
    - **Sechster Schritt:** Tabellen (`BColumnListView`): Zeilen aus Zellen mit Spaltenköpfen, Zeilen- und Spaltenindex; Einträge können in anderen Einträgen liegen.
-   - **Offen:** NSAccessibility (macOS), sobald die CI einen macOS-Build hat.
+   - **macOS:** NSAccessibility über AccessKits Adapter für SDLs `NSWindow`, seit die CI einen macOS-Build hat (2026-11-27); geprüft wird es dort mit SDLs Cocoa-Treiber, wie VoiceOver fragt.
 4. Welche externen Bibliotheken werden für BiDi und Zeilenumbruch verwendet: ICU (vollständig, groß) oder SheenBidi/fribidi und libunibreak (klein)? **Teilweise entschieden:** libunibreak für Zeilen-, Wort- und Graphemgrenzen (X4); die BiDi-Bibliothek wird mit BiDi gewählt.
 5. ~~Wie kommt die ColumnListView ins Projekt?~~ **Entschieden (2026-11-26):** als eigene Implementierung nach Haikus API, nicht als Port. Haikus `ColumnListView.cpp` und `ColumnTypes.cpp` stehen unter der Open Tracker License; NewGUI bleibt reines MIT.
    - **Erster Schritt:** der Kern: Zeilen mit Unterzeilen, Spalten mit Titeln, Auswahl, Tastatur, Bildlauf und Sortieren; `BTitledColumn`, `BStringField` und `BStringColumn`.

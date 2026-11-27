@@ -7,7 +7,7 @@
 Reads the JUnit report of the test run (build/docs/test-results.xml, written
 by the test preset "docs") - the authoritative record of what actually ran -
 and enriches each test with its rationale block from the test sources
-(tests/**/*Test.cpp, and the fuzz targets tests/fuzz/*Fuzz.cpp): the "What is tested / Success criteria / Why it
+(tests/**/*Test.cpp and *Test.mm, and the fuzz targets tests/fuzz/*Fuzz.cpp): the "What is tested / Success criteria / Why it
 matters" comment run at the top of the test body (CONVENTIONS.md, section
 8.3). Writes docs/tests/test-evidence.md, which the Docs workflow feeds into
 MkDocs.
@@ -77,7 +77,8 @@ def extract_rationales() -> tuple[dict, dict]:
     rationales = {}
     files = {}
     problems = []
-    sources = sorted(set(TESTS_DIR.rglob("*Test.cpp")) | set(TESTS_DIR.rglob("*Fuzz.cpp")))
+    sources = sorted(set(TESTS_DIR.rglob("*Test.cpp")) | set(TESTS_DIR.rglob("*Test.mm"))
+                     | set(TESTS_DIR.rglob("*Fuzz.cpp")))
     for source in sources:
         lines = source.read_text(encoding="utf-8").splitlines()
         for i, line in enumerate(lines):

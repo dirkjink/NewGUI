@@ -17,6 +17,11 @@ project(NewGUI
     HOMEPAGE_URL "https://github.com/dirkjink/NewGUI"
     LANGUAGES CXX)
 
+# Objective-C++ for the macOS tests of NSAccessibility (tests/sdl3/*.mm).
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 option(NGUI_BUILD_TESTS "Build the unit tests" ${PROJECT_IS_TOP_LEVEL})
 option(NGUI_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(NGUI_COVERAGE "Instrument for coverage measurement (GCC and Clang)" OFF)

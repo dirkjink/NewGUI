@@ -24,6 +24,11 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <mutex>
+
+#if defined(__APPLE__)
+#include <objc/runtime.h>
+#endif
 
 #include <ngui/Version.h>
 
@@ -360,6 +365,22 @@ AccessKitBridge::Create(SDL_Window* window, BMessenger target, std::string title
 	(void)window;
 	bridge->fAdapter = accesskit_unix_adapter_new(&_Activated, bridge.get(), &_Action,
 		bridge.get(), &_Deactivated, bridge.get());
+#elif defined(__APPLE__)
+	// SDL's Cocoa window; none with the offscreen driver
+	void* nsWindow = SDL_GetPointerProperty(SDL_GetWindowProperties(window),
+		SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+	if (nsWindow == nullptr)
+		return nullptr;
+	// SDL keeps the keyboard focus on the window, not on its content view:
+	// its class asks the view for the focused element (once per class; it
+	// cannot be undone, AccessKit is linked statically).
+	static std::once_flag forwarder;
+	std::call_once(forwarder, [nsWindow] {
+		accesskit_macos_add_focus_forwarder_to_window_class(
+			object_getClassName(static_cast<id>(nsWindow)));
+	});
+	bridge->fAdapter = accesskit_macos_subclassing_adapter_for_window(nsWindow, &_Activated,
+		bridge.get(), &_Action, bridge.get());
 #else
 	(void)window;
 #endif
@@ -375,6 +396,9 @@ AccessKitBridge::~AccessKitBridge()
 #elif defined(__linux__)
 	if (fAdapter != nullptr)
 		accesskit_unix_adapter_free(fAdapter);
+#elif defined(__APPLE__)
+	if (fAdapter != nullptr)
+		accesskit_macos_subclassing_adapter_free(fAdapter);
 #endif
 }
 
@@ -409,6 +433,13 @@ AccessKitBridge::Push()
 #elif defined(__linux__)
 	if (fAdapter != nullptr)
 		accesskit_unix_adapter_update_if_active(fAdapter, &_Update, this);
+#elif defined(__APPLE__)
+	if (fAdapter == nullptr)
+		return;
+	if (accesskit_macos_queued_events* events
+			= accesskit_macos_subclassing_adapter_update_if_active(fAdapter, &_Update, this)) {
+		accesskit_macos_queued_events_raise(events);
+	}
 #endif
 }
 
@@ -454,7 +485,7 @@ AccessKitBridge::_CurrentUpdate()
 
 
 // Assistive technology begins to listen (on Linux on AccessKit's thread,
-// on Windows on the window's).
+// on Windows and macOS on the window's, the main thread).
 accesskit_tree_update*
 AccessKitBridge::_Activated(void* userdata)
 {
