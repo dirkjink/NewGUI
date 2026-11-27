@@ -369,9 +369,12 @@ if(NGUI_WITH_SDL3)
         endif()
         target_compile_definitions(ngui_sdl3_tests PRIVATE NGUI_WITH_ACCESSKIT=1)
     endif()
-    # Drag & drop with other programs on Windows (module P4), OLE's objects.
+    # Drag & drop with other programs on Windows (module P4), OLE's objects,
+    # and the notifications there (module P5), the icon in the notification
+    # area.
     if(WIN32)
-        target_sources(ngui_sdl3_tests PRIVATE sdl3/OleDragDropTest.cpp)
+        target_sources(ngui_sdl3_tests PRIVATE sdl3/OleDragDropTest.cpp
+            sdl3/WinNotificationsTest.cpp)
         target_link_libraries(ngui_sdl3_tests PRIVATE ole32 shell32)
     endif()
     # ... on X11 (XDND): the test is the other program, with Xlib of its own

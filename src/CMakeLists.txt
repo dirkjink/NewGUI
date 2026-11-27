@@ -319,9 +319,11 @@ if(NGUI_WITH_SDL3)
             SDL3::SDL3)
     # internal headers (PlatformEvent.h)
     target_include_directories(ngui_sdl3 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-    # Drag & drop with other programs on Windows (module P4; OLE).
+    # Drag & drop with other programs on Windows (module P4; OLE) and the
+    # system's notifications there (module P5; Shell_NotifyIcon).
     if(WIN32)
-        target_sources(ngui_sdl3 PRIVATE platform/sdl3/OleDragDrop.cpp)
+        target_sources(ngui_sdl3 PRIVATE platform/sdl3/OleDragDrop.cpp
+            platform/sdl3/WinNotifications.cpp)
         target_link_libraries(ngui_sdl3 PRIVATE ole32 shell32 uuid)
     endif()
     # ... and on X11 (XDND); Xlib's headers only, the library comes with
