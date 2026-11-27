@@ -368,6 +368,11 @@ if(NGUI_WITH_SDL3)
         endif()
         target_compile_definitions(ngui_sdl3_tests PRIVATE NGUI_WITH_ACCESSKIT=1)
     endif()
+    # Drag & drop with other programs on Windows (module P4), OLE's objects.
+    if(WIN32)
+        target_sources(ngui_sdl3_tests PRIVATE sdl3/OleDragDropTest.cpp)
+        target_link_libraries(ngui_sdl3_tests PRIVATE ole32 shell32)
+    endif()
     # The application's menu bar on macOS (module P3), with SDL's Cocoa windows.
     if(APPLE)
         target_sources(ngui_sdl3_tests PRIVATE sdl3/SdlCocoaMenuBarTest.mm)

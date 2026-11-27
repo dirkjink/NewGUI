@@ -79,6 +79,11 @@ public:
 										first. */
 			void				UpdateAccessibility(const AccessibleTree& tree) override;
 									/*!< Keeps \a tree as the last one and counts it. */
+			bool				CanDragToSystem() const override;
+									/*!< Options::systemDrag, for a window that is no
+										popup. */
+			std::expected<void, Error> StartSystemDrag(std::vector<DragItem> items) override;
+									/*!< Keeps \a items as a drag to the system. */
 			bool				HasSystemMenuBar() const override;
 									/*!< Options::systemMenuBar, for a window that is no
 										popup. */
@@ -117,6 +122,8 @@ public:
 										before the first. */
 			std::size_t			CountAccessibleUpdates() const;
 									/*!< How many trees its BWindow passed on. */
+			std::vector<std::vector<DragItem>> SystemDrags() const;
+									/*!< The drags handed to the system, oldest first. */
 			std::vector<SystemMenuItem> SystemMenuBar() const;
 									/*!< The menus its BWindow passed on last for the
 										system's menu bar. */
@@ -152,6 +159,7 @@ private:
 			bool				fAccessibilityActive = false;
 			std::optional<AccessibleTree> fAccessibleTree;
 			std::size_t			fAccessibleUpdates = 0;
+			std::vector<std::vector<DragItem>> fSystemDrags;
 			std::vector<SystemMenuItem> fSystemMenus;
 			std::size_t			fSystemMenuUpdates = 0;
 };
@@ -176,6 +184,9 @@ public:
 									/*!< Its size in logical pixels. */
 			float				scale = 1;
 									/*!< Device pixels per logical pixel. */
+			bool				systemDrag = false;
+									/*!< Acts as a platform whose drags go on to other
+										applications (PlatformWindow::CanDragToSystem()). */
 			bool				systemMenuBar = false;
 									/*!< Acts as a platform with a menu bar of the
 										system (macOS): windows take their menus there

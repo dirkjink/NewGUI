@@ -38,6 +38,7 @@
 #include "MenuPrivate.h"
 #include "ToolTipPopup.h"
 #include "ScriptingSupport.h"
+#include "DragData.h"
 #include "WindowList.h"
 #include "record/Recorder.h"
 
@@ -108,6 +109,27 @@ WindowAt(gfx::Point screen)
 		}
 	}
 	return found;
+}
+
+
+// What of \a message goes to other applications (module P4): its MIME
+// fields, and its "paths" as a text/uri-list.
+std::vector<platform::DragItem>
+DragItemsOf(const BMessage& message)
+{
+	std::vector<platform::DragItem> items;
+	for (const BFieldInfo& field : message.Fields(BTypeCode::Mime)) {
+		if (auto data = message.FindData(field.name, BTypeCode::Mime); data.has_value())
+			items.push_back({field.name, std::vector<std::byte>(data->begin(), data->end())});
+	}
+	std::string uris;
+	for (std::int32_t i = 0; auto path = message.FindString("paths", i); i++)
+		uris += detail::FileUri(*path) + "\r\n";
+	if (!uris.empty() && !message.HasData("text/uri-list", BTypeCode::Mime)) {
+		const auto* bytes = reinterpret_cast<const std::byte*>(uris.data());
+		items.push_back({"text/uri-list", std::vector<std::byte>(bytes, bytes + uris.size())});
+	}
+	return items;
 }
 
 // The shown windows with BWindowFeel::ModalApp, under sWindowsLock.
@@ -908,6 +930,7 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kDropFile:
 		case kDropText:
 		case kDropComplete:
+		case platform::kDropData:
 			_DropEvent(message);
 			return;
 		case kDragTrack:
@@ -1380,6 +1403,22 @@ BWindow::_DropEvent(BMessage* message)
 			fDropPaths.clear();
 			fDropText.clear();
 			fDropTextSeen = false;
+			fDropData.MakeEmpty();
+			return;
+		case platform::kDropData:
+			// everything at once, by MIME type (module P4)
+			for (const BFieldInfo& field : message->Fields(BTypeCode::Mime)) {
+				const auto data = message->FindData(field.name, BTypeCode::Mime);
+				if (!data.has_value())
+					continue;
+				if (field.name == "text/uri-list") {
+					const std::string_view list(reinterpret_cast<const char*>(data->data()),
+						data->size());
+					for (std::string& path : detail::PathsOf(list))
+						fDropPaths.push_back(std::move(path));
+				}
+				(void)fDropData.AddData(field.name, BTypeCode::Mime, *data);
+			}
 			return;
 		case kDropPosition:
 			_DragMoved(where, BMessage(kSimpleData));
@@ -1405,16 +1444,23 @@ BWindow::_DropEvent(BMessage* message)
 			&drag);
 		fDragView = nullptr;
 	}
-	if (fDropPaths.empty() && !fDropTextSeen)
+	if (fDropPaths.empty() && !fDropTextSeen && fDropData.IsEmpty())
 		return;
 
+	// files as kSimpleData with "paths", other data as kMimeData; the MIME
+	// fields of the drop are kept in both
 	BMessage dropped(fDropPaths.empty() ? kMimeData : kSimpleData);
 	for (const std::string& path : fDropPaths)
 		(void)dropped.AddString("paths", path);
-	if (fDropPaths.empty()) {
+	if (fDropTextSeen && !fDropData.HasData("text/plain", BTypeCode::Mime)) {
 		(void)dropped.AddData("text/plain", BTypeCode::Mime,
 			std::as_bytes(std::span(fDropText.data(), fDropText.size())));
 	}
+	for (const BFieldInfo& field : fDropData.Fields(BTypeCode::Mime)) {
+		if (auto data = fDropData.FindData(field.name, BTypeCode::Mime); data.has_value())
+			(void)dropped.AddData(field.name, BTypeCode::Mime, *data);
+	}
+	fDropData.MakeEmpty();
 	dropped.fDropPoint = gfx::Point{where.x + fFrame.x0, where.y + fFrame.y0};
 	fDropPaths.clear();
 	fDropText.clear();
@@ -1534,6 +1580,15 @@ BWindow::_DragTo(gfx::Point screen, bool drop)
 		send(fDrag->over, gone);
 	}
 	fDrag->over = over;
+	// out of the application's windows: to the system, if it takes the data
+	if (!over.IsValid() && !drop && fPlatformWindow != nullptr
+		&& fPlatformWindow->CanDragToSystem()) {
+		std::vector<platform::DragItem> items = DragItemsOf(fDrag->message);
+		if (!items.empty() && fPlatformWindow->StartSystemDrag(std::move(items)).has_value()) {
+			_EndDrag();
+			return;
+		}
+	}
 	(void)track.AddInt32("phase", drop ? kDragDropped : kDragOver);
 	if (over.IsValid())
 		send(over, track);
