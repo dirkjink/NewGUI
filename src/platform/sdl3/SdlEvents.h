@@ -45,6 +45,8 @@ struct TranslationContext {
 	std::uint32_t					modifiers = 0;	// for mouse events, as BModifier bits
 	std::int32_t					buttons = 0;	// the mouse buttons down, as "buttons"
 	std::function<float(SDL_WindowID)> scale;		// device pixels per logical pixel
+	std::uint32_t					dropData = 0;	// the event type of a DropPayload,
+													// 0 for none (module P4)
 };
 
 
