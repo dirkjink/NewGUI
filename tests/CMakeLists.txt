@@ -272,7 +272,9 @@ if(NGUI_WITH_SKIA)
             ngui::skia
             ngui::testkit
             ngui::testkit_main
-            unofficial::skia::skia)
+            # Skia's headers for the smoke test; the library comes once,
+            # through ngui::skia (Apple's ld warns about an archive twice).
+            $<COMPILE_ONLY:unofficial::skia::skia>)
     # Text drawn with the bundled fonts (vcpkg feature text).
     if(NGUI_WITH_TEXT)
         target_sources(ngui_skia_tests PRIVATE skia/PdfDocumentTest.cpp skia/SkiaPrintTest.cpp
@@ -337,7 +339,8 @@ if(NGUI_WITH_SDL3)
         PRIVATE
             ngui::sdl3
             ngui::testkit_main
-            SDL3::SDL3)
+            # SDL's headers; the library comes once, through ngui::sdl3.
+            $<COMPILE_ONLY:SDL3::SDL3>)
     target_include_directories(ngui_sdl3_tests
         PRIVATE
             "${PROJECT_SOURCE_DIR}/src"
@@ -352,7 +355,8 @@ if(NGUI_WITH_SDL3)
     if(NGUI_WITH_ACCESSKIT)
         find_package(unofficial-accesskit-c CONFIG REQUIRED)
         target_sources(ngui_sdl3_tests PRIVATE sdl3/AccessKitBridgeTest.cpp)
-        target_link_libraries(ngui_sdl3_tests PRIVATE unofficial::accesskit-c::accesskit)
+        target_link_libraries(ngui_sdl3_tests
+            PRIVATE $<COMPILE_ONLY:unofficial::accesskit-c::accesskit>)
         target_compile_definitions(ngui_sdl3_tests PRIVATE NGUI_WITH_ACCESSKIT=1)
     endif()
     gtest_discover_tests(ngui_sdl3_tests

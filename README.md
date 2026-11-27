@@ -28,7 +28,7 @@ Die Doku-Site **<https://dirkjink.github.io/NewGUI/>** enthält diese Dokumente,
 
 **Voraussetzungen:**
 
-- CMake 3.25 oder neuer und Ninja
+- CMake 3.27 oder neuer und Ninja
 - ein C++23-Compiler: GCC 13+, Clang 19+ oder MSVC 2022
 - [vcpkg](https://github.com/microsoft/vcpkg), die Umgebungsvariable `VCPKG_ROOT` zeigt auf das vcpkg-Verzeichnis
 
