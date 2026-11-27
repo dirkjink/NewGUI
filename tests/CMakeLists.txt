@@ -373,10 +373,12 @@ if(NGUI_WITH_SDL3)
         target_sources(ngui_sdl3_tests PRIVATE sdl3/OleDragDropTest.cpp)
         target_link_libraries(ngui_sdl3_tests PRIVATE ole32 shell32)
     endif()
-    # The application's menu bar on macOS (module P3), with SDL's Cocoa windows.
+    # The application's menu bar (module P3) and drag & drop (module P4) on
+    # macOS, with SDL's Cocoa windows.
     if(APPLE)
-        target_sources(ngui_sdl3_tests PRIVATE sdl3/SdlCocoaMenuBarTest.mm)
-        set_source_files_properties(sdl3/SdlCocoaMenuBarTest.mm
+        target_sources(ngui_sdl3_tests PRIVATE sdl3/SdlCocoaDragDropTest.mm
+            sdl3/SdlCocoaMenuBarTest.mm)
+        set_source_files_properties(sdl3/SdlCocoaDragDropTest.mm sdl3/SdlCocoaMenuBarTest.mm
             PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     endif()
     gtest_discover_tests(ngui_sdl3_tests

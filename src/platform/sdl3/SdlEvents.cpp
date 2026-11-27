@@ -17,6 +17,8 @@
 #include <ngui/InterfaceDefs.h>
 #include <ngui/platform/SdlPlatform.h>
 
+#include "platform/sdl3/DropPayload.h"
+
 
 namespace ngui::platform::sdl3 {
 
@@ -172,6 +174,20 @@ Translate(std::span<const SDL_Event> events, const TranslationContext& context)
 	std::vector<TranslatedEvent> translated;
 	for (std::size_t i = 0; i < events.size(); i++) {
 		const SDL_Event& event = events[i];
+		// a drop with all its data: kDropData, then kDropComplete
+		if (context.dropData != 0 && event.type == context.dropData) {
+			if (const auto* payload = static_cast<const DropPayload*>(event.user.data1)) {
+				BMessage data = Stamped(platform::kDropData, context);
+				(void)data.AddPoint("where", payload->where);
+				for (const DragItem& item : payload->items)
+					(void)data.AddData(item.type, BTypeCode::Mime, item.data);
+				translated.push_back({event.user.windowID, std::move(data)});
+				BMessage complete = Stamped(kDropComplete, context);
+				(void)complete.AddPoint("where", payload->where);
+				translated.push_back({event.user.windowID, std::move(complete)});
+			}
+			continue;
+		}
 		switch (event.type) {
 			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 			case SDL_EVENT_MOUSE_BUTTON_UP:

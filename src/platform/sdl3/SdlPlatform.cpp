@@ -36,10 +36,12 @@
 #include "Environment.h"
 #include "PlatformEvent.h"
 #include "SdlEvents.h"
+#include "platform/sdl3/DropPayload.h"
 #ifdef NGUI_WITH_ACCESSKIT
 #include "platform/sdl3/AccessKitBridge.h"
 #endif
 #ifdef __APPLE__
+#include "platform/sdl3/CocoaDragDrop.h"
 #include "platform/sdl3/CocoaMenuBar.h"
 #endif
 #ifdef _WIN32
@@ -246,6 +248,8 @@ class sdl3::PlatformState {
 public:
 	std::thread::id			mainThread;
 	std::uint32_t			wakeEvent = 0;
+	// a drop with all its data (DropPayload), pushed by the Cocoa drop target
+	std::uint32_t			dropDataEvent = 0;
 	std::atomic<bool>		wakePending = false;
 	std::mutex				lock;
 	std::deque<std::function<void()>> work;
@@ -707,6 +711,8 @@ public:
 			}
 #endif
 #ifdef __APPLE__
+			if (state->cocoa)
+				sdl3::ForgetCocoaDrops(state->window);
 			// its menus leave the menu bar with it
 			if (platform->menuOwner.lock() == state) {
 				platform->menuOwner.reset();
@@ -732,6 +738,9 @@ public:
 #ifdef _WIN32
 		std::scoped_lock lock(fState->lock);
 		return fState->dropTarget != nullptr;
+#elif defined(__APPLE__)
+		std::scoped_lock lock(fState->lock);
+		return fState->cocoa;
 #else
 		return false;
 #endif
@@ -761,6 +770,23 @@ public:
 			(void)up.AddInt32("buttons", 0);
 			PlatformEventMark::Set(up);
 			(void)target.SendMessage(up);
+		});
+		return {};
+#elif defined(__APPLE__)
+		if (!CanDragToSystem())
+			return Failure(ErrorCode::NotSupported, "no drags to other applications");
+		// an NSDraggingSession from the window's content view; it runs on
+		// its own, and gives the window the release when it ends
+		_Main([state = fState, items = std::move(items)] {
+			SDL_Window* window = nullptr;
+			BMessenger target;
+			{
+				std::scoped_lock lock(state->lock);
+				window = state->window;
+				target = state->target;
+			}
+			if (window != nullptr)
+				(void)sdl3::StartCocoaDrag(window, items, target);
 		});
 		return {};
 #else
@@ -1076,6 +1102,7 @@ SdlPlatform::Create()
 	if (detail::EnvironmentVariable("NGUI_RENDERER").value_or("") == "gpu")
 		platform->fData->gpuWanted = true;
 	platform->fData->wakeEvent = SDL_RegisterEvents(1);
+	platform->fData->dropDataEvent = SDL_RegisterEvents(1);
 	if (platform->fData->wakeEvent == 0) {
 		SDL_Quit();
 		return Failure(ErrorCode::NotSupported, "SDL has no user events left");
@@ -1192,6 +1219,9 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 #ifdef __APPLE__
 		state->cocoa = !spec.popup && SDL_GetPointerProperty(SDL_GetWindowProperties(window),
 			SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr) != nullptr;
+		// drops with all their data (module P4)
+		if (state->cocoa)
+			sdl3::AcceptCocoaDrops(window, data->dropDataEvent);
 #endif
 #ifdef _WIN32
 		// drops with all their data, drags out to other programs (module P4)
@@ -1295,12 +1325,19 @@ SdlPlatform::ProcessEvents()
 		context.when = Clock::Default().Now();
 		context.modifiers = sdl3::Modifiers(SDL_GetModState());
 		context.buttons = sdl3::Buttons(SDL_GetMouseState(nullptr, nullptr));
+		context.dropData = fData->dropDataEvent;
 		context.scale = [](SDL_WindowID id) {
 			SDL_Window* window = SDL_GetWindowFromID(id);
 			const float density = window != nullptr ? SDL_GetWindowPixelDensity(window) : 1;
 			return density > 0 ? density : 1.0f;
 		};
-		for (sdl3::TranslatedEvent& translated : sdl3::Translate(events, context)) {
+		std::vector<sdl3::TranslatedEvent> messages = sdl3::Translate(events, context);
+		// the payloads of drops are translated now
+		for (const SDL_Event& taken : events) {
+			if (fData->dropDataEvent != 0 && taken.type == fData->dropDataEvent)
+				delete static_cast<sdl3::DropPayload*>(taken.user.data1);
+		}
+		for (sdl3::TranslatedEvent& translated : messages) {
 			// events of the platform, for Record & Replay
 			PlatformEventMark::Set(translated.message);
 			if (translated.window == sdl3::kApplicationEvent) {
