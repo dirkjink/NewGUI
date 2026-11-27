@@ -357,6 +357,13 @@ if(NGUI_WITH_SDL3)
         target_sources(ngui_sdl3_tests PRIVATE sdl3/AccessKitBridgeTest.cpp)
         target_link_libraries(ngui_sdl3_tests
             PRIVATE $<COMPILE_ONLY:unofficial::accesskit-c::accesskit>)
+        # NSAccessibility through SDL's Cocoa windows, asked as VoiceOver asks
+        # (Objective-C++, with ARC).
+        if(APPLE)
+            target_sources(ngui_sdl3_tests PRIVATE sdl3/SdlCocoaAccessibilityTest.mm)
+            set_source_files_properties(sdl3/SdlCocoaAccessibilityTest.mm
+                PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+        endif()
         target_compile_definitions(ngui_sdl3_tests PRIVATE NGUI_WITH_ACCESSKIT=1)
     endif()
     gtest_discover_tests(ngui_sdl3_tests
