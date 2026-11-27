@@ -132,6 +132,22 @@ jobs:
       - name: Configure, build and test
         run: cmake --workflow --preset ci
 
+      # Diagnosis (to be removed): what vcpkg hashes on this runner; the
+      # binary cache found no package of an earlier run on macOS.
+      - name: Show vcpkg's hash inputs
+        if: always()
+        env:
+          PRESET_DIR: build/ci
+        run: |
+          echo "image: $ImageOS $ImageVersion"
+          xcodebuild -version || true
+          xcrun --show-sdk-path || true
+          cmake --version | head -1
+          for port in zlib skia; do
+            file="$PRESET_DIR/vcpkg_installed/arm64-osx/share/$port/vcpkg_abi_info.txt"
+            if [ -f "$file" ]; then echo "== $port"; cat "$file"; fi
+          done
+
       # The HTML reports of failed snapshots (specification 20.5, 20.9).
       - name: Keep the snapshot report
         if: failure()
@@ -258,6 +274,22 @@ jobs:
       # hour Skia takes (actions/cache would only save after a green job).
       - name: Configure with Skia and SDL3
         run: cmake --preset skia
+
+      # Diagnosis (to be removed): what vcpkg hashes on this runner; the
+      # binary cache found no package of an earlier run on macOS.
+      - name: Show vcpkg's hash inputs
+        if: always()
+        env:
+          PRESET_DIR: build/skia
+        run: |
+          echo "image: $ImageOS $ImageVersion"
+          xcodebuild -version || true
+          xcrun --show-sdk-path || true
+          cmake --version | head -1
+          for port in zlib skia; do
+            file="$PRESET_DIR/vcpkg_installed/arm64-osx/share/$port/vcpkg_abi_info.txt"
+            if [ -f "$file" ]; then echo "== $port"; cat "$file"; fi
+          done
 
       - name: Keep the vcpkg packages
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
