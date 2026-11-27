@@ -59,6 +59,7 @@ add_executable(ngui_tests
     ScriptingTest.cpp
     MessengerTest.cpp
     NotificationTest.cpp
+    WindowFramesTest.cpp
     OutlineListViewTest.cpp
     PaletteTest.cpp
     PrintJobTest.cpp
@@ -281,7 +282,7 @@ if(NGUI_WITH_SKIA)
     # Text drawn with the bundled fonts (vcpkg feature text).
     if(NGUI_WITH_TEXT)
         target_sources(ngui_skia_tests PRIVATE skia/PdfDocumentTest.cpp skia/SkiaPrintTest.cpp
-            skia/TextSkiaTest.cpp skia/SnapshotSkiaTest.cpp)
+            skia/TextSkiaTest.cpp skia/SnapshotSkiaTest.cpp skia/WindowFrameSkiaTest.cpp)
         # A stand-in for libcups, loaded by the print service in its place.
         if(NOT WIN32)
             add_library(ngui_fake_cups MODULE print/FakeCups.cpp)

@@ -33,6 +33,15 @@ class RemoteServer;
 }
 
 
+/*!	Who draws the frames of the windows (title tab, borders). */
+enum class BWindowFrames : std::uint8_t {
+	System,	/*!< The window system, as it draws them for other programs. */
+	Look	/*!< NewGUI, as the look's decorator: Haiku's (the yellow tab of
+				"be") where the platform has transparent windows and the look a
+				decorator, the window system's otherwise. */
+};
+
+
 /*!	The application (module G4), as Haiku's BApplication: a looper whose
 	loop runs on the thread that calls Run(), the main thread, as macOS and
 	SDL require. There is one per process.
@@ -139,6 +148,12 @@ public:
 
 			void				SetPulseRate(Clock::Time rate);
 									/*!< The interval of Pulse(); 0 stops it. */
+	static	void				SetWindowFrames(BWindowFrames frames);
+									/*!< NewGUI: who draws the frames of the windows made
+										from now on; System by default, Look with the
+										environment variable NGUI_WINDOW_FRAMES=look. */
+	static	BWindowFrames		WindowFrames();
+									/*!< Who draws the frames of new windows. */
 			Clock::Time			PulseRate() const;
 									/*!< The interval of Pulse(), 0 if stopped. */
 			bool				IsLaunching() const;

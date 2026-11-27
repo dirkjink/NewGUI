@@ -6,6 +6,7 @@
 #pragma once
 
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -38,7 +39,7 @@ public:
 	std::string Truncate(std::string_view text, float width, TruncationMode,
 		FontRole) const override
 	{
-		const auto fits = static_cast<std::size_t>(width / 7.0f);
+		const auto fits = static_cast<std::size_t>(std::max(width, 0.0f) / 7.0f);
 		return std::string(text.substr(0, fits));
 	}
 

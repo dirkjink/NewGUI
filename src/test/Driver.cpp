@@ -292,7 +292,17 @@ gfx::Rect
 WindowRef::Frame() const
 {
 	platform::HeadlessWindow* window = PlatformWindow();
-	return window != nullptr ? window->Frame() : gfx::Rect{0, 0, 0, 0};
+	if (window == nullptr)
+		return {0, 0, 0, 0};
+	const gfx::Rect frame = window->Frame();
+	// inside the frame NewGUI draws, if it draws one
+	const platform::WindowFrameLayout layout = window->FrameLayout();
+	if (layout.contentSize.w <= 0 && layout.contentSize.h <= 0)
+		return frame;
+	const gfx::Point origin = {frame.x0 + layout.contentOffset.x,
+		frame.y0 + layout.contentOffset.y};
+	return {origin.x, origin.y, origin.x + layout.contentSize.w,
+		origin.y + layout.contentSize.h};
 }
 
 
@@ -832,7 +842,9 @@ Driver::_Mouse(platform::HeadlessWindow* window, std::uint32_t what, gfx::Point 
 {
 	BMessage message(what);
 	(void)message.AddInt64("when", Clock::Default().Now().count());
-	(void)message.AddPoint("where", where);
+	// in the window: with a frame NewGUI draws, the content lies inside it
+	const gfx::Point offset = window->FrameLayout().contentOffset;
+	(void)message.AddPoint("where", {where.x + offset.x, where.y + offset.y});
 	(void)message.AddInt32("buttons", buttons);
 	(void)message.AddInt32("modifiers", 0);
 	if (what == kMouseDown)

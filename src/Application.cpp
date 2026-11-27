@@ -8,6 +8,7 @@
 #include <ngui/Application.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdio>
 #include <filesystem>
@@ -56,6 +57,8 @@ bool sExists = false;
 BMessenger sMessenger;
 std::string sSignature;
 platform::Platform* sPlatform = nullptr;
+// who draws the frames of new windows (from any thread)
+std::atomic<BWindowFrames> sWindowFrames = BWindowFrames::System;
 
 
 bool
@@ -147,6 +150,14 @@ BApplication::BApplication(std::string_view signature, int argc, char** argv)
 		const auto selection = LookRegistry::Default().SelectAtStart(*look);
 		if (selection.has_value() && !selection->warning.empty())
 			std::fprintf(stderr, "ngui: %s\n", selection->warning.c_str());
+	}
+	// the frames of the windows (BWindowFrames)
+	if (const std::optional<std::string> frames = detail::EnvironmentVariable(
+			"NGUI_WINDOW_FRAMES")) {
+		if (*frames == "look")
+			sWindowFrames = BWindowFrames::Look;
+		else if (*frames == "system")
+			sWindowFrames = BWindowFrames::System;
 	}
 	// Remote control only when asked (rule T4): here by the environment.
 	if (detail::EnvironmentVariable("NGUI_REMOTE_CONTROL").value_or("") == "1") {
@@ -390,6 +401,20 @@ AppMessenger()
 }
 
 
+void
+BApplication::SetWindowFrames(BWindowFrames frames)
+{
+	sWindowFrames = frames;
+}
+
+
+BWindowFrames
+BApplication::WindowFrames()
+{
+	return sWindowFrames;
+}
+
+
 std::string
 detail::AppSignature()
 {
@@ -470,6 +495,19 @@ platform::PlatformWindow::HasSystemMenuBar() const
 void
 platform::PlatformWindow::SetSystemMenuBar(std::vector<SystemMenuItem> /*menus*/)
 {
+}
+
+
+void
+platform::PlatformWindow::SetFrameLayout(const WindowFrameLayout& /*layout*/)
+{
+}
+
+
+bool
+platform::Platform::HasTransparentWindows() const
+{
+	return false;
 }
 
 

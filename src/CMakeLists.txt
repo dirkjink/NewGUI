@@ -151,7 +151,9 @@ add_library(ngui
     gfx/Region.cpp
     gfx/RegionSupport.cpp
     gfx/SvgExportBackend.cpp
+    decor/Decorator.cpp
     looks/be/BeControlLook.cpp
+    looks/be/BeDecorator.cpp
     looks/haiku/HaikuControlLook.cpp
     looks/haiku/HaikuLook.cpp
     looks/flat/FlatControlLook.cpp

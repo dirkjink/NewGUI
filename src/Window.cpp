@@ -39,6 +39,7 @@
 #include "ToolTipPopup.h"
 #include "ScriptingSupport.h"
 #include "DragData.h"
+#include "decor/Decorator.h"
 #include "WindowList.h"
 #include "record/Recorder.h"
 
@@ -280,6 +281,25 @@ struct BWindow::Drag {
 };
 
 
+// The mouse pressed on the frame NewGUI draws (Haiku's DefaultWindowBehaviour
+// and its states).
+struct BWindow::FrameTracking {
+	enum class Action : std::uint8_t {
+		Drag,			// DragState: the window moves
+		Resize,			// ResizeState: the right bottom corner
+		ResizeBorder,	// ResizeBorderState: the borders by the secondary button
+		SlideTab,		// SlideTabState: the tab along the top
+		Button			// DecoratorButtonState: close or zoom
+	};
+
+			Action				action = Action::Drag;
+			detail::Decorator::Region region = detail::Decorator::Region::None;
+			gfx::Point			start;		// the mouse on the screen
+			gfx::Rect			frame;		// the content area then
+			float				tabOffset = 0;
+};
+
+
 BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWindowFlags flags)
 	:
 	BLooper(title),
@@ -301,10 +321,25 @@ BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWin
 	fRoot->_Attach(this);
 
 	if (platform::Platform* platform = platform::Current()) {
+		// NewGUI draws the frame where it is asked to and can (the look has
+		// a decorator, the window may be transparent)
+		if (BApplication::WindowFrames() == BWindowFrames::Look
+			&& look != BWindowLook::NoBorder && platform->HasTransparentWindows()) {
+			fDecorator = detail::MakeDecorator(fLook->Info().id, TextSystem::Default());
+		}
+		if (fDecorator != nullptr) {
+			fDecorator->SetLook(look == BWindowLook::Bordered
+				? detail::Decorator::Look::Bordered : detail::Decorator::Look::Titled);
+			fDecorator->SetFlags(!flags.Has(BWindowFlag::NotClosable),
+				!flags.Has(BWindowFlag::NotZoomable), !flags.Has(BWindowFlag::NotResizable));
+			fDecorator->SetTitle(fTitle);
+			fDecorator->SetContentSize(frame.Width(), frame.Height());
+		}
 		platform::WindowSpec spec;
 		spec.title = fTitle;
-		spec.frame = frame;
-		spec.decorated = look != BWindowLook::NoBorder;
+		spec.frame = _PlatformFrame(frame);
+		spec.decorated = look != BWindowLook::NoBorder && fDecorator == nullptr;
+		spec.transparent = fDecorator != nullptr;
 		spec.resizable = !flags.Has(BWindowFlag::NotResizable);
 		spec.target = BMessenger(this);
 		auto window = platform->CreateWindow(spec);
@@ -312,6 +347,8 @@ BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWin
 			fPlatformWindow = std::move(*window);
 			fScale = fPlatformWindow->Scale();
 		}
+		if (fDecorator != nullptr)
+			_FrameChanged();
 	}
 	_AddDirty(Bounds());
 
@@ -600,8 +637,14 @@ BWindow::SetSizeLimits(float minWidth, float maxWidth, float minHeight,
 
 	fMinSize = {minWidth, minHeight};
 	fMaxSize = {maxWidth, maxHeight};
-	if (fPlatformWindow != nullptr)
-		fPlatformWindow->SetSizeLimits(fMinSize, fMaxSize);
+	if (fPlatformWindow != nullptr) {
+		// with NewGUI's frame, the limits of the whole window
+		const gfx::Rect outer = _PlatformFrame(fFrame);
+		const float extraWidth = outer.Width() - fFrame.Width();
+		const float extraHeight = outer.Height() - fFrame.Height();
+		fPlatformWindow->SetSizeLimits({fMinSize.w + extraWidth, fMinSize.h + extraHeight},
+			{fMaxSize.w + extraWidth, fMaxSize.h + extraHeight});
+	}
 
 	// what the app_server does: the window is resized into the limits
 	const float width = std::clamp(fFrame.Width(), minWidth, maxWidth);
@@ -701,8 +744,10 @@ BWindow::Bounds() const
 void
 BWindow::MoveTo(gfx::Point where)
 {
-	if (fPlatformWindow != nullptr)
-		fPlatformWindow->MoveTo(where);
+	if (fPlatformWindow != nullptr) {
+		const gfx::Point offset = _ContentOffset();
+		fPlatformWindow->MoveTo({where.x - offset.x, where.y - offset.y});
+	}
 	const gfx::Point old = {fFrame.x0, fFrame.y0};
 	fFrame = {where.x, where.y, where.x + fFrame.Width(), where.y + fFrame.Height()};
 	_PublishPlace(false);
@@ -717,9 +762,99 @@ BWindow::ResizeTo(float width, float height)
 	// what the app_server does: the size stays within the limits
 	width = std::clamp(width, fMinSize.w, fMaxSize.w);
 	height = std::clamp(height, fMinSize.h, fMaxSize.h);
-	if (fPlatformWindow != nullptr)
-		fPlatformWindow->ResizeTo({width, height});
+	if (fDecorator != nullptr) {
+		const gfx::Point before = _ContentOffset();
+		fDecorator->SetContentSize(width, height);
+		// a narrow window's tab may change where the content lies
+		const gfx::Point after = _ContentOffset();
+		if (fPlatformWindow != nullptr && (before.x != after.x || before.y != after.y))
+			fPlatformWindow->MoveTo({fFrame.x0 - after.x, fFrame.y0 - after.y});
+	}
+	if (fPlatformWindow != nullptr) {
+		const gfx::Rect outer = _PlatformFrame({0, 0, width, height});
+		fPlatformWindow->ResizeTo({outer.Width(), outer.Height()});
+	}
 	_Resized(width, height, fScale);
+	// the frame of the new size
+	_FrameChanged();
+}
+
+
+void
+BWindow::Zoom()
+{
+	// Haiku's BWindow::Zoom(): the smallest of the zoom limits, the size
+	// limits and the screen (NewGUI: the screen the window is on, without
+	// Deskbar)
+	float maxZoomWidth = std::min(fMaxZoom.w, fMaxSize.w);
+	float maxZoomHeight = std::min(fMaxZoom.h, fMaxSize.h);
+
+	platform::Platform* platform = platform::Current();
+	if (platform == nullptr)
+		return;
+	const std::vector<platform::DisplayInfo> displays = platform->Displays();
+	if (displays.empty())
+		return;
+	const gfx::Point center = {(fFrame.x0 + fFrame.x1) / 2, (fFrame.y0 + fFrame.y1) / 2};
+	gfx::Rect screenFrame = displays.front().frame;
+	for (const platform::DisplayInfo& display : displays) {
+		if (display.frame.Contains(center))
+			screenFrame = display.frame;
+	}
+	maxZoomWidth = std::min(maxZoomWidth, screenFrame.Width());
+	maxZoomHeight = std::min(maxZoomHeight, screenFrame.Height());
+
+	gfx::Rect zoomArea = screenFrame;
+
+	// remove the area taken up by the tab and border
+	const float borderWidth = fDecorator != nullptr ? fDecorator->BorderWidth() : 0;
+	const float tabHeight = fDecorator != nullptr ? fDecorator->TabHeight() : 0;
+	zoomArea.x0 += borderWidth;
+	zoomArea.y0 += borderWidth + tabHeight;
+	zoomArea.x1 -= borderWidth;
+	zoomArea.y1 -= borderWidth;
+
+	// inset towards center
+	if (zoomArea.Height() > maxZoomHeight) {
+		const float inset = std::round((zoomArea.Height() - maxZoomHeight) / 2);
+		zoomArea.y0 += inset;
+		zoomArea.y1 -= inset;
+	}
+	if (zoomArea.Width() > maxZoomWidth) {
+		const float inset = std::round((zoomArea.Width() - maxZoomWidth) / 2);
+		zoomArea.x0 += inset;
+		zoomArea.x1 -= inset;
+	}
+
+	// Un-Zoom
+	if (fPreviousFrame.has_value() && fFrame.Width() == zoomArea.Width()
+		&& fFrame.Height() == zoomArea.Height()) {
+		// already zoomed!
+		const gfx::Rect previous = *fPreviousFrame;
+		Zoom({previous.x0, previous.y0}, previous.Width(), previous.Height());
+		return;
+	}
+
+	// Zoom: remember fFrame for later "unzooming"
+	fPreviousFrame = fFrame;
+	Zoom({zoomArea.x0, zoomArea.y0}, zoomArea.Width(), zoomArea.Height());
+}
+
+
+void
+BWindow::Zoom(gfx::Point origin, float width, float height)
+{
+	// the default implementation of this hook function
+	// just does the obvious:
+	MoveTo(origin);
+	ResizeTo(width, height);
+}
+
+
+void
+BWindow::SetZoomLimits(float maxWidth, float maxHeight)
+{
+	fMaxZoom = {maxWidth, maxHeight};
 }
 
 
@@ -743,6 +878,10 @@ BWindow::SetTitle(std::string_view title)
 	}
 	if (fPlatformWindow != nullptr)
 		fPlatformWindow->SetTitle(title);
+	if (fDecorator != nullptr) {
+		fDecorator->SetTitle(fTitle);
+		_FrameChanged();
+	}
 }
 
 
@@ -906,6 +1045,11 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kMouseDown:
 		case kMouseUp:
 		case kMouseMoved:
+			// with NewGUI's frame: the content's coordinates, and the frame
+			// takes what is meant for it
+			_ToContent(message);
+			if (fDecorator != nullptr && _FrameMouse(message))
+				return;
 			_MouseEvent(message, fRoot.get());
 			return;
 		case kKeyDown:
@@ -931,6 +1075,7 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kDropText:
 		case kDropComplete:
 		case platform::kDropData:
+			_ToContent(message);
 			_DropEvent(message);
 			return;
 		case kDragTrack:
@@ -953,13 +1098,25 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 				fMouseView->MessageReceived(message);
 			return;
 		case kWindowResized:
-			_Resized(message->GetFloat("width", fFrame.Width()),
-				message->GetFloat("height", fFrame.Height()),
-				message->GetFloat("be:scale", fScale));
+		{
+			// the whole window with NewGUI's frame
+			const gfx::Rect outer = _PlatformFrame(fFrame);
+			const float width = message->GetFloat("width", outer.Width())
+				- (outer.Width() - fFrame.Width());
+			const float height = message->GetFloat("height", outer.Height())
+				- (outer.Height() - fFrame.Height());
+			if (fDecorator != nullptr)
+				fDecorator->SetContentSize(width, height);
+			_Resized(width, height, message->GetFloat("be:scale", fScale));
+			_FrameChanged();
 			return;
+		}
 		case kWindowMoved:
 		{
-			const gfx::Point where = message->GetPoint("where", {fFrame.x0, fFrame.y0});
+			const gfx::Point offset = _ContentOffset();
+			const gfx::Point outer = message->GetPoint("where",
+				{fFrame.x0 - offset.x, fFrame.y0 - offset.y});
+			const gfx::Point where = {outer.x + offset.x, outer.y + offset.y};
 			fFrame = {where.x, where.y, where.x + fFrame.Width(), where.y + fFrame.Height()};
 			_PublishPlace(false);
 			FrameMoved(where);
@@ -1018,6 +1175,10 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 				BMessenger modal;
 				if (_BlockedByModal(&modal))
 					(void)modal.SendMessage(kActivateRequest);
+			}
+			if (fDecorator != nullptr) {
+				fDecorator->SetFocus(fActive);
+				_FrameChanged();
 			}
 			WindowActivated(fActive);
 			ForEachView(fRoot.get(), [this](BView* view) { view->WindowActivated(fActive); });
@@ -2223,6 +2384,240 @@ BWindow::_Resized(float width, float height, float scale)
 }
 
 
+// The window with NewGUI's frame: \a content inside it.
+gfx::Rect
+BWindow::_PlatformFrame(gfx::Rect content) const
+{
+	if (fDecorator == nullptr)
+		return content;
+	const gfx::Rect bounds = fDecorator->Bounds();
+	return {content.x0 + bounds.x0, content.y0 + bounds.y0, content.x0 + bounds.x1,
+		content.y0 + bounds.y1};
+}
+
+
+// The content's left top corner in the window, (0, 0) without NewGUI's frame.
+gfx::Point
+BWindow::_ContentOffset() const
+{
+	if (fDecorator == nullptr)
+		return {0, 0};
+	const gfx::Rect bounds = fDecorator->Bounds();
+	return {-bounds.x0, -bounds.y0};
+}
+
+
+// A position of the window system (in the window) in the content's
+// coordinates.
+void
+BWindow::_ToContent(BMessage* message) const
+{
+	if (fDecorator == nullptr || !message->HasPoint("where"))
+		return;
+	const gfx::Point offset = _ContentOffset();
+	const gfx::Point where = message->GetPoint("where", {0, 0});
+	(void)message->ReplacePoint("where", {where.x - offset.x, where.y - offset.y});
+}
+
+
+// The frame changed (its size, title, focus or a button): it is drawn
+// anew, and the window system hears where the content lies.
+void
+BWindow::_FrameChanged()
+{
+	if (fDecorator == nullptr)
+		return;
+	fFrameDirty = true;
+	fMainUpdateWanted = true;
+	if (fPlatformWindow != nullptr) {
+		platform::WindowFrameLayout layout;
+		layout.contentOffset = _ContentOffset();
+		layout.contentSize = {fFrame.Width(), fFrame.Height()};
+		for (const gfx::Rect& area : fDecorator->Footprint()) {
+			layout.shape.push_back({area.x0 + layout.contentOffset.x,
+				area.y0 + layout.contentOffset.y, area.x1 + layout.contentOffset.x,
+				area.y1 + layout.contentOffset.y});
+		}
+		fPlatformWindow->SetFrameLayout(layout);
+	}
+	_ScheduleUpdate();
+}
+
+
+// \a content inside NewGUI's frame, as the window shows them.
+gfx::DisplayListRef
+BWindow::_WithFrame(const gfx::DisplayListRef& content, const DrawEnvironment& environment)
+{
+	const gfx::Rect outer = _PlatformFrame({0, 0, fFrame.Width(), fFrame.Height()});
+	const gfx::Point offset = _ContentOffset();
+	gfx::Canvas canvas({0, 0, outer.Width(), outer.Height()});
+	DrawContext context{canvas, environment.caps, environment.palette, environment.text,
+		environment.scale};
+	canvas.Save();
+	canvas.Translate(offset.x, offset.y);
+	fDecorator->Draw(context);
+	canvas.Restore();
+	if (content != nullptr)
+		canvas.DrawList(content, offset);
+	return canvas.Finish();
+}
+
+
+// The mouse on NewGUI's frame (Haiku's DefaultWindowBehaviour): true if the
+// frame takes \a message, false if it is for the views.
+bool
+BWindow::_FrameMouse(BMessage* message)
+{
+	using Region = detail::Decorator::Region;
+	using Action = FrameTracking::Action;
+	if (!message->HasPoint("where"))
+		return false;
+	const gfx::Point where = message->GetPoint("where", {0, 0});
+	const gfx::Point screen = {where.x + fFrame.x0, where.y + fFrame.y0};
+
+	if (fFrameTracking != nullptr) {
+		FrameTracking& tracking = *fFrameTracking;
+		const float dx = screen.x - tracking.start.x;
+		const float dy = screen.y - tracking.start.y;
+		if (message->what == kMouseMoved) {
+			switch (tracking.action) {
+				case Action::Drag:
+					MoveTo({tracking.frame.x0 + dx, tracking.frame.y0 + dy});
+					break;
+				case Action::Resize:
+					ResizeTo(tracking.frame.Width() + dx, tracking.frame.Height() + dy);
+					break;
+				case Action::ResizeBorder:
+				{
+					// the borders nearest to where it was pressed
+					const Region region = tracking.region;
+					const bool left = region == Region::LeftBorder
+						|| region == Region::LeftTopCorner || region == Region::LeftBottomCorner;
+					const bool right = region == Region::RightBorder
+						|| region == Region::RightTopCorner
+						|| region == Region::RightBottomCorner;
+					const bool top = region == Region::TopBorder || region == Region::Tab
+						|| region == Region::CloseButton || region == Region::ZoomButton
+						|| region == Region::LeftTopCorner || region == Region::RightTopCorner;
+					const bool bottom = region == Region::BottomBorder
+						|| region == Region::LeftBottomCorner
+						|| region == Region::RightBottomCorner;
+					float width = tracking.frame.Width();
+					float height = tracking.frame.Height();
+					if (left)
+						width -= dx;
+					else if (right)
+						width += dx;
+					if (top)
+						height -= dy;
+					else if (bottom)
+						height += dy;
+					width = std::clamp(width, fMinSize.w, fMaxSize.w);
+					height = std::clamp(height, fMinSize.h, fMaxSize.h);
+					const float x = left ? tracking.frame.x1 - width : tracking.frame.x0;
+					const float y = top ? tracking.frame.y1 - height : tracking.frame.y0;
+					if (x != fFrame.x0 || y != fFrame.y0)
+						MoveTo({x, y});
+					ResizeTo(width, height);
+					break;
+				}
+				case Action::SlideTab:
+					if (fDecorator->SetTabLocation(tracking.tabOffset + dx))
+						_FrameChanged();
+					break;
+				case Action::Button:
+				{
+					const bool inside = fDecorator->RegionAt(where) == tracking.region;
+					if (inside != fDecorator->IsPressed(tracking.region)) {
+						fDecorator->SetPressed(tracking.region, inside);
+						_FrameChanged();
+					}
+					break;
+				}
+			}
+			return true;
+		}
+		if (message->what == kMouseUp) {
+			if (message->GetInt32("buttons", 0) != 0)
+				return true;
+			std::unique_ptr<FrameTracking> ended = std::move(fFrameTracking);
+			if (ended->action == Action::Button && fDecorator->IsPressed(ended->region)) {
+				fDecorator->SetPressed(ended->region, false);
+				_FrameChanged();
+				if (ended->region == Region::CloseButton) {
+					BMessage quit(kQuitRequested);
+					(void)quit.AddInt64("when", Clock::Default().Now().count());
+					(void)PostMessage(quit, this);
+				} else if (ended->region == Region::ZoomButton) {
+					Zoom();
+				}
+			}
+			return true;
+		}
+		return true;
+	}
+
+	if (message->what != kMouseDown)
+		return false;
+	const Region region = fDecorator->RegionAt(where);
+	if (region == Region::None) {
+		// beside the tab, where the window is transparent
+		return !Bounds().Contains(where);
+	}
+
+	// DefaultWindowBehaviour::MouseDown(): the region's action
+	const auto buttons = message->GetInt32("buttons", 1);
+	const auto modifiers = static_cast<std::uint32_t>(message->GetInt32("modifiers", 0));
+	Action action = Action::Drag;
+	if ((buttons & 1) != 0) {
+		switch (region) {
+			case Region::Tab:
+				// tab sliding in any case if either shift key is held down
+				if ((modifiers & static_cast<std::uint32_t>(BModifier::Shift)) != 0)
+					action = Action::SlideTab;
+				break;
+			case Region::CloseButton:
+				if (fDecorator->IsClosable())
+					action = Action::Button;
+				break;
+			case Region::ZoomButton:
+				if (fDecorator->IsZoomable())
+					action = Action::Button;
+				break;
+			case Region::RightBottomCorner:
+				if (fDecorator->IsResizable())
+					action = Action::Resize;
+				break;
+			default:
+				break;
+		}
+	} else if ((buttons & 2) != 0) {
+		if (!fDecorator->IsResizable())
+			return true;
+		action = Action::ResizeBorder;
+	} else {
+		return true;
+	}
+
+	// activate the window, except for resizing by the borders
+	if (action != Action::ResizeBorder && !fActive)
+		Activate();
+
+	auto tracking = std::make_unique<FrameTracking>();
+	tracking->action = action;
+	tracking->region = region;
+	tracking->start = screen;
+	tracking->frame = fFrame;
+	tracking->tabOffset = fDecorator->TabOffset();
+	if (action == Action::Button) {
+		fDecorator->SetPressed(region, true);
+		_FrameChanged();
+	}
+	fFrameTracking = std::move(tracking);
+	return true;
+}
+
+
 void
 BWindow::_Update()
 {
@@ -2260,19 +2655,29 @@ BWindow::_Update()
 		const DrawEnvironment environment{caps, Palette::Default(), text, fScale};
 		fLastFrame = fRoot->RecordTree(environment);
 		fFrameCount++;
-		(void)fPlatformWindow->PresentList(fLastFrame,
-			Palette::Default().Get(BColorWhich::PanelBackground));
+		if (fDecorator != nullptr) {
+			// NewGUI's frame around the content, on a transparent window
+			(void)fPlatformWindow->PresentList(_WithFrame(fLastFrame, environment),
+				gfx::Color{0, 0, 0, 0});
+		} else {
+			(void)fPlatformWindow->PresentList(fLastFrame,
+				Palette::Default().Get(BColorWhich::PanelBackground));
+		}
 		fDirty.clear();
+		fFrameDirty = false;
 	} else if (drawMain) {
 		if (fSurface == nullptr) {
 			gfx::NativeWindow native;
 			if (fPlatformWindow != nullptr)
 				native = fPlatformWindow->Native();
-			native.size = {fFrame.Width(), fFrame.Height()};
+			// the whole window, with NewGUI's frame
+			const gfx::Rect outer = _PlatformFrame(fFrame);
+			native.size = {outer.Width(), outer.Height()};
 			native.scale = fScale;
 			fSurface = fBackend->CreateWindowSurface(native, gfx::SurfaceKind::CpuRaster);
 			if (fSurface == nullptr)
 				return;
+			fFrameDirty = fDecorator != nullptr;
 			// Not `fDirty = {Bounds()}`: GCC warns wrongly about the bounds
 			// of the initializer list (-Warray-bounds) in optimized builds.
 			fDirty.clear();
@@ -2283,13 +2688,38 @@ BWindow::_Update()
 		fLastFrame = fRoot->RecordTree(environment);
 		_AddFonts(text);
 		fFrameCount++;
-		fBackend->BeginFrame(*fSurface, Palette::Default().Get(BColorWhich::PanelBackground));
-		fBackend->Render(*fLastFrame, {0, 0});
+		if (fDecorator != nullptr) {
+			// NewGUI's frame around the content, on a transparent window
+			fBackend->BeginFrame(*fSurface, gfx::Color{0, 0, 0, 0});
+			fBackend->Render(*_WithFrame(fLastFrame, environment), {0, 0});
+		} else {
+			fBackend->BeginFrame(*fSurface, Palette::Default().Get(BColorWhich::PanelBackground));
+			fBackend->Render(*fLastFrame, {0, 0});
+		}
 		fBackend->EndFrame(*fSurface);
 
-		if (fPlatformWindow != nullptr)
-			Present(*fPlatformWindow, *fSurface, fDirty, fScale);
+		if (fPlatformWindow != nullptr) {
+			if (fDecorator != nullptr) {
+				// the window's areas: the content's moved by its offset, all of
+				// it when the frame changed
+				const gfx::Rect outer = _PlatformFrame(fFrame);
+				const gfx::Point offset = _ContentOffset();
+				std::vector<gfx::Rect> areas;
+				if (fFrameDirty) {
+					areas.push_back({0, 0, outer.Width(), outer.Height()});
+				} else {
+					for (const gfx::Rect& rect : fDirty) {
+						areas.push_back({rect.x0 + offset.x, rect.y0 + offset.y,
+							rect.x1 + offset.x, rect.y1 + offset.y});
+					}
+				}
+				Present(*fPlatformWindow, *fSurface, areas, fScale);
+			} else {
+				Present(*fPlatformWindow, *fSurface, fDirty, fScale);
+			}
+		}
 		fDirty.clear();
+		fFrameDirty = false;
 	}
 
 	for (const std::unique_ptr<PopupSurface>& popup : fPopups)

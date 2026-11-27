@@ -130,6 +130,27 @@ struct WindowSpec {
 			bool				tooltip = false;		/*!< With #popup: a tooltip, which
 															takes no input (the mouse
 															reaches what is below). */
+			bool				transparent = false;	/*!< Without #decorated: where it
+															draws no color (alpha 0), what
+															is behind it shows; for the
+															frames NewGUI draws
+															(Platform::
+															HasTransparentWindows()). */
+};
+
+
+/*!	The frame NewGUI draws around a window's content (BWindowFrames::Look),
+	for the platform: where the content lies in the window and which areas
+	the frame covers (the rest is transparent). */
+struct WindowFrameLayout {
+			gfx::Point			contentOffset = {0, 0};
+												/*!< The content's left top corner in
+													the window. */
+			gfx::Size			contentSize = {0, 0};
+												/*!< The content's size; 0 × 0 without
+													such a frame. */
+			std::vector<gfx::Rect> shape;		/*!< The frame's areas in window
+													coordinates (borders, tab). */
 };
 
 
@@ -231,6 +252,11 @@ public:
 									/*!< The window's menus for the system menu bar, empty
 										for none; shown while the window is the one in
 										front. Ignored by default. */
+	virtual	void				SetFrameLayout(const WindowFrameLayout& layout);
+									/*!< The frame its BWindow draws around the content
+										(BWindowFrames::Look): mouse positions come in
+										window coordinates, the content at
+										layout.contentOffset. Ignored by default. */
 };
 
 
@@ -386,6 +412,10 @@ public:
 										\a done gets the result later, on any thread. From
 										any thread. NotSupported by default. */
 
+	virtual	bool				HasTransparentWindows() const;
+									/*!< Whether windows may be transparent (WindowSpec::
+										transparent), for the frames NewGUI draws. False
+										by default. */
 	virtual	std::expected<void, Error> ShowNotification(const NotificationSpec& spec);
 									/*!< Hands \a spec to the system's notifications and
 										returns at once; a click later sends its onClick to

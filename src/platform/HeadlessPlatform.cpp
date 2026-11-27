@@ -314,6 +314,22 @@ HeadlessWindow::StartSystemDrag(std::vector<DragItem> items)
 }
 
 
+void
+HeadlessWindow::SetFrameLayout(const WindowFrameLayout& layout)
+{
+	std::scoped_lock lock(fLock);
+	fFrameLayout = layout;
+}
+
+
+WindowFrameLayout
+HeadlessWindow::FrameLayout() const
+{
+	std::scoped_lock lock(fLock);
+	return fFrameLayout;
+}
+
+
 std::vector<std::vector<DragItem>>
 HeadlessWindow::SystemDrags() const
 {
@@ -523,6 +539,13 @@ HeadlessPlatform::ShowFileDialog(const FileDialogSpec& spec,
 		done(answer ? answer(spec) : FileDialogResult(std::vector<std::string>()));
 	});
 	return {};
+}
+
+
+bool
+HeadlessPlatform::HasTransparentWindows() const
+{
+	return true;
 }
 
 

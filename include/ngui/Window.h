@@ -37,6 +37,9 @@ class BMenuItem;
 class BMessageRunner;
 class MenuTracking;
 class ToolTipPopup;
+namespace detail {
+class Decorator;
+}
 
 
 /*!	How a window looks (Haiku's window_look, as far as the platform can
@@ -64,8 +67,11 @@ enum class BWindowFlag : std::uint32_t {
 	NotClosable = 1u << 1,		/*!< B_NOT_CLOSABLE: the close button does nothing. */
 	QuitOnWindowClose = 1u << 2,	/*!< B_QUIT_ON_WINDOW_CLOSE: the application quits
 									with it. */
-	AutoUpdateSizeLimits = 1u << 3	/*!< B_AUTO_UPDATE_SIZE_LIMITS: the size limits follow
+	AutoUpdateSizeLimits = 1u << 3,	/*!< B_AUTO_UPDATE_SIZE_LIMITS: the size limits follow
 									the root view's minimum and maximum size. */
+	NotZoomable = 1u << 4		/*!< B_NOT_ZOOMABLE: no zoom button in the frame
+									NewGUI draws (BWindowFrames::Look); Zoom() still
+									works. */
 };
 NGUI_FLAG_ENUM(BWindowFlag)
 
@@ -207,6 +213,17 @@ public:
 									/*!< Moves the content area's left top corner. */
 			void				ResizeTo(float width, float height);
 									/*!< Resizes the content area, within the size limits. */
+			void				Zoom();
+									/*!< Haiku's Zoom(): makes the window as large as the
+										screen allows, within the zoom and size limits and
+										with its frame, or puts it back where it was if it
+										has that size; through the hook Zoom(origin, width,
+										height). The zoom button calls it. */
+	virtual	void				Zoom(gfx::Point origin, float width, float height);
+									/*!< The hook of Zoom(): moves the content area's left top
+										corner to \a origin and resizes it. */
+			void				SetZoomLimits(float maxWidth, float maxHeight);
+									/*!< The largest content area Zoom() gives. */
 			const std::string&	Title() const;
 									/*!< The title. */
 			void				SetTitle(std::string_view title);
@@ -418,6 +435,13 @@ private:
 			void				_SetTextInputArea(gfx::Rect rect, int32 cursor);
 			void				_ClearComposition();
 			void				_DisposeLater(std::unique_ptr<BView> view);
+			gfx::Rect			_PlatformFrame(gfx::Rect content) const;
+			gfx::Point			_ContentOffset() const;
+			void				_ToContent(BMessage* message) const;
+			bool				_FrameMouse(BMessage* message);
+			void				_FrameChanged();
+			gfx::DisplayListRef	_WithFrame(const gfx::DisplayListRef& content,
+									const DrawEnvironment& environment);
 			bool				_HandleKeyDown(BMessage* event);
 			void				_AddShortcut(std::uint32_t* key, BModifierFlags* modifiers,
 									BMenuItem* item);
@@ -513,6 +537,17 @@ private:
 									// the mouse moved and has not rested yet
 			bool				fMainUpdateWanted = true;
 									// The content area needs a frame (not only popups).
+			std::unique_ptr<detail::Decorator> fDecorator;
+									// the frame NewGUI draws (BWindowFrames::Look),
+									// nullptr for the window system's
+			struct FrameTracking;
+			std::unique_ptr<FrameTracking> fFrameTracking;
+									// the mouse pressed on the frame
+			bool				fFrameDirty = false;
+									// the frame needs drawing
+			std::optional<gfx::Rect> fPreviousFrame;
+									// where Zoom() found the window
+			gfx::Size			fMaxZoom = {kSizeUnlimited, kSizeUnlimited};
 };
 
 
