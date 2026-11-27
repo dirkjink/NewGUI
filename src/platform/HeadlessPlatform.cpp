@@ -446,7 +446,8 @@ HeadlessPlatform::CreateWindow(const WindowSpec& spec)
 std::vector<DisplayInfo>
 HeadlessPlatform::Displays() const
 {
-	return {{{0, 0, fOptions.screen.w, fOptions.screen.h}, fOptions.scale, true}};
+	return {{{0, 0, fOptions.screen.w, fOptions.screen.h}, fOptions.scale, true,
+		fOptions.usable}};
 }
 
 

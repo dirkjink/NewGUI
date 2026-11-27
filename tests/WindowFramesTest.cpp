@@ -82,12 +82,13 @@ public:
 // The application on the headless platform with a framed window.
 class FramedApp {
 public:
-	explicit FramedApp(BWindowFlags flags = {}, BWindowLook look = BWindowLook::Titled)
+	explicit FramedApp(BWindowFlags flags = {}, BWindowLook look = BWindowLook::Titled,
+		const HeadlessPlatform::Options& options = {})
 		:
 		fApp("application/x-vnd.ngui-window-frames-test")
 	{
 		TextSystem::SetDefault(&fText);
-		auto owned = std::make_unique<HeadlessPlatform>();
+		auto owned = std::make_unique<HeadlessPlatform>(options);
 		fPlatform = owned.get();
 		(void)fApp.UsePlatform(std::move(owned));
 		fDriver = std::make_unique<Driver>(fApp);
@@ -464,6 +465,33 @@ TEST(WindowFramesTest, TheFrameFollowsTheLook)
 	EXPECT_FLOAT_EQ(haiku, 115);
 	EXPECT_EQ(content, (gfx::Rect{100, 100, 300, 200}));
 	EXPECT_FLOAT_EQ(back, 113);
+}
+
+
+TEST(WindowFramesTest, ZoomLeavesTheSystemsPanelsFree)
+{
+	// What is tested: A framed window on a headless screen of 1920 × 1080
+	// whose top 32 rows are a panel of the system (usable {0, 32, 1920,
+	// 1080}, as GNOME's top bar); the zoom button is clicked.
+	// Success criteria: The content becomes {5, 56, 1915, 1075}: the window
+	// with its frame fills the usable part, the tab right below the panel.
+	// Why it matters: Haiku's Zoom() leaves Deskbar free; the window systems
+	// of other platforms refuse a window larger than their usable area
+	// (GNOME's Mutter kept the old size, the content no longer fitted).
+	//
+	// Given
+	const LookFrames frames;
+	HeadlessPlatform::Options options;
+	options.usable = {0, 32, 1920, 1080};
+	FramedApp app({}, BWindowLook::Titled, options);
+	WindowRef window = app.Window();
+
+	// When
+	ASSERT_TRUE(app.Drive().ClickAt(window, {95, -12}).has_value());
+	const gfx::Rect zoomed = app.Frame();
+
+	// Then
+	EXPECT_EQ(zoomed, (gfx::Rect{5, 56, 1915, 1075}));
 }
 
 

@@ -385,7 +385,7 @@ if(NGUI_WITH_SDL3)
         find_package(X11)
         if(X11_FOUND AND X11_Xtst_FOUND AND NGUI_XLIB_INCLUDE_DIR)
             target_sources(ngui_sdl3_tests PRIVATE sdl3/SdlX11DragDropTest.cpp
-                sdl3/SdlX11FramesTest.cpp)
+                sdl3/SdlX11FramesTest.cpp sdl3/SdlX11WindowTest.cpp)
             target_link_libraries(ngui_sdl3_tests PRIVATE X11::X11 X11::Xtst)
         endif()
     endif()

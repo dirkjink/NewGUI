@@ -43,6 +43,11 @@ struct DisplayInfo {
 			gfx::Rect			frame;		/*!< Its area on the desktop, logical pixels. */
 			float				scale = 1;	/*!< Device pixels per logical pixel. */
 			bool				primary = false;	/*!< The main screen. */
+			gfx::Rect			usable = {0, 0, 0, 0};
+												/*!< The part free of the system's
+													panels (task bar, top bar), on
+													the desktop; empty for all of
+													#frame. */
 };
 
 
