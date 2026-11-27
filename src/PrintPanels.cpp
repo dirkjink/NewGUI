@@ -48,15 +48,45 @@ Trimmed(std::string_view text)
 }
 
 
-// \a text as a number; std::nullopt unless it is one, whole.
-template<typename T>
-std::optional<T>
-Number(std::string_view text)
+// \a text as a whole number; std::nullopt unless it is one.
+std::optional<int32>
+Integer(std::string_view text)
 {
 	text = Trimmed(text);
-	T value{};
+	int32 value = 0;
 	const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
 	if (error != std::errc() || end != text.data() + text.size())
+		return std::nullopt;
+	return value;
+}
+
+
+// \a text as a decimal number ("150", "87.5", "87,5"); std::nullopt unless
+// it is one. By hand: libc++ before LLVM 20 (Xcode's) has no from_chars()
+// for floats, and strtof() would follow the locale.
+std::optional<float>
+Decimal(std::string_view text)
+{
+	text = Trimmed(text);
+	float value = 0;
+	float scale = 0;
+	bool digits = false;
+	for (const char c : text) {
+		if (c >= '0' && c <= '9') {
+			const float digit = static_cast<float>(c - '0');
+			if (scale == 0)
+				value = value * 10 + digit;
+			else {
+				scale /= 10;
+				value += digit * scale;
+			}
+			digits = true;
+		} else if ((c == '.' || c == ',') && scale == 0)
+			scale = 1;
+		else
+			return std::nullopt;
+	}
+	if (!digits || !std::isfinite(value))
 		return std::nullopt;
 	return value;
 }
@@ -189,7 +219,7 @@ protected:
 			settings.paper = fPapers[static_cast<std::size_t>(index)];
 		settings.orientation = fLandscape->Value() == kControlOn
 			? BPrintOrientation::Landscape : BPrintOrientation::Portrait;
-		const std::optional<float> scale = Number<float>(fScale->Text());
+		const std::optional<float> scale = Decimal(fScale->Text());
 		if (scale.has_value() && std::isfinite(*scale) && *scale > 0)
 			settings.scale = *scale;
 		return settings;
@@ -280,12 +310,12 @@ protected:
 		if (const BPrinterInfo* printer = _Chosen(); printer != nullptr)
 			settings.printer = printer->name;
 		settings.file = std::string(Trimmed(fFile->Text()));
-		settings.copies = std::max(Number<int32>(fCopies->Text()).value_or(1), 1);
+		settings.copies = std::max(Integer(fCopies->Text()).value_or(1), 1);
 		settings.firstPage = 1;
 		settings.lastPage = 0x7fffffff;
 		if (fRange->Value() == kControlOn) {
-			settings.firstPage = std::max(Number<int32>(fFrom->Text()).value_or(1), 1);
-			settings.lastPage = std::max(Number<int32>(fTo->Text()).value_or(0x7fffffff),
+			settings.firstPage = std::max(Integer(fFrom->Text()).value_or(1), 1);
+			settings.lastPage = std::max(Integer(fTo->Text()).value_or(0x7fffffff),
 				settings.firstPage);
 		}
 		return settings;

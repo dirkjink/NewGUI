@@ -6,8 +6,8 @@
 # supported compilers and with Skia (preset "skia"), check that the build is
 # reproducible and that the rationale blocks of the tests are well-formed.
 # The job "Build" summarizes these jobs and is the required status check for
-# "main". The dependency scan and Skia on Windows run alongside, outside the
-# required check.
+# "main". The dependency scan, Skia on Windows and macOS run alongside,
+# outside the required check.
 #
 # All actions are pinned to commit SHAs, not mutable tags: a moved tag would
 # otherwise run foreign code with this workflow's token. Dependabot keeps the
@@ -112,6 +112,35 @@ jobs:
           path: build/ci/snapshot-report
           if-no-files-found: ignore
 
+  # macOS on Apple Silicon with Xcode's Clang and libc++. Outside the
+  # required check until it has proven stable.
+  macos:
+    name: macOS (apple-clang)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          cache-key: apple-clang
+
+      - name: Configure, build and test
+        run: cmake --workflow --preset ci
+
+      # The HTML reports of failed snapshots (specification 20.5, 20.9).
+      - name: Keep the snapshot report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapshot-report-apple-clang
+          path: build/ci/snapshot-report
+          if-no-files-found: ignore
+
   # The library is built twice from copies of the source at different paths;
   # both builds must give the same bytes. This guards -ffile-prefix-map and
   # -Wdate-time (cmake/NguiCompilerOptions.cmake): a build that embeds its
@@ -199,6 +228,54 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: snapshot-report-skia-gcc-13
+          path: build/skia/snapshot-report
+          if-no-files-found: ignore
+
+  # Skia, SDL3 and AccessKit on macOS (Apple Silicon, Xcode's Clang); SDL3
+  # runs on its offscreen driver as on Linux. poppler's tools read the PDFs
+  # of the export tests (19.4). Outside the required check until it has
+  # proven stable.
+  skia-macos:
+    name: macOS (skia, apple-clang)
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up vcpkg
+        uses: ./.github/actions/setup-vcpkg
+        with:
+          cache-key: skia-apple-clang
+
+      - name: Install poppler
+        run: brew install poppler
+
+      # vcpkg builds the packages while configuring; their cache is kept
+      # right then, so that a failing build or test does not throw away the
+      # hour Skia takes (actions/cache would only save after a green job).
+      - name: Configure with Skia and SDL3
+        run: cmake --preset skia
+
+      - name: Keep the vcpkg packages
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .vcpkg-cache
+          key: vcpkg-${{ runner.os }}-skia-apple-clang-${{ hashFiles('vcpkg.json') }}-configured
+
+      - name: Build and test
+        run: |
+          cmake --build --preset skia
+          ctest --preset skia
+
+      # The HTML reports of failed snapshots (specification 20.5, 20.9).
+      - name: Keep the snapshot report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapshot-report-skia-apple-clang
           path: build/skia/snapshot-report
           if-no-files-found: ignore
 

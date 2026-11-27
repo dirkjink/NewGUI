@@ -158,7 +158,9 @@ private:
 	mutable	std::mutex			fLock;
 	mutable	std::vector<Entry>	fEntries;
 			gfx::Caps			fCaps;
-			std::atomic<std::shared_ptr<const ControlLook>> fCurrent;
+	// Not std::atomic<std::shared_ptr>: libc++ (Xcode's) does not have it.
+	mutable	std::mutex			fCurrentLock;
+			std::shared_ptr<const ControlLook> fCurrent;
 			bool				fTellsWindows = false;
 									// Default(): SetCurrent() sends kLookChanged.
 };
