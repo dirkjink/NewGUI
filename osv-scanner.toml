@@ -3,13 +3,17 @@
 # provably not exploitable here, each with its reason and an expiry date, so
 # that it is assessed again.
 
-# expat comes in only as a dependency of Skia (port skia, feature skia). In
+# expat comes in as a dependency of Skia (port skia, feature skia) and of
+# D-Bus (port dbus, whose headers only SDL uses: it loads the system's
+# libdbus at run time, so vcpkg's libdbus is linked nowhere). In
 # libskia.a it is called from two objects only: Skia's XML parser
 # (SkXMLParser, for its SVG module) and the parser of Android's font
 # configuration (SkFontMgr_android_parser). NewGUI calls neither: there is no
 # SVG import (specification 19.5), and typefaces are made from the text
 # subsystem's font files (13.4). No version of expat fixes these yet (2.10.0
-# is the newest, 2026-11-23).
+# is the newest, 2026-11-23; CVE-2026-137951 names 2.11.0 as the last
+# affected one, without a fixed release, 2026-11-27). The linked programs
+# (examples, test programs) contain no expat function at all.
 
 [[IgnoredVulns]]
 id = "CVE-2026-124317"
@@ -25,3 +29,8 @@ reason = "Affects the command-line tool xmlwf only, which is neither built into 
 id = "CVE-2026-134703"
 ignoreUntil = 2027-02-28
 reason = "Only XML_UNICODE builds parsing UTF-16 input; vcpkg builds expat with UTF-8 characters, and NewGUI parses no XML. Assessed 2026-11-23."
+
+[[IgnoredVulns]]
+id = "CVE-2026-137951"
+ignoreUntil = 2027-02-28
+reason = "Out-of-bounds read in storeSelfEntityValue while parsing entity declarations; NewGUI parses no XML with expat (Skia's SkXMLParser and Android font parser are not called, vcpkg's libdbus is not linked) and no expat release fixes it yet. Assessed 2026-11-27."
