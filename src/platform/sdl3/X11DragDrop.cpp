@@ -49,6 +49,10 @@ struct Xlib {
 	Window		(*RootWindowOf)(Display*) = nullptr;
 	int			(*Flush)(Display*) = nullptr;
 	int			(*SetSelectionOwner)(Display*, Atom, Window, Time) = nullptr;
+	Window		(*GetSelectionOwner)(Display*, Atom) = nullptr;
+	Display*	(*OpenDisplay)(const char*) = nullptr;
+	int			(*CloseDisplay)(Display*) = nullptr;
+	int			(*ScreenOf)(Display*) = nullptr;
 	int			(*ChangeProperty)(Display*, Window, Atom, Atom, int, int, const unsigned char*,
 					int) = nullptr;
 	Bool		(*QueryPointer)(Display*, Window, Window*, Window*, int*, int*, int*, int*,
@@ -76,6 +80,10 @@ struct Xlib {
 		bind(RootWindowOf, "XDefaultRootWindow");
 		bind(Flush, "XFlush");
 		bind(SetSelectionOwner, "XSetSelectionOwner");
+		bind(GetSelectionOwner, "XGetSelectionOwner");
+		bind(OpenDisplay, "XOpenDisplay");
+		bind(CloseDisplay, "XCloseDisplay");
+		bind(ScreenOf, "XDefaultScreen");
 		bind(ChangeProperty, "XChangeProperty");
 		bind(QueryPointer, "XQueryPointer");
 		return complete;
@@ -693,6 +701,24 @@ ForgetX11Drops(SDL_Window* window)
 	sTargets.erase(handle);
 	if (sDrag.has_value() && sDrag->source == handle)
 		sDrag.reset();
+}
+
+
+bool
+X11HasCompositor()
+{
+	const Xlib* x = Library();
+	if (x == nullptr)
+		return false;
+	// a connection of its own: SDL's may not be open yet
+	Display* display = x->OpenDisplay(nullptr);
+	if (display == nullptr)
+		return false;
+	const std::string name = "_NET_WM_CM_S" + std::to_string(x->ScreenOf(display));
+	const bool composited = x->GetSelectionOwner(display,
+		x->InternAtom(display, name.c_str(), False)) != None;
+	(void)x->CloseDisplay(display);
+	return composited;
 }
 
 

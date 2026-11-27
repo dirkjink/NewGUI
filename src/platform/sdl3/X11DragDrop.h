@@ -36,6 +36,11 @@ bool							AcceptX11Drops(SDL_Window* window, std::uint32_t eventType);
 // Takes \a window out again, before it is destroyed.
 void							ForgetX11Drops(SDL_Window* window);
 
+// Whether a compositing manager runs on the display (it owns
+// _NET_WM_CM_S<screen>): only then do transparent windows show the desktop
+// behind them.
+bool							X11HasCompositor();
+
 // Starts a drag of \a items from \a window (one that takes drops) with the
 // mouse button down; it ends with the release, which goes to the window
 // as usual. False if there is nothing to drag.

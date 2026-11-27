@@ -2433,11 +2433,25 @@ BWindow::_FrameChanged()
 		platform::WindowFrameLayout layout;
 		layout.contentOffset = _ContentOffset();
 		layout.contentSize = {fFrame.Width(), fFrame.Height()};
-		for (const gfx::Rect& area : fDecorator->Footprint()) {
-			layout.shape.push_back({area.x0 + layout.contentOffset.x,
-				area.y0 + layout.contentOffset.y, area.x1 + layout.contentOffset.x,
-				area.y1 + layout.contentOffset.y});
+		const gfx::Point offset = layout.contentOffset;
+		const auto moved = [offset](const gfx::Rect& area) {
+			return gfx::Rect{area.x0 + offset.x, area.y0 + offset.y, area.x1 + offset.x,
+				area.y1 + offset.y};
+		};
+		for (const gfx::Rect& area : fDecorator->Footprint())
+			layout.shape.push_back(moved(area));
+		// for a window system that moves and resizes by itself (Wayland):
+		// the buttons for the window, the corner resizes, the rest moves
+		for (const gfx::Rect& button : {fDecorator->CloseRect(), fDecorator->ZoomRect()}) {
+			if (button.x1 > button.x0 && button.y1 > button.y0)
+				layout.areas.push_back({moved(button), platform::WindowFrameHit::Normal});
 		}
+		if (const gfx::Rect corner = fDecorator->ResizeRect();
+				corner.x1 > corner.x0 && corner.y1 > corner.y0) {
+			layout.areas.push_back({moved(corner), platform::WindowFrameHit::ResizeBottomRight});
+		}
+		for (const gfx::Rect& area : layout.shape)
+			layout.areas.push_back({area, platform::WindowFrameHit::Move});
 		fPlatformWindow->SetFrameLayout(layout);
 	}
 	_ScheduleUpdate();
@@ -2741,7 +2755,18 @@ BWindow::_UpdateAccessibility()
 	AccessibleTree tree = GetAccessibleTree();
 	if (fAccessibleTree.has_value() && *fAccessibleTree == tree)
 		return;
-	fPlatformWindow->UpdateAccessibility(tree);
+	if (fDecorator != nullptr) {
+		// the platform's window has NewGUI's frame around the content
+		AccessibleTree inWindow = tree;
+		const gfx::Point offset = _ContentOffset();
+		for (AccessibleNode& node : inWindow.nodes) {
+			node.bounds = {node.bounds.x0 + offset.x, node.bounds.y0 + offset.y,
+				node.bounds.x1 + offset.x, node.bounds.y1 + offset.y};
+		}
+		fPlatformWindow->UpdateAccessibility(inWindow);
+	} else {
+		fPlatformWindow->UpdateAccessibility(tree);
+	}
 	fAccessibleTree = std::move(tree);
 }
 
@@ -3078,8 +3103,12 @@ BWindow::_DisposeLater(std::unique_ptr<BView> view)
 void
 BWindow::_SetTextInputArea(gfx::Rect rect, int32 cursor)
 {
-	if (fPlatformWindow != nullptr)
-		fPlatformWindow->SetTextInputArea(rect, cursor);
+	if (fPlatformWindow != nullptr) {
+		// in the window, with NewGUI's frame around the content
+		const gfx::Point offset = _ContentOffset();
+		fPlatformWindow->SetTextInputArea({rect.x0 + offset.x, rect.y0 + offset.y,
+			rect.x1 + offset.x, rect.y1 + offset.y}, cursor);
+	}
 }
 
 
