@@ -89,6 +89,9 @@ public:
 										popup. */
 			void				SetSystemMenuBar(std::vector<SystemMenuItem> menus) override;
 									/*!< Keeps \a menus as the last ones and counts them. */
+			void				SetFrameLayout(const WindowFrameLayout& layout) override;
+									/*!< Keeps \a layout: Send() and the test driver place
+										mouse positions by it. */
 
 			std::string			Title() const;
 									/*!< The title. */
@@ -129,6 +132,9 @@ public:
 										system's menu bar. */
 			std::size_t			CountSystemMenuBarUpdates() const;
 									/*!< How many times it passed them on. */
+			WindowFrameLayout	FrameLayout() const;
+									/*!< The frame its BWindow draws, as it passed it on
+										last; none (offset 0) for the window system's. */
 			std::expected<void, Error> ChooseSystemMenuItem(std::uint64_t id) const;
 									/*!< Acts as a user choosing the entry \a id in the
 										system's menu bar: the menus open
@@ -162,6 +168,7 @@ private:
 			std::vector<std::vector<DragItem>> fSystemDrags;
 			std::vector<SystemMenuItem> fSystemMenus;
 			std::size_t			fSystemMenuUpdates = 0;
+			WindowFrameLayout	fFrameLayout;
 };
 
 
@@ -232,6 +239,8 @@ public:
 			std::expected<void, Error> ShowNotification(const NotificationSpec& spec) override;
 									/*!< Keeps \a spec as shown; one with the id of an
 										earlier one takes its place. */
+			bool				HasTransparentWindows() const override;
+									/*!< True: its windows show whatever they draw. */
 
 			void				Post(std::function<void()> work);
 									/*!< Runs \a work on the main thread in the next
