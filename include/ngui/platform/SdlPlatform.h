@@ -88,6 +88,12 @@ public:
 									/*!< SDL_ShowFileDialogWithProperties(): the system's
 										dialog (Windows' and macOS' own; under Linux the
 										xdg-desktop-portal's, without one zenity's). */
+			SystemColorScheme	ColorScheme() const override;
+									/*!< SDL_GetSystemTheme(): under Linux the desktop's
+										portal (org.freedesktop.appearance color-scheme),
+										under Windows and macOS their own setting;
+										SDL_EVENT_SYSTEM_THEME_CHANGED becomes
+										kSystemColorsChanged. */
 			bool				HasTransparentWindows() const override;
 									/*!< Under Wayland, Windows and macOS; under X11 while a
 										compositing manager runs; not with the offscreen

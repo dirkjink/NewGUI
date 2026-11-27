@@ -396,7 +396,10 @@ if(NGUI_WITH_SDL3)
     if(UNIX AND NOT APPLE)
         find_package(DBus1 CONFIG QUIET)
         if(TARGET dbus-1)
-            target_sources(ngui_sdl3_tests PRIVATE sdl3/DbusNotificationsTest.cpp)
+            # ... and the desktop's light or dark colors through its portal
+            # (module G6), with SDL's X11 driver as well
+            target_sources(ngui_sdl3_tests PRIVATE sdl3/DbusNotificationsTest.cpp
+                sdl3/SdlX11ThemeTest.cpp)
             target_link_libraries(ngui_sdl3_tests PRIVATE dbus-1)
         endif()
     endif()

@@ -1749,6 +1749,22 @@ struct ClipboardOffer {
 } // namespace
 
 
+SystemColorScheme
+SdlPlatform::ColorScheme() const
+{
+	return fData->OnMain([] {
+		switch (SDL_GetSystemTheme()) {
+			case SDL_SYSTEM_THEME_LIGHT:
+				return SystemColorScheme::Light;
+			case SDL_SYSTEM_THEME_DARK:
+				return SystemColorScheme::Dark;
+			default:
+				return SystemColorScheme::Unknown;
+		}
+	});
+}
+
+
 bool
 SdlPlatform::HasTransparentWindows() const
 {
