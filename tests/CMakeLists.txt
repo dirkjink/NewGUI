@@ -397,13 +397,13 @@ if(NGUI_WITH_SDL3)
             target_link_libraries(ngui_sdl3_tests PRIVATE dbus-1)
         endif()
     endif()
-    # The application's menu bar (module P3) and drag & drop (module P4) on
-    # macOS, with SDL's Cocoa windows.
+    # The application's menu bar (module P3), drag & drop (module P4) and
+    # the notifications (module P5) on macOS, with SDL's Cocoa windows.
     if(APPLE)
         target_sources(ngui_sdl3_tests PRIVATE sdl3/SdlCocoaDragDropTest.mm
-            sdl3/SdlCocoaMenuBarTest.mm)
+            sdl3/SdlCocoaMenuBarTest.mm sdl3/SdlCocoaNotificationsTest.mm)
         set_source_files_properties(sdl3/SdlCocoaDragDropTest.mm sdl3/SdlCocoaMenuBarTest.mm
-            PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+            sdl3/SdlCocoaNotificationsTest.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     endif()
     gtest_discover_tests(ngui_sdl3_tests
         DISCOVERY_MODE PRE_TEST

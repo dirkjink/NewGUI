@@ -349,15 +349,16 @@ if(NGUI_WITH_SDL3)
             target_link_libraries(ngui_sdl3 PRIVATE ${CMAKE_DL_LIBS})
         endif()
     endif()
-    # The application's menu bar (module P3) and drag & drop with other
-    # programs (module P4) on macOS; Objective-C++.
+    # The application's menu bar (module P3), drag & drop with other
+    # programs (module P4) and the notifications (module P5) on macOS;
+    # Objective-C++.
     if(APPLE)
         target_sources(ngui_sdl3 PRIVATE platform/sdl3/CocoaDragDrop.mm
-            platform/sdl3/CocoaMenuBar.mm)
+            platform/sdl3/CocoaMenuBar.mm platform/sdl3/CocoaNotifications.mm)
         set_source_files_properties(platform/sdl3/CocoaDragDrop.mm platform/sdl3/CocoaMenuBar.mm
-            PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+            platform/sdl3/CocoaNotifications.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
         target_link_libraries(ngui_sdl3 PRIVATE "-framework AppKit"
-            "-framework UniformTypeIdentifiers")
+            "-framework UniformTypeIdentifiers" "-framework UserNotifications")
     endif()
     # Screen readers through AccessKit (toolkit scope 11.3; vcpkg feature
     # accessibility, overlay port ports/accesskit-c).
