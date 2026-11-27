@@ -19,6 +19,7 @@
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
 #include <ngui/Button.h>
+#include <ngui/LookRegistry.h>
 #include <ngui/Looper.h>
 #include <ngui/Message.h>
 #include <ngui/TextSystem.h>
@@ -135,6 +136,65 @@ TEST(WindowFrameSkiaTest, TheBeFrameMatchesItsSnapshot)
 	(void)otherWindow.WaitForLooperQuit(5s);
 	(void)framed.WaitForLooperQuit(5s);
 	driver.reset();
+	BApplication::SetWindowFrames(BWindowFrames::System);
+	TextSystem::SetDefault(nullptr);
+}
+
+
+TEST(WindowFrameSkiaTest, TheHaikuAndFlatFramesMatchTheirSnapshots)
+{
+	// What is tested: The window "Frames" of TheBeFrameMatchesItsSnapshot
+	// with the frames of the look, in the looks "haiku" and "flat": active,
+	// then inactive (another window is activated).
+	// Success criteria: Each matches WindowFrameSkiaTest_Active.<look>... and
+	// _Inactive.<look>.skia.1x.png within the text tolerance: Haiku's
+	// DefaultDecorator (the tab with its gradient, the blended square
+	// buttons, the frame's five shades) and the FlatDecorator (a flat tab
+	// that runs into the border).
+	// Why it matters: The frames are Haiku's decorators ported line by line;
+	// the references, checked by eye against Haiku, pin their pixels.
+	//
+	// Given
+	TestEnvironment environment;
+	auto text = std::move(*text::FontTextSystem::CreateBundled());
+	TextSystem::SetDefault(text.get());
+	(void)gfx::SkiaBackend::Register(gfx::BackendRegistry::Default());
+	BApplication::SetWindowFrames(BWindowFrames::Look);
+
+	for (const char* look : {"haiku", "flat"}) {
+		(void)LookRegistry::Default().SetCurrent(look);
+		BApplication app("application/x-vnd.ngui-window-frame-skia-test");
+		auto driver = std::make_unique<Driver>(app);
+		auto owned = std::make_unique<FramedWindow>();
+		owned->Show();
+		const BMessenger framed = *BLooper::Run(std::move(owned));
+		ASSERT_TRUE(driver->WaitForIdle().has_value());
+		WindowRef window = driver->Window("Frames");
+		window.PlatformWindow()->Activate();
+		ASSERT_TRUE(driver->WaitForIdle().has_value());
+
+		// When / Then
+		EXPECT_IMAGE_SNAPSHOT(Shown(window), "Active",
+			{.look = look, .backend = "skia", .tolerance = Tolerance::Text()});
+
+		auto other = std::make_unique<BWindow>(gfx::Rect{500, 500, 600, 560}, "Other",
+			BWindowLook::Titled);
+		other->Show();
+		const BMessenger otherWindow = *BLooper::Run(std::move(other));
+		ASSERT_TRUE(driver->WaitForIdle().has_value());
+		driver->Window("Other").PlatformWindow()->Activate();
+		ASSERT_TRUE(driver->WaitForIdle().has_value());
+		EXPECT_IMAGE_SNAPSHOT(Shown(window), "Inactive",
+			{.look = look, .backend = "skia", .tolerance = Tolerance::Text()});
+
+		(void)otherWindow.SendMessage(kQuitRequested);
+		(void)framed.SendMessage(kQuitRequested);
+		(void)otherWindow.WaitForLooperQuit(5s);
+		(void)framed.WaitForLooperQuit(5s);
+		driver.reset();
+	}
+
+	(void)LookRegistry::Default().SetCurrent("be");
 	BApplication::SetWindowFrames(BWindowFrames::System);
 	TextSystem::SetDefault(nullptr);
 }

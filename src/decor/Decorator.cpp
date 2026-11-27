@@ -26,6 +26,8 @@
 #include <ngui/TextSystem.h>
 
 #include "looks/be/BeDecorator.h"
+#include "looks/flat/FlatDecorator.h"
+#include "looks/haiku/HaikuDecorator.h"
 
 
 namespace ngui::detail {
@@ -652,9 +654,13 @@ Decorator::_SingleTabOffsetAndSize(float& tabSize)
 std::unique_ptr<Decorator>
 MakeDecorator(std::string_view lookId, const TextSystem& text)
 {
-	// the looks with a decorator; "haiku" and "flat" follow
+	// the looks ported from Haiku, each with Haiku's decorator for it
 	if (lookId == "be")
 		return std::make_unique<BeDecorator>(text);
+	if (lookId == "haiku")
+		return std::make_unique<HaikuDecorator>(text);
+	if (lookId == "flat")
+		return std::make_unique<FlatDecorator>(text);
 	return nullptr;
 }
 

@@ -155,8 +155,10 @@ add_library(ngui
     looks/be/BeControlLook.cpp
     looks/be/BeDecorator.cpp
     looks/haiku/HaikuControlLook.cpp
+    looks/haiku/HaikuDecorator.cpp
     looks/haiku/HaikuLook.cpp
     looks/flat/FlatControlLook.cpp
+    looks/flat/FlatDecorator.cpp
     looks/flat/FlatLook.cpp
     platform/CpuPresenter.cpp
     platform/HeadlessPlatform.cpp

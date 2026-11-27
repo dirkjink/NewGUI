@@ -19,6 +19,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "decor/DrawingEngine.h"
+
 
 namespace ngui::detail {
 
@@ -27,6 +29,10 @@ using compat::BPoint;
 using compat::BRect;
 using compat::CompatView;
 using compat::rgb_color;
+using decor::FillRect;
+using decor::StrokeLine;
+using decor::StrokePoint;
+using decor::StrokeRect;
 
 
 namespace {
@@ -104,39 +110,6 @@ constexpr unsigned char kGlintBits[] = {
 	f, 0, f,
 	0, f, f
 };
-
-
-// The DrawingEngine's calls with a color, on the compatibility layer.
-void
-StrokeLine(CompatView& view, BPoint start, BPoint end, rgb_color color)
-{
-	view.SetHighColor(color);
-	view.StrokeLine(start, end);
-}
-
-
-void
-StrokeRect(CompatView& view, BRect rect, rgb_color color)
-{
-	view.SetHighColor(color);
-	view.StrokeRect(rect);
-}
-
-
-void
-FillRect(CompatView& view, BRect rect, rgb_color color)
-{
-	view.SetHighColor(color);
-	view.FillRect(rect);
-}
-
-
-void
-StrokePoint(CompatView& view, BPoint point, rgb_color color)
-{
-	view.SetHighColor(color);
-	view.FillRect(BRect(point, point));
-}
 
 
 // What _GetBitmapForButton() puts into a bitmap of \a side × \a side pixels
