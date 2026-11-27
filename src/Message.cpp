@@ -455,6 +455,7 @@ BMessage::BMessage(const BMessage& other)
 	what(other.what),
 	fFields(other.fFields),
 	fDropPoint(other.fDropPoint),
+	fDropOffset(other.fDropOffset),
 	fCurrentSpecifier(other.fCurrentSpecifier),
 	fPlatformEvent(other.fPlatformEvent)
 {
@@ -475,6 +476,7 @@ BMessage::operator=(const BMessage& other)
 		fFields = other.fFields;
 		fDelivery.reset();
 		fDropPoint = other.fDropPoint;
+		fDropOffset = other.fDropOffset;
 		fCurrentSpecifier = other.fCurrentSpecifier;
 		fPlatformEvent = other.fPlatformEvent;
 	}
@@ -497,7 +499,7 @@ gfx::Point
 BMessage::DropPoint(gfx::Point* offset) const
 {
 	if (offset != nullptr)
-		*offset = {0, 0};
+		*offset = fDropPoint.has_value() ? fDropOffset : gfx::Point{0, 0};
 	return fDropPoint.value_or(gfx::Point{0, 0});
 }
 

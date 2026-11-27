@@ -391,7 +391,14 @@ private:
 			void				_CheckToolTipOwner(const BView* under);
 			void				_UpdateCursor(const BView* under);
 			void				_DropEvent(BMessage* message);
-			void				_DragMoved(gfx::Point where);
+			void				_DragMoved(gfx::Point where, const BMessage& drag);
+			void				_StartDrag(const BMessage& message,
+									std::unique_ptr<BBitmap> image, gfx::Point offset,
+									BMessenger replyTo);
+			void				_DragTo(gfx::Point screen, bool drop);
+			void				_EndDrag();
+			void				_DragTrack(BMessage* track);
+			void				_PublishPlace(bool toFront);
 			void				_ViewCursorChanged(const BView* view);
 			void				_UpdatePopup(PopupSurface& popup,
 									const gfx::Caps& caps, const TextSystem& text);
@@ -487,7 +494,14 @@ private:
 			std::string			fDropText;
 			bool				fDropTextSeen = false;
 			BView*				fDragView = nullptr;
-									// the view a drag from outside is over
+									// the view a drag is over (from outside or from a
+									// window of the application)
+			struct Drag;
+			std::unique_ptr<Drag> fDrag;
+									// a drag started in this window (DragMessage())
+			std::optional<BMessage> fDragOver;
+									// the message dragged over this window, for the
+									// exit of its view
 									// the view under the mouse whose cursor shows
 			std::unique_ptr<ToolTipPopup> fToolTip;
 									// the tooltip shown, once one was

@@ -11,6 +11,7 @@
 #include <cmath>
 #include <functional>
 #include <limits>
+#include <map>
 #include <future>
 #include <mutex>
 #include <utility>
@@ -65,6 +66,49 @@ std::vector<std::string> sWindowTitles;
 // their serials, in the same order, and the next one
 std::vector<std::uint64_t> sWindowSerials;
 std::uint64_t sNextWindowSerial = 0;
+
+// Where they are on the screen, in the same order: for a drag from one of
+// them, which must find the window under the mouse (module P4).
+struct WindowPlace {
+	gfx::Rect		frame = {0, 0, 0, 0};
+	bool			shown = false;
+	std::uint64_t	front = 0;	// larger: activated or shown later
+};
+std::vector<WindowPlace> sWindowPlaces;
+std::uint64_t sNextFront = 1;
+
+// A drag of the application over a window (DragMessage()): to the window
+// under the mouse, with "where" (screen), "message", "offset", "reply"
+// (BMessenger) and "phase": 0 over it, 1 dropped on it, 2 gone from it.
+constexpr std::uint32_t kDragTrack = FourCharCode("_DTK");
+constexpr std::int32_t kDragOver = 0;
+constexpr std::int32_t kDragDropped = 1;
+constexpr std::int32_t kDragGone = 2;
+
+
+// Where the replies to a running drag go, by the drag's number ("drag" of
+// kDragTrack): a BMessage carries no messenger.
+std::mutex sDragRepliesLock;
+std::map<std::int64_t, BMessenger> sDragReplies;
+std::int64_t sNextDrag = 1;
+
+
+// The window of the application in front at \a screen, if any.
+BMessenger
+WindowAt(gfx::Point screen)
+{
+	std::scoped_lock lock(sWindowsLock);
+	BMessenger found;
+	std::uint64_t front = 0;
+	for (std::size_t i = 0; i < sWindows.size(); i++) {
+		const WindowPlace& place = sWindowPlaces[i];
+		if (place.shown && place.frame.Contains(screen) && place.front >= front) {
+			found = sWindows[i];
+			front = place.front;
+		}
+	}
+	return found;
+}
 
 // The shown windows with BWindowFeel::ModalApp, under sWindowsLock.
 struct ModalWindow {
@@ -203,6 +247,17 @@ struct BWindow::Shortcut {
 };
 
 
+// What a drag started in this window keeps (DragMessage(), module P4).
+struct BWindow::Drag {
+			BMessage			message;
+			BMessenger			replyTo;
+			gfx::Point			offset;		// the mouse in the image
+			std::int64_t		number = 0;	// its replyTo in sDragReplies
+			BView*				image = nullptr;	// its popup, if it has one
+			BMessenger			over;		// the window the mouse is over
+};
+
+
 BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWindowFlags flags)
 	:
 	BLooper(title),
@@ -216,6 +271,7 @@ BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWin
 		sWindowTitles.push_back(fTitle);
 		fSerial = sNextWindowSerial++;
 		sWindowSerials.push_back(fSerial);
+		sWindowPlaces.push_back({frame, false, 0});
 	}
 	fLook = LookRegistry::DefaultLook();
 	fRoot = std::make_unique<BView>(Bounds(), "root", kFollowAll, BViewFlags());
@@ -267,6 +323,7 @@ BWindow::~BWindow()
 		if (found != sWindows.end()) {
 			sWindowTitles.erase(sWindowTitles.begin() + (found - sWindows.begin()));
 			sWindowSerials.erase(sWindowSerials.begin() + (found - sWindows.begin()));
+			sWindowPlaces.erase(sWindowPlaces.begin() + (found - sWindows.begin()));
 			sWindows.erase(found);
 		}
 		std::erase_if(sModalWindows, [this](const ModalWindow& modal) {
@@ -279,6 +336,8 @@ BWindow::~BWindow()
 		fMenuTracking->CancelTracking();
 	fToolTip.reset();
 	fIdleRunner.reset();
+	// a drag from here ends; its image is one of the popups
+	_EndDrag();
 	while (!fPopups.empty())
 		(void)ClosePopup(fPopups.back()->root.get());
 	fRoot->_Detach();
@@ -577,6 +636,7 @@ BWindow::Show()
 			fPlatformWindow->Show();
 		_AddDirty(Bounds());
 		_UpdateModal();
+		_PublishPlace(true);
 	}
 }
 
@@ -590,6 +650,7 @@ BWindow::Hide()
 		if (fPlatformWindow != nullptr)
 			fPlatformWindow->Hide();
 		_UpdateModal();
+		_PublishPlace(false);
 	}
 }
 
@@ -622,6 +683,7 @@ BWindow::MoveTo(gfx::Point where)
 		fPlatformWindow->MoveTo(where);
 	const gfx::Point old = {fFrame.x0, fFrame.y0};
 	fFrame = {where.x, where.y, where.x + fFrame.Width(), where.y + fFrame.Height()};
+	_PublishPlace(false);
 	if (old.x != where.x || old.y != where.y)
 		FrameMoved(where);
 }
@@ -848,6 +910,9 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kDropComplete:
 			_DropEvent(message);
 			return;
+		case kDragTrack:
+			_DragTrack(message);
+			return;
 		case kToolTipClose:
 			if (fToolTip != nullptr)
 				fToolTip->CloseIfHidden();
@@ -873,6 +938,7 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		{
 			const gfx::Point where = message->GetPoint("where", {fFrame.x0, fFrame.y0});
 			fFrame = {where.x, where.y, where.x + fFrame.Width(), where.y + fFrame.Height()};
+			_PublishPlace(false);
 			FrameMoved(where);
 			return;
 		}
@@ -919,6 +985,8 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 		case kWindowActivated:
 		{
 			fActive = message->GetBool("active", false);
+			if (fActive)
+				_PublishPlace(true);
 			if (!fActive && fMenuTracking != nullptr)
 				fMenuTracking->CancelTracking();
 			if (fActive) {
@@ -1314,7 +1382,7 @@ BWindow::_DropEvent(BMessage* message)
 			fDropTextSeen = false;
 			return;
 		case kDropPosition:
-			_DragMoved(where);
+			_DragMoved(where, BMessage(kSimpleData));
 			return;
 		case kDropFile:
 			if (auto path = message->FindString("path"))
@@ -1362,12 +1430,11 @@ BWindow::_DropEvent(BMessage* message)
 
 
 void
-BWindow::_DragMoved(gfx::Point where)
+BWindow::_DragMoved(gfx::Point where, const BMessage& drag)
 {
-	// Haiku: the views get MouseMoved() with the drag message. NewGUI: the
-	// platform tells the content only at the drop, so the message has no
-	// fields while dragging.
-	BMessage drag(kSimpleData);
+	// Haiku: the views get MouseMoved() with the drag message. NewGUI: from
+	// another application the platform tells the content only at the drop,
+	// so that message has no fields while dragging.
 	BView* under = ViewAt(fRoot.get(), where);
 	if (under != fDragView) {
 		if (fDragView != nullptr) {
@@ -1380,6 +1447,195 @@ BWindow::_DragMoved(gfx::Point where)
 	} else if (under != nullptr) {
 		under->MouseMoved(under->ConvertFromWindow(where), BMouseTransit::Inside, &drag);
 	}
+}
+
+
+namespace {
+
+
+// The image of a drag, in a popup under the mouse.
+class DragImageView final : public BView {
+public:
+	DragImageView(gfx::Rect frame, std::unique_ptr<BBitmap> image)
+		:
+		BView(frame, "drag image", kFollowLeftTop, BViewFlag::WillDraw),
+		fImage(std::move(image))
+	{
+	}
+
+	void Draw(DrawContext& context) override
+	{
+		const gfx::Rect bounds = fImage->Bounds();
+		context.canvas.DrawImage(fImage->Image(), bounds, bounds);
+	}
+
+private:
+	std::unique_ptr<BBitmap> fImage;
+};
+
+
+} // namespace
+
+
+void
+BWindow::_StartDrag(const BMessage& message, std::unique_ptr<BBitmap> image, gfx::Point offset,
+	BMessenger replyTo)
+{
+	// a drag that is running ends first, without a drop
+	_EndDrag();
+	fDrag = std::make_unique<Drag>();
+	fDrag->message = message;
+	fDrag->replyTo = std::move(replyTo);
+	fDrag->offset = offset;
+	{
+		std::scoped_lock lock(sDragRepliesLock);
+		fDrag->number = sNextDrag++;
+		sDragReplies[fDrag->number] = fDrag->replyTo;
+	}
+	const gfx::Point mouse = fLastMouse.value_or(gfx::Point{fFrame.x0, fFrame.y0});
+	if (image != nullptr && image->IsValid()) {
+		const gfx::Rect bounds = image->Bounds();
+		const gfx::Rect frame{mouse.x - offset.x, mouse.y - offset.y,
+			mouse.x - offset.x + bounds.Width(), mouse.y - offset.y + bounds.Height()};
+		// a tooltip's popup: it takes no input, the mouse stays the window's
+		fDrag->image = _OpenPopup(std::make_unique<DragImageView>(frame, std::move(image)),
+			true);
+	}
+	_DragTo(mouse, false);
+}
+
+
+// The mouse of a drag at \a screen: the image follows, the window under it
+// hears of the drag; \a drop ends it there.
+void
+BWindow::_DragTo(gfx::Point screen, bool drop)
+{
+	if (fDrag == nullptr)
+		return;
+	if (fDrag->image != nullptr)
+		fDrag->image->MoveTo({screen.x - fDrag->offset.x, screen.y - fDrag->offset.y});
+	const BMessenger self(this);
+	const BMessenger over = WindowAt(screen);
+	const auto send = [this, &self](const BMessenger& window, BMessage& track) {
+		// this window at once, in order with its own events
+		if (window == self)
+			_DragTrack(&track);
+		else
+			(void)window.SendMessage(track);
+	};
+	BMessage track(kDragTrack);
+	(void)track.AddPoint("where", screen);
+	(void)track.AddMessage("message", fDrag->message);
+	(void)track.AddPoint("offset", fDrag->offset);
+	(void)track.AddInt64("drag", fDrag->number);
+	if (fDrag->over.IsValid() && !(fDrag->over == over)) {
+		BMessage gone(track);
+		(void)gone.AddInt32("phase", kDragGone);
+		send(fDrag->over, gone);
+	}
+	fDrag->over = over;
+	(void)track.AddInt32("phase", drop ? kDragDropped : kDragOver);
+	if (over.IsValid())
+		send(over, track);
+	if (drop) {
+		// the drop's window takes its replyTo when it gets the drop, which
+		// may be after this
+		if (over.IsValid())
+			fDrag->number = 0;
+		fDrag->over = BMessenger();
+		_EndDrag();
+	}
+}
+
+
+// Ends the drag without a drop: the window it is over hears it is gone.
+void
+BWindow::_EndDrag()
+{
+	if (fDrag == nullptr)
+		return;
+	if (fDrag->over.IsValid()) {
+		BMessage gone(kDragTrack);
+		(void)gone.AddInt32("phase", kDragGone);
+		(void)gone.AddPoint("where", fLastMouse.value_or(gfx::Point{0, 0}));
+		(void)gone.AddMessage("message", fDrag->message);
+		if (fDrag->over == BMessenger(this))
+			_DragTrack(&gone);
+		else
+			(void)fDrag->over.SendMessage(gone);
+	}
+	if (fDrag->number != 0) {
+		std::scoped_lock lock(sDragRepliesLock);
+		sDragReplies.erase(fDrag->number);
+	}
+	if (fDrag->image != nullptr)
+		(void)ClosePopup(fDrag->image);
+	fDrag.reset();
+}
+
+
+// A drag of the application over this window (kDragTrack).
+void
+BWindow::_DragTrack(BMessage* track)
+{
+	const gfx::Point screen = track->GetPoint("where", {0, 0});
+	const gfx::Point where{screen.x - fFrame.x0, screen.y - fFrame.y0};
+	const std::int32_t phase = track->GetInt32("phase", kDragOver);
+	BMessage drag;
+	if (auto found = track->FindMessage("message"); found.has_value())
+		drag = std::move(*found);
+	if (phase == kDragOver) {
+		_DragMoved(where, drag);
+		fDragOver = std::move(drag);
+		return;
+	}
+	if (fDragView != nullptr) {
+		fDragView->MouseMoved(fDragView->ConvertFromWindow(where), BMouseTransit::Exited,
+			fDragOver.has_value() ? &*fDragOver : &drag);
+		fDragView = nullptr;
+	}
+	fDragOver.reset();
+	if (phase != kDragDropped)
+		return;
+
+	// Haiku's drop: to the view under the mouse, its parents and the window
+	// if it does not handle it; replies to the drag's replyTo.
+	drag.fDropPoint = screen;
+	drag.fDropOffset = track->GetPoint("offset", {0, 0});
+	BMessenger replyTo;
+	{
+		std::scoped_lock lock(sDragRepliesLock);
+		const auto found = sDragReplies.find(track->GetInt64("drag", 0));
+		if (found != sDragReplies.end()) {
+			replyTo = found->second;
+			sDragReplies.erase(found);
+		}
+	}
+	if (replyTo.IsValid()) {
+		drag.fDelivery = std::make_unique<MessageDelivery>();
+		drag.fDelivery->reply = std::make_unique<ReplyToken>(std::weak_ptr<ReplyWaiter>(),
+			replyTo);
+	}
+	if (BView* target = ViewAt(fRoot.get(), where))
+		target->MessageReceived(&drag);
+	else
+		MessageReceived(&drag);
+}
+
+
+void
+BWindow::_PublishPlace(bool toFront)
+{
+	const BMessenger self(this);
+	std::scoped_lock lock(sWindowsLock);
+	const auto found = std::ranges::find(sWindows, self);
+	if (found == sWindows.end())
+		return;
+	WindowPlace& place = sWindowPlaces[static_cast<std::size_t>(found - sWindows.begin())];
+	place.frame = fFrame;
+	place.shown = !IsHidden();
+	if (toFront)
+		place.front = sNextFront++;
 }
 
 
@@ -1427,6 +1683,17 @@ BWindow::_MouseEvent(BMessage* message, BView* root)
 		fButtons = buttons;
 		fMenuTracking->TrackMouse(message->what, screen, buttons);
 		return;
+	}
+
+	// While something is dragged (DragMessage()), the drag gets the moves;
+	// the release drops it, then goes on to the views as usual.
+	if (fDrag != nullptr && message->HasPoint("where")) {
+		if (message->what == kMouseMoved) {
+			_DragTo(screen, false);
+			return;
+		}
+		if (message->what == kMouseUp)
+			_DragTo(screen, true);
 	}
 
 	BView* under = exited ? nullptr : ViewAt(root, root->ConvertFromWindow(where));
@@ -1888,6 +2155,7 @@ BWindow::_Resized(float width, float height, float scale)
 	if (!sized && !scaled)
 		return;
 	fFrame = {fFrame.x0, fFrame.y0, fFrame.x0 + width, fFrame.y0 + height};
+	_PublishPlace(false);
 	fScale = scale > 0 ? scale : 1;
 	fSurface.reset();
 	if (sized) {

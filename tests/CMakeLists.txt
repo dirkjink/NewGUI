@@ -34,6 +34,7 @@ add_executable(ngui_tests
     ContainerTest.cpp
     ControlTest.cpp
     CursorTest.cpp
+    DragTest.cpp
     DropTest.cpp
     ErrorTest.cpp
     FontTest.cpp

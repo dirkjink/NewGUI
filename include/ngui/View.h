@@ -343,6 +343,28 @@ public:
 										the window's thread only; InvalidArgument without a
 										window. */
 
+	// Drag & drop (module P4)
+
+			void				DragMessage(const BMessage& message, gfx::Rect dragRect,
+									BHandler* replyTo = nullptr);
+									/*!< Starts dragging a copy of \a message, shown as the
+										part \a dragRect of the view (its coordinates) under
+										the mouse; usually from MouseDown() or MouseMoved()
+										with a button down. Until the button goes up, the
+										views the mouse passes in the application's windows
+										get MouseMoved() with the message; then the view
+										under the mouse gets it, WasDropped(), DropPoint() on
+										the screen with the offset of the mouse in the
+										image. Replies go to \a replyTo (this view if
+										nullptr). NewGUI: Haiku showed the rectangle's
+										outline, NewGUI shows its contents. On the window's
+										thread; nothing without a window. */
+			void				DragMessage(const BMessage& message,
+									std::unique_ptr<BBitmap> image, gfx::Point offset,
+									BHandler* replyTo = nullptr);
+									/*!< The same, shown as \a image with the mouse at
+										\a offset in it (nullptr: no image). */
+
 	// Events
 
 	virtual	void				MakeFocus(bool focus = true);
@@ -548,10 +570,12 @@ public:
 									/*!< A button went up. */
 	virtual	void				MouseMoved(gfx::Point where, BMouseTransit transit,
 									const BMessage* dragMessage);
-									/*!< The mouse moved; while something is dragged from
-										another application over the view, \a dragMessage
-										is a kSimpleData message (without its content,
-										which comes with the drop), otherwise nullptr. */
+									/*!< The mouse moved; while something is dragged over
+										the view, \a dragMessage is the dragged message
+										(DragMessage()), or for files and text from another
+										application a kSimpleData message without its
+										content, which comes with the drop; otherwise
+										nullptr. */
 	virtual	void				KeyDown(std::string_view bytes);
 									/*!< A key went down while it had the focus; \a bytes is
 										the text it types, possibly empty. By default Tab
