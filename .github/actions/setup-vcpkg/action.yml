@@ -85,4 +85,5 @@ runs:
         count=$(find .vcpkg-cache -type f | wc -l | tr -d ' ')
         echo "packages restored: $count"
         echo "VCPKG_CACHE_FILES=$count" >> "$GITHUB_ENV"
-        echo "VCPKG_CACHE_KEY=$KEY-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+        # the job's name too: jobs of a run may share a cache-key
+        echo "VCPKG_CACHE_KEY=$KEY-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}" >> "$GITHUB_ENV"
