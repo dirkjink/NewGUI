@@ -148,7 +148,10 @@ foreach(variant IN ITEMS "0;test_look_plugin" "1;test_look_plugin_old"
         LIBRARY_OUTPUT_DIRECTORY "${lookPluginDir}$<0:>")
     add_dependencies(ngui_tests ${name})
 endforeach()
-target_compile_definitions(ngui_tests PRIVATE NGUI_TEST_LOOK_PLUGIN_DIR="${lookPluginDir}")
+target_compile_definitions(ngui_tests
+    PRIVATE
+        NGUI_TEST_LOOK_PLUGIN_DIR="${lookPluginDir}"
+        NGUI_TEST_LOOK_PLUGIN_SUFFIX="${CMAKE_SHARED_MODULE_SUFFIX}")
 
 target_compile_definitions(ngui_tests
     PRIVATE
