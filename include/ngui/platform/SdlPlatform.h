@@ -88,6 +88,10 @@ public:
 									/*!< SDL_ShowFileDialogWithProperties(): the system's
 										dialog (Windows' and macOS' own; under Linux the
 										xdg-desktop-portal's, without one zenity's). */
+			bool				HasTransparentWindows() const override;
+									/*!< Under Wayland, Windows and macOS; under X11 while a
+										compositing manager runs; not with the offscreen
+										driver. */
 			std::expected<void, Error> ShowNotification(const NotificationSpec& spec) override;
 									/*!< The system's notifications: under Linux
 										org.freedesktop.Notifications on the session bus

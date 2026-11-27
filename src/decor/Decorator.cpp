@@ -283,6 +283,17 @@ Decorator::ZoomRect() const
 }
 
 
+gfx::Rect
+Decorator::ResizeRect() const
+{
+	// TabDecorator::RegionAt()'s resize area of the bottom and right borders
+	if (!fResizable || fTopTab->look != Look::Titled || fBorderWidth <= 0)
+		return {0, 0, 0, 0};
+	return HalfOpen(BRect(BPoint(fBottomBorder.right - fBorderResizeLength,
+		fBottomBorder.bottom - fBorderResizeLength), fBottomBorder.RightBottom()));
+}
+
+
 float
 Decorator::BorderWidth() const
 {

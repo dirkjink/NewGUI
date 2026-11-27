@@ -105,6 +105,9 @@ public:
 			gfx::Rect			TabRect() const;
 			gfx::Rect			CloseRect() const;
 			gfx::Rect			ZoomRect() const;
+			gfx::Rect			ResizeRect() const;
+									// Where the frame resizes at the bottom right
+									// corner; empty if it does not.
 			float				BorderWidth() const;
 			float				TabHeight() const;
 									// The tab's rows above the border.

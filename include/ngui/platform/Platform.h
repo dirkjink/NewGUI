@@ -139,6 +139,33 @@ struct WindowSpec {
 };
 
 
+/*!	What the window system does with a press on an area of the frame NewGUI
+	draws (SDL's hit test): the window moves or resizes, or the window gets
+	the press. */
+enum class WindowFrameHit : std::uint8_t {
+	Normal,				/*!< The window gets the mouse (a button). */
+	Move,				/*!< The window system moves the window. */
+	ResizeLeft,			/*!< The window system resizes it at this side ... */
+	ResizeRight,
+	ResizeTop,
+	ResizeBottom,
+	ResizeTopLeft,		/*!< ... or corner. */
+	ResizeTopRight,
+	ResizeBottomLeft,
+	ResizeBottomRight
+};
+
+
+/*!	An area of the frame and what a press on it does. */
+struct WindowFrameArea {
+			gfx::Rect			rect;					/*!< In window coordinates. */
+			WindowFrameHit		hit = WindowFrameHit::Move;	/*!< What a press does. */
+
+			bool				operator==(const WindowFrameArea& other) const = default;
+									/*!< Same area, same action. */
+};
+
+
 /*!	The frame NewGUI draws around a window's content (BWindowFrames::Look),
 	for the platform: where the content lies in the window and which areas
 	the frame covers (the rest is transparent). */
@@ -151,6 +178,10 @@ struct WindowFrameLayout {
 													such a frame. */
 			std::vector<gfx::Rect> shape;		/*!< The frame's areas in window
 													coordinates (borders, tab). */
+			std::vector<WindowFrameArea> areas;	/*!< What a press does where: the
+													first area containing the point
+													counts; the content and the rest
+													are Normal. */
 };
 
 

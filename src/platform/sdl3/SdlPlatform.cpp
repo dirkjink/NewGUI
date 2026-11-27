@@ -37,6 +37,7 @@
 #include "PlatformEvent.h"
 #include "SdlEvents.h"
 #include "platform/sdl3/DropPayload.h"
+#include "platform/sdl3/FrameHit.h"
 #ifdef NGUI_WITH_ACCESSKIT
 #include "platform/sdl3/AccessKitBridge.h"
 #endif
@@ -120,6 +121,12 @@ struct WindowState {
 	// (module P4)
 	bool					x11Drops = false;
 #endif
+	// the frame its BWindow draws (BWindowFrames::Look), for SDL's hit test,
+	// under a lock of its own: SDL asks while it handles events, when the
+	// main thread may hold the window's
+	std::mutex				frameLock;
+	WindowFrameLayout		frameLayout;
+	bool					hitTest = false;
 #ifdef __APPLE__
 	// an NSWindow of SDL's Cocoa driver (not a popup): its menus go into
 	// the application's menu bar (module P3), as its BWindow passed them on
@@ -198,6 +205,17 @@ FormatOf(SDL_PixelFormat format, bool& known)
 			known = false;
 			return gfx::PixelFormat::Bgra8Premul;
 	}
+}
+
+
+// SDL's hit test of a window with NewGUI's frame; main thread.
+SDL_HitTestResult SDLCALL
+FrameHitTest(SDL_Window* /*window*/, const SDL_Point* area, void* data)
+{
+	auto* state = static_cast<WindowState*>(data);
+	std::scoped_lock lock(state->frameLock);
+	return sdl3::HitOf(state->frameLayout,
+		{static_cast<float>(area->x), static_cast<float>(area->y)});
 }
 
 
@@ -853,6 +871,29 @@ public:
 #endif
 	}
 
+	void SetFrameLayout(const WindowFrameLayout& layout) override
+	{
+		bool install = false;
+		{
+			std::scoped_lock lock(fState->frameLock);
+			fState->frameLayout = layout;
+			install = !fState->hitTest;
+			fState->hitTest = true;
+		}
+		if (!install)
+			return;
+		// the window system moves and resizes by the frame's areas
+		_Main([state = fState] {
+			SDL_Window* window = nullptr;
+			{
+				std::scoped_lock lock(state->lock);
+				window = state->window;
+			}
+			if (window != nullptr)
+				(void)SDL_SetWindowHitTest(window, &FrameHitTest, state.get());
+		});
+	}
+
 	void SetSystemMenuBar(std::vector<SystemMenuItem> menus) override
 	{
 #ifdef __APPLE__
@@ -1231,8 +1272,12 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 				flags |= SDL_WINDOW_RESIZABLE;
 			if (!spec.decorated)
 				flags |= SDL_WINDOW_BORDERLESS;
-			// Phase G on request; without OpenGL on the CPU, said once
-			if (data->gpuWanted) {
+			// NewGUI's frame: the desktop shows beside the tab
+			if (spec.transparent)
+				flags |= SDL_WINDOW_TRANSPARENT;
+			// Phase G on request; without OpenGL on the CPU, said once (a
+			// transparent window keeps the CPU's surface for now)
+			if (data->gpuWanted && !spec.transparent) {
 				auto made = MakeGpuWindow(*data, spec, flags);
 				if (made.has_value()) {
 					window = made->window;
@@ -1639,6 +1684,20 @@ struct ClipboardOffer {
 
 
 } // namespace
+
+
+bool
+SdlPlatform::HasTransparentWindows() const
+{
+	const std::string_view driver = VideoDriver();
+	if (driver == "wayland" || driver == "windows" || driver == "cocoa")
+		return true;
+#ifdef NGUI_WITH_X11_DND
+	if (driver == "x11")
+		return sdl3::X11HasCompositor();
+#endif
+	return false;
+}
 
 
 std::expected<void, Error>
