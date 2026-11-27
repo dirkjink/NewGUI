@@ -23,6 +23,7 @@
 #include <dbus/dbus.h>
 #include <gtest/gtest.h>
 
+#include <ngui/AppDefs.h>
 #include <ngui/Looper.h>
 #include <ngui/Message.h>
 #include <ngui/platform/Platform.h>
