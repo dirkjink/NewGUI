@@ -34,3 +34,8 @@ reason = "Only XML_UNICODE builds parsing UTF-16 input; vcpkg builds expat with 
 id = "CVE-2026-137951"
 ignoreUntil = 2027-02-28
 reason = "Out-of-bounds read in storeSelfEntityValue while parsing entity declarations; NewGUI parses no XML with expat (Skia's SkXMLParser and Android font parser are not called, vcpkg's libdbus is not linked) and no expat release fixes it yet. Assessed 2026-11-27."
+
+[[IgnoredVulns]]
+id = "CVE-2026-137992"
+ignoreUntil = 2027-02-28
+reason = "Quadratic CPU time in defineAttribute/storeAtts for repeated ATTLIST declarations in a DTD; NewGUI parses no XML with expat (Skia's SkXMLParser and Android font parser are not called, vcpkg's libdbus is not shipped) and no expat release fixes it yet. Assessed 2026-11-27."
