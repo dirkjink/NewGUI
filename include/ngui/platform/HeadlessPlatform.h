@@ -229,6 +229,9 @@ public:
 									/*!< The placeholder: \a done gets the answer of
 										SetFileDialogAnswer() (by default none, as
 										cancelled) on the main thread, later. */
+			std::expected<void, Error> ShowNotification(const NotificationSpec& spec) override;
+									/*!< Keeps \a spec as shown; one with the id of an
+										earlier one takes its place. */
 
 			void				Post(std::function<void()> work);
 									/*!< Runs \a work on the main thread in the next
@@ -247,6 +250,13 @@ public:
 										nullptr: as cancelled. */
 			std::vector<FileDialogSpec> FileDialogs() const;
 									/*!< The file dialogs asked for so far. */
+			std::vector<NotificationSpec> Notifications() const;
+									/*!< The notifications shown, oldest first (one that
+										replaced another in its place). */
+			std::expected<void, Error> ClickNotification(std::size_t index) const;
+									/*!< Acts as a user clicking the notification \a index
+										of Notifications(): its onClick goes to its target.
+										InvalidArgument for none or one without a click. */
 			bool				IsIdle() const;
 									/*!< No posted work waits or runs (for the test
 										driver's WaitForIdle()). */

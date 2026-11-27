@@ -51,6 +51,7 @@ add_library(ngui
     Control.cpp
     DragData.cpp
     Cursor.cpp
+    Notification.cpp
     ControlLook.cpp
     Locker.cpp
     LookPlugins.cpp
@@ -331,6 +332,18 @@ if(NGUI_WITH_SDL3)
             target_sources(ngui_sdl3 PRIVATE platform/sdl3/X11DragDrop.cpp)
             target_include_directories(ngui_sdl3 SYSTEM PRIVATE "${NGUI_XLIB_INCLUDE_DIR}")
             target_compile_definitions(ngui_sdl3 PRIVATE NGUI_WITH_X11_DND=1)
+            target_link_libraries(ngui_sdl3 PRIVATE ${CMAKE_DL_LIBS})
+        endif()
+    endif()
+    # The desktop's notifications on Linux (module P5): D-Bus's headers only,
+    # the system's libdbus comes with dlopen() as SDL loads it.
+    if(UNIX AND NOT APPLE)
+        find_package(DBus1 CONFIG QUIET)
+        if(TARGET dbus-1)
+            target_sources(ngui_sdl3 PRIVATE platform/sdl3/DbusNotifications.cpp)
+            target_include_directories(ngui_sdl3 SYSTEM PRIVATE
+                "$<TARGET_PROPERTY:dbus-1,INTERFACE_INCLUDE_DIRECTORIES>")
+            target_compile_definitions(ngui_sdl3 PRIVATE NGUI_WITH_DBUS_NOTIFICATIONS=1)
             target_link_libraries(ngui_sdl3 PRIVATE ${CMAKE_DL_LIBS})
         endif()
     endif()

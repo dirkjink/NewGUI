@@ -88,6 +88,11 @@ public:
 									/*!< SDL_ShowFileDialogWithProperties(): the system's
 										dialog (Windows' and macOS' own; under Linux the
 										xdg-desktop-portal's, without one zenity's). */
+			std::expected<void, Error> ShowNotification(const NotificationSpec& spec) override;
+									/*!< The desktop's notifications: under Linux
+										org.freedesktop.Notifications on the session bus
+										(NotSupported without one); NotSupported
+										elsewhere for now. */
 
 			void				SetGpuRendering(bool gpu);
 									/*!< Whether windows made from now on render on the GPU

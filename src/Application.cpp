@@ -34,6 +34,7 @@
 #endif
 
 #include "record/Recorder.h"
+#include "ApplicationPrivate.h"
 #include "CursorState.h"
 #include "Environment.h"
 #include "LooperPort.h"
@@ -53,6 +54,7 @@ namespace {
 std::mutex sLock;
 bool sExists = false;
 BMessenger sMessenger;
+std::string sSignature;
 platform::Platform* sPlatform = nullptr;
 
 
@@ -111,6 +113,7 @@ BApplication::BApplication(std::string_view signature, int argc, char** argv)
 		if (!sExists) {
 			sExists = true;
 			sMessenger = BMessenger(this);
+			sSignature = fSignature;
 			fRegistered = true;
 		}
 	}
@@ -170,6 +173,7 @@ BApplication::~BApplication()
 	if (fRegistered) {
 		sExists = false;
 		sMessenger = BMessenger();
+		sSignature.clear();
 	}
 }
 
@@ -386,6 +390,14 @@ AppMessenger()
 }
 
 
+std::string
+detail::AppSignature()
+{
+	std::scoped_lock lock(sLock);
+	return sSignature;
+}
+
+
 
 void
 platform::PlatformWindow::Activate()
@@ -531,6 +543,13 @@ platform::Platform::ShowFileDialog(const FileDialogSpec& /*spec*/,
 	std::function<void(FileDialogResult)> /*done*/)
 {
 	return Failure(ErrorCode::NotSupported, "no file dialogs");
+}
+
+
+std::expected<void, Error>
+platform::Platform::ShowNotification(const NotificationSpec& /*spec*/)
+{
+	return Failure(ErrorCode::NotSupported, "no notifications");
 }
 
 

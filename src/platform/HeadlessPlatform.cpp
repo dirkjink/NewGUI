@@ -34,6 +34,7 @@ struct HeadlessWindow::Shared {
 	bool								cursorVisible = true;
 	HeadlessPlatform::FileDialogAnswer	answer;
 	std::vector<FileDialogSpec>			dialogs;
+	std::vector<NotificationSpec>		notifications;
 	bool								systemMenuBar = false;
 	bool								systemDrag = false;
 };
@@ -525,6 +526,23 @@ HeadlessPlatform::ShowFileDialog(const FileDialogSpec& spec,
 }
 
 
+std::expected<void, Error>
+HeadlessPlatform::ShowNotification(const NotificationSpec& spec)
+{
+	std::scoped_lock lock(fShared->lock);
+	if (!spec.id.empty()) {
+		for (NotificationSpec& shown : fShared->notifications) {
+			if (shown.id == spec.id) {
+				shown = spec;
+				return {};
+			}
+		}
+	}
+	fShared->notifications.push_back(spec);
+	return {};
+}
+
+
 void
 HeadlessPlatform::Post(std::function<void()> work)
 {
@@ -582,6 +600,33 @@ HeadlessPlatform::FileDialogs() const
 {
 	std::scoped_lock lock(fShared->lock);
 	return fShared->dialogs;
+}
+
+
+std::vector<NotificationSpec>
+HeadlessPlatform::Notifications() const
+{
+	std::scoped_lock lock(fShared->lock);
+	return fShared->notifications;
+}
+
+
+std::expected<void, Error>
+HeadlessPlatform::ClickNotification(std::size_t index) const
+{
+	BMessenger target;
+	BMessage click;
+	{
+		std::scoped_lock lock(fShared->lock);
+		if (index >= fShared->notifications.size())
+			return Failure(ErrorCode::InvalidArgument, "no such notification");
+		const NotificationSpec& shown = fShared->notifications[index];
+		if (!shown.onClick.has_value())
+			return Failure(ErrorCode::InvalidArgument, "the notification takes no click");
+		target = shown.target;
+		click = *shown.onClick;
+	}
+	return target.SendMessage(click);
 }
 
 
