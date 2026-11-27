@@ -42,6 +42,7 @@ namespace {
 
 using namespace ngui;
 using namespace ngui::platform;
+using namespace ngui::test;
 using namespace std::chrono_literals;
 
 
