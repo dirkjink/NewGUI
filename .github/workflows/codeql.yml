@@ -76,7 +76,7 @@ jobs:
 
       # vcpkg's new packages for later runs, also when the step failed
       - name: Keep the vcpkg packages
-        if: always()
+        if: always() && matrix.build-mode == 'manual'
         uses: ./.github/actions/save-vcpkg
 
       # Overlay databases (incremental PR analysis) need build-mode none.

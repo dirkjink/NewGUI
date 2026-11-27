@@ -17,7 +17,10 @@ runs:
       id: count
       shell: bash
       run: |
-        count=$(find .vcpkg-cache -type f 2>/dev/null | wc -l | tr -d ' ')
+        count=0
+        if [ -d .vcpkg-cache ]; then
+          count=$(find .vcpkg-cache -type f | wc -l | tr -d ' ')
+        fi
         echo "packages restored: ${VCPKG_CACHE_FILES:-none}, now: $count"
         if [ -n "${VCPKG_CACHE_KEY:-}" ] && [ "$count" -gt "${VCPKG_CACHE_FILES:-0}" ]; then
           echo "save=true" >> "$GITHUB_OUTPUT"

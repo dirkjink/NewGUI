@@ -9,6 +9,10 @@
 
 set -euo pipefail
 
+# The runners' repository of Microsoft's packages, which nothing here needs,
+# fails now and then (403, "no longer signed"), and with it apt-get update.
+sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/microsoft-prod.sources
+
 apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
 for attempt in 1 2 3; do
 	if timeout 300 sudo apt-get "${apt_options[@]}" update -qq \
