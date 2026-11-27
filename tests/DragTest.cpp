@@ -11,11 +11,14 @@
 
 #include <ngui/View.h>
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -24,6 +27,7 @@
 #include <ngui/Application.h>
 #include <ngui/Looper.h>
 #include <ngui/Window.h>
+#include <ngui/platform/HeadlessPlatform.h>
 #include <ngui/test/Driver.h>
 
 #include "support/FixedTextSystem.h"
@@ -34,6 +38,7 @@ namespace {
 
 
 using namespace ngui;
+using namespace ngui::platform;
 using namespace ngui::test;
 using namespace std::chrono_literals;
 
@@ -275,6 +280,196 @@ TEST(DragTest, ADragCrossesIntoAnotherWindow)
 	EXPECT_EQ(acksAfterFirst, 1);
 	EXPECT_TRUE(seen.droppedOn.empty());
 	EXPECT_EQ(seen.acks, 1);
+}
+
+
+// A view that starts a drag of kDragged with "text/plain" ("hello", MIME)
+// and, if \a withFile, "paths" ("/tmp/a b.txt") when pressed.
+class MimeSourceView : public BView {
+public:
+	MimeSourceView(gfx::Rect frame, bool& withData)
+		:
+		BView(frame, "mime source", kFollowLeftTop, BViewFlag::WillDraw),
+		fWithData(withData)
+	{
+	}
+
+	void MouseDown(gfx::Point /*where*/) override
+	{
+		BMessage message(kDragged);
+		if (fWithData) {
+			const std::string_view hello = "hello";
+			(void)message.AddData("text/plain", BTypeCode::Mime, std::as_bytes(std::span(hello)));
+			(void)message.AddString("paths", "/tmp/a b.txt");
+		}
+		DragMessage(message, gfx::Rect{0, 0, 10, 10});
+	}
+
+private:
+	bool& fWithData;
+};
+
+
+std::string
+Text(const std::vector<std::byte>& bytes)
+{
+	return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
+}
+
+
+TEST(DragTest, ADragLeavesForOtherApplications)
+{
+	// What is tested: On a platform whose drags go on to other applications
+	// (the headless one with Options::systemDrag), a drag of a message with
+	// a "text/plain" field (MIME) and "paths" dragged out of the window,
+	// over no window of the application; then one without such data.
+	// Success criteria: The first drag goes to the system once, with
+	// text/plain "hello" and the path as a text/uri-list
+	// ("file:///tmp/a%20b.txt"), and the drag in the application ends (its
+	// image is gone). The second stays in the application: nothing more
+	// goes to the system.
+	// Why it matters: Data dragged out of a window must reach other
+	// programs (module P4); what other programs cannot read stays home.
+	//
+	// Given
+	TestEnvironment environment;
+	FixedTextSystem text;
+	TextSystem::SetDefault(&text);
+	BApplication app("application/x-vnd.ngui-drag-out-test");
+	ASSERT_TRUE(app.UsePlatform(std::make_unique<HeadlessPlatform>(
+		HeadlessPlatform::Options{.systemDrag = true})).has_value());
+	Driver driver(app);
+	bool withData = true;
+	auto owned = MakeWindow({100, 100, 300, 200}, "Out");
+	owned->AddChild(std::make_unique<MimeSourceView>(gfx::Rect{10, 10, 60, 60}, withData));
+	owned->Show();
+	const BMessenger window = *BLooper::Run(std::move(owned));
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	WindowRef ref = driver.Window("Out");
+
+	// When
+	ASSERT_TRUE(driver.Drag(ref, {20, 20}, {500, 500}).has_value());
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	const std::vector<std::vector<DragItem>> first = ref.PlatformWindow()->SystemDrags();
+	std::int32_t popups = -1;
+	(void)ref.Find("mime source").Run([&](BView& view) {
+		popups = view.Window()->CountPopups();
+	});
+	withData = false;
+	ASSERT_TRUE(driver.Drag(ref, {20, 20}, {500, 500}).has_value());
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	const std::size_t drags = ref.PlatformWindow()->SystemDrags().size();
+	ASSERT_TRUE(window.SendMessage(kQuitRequested).has_value());
+	ASSERT_TRUE(window.WaitForLooperQuit(5s).has_value());
+	TextSystem::SetDefault(nullptr);
+
+	// Then
+	ASSERT_EQ(first.size(), 1u);
+	ASSERT_EQ(first[0].size(), 2u);
+	EXPECT_EQ(first[0][0].type, "text/plain");
+	EXPECT_EQ(Text(first[0][0].data), "hello");
+	EXPECT_EQ(first[0][1].type, "text/uri-list");
+	EXPECT_EQ(Text(first[0][1].data), "file:///tmp/a%20b.txt\r\n");
+	EXPECT_EQ(popups, 0);
+	EXPECT_EQ(drags, 1u);
+}
+
+
+// A view that keeps the last kSimpleData or kMimeData dropped on it.
+class DropView : public BView {
+public:
+	DropView(gfx::Rect frame, BMessage& dropped)
+		:
+		BView(frame, "drop", kFollowLeftTop, BViewFlag::WillDraw),
+		fDropped(dropped)
+	{
+	}
+
+	void MessageReceived(BMessage* message) override
+	{
+		if (message->what == kSimpleData || message->what == kMimeData) {
+			fDropped = *message;
+			return;
+		}
+		BView::MessageReceived(message);
+	}
+
+private:
+	BMessage& fDropped;
+};
+
+
+TEST(DragTest, DataFromOtherApplicationsIsDropped)
+{
+	// What is tested: Drops from another application with all their data
+	// at once (kDropData): a PNG and two files as a text/uri-list (a Windows
+	// path with a space, a Unix path), then a PNG alone; over a view, as
+	// the platform reports them.
+	// Success criteria: The first drop reaches the view as kSimpleData with
+	// the decoded paths "C:/x y.txt" and "/home/u/z" and the image/png
+	// field; the second as kMimeData with the image/png bytes; both
+	// WasDropped().
+	// Why it matters: Other programs drag images, links and files; a view
+	// must get them by their MIME types (module P4), files as paths as
+	// before.
+	//
+	// Given
+	TestEnvironment environment;
+	FixedTextSystem text;
+	TextSystem::SetDefault(&text);
+	BApplication app("application/x-vnd.ngui-drop-data-test");
+	Driver driver(app);
+	BMessage withFiles;
+	BMessage imageOnly;
+	BMessage dropped;
+	auto owned = MakeWindow({100, 100, 300, 200}, "In");
+	owned->AddChild(std::make_unique<DropView>(gfx::Rect{0, 0, 200, 100}, dropped));
+	owned->Show();
+	const BMessenger window = *BLooper::Run(std::move(owned));
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	HeadlessWindow* platform = driver.Window("In").PlatformWindow();
+	const std::array<std::byte, 4> png = {std::byte{0x89}, std::byte{'P'}, std::byte{'N'},
+		std::byte{'G'}};
+	const std::string_view uris = "file:///C:/x%20y.txt\r\nfile:///home/u/z\r\n";
+	const auto drop = [&](bool files) {
+		BMessage position(kDropPosition);
+		(void)position.AddPoint("where", {50, 50});
+		BMessage data(kDropData);
+		(void)data.AddPoint("where", {50, 50});
+		(void)data.AddData("image/png", BTypeCode::Mime, png);
+		if (files)
+			(void)data.AddData("text/uri-list", BTypeCode::Mime, std::as_bytes(std::span(uris)));
+		BMessage complete(kDropComplete);
+		(void)complete.AddPoint("where", {50, 50});
+		for (const BMessage* event : {&position, &data, &complete})
+			ASSERT_TRUE(platform->Send(*event).has_value());
+		ASSERT_TRUE(platform->Send(BMessage(kDropBegin)).has_value());
+	};
+
+	// When
+	ASSERT_TRUE(platform->Send(BMessage(kDropBegin)).has_value());
+	drop(true);
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	(void)driver.Window("In").Find("drop").Run([&](BView&) { withFiles = dropped; });
+	drop(false);
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	(void)driver.Window("In").Find("drop").Run([&](BView&) { imageOnly = dropped; });
+	ASSERT_TRUE(window.SendMessage(kQuitRequested).has_value());
+	ASSERT_TRUE(window.WaitForLooperQuit(5s).has_value());
+	TextSystem::SetDefault(nullptr);
+
+	// Then
+	EXPECT_EQ(withFiles.what, kSimpleData);
+	EXPECT_TRUE(withFiles.WasDropped());
+	EXPECT_EQ(withFiles.GetString("paths", ""), "C:/x y.txt");
+	EXPECT_EQ(withFiles.FindString("paths", 1).value_or(""), "/home/u/z");
+	EXPECT_TRUE(withFiles.HasData("image/png", BTypeCode::Mime));
+	EXPECT_EQ(imageOnly.what, kMimeData);
+	EXPECT_TRUE(imageOnly.WasDropped());
+	const auto image = imageOnly.FindData("image/png", BTypeCode::Mime);
+	ASSERT_TRUE(image.has_value());
+	EXPECT_EQ(image->size(), 4u);
+	EXPECT_FALSE(imageOnly.HasData("paths"));
 }
 
 

@@ -88,6 +88,24 @@ inline constexpr std::uint32_t kSystemMenusBeginning = FourCharCode("_SMB");
 inline constexpr std::uint32_t kSystemMenusEnded = FourCharCode("_SME");
 
 
+/*!	Data that goes to or comes from another application by drag & drop
+	(module P4): a MIME type and its bytes, such as "text/plain" (UTF-8) or
+	"text/uri-list" (file:// URLs, one per line). */
+struct DragItem {
+			std::string			type;		/*!< The MIME type. */
+			std::vector<std::byte> data{};	/*!< The bytes. */
+
+			bool				operator==(const DragItem& other) const = default;
+									/*!< Same type and bytes. */
+};
+
+
+/*!	Data dropped from another application, all of it at once: to the
+	window, between kDropBegin/kDropPosition and kDropComplete, with "where"
+	and each item as a field of its MIME type (BTypeCode::Mime). */
+inline constexpr std::uint32_t kDropData = FourCharCode("_DRD");
+
+
 /*!	What a new window looks like (module P1). Look and feel of BWindow
 	map onto it (G9). */
 struct WindowSpec {
@@ -191,6 +209,16 @@ public:
 									/*!< What the window shows of the last PresentList()
 										(BWindow::CaptureFrame()). NotSupported by
 										default. */
+
+	virtual	bool				CanDragToSystem() const;
+									/*!< Whether a drag can go on to other applications
+										(StartSystemDrag()); false by default. */
+	virtual	std::expected<void, Error> StartSystemDrag(std::vector<DragItem> items);
+									/*!< Hands a drag that left the application's windows
+										to the system: \a items go to the program it is
+										dropped on, from the main thread, while the mouse
+										button is down (module P4). The window then gets a
+										kMouseUp when it ends. NotSupported by default. */
 
 	virtual	bool				HasSystemMenuBar() const;
 									/*!< Whether the window's menus belong in a menu bar of

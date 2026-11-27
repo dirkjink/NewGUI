@@ -435,6 +435,20 @@ platform::PlatformWindow::ReadShownFrame()
 
 
 bool
+platform::PlatformWindow::CanDragToSystem() const
+{
+	return false;
+}
+
+
+std::expected<void, Error>
+platform::PlatformWindow::StartSystemDrag(std::vector<DragItem> /*items*/)
+{
+	return Failure(ErrorCode::NotSupported, "the platform has no drags to other applications");
+}
+
+
+bool
 platform::PlatformWindow::HasSystemMenuBar() const
 {
 	return false;

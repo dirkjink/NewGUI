@@ -49,6 +49,7 @@ add_library(ngui
     Clipboard.cpp
     Clock.cpp
     Control.cpp
+    DragData.cpp
     Cursor.cpp
     ControlLook.cpp
     Locker.cpp
@@ -317,6 +318,11 @@ if(NGUI_WITH_SDL3)
             SDL3::SDL3)
     # internal headers (PlatformEvent.h)
     target_include_directories(ngui_sdl3 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    # Drag & drop with other programs on Windows (module P4; OLE).
+    if(WIN32)
+        target_sources(ngui_sdl3 PRIVATE platform/sdl3/OleDragDrop.cpp)
+        target_link_libraries(ngui_sdl3 PRIVATE ole32 shell32 uuid)
+    endif()
     # The application's menu bar on macOS (module P3; Objective-C++).
     if(APPLE)
         target_sources(ngui_sdl3 PRIVATE platform/sdl3/CocoaMenuBar.mm)

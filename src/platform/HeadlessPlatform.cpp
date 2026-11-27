@@ -35,6 +35,7 @@ struct HeadlessWindow::Shared {
 	HeadlessPlatform::FileDialogAnswer	answer;
 	std::vector<FileDialogSpec>			dialogs;
 	bool								systemMenuBar = false;
+	bool								systemDrag = false;
 };
 
 
@@ -294,6 +295,33 @@ HeadlessWindow::CountAccessibleUpdates() const
 
 
 bool
+HeadlessWindow::CanDragToSystem() const
+{
+	std::scoped_lock lock(fShared->lock);
+	return fShared->systemDrag && !fPopup;
+}
+
+
+std::expected<void, Error>
+HeadlessWindow::StartSystemDrag(std::vector<DragItem> items)
+{
+	if (!CanDragToSystem())
+		return Failure(ErrorCode::NotSupported, "no drags to other applications");
+	std::scoped_lock lock(fLock);
+	fSystemDrags.push_back(std::move(items));
+	return {};
+}
+
+
+std::vector<std::vector<DragItem>>
+HeadlessWindow::SystemDrags() const
+{
+	std::scoped_lock lock(fLock);
+	return fSystemDrags;
+}
+
+
+bool
 HeadlessWindow::HasSystemMenuBar() const
 {
 	std::scoped_lock lock(fShared->lock);
@@ -372,6 +400,7 @@ HeadlessPlatform::HeadlessPlatform(const Options& options)
 	fShared(std::make_shared<HeadlessWindow::Shared>())
 {
 	fShared->systemMenuBar = options.systemMenuBar;
+	fShared->systemDrag = options.systemDrag;
 }
 
 

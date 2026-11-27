@@ -42,6 +42,9 @@
 #ifdef __APPLE__
 #include "platform/sdl3/CocoaMenuBar.h"
 #endif
+#ifdef _WIN32
+#include "platform/sdl3/OleDragDrop.h"
+#endif
 
 
 namespace ngui::platform {
@@ -94,6 +97,11 @@ struct WindowState {
 	// assistive technology (windows, not popups); made and freed on the
 	// main thread
 	std::unique_ptr<sdl3::AccessKitBridge> accessibility;
+#endif
+#ifdef _WIN32
+	// NewGUI's OLE drop target in place of SDL's (module P4; windows, not
+	// popups); main thread
+	void*					dropTarget = nullptr;
 #endif
 #ifdef __APPLE__
 	// an NSWindow of SDL's Cocoa driver (not a popup): its menus go into
@@ -691,6 +699,13 @@ public:
 			// before the window it subclasses
 			state->accessibility.reset();
 #endif
+#ifdef _WIN32
+			if (state->dropTarget != nullptr) {
+				sdl3::RevokeDropTarget(reinterpret_cast<void*>(state->native.window),
+					state->dropTarget);
+				state->dropTarget = nullptr;
+			}
+#endif
 #ifdef __APPLE__
 			// its menus leave the menu bar with it
 			if (platform->menuOwner.lock() == state) {
@@ -710,6 +725,48 @@ public:
 			SDL_DestroyWindow(state->window);
 			state->window = nullptr;
 		});
+	}
+
+	bool CanDragToSystem() const override
+	{
+#ifdef _WIN32
+		std::scoped_lock lock(fState->lock);
+		return fState->dropTarget != nullptr;
+#else
+		return false;
+#endif
+	}
+
+	std::expected<void, Error> StartSystemDrag(std::vector<DragItem> items) override
+	{
+#ifdef _WIN32
+		if (!CanDragToSystem())
+			return Failure(ErrorCode::NotSupported, "no drags to other applications");
+		// OLE's modal drag on the main thread; the release it takes comes to
+		// the window afterwards
+		_Main([state = fState, items = std::move(items)] {
+			sdl3::RunSystemDrag(items);
+			float x = 0;
+			float y = 0;
+			(void)SDL_GetGlobalMouseState(&x, &y);
+			BMessage up(kMouseUp);
+			BMessenger target;
+			{
+				std::scoped_lock lock(state->lock);
+				const float scale = state->scale > 0 ? state->scale : 1;
+				(void)up.AddPoint("where", {x / scale - state->frame.x0,
+					y / scale - state->frame.y0});
+				target = state->target;
+			}
+			(void)up.AddInt32("buttons", 0);
+			PlatformEventMark::Set(up);
+			(void)target.SendMessage(up);
+		});
+		return {};
+#else
+		(void)items;
+		return Failure(ErrorCode::NotSupported, "no drags to other applications");
+#endif
 	}
 
 	bool HasSystemMenuBar() const override
@@ -1135,6 +1192,14 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 #ifdef __APPLE__
 		state->cocoa = !spec.popup && SDL_GetPointerProperty(SDL_GetWindowProperties(window),
 			SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr) != nullptr;
+#endif
+#ifdef _WIN32
+		// drops with all their data, drags out to other programs (module P4)
+		if (!spec.popup && state->native.window != 0) {
+			state->dropTarget = sdl3::RegisterDropTarget(
+				reinterpret_cast<void*>(state->native.window), spec.target,
+				[window] { return SDL_GetWindowPixelDensity(window); });
+		}
 #endif
 		UpdateGeometry(*state);
 #ifdef NGUI_WITH_ACCESSKIT

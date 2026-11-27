@@ -493,6 +493,8 @@ private:
 			std::vector<std::string> fDropPaths;
 			std::string			fDropText;
 			bool				fDropTextSeen = false;
+			BMessage			fDropData;
+									// MIME data of a drop from another application
 			BView*				fDragView = nullptr;
 									// the view a drag is over (from outside or from a
 									// window of the application)
