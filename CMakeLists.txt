@@ -2,7 +2,7 @@
 # Distributed under the terms of the MIT License.
 # SPDX-License-Identifier: MIT
 
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.27)
 
 # Static libraries appear on a link line only as often as the linker needs
 # them (CMake 3.29+): Apple's ld warns about repeated ones, which CMake adds

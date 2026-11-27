@@ -195,6 +195,19 @@ if(NGUI_WITH_SKIA)
         target_link_libraries(ngui_skia PRIVATE ${CMAKE_DL_LIBS})
     endif()
     add_library(ngui::skia ALIAS ngui_skia)
+    # vcpkg's Skia names libpng and zlib by their files, the test kit by
+    # the targets PNG::PNG and ZLIB::ZLIB; Apple's ld warns about the same
+    # archive twice on a line. Under Apple the files become those targets,
+    # which CMake then lists once (CMP0156).
+    if(APPLE)
+        find_package(PNG REQUIRED)
+        find_package(ZLIB REQUIRED)
+        get_target_property(skiaLinks unofficial::skia::skia INTERFACE_LINK_LIBRARIES)
+        string(REGEX REPLACE "[^;<>:]*/libpng16d?\\.a" "PNG::PNG" skiaLinks "${skiaLinks}")
+        string(REGEX REPLACE "[^;<>:]*/libzd?\\.a" "ZLIB::ZLIB" skiaLinks "${skiaLinks}")
+        set_target_properties(unofficial::skia::skia PROPERTIES
+            INTERFACE_LINK_LIBRARIES "${skiaLinks}")
+    endif()
     target_link_libraries(ngui_skia
         PUBLIC
             ngui::ngui

@@ -196,7 +196,7 @@ Grobe Größenordnung: Tage bis zwei Wochen, solange die Regeln aus Abschnitt 3 
 
 ### 8.2 Build
 
-- **CMake** 3.25 oder neuer mit **Presets** (`CMakePresets.json`), Generator **Ninja**. Lokale Abweichungen gehören in `CMakeUserPresets.json`, das nicht eingecheckt wird.
+- **CMake** 3.27 oder neuer mit **Presets** (`CMakePresets.json`), Generator **Ninja**. Lokale Abweichungen gehören in `CMakeUserPresets.json`, das nicht eingecheckt wird.
 - **Abhängigkeiten** ausschließlich über das **vcpkg-Manifest** (`vcpkg.json`) mit festgeschriebener `builtin-baseline`. Eine Aktualisierung der Baseline ist eine eigene, nachvollziehbare Änderung. Abhängigkeiten, die nur für Tests nötig sind, stehen im Feature `tests`.
 - **Jedes Ziel** bekommt seine Einstellungen über `ngui_configure_target()` (`cmake/NguiCompilerOptions.cmake`): C++23 ohne Compiler-Erweiterungen, Warnungsstufe, optional Warnungen als Fehler (`NGUI_WARNINGS_AS_ERRORS`, im Preset `ci` aktiv) und `-ffile-prefix-map` für reproduzierbare Builds.
 - **Tests** mit GoogleTest. Sie werden über `gtest_discover_tests` bei CTest registriert. Das Preset `ci` bricht ab, wenn keine Tests gefunden werden.

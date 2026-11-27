@@ -30,13 +30,9 @@ namespace {
 using namespace ngui;
 
 
-#if defined(_WIN32)
-constexpr const char* kExtension = ".dll";
-#elif defined(__APPLE__)
-constexpr const char* kExtension = ".dylib";
-#else
-constexpr const char* kExtension = ".so";
-#endif
+// The file name extension of the test plugins: CMake's for MODULE libraries
+// (.so also on macOS).
+constexpr const char* kExtension = NGUI_TEST_LOOK_PLUGIN_SUFFIX;
 
 
 // A plugin of tests/plugin/TestLookPlugin.cpp by its name.
