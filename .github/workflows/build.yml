@@ -244,11 +244,12 @@ jobs:
       - name: Configure, build and test with Skia and SDL3
         run: cmake --workflow --preset skia
 
-      # Drag & drop with other programs on X11 (module P4): the tests need an
-      # X server, and the other tests run without one (SDL's offscreen
-      # driver), so these run on their own under Xvfb.
-      - name: Test drag & drop on X11
-        run: xvfb-run -a build/skia/tests/ngui_sdl3_tests --gtest_filter='SdlX11*'
+      # Drag & drop with other programs on X11 (module P4), the frames and the
+      # desktop's colors there: the tests need an X server (and the colors a
+      # session bus for the portal the test plays), and the other tests run
+      # without them (SDL's offscreen driver), so these run on their own.
+      - name: Test drag & drop, frames and colors on X11
+        run: dbus-run-session -- xvfb-run -a build/skia/tests/ngui_sdl3_tests --gtest_filter='SdlX11*'
 
       # The desktop's notifications (module P5): the test is the notification
       # server on a session bus of its own, which the other tests do without.

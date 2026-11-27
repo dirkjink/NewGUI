@@ -362,6 +362,31 @@ TEST(SdlEventsTest, QuitAsksTheApplication)
 }
 
 
+TEST(SdlEventsTest, ASwitchOfTheSystemsColorsGoesToTheApplication)
+{
+	// What is tested: SDL_EVENT_SYSTEM_THEME_CHANGED, which SDL sends when
+	// the user switches the system between light and dark.
+	// Success criteria: It becomes kSystemColorsChanged with "when" for the
+	// application (kApplicationEvent).
+	// Why it matters: The application follows the system's colors while it
+	// runs (module G6); it reads the new choice from the platform.
+	//
+	// Given
+	SDL_Event theme{};
+	theme.type = SDL_EVENT_SYSTEM_THEME_CHANGED;
+	const std::vector<SDL_Event> events = {theme};
+
+	// When
+	const std::vector<TranslatedEvent> messages = Translate(events, Context());
+
+	// Then
+	ASSERT_EQ(messages.size(), 1u);
+	EXPECT_EQ(messages[0].window, kApplicationEvent);
+	EXPECT_EQ(messages[0].message.what, platform::kSystemColorsChanged);
+	EXPECT_TRUE(messages[0].message.HasInt64("when"));
+}
+
+
 TEST(SdlEventsTest, DropsBecomePlatformEvents)
 {
 	// What is tested: SDL's drop events for window 3: begin, a position,

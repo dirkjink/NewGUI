@@ -369,6 +369,12 @@ Translate(std::span<const SDL_Event> events, const TranslationContext& context)
 				// it its windows
 				translated.push_back({kApplicationEvent, Stamped(kQuitRequested, context)});
 				break;
+			case SDL_EVENT_SYSTEM_THEME_CHANGED:
+				// the user switched the system to light or dark (module G6):
+				// the application takes its colors anew
+				translated.push_back({kApplicationEvent,
+					Stamped(platform::kSystemColorsChanged, context)});
+				break;
 			default:
 				break;
 		}
