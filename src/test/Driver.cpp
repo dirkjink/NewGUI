@@ -17,6 +17,7 @@
 #include <utility>
 
 #include <ngui/AppDefs.h>
+#include <ngui/Application.h>
 #include <ngui/Control.h>
 #include <ngui/LocaleRoster.h>
 #include <ngui/LookRegistry.h>
@@ -105,6 +106,8 @@ TestEnvironment::TestEnvironment()
 	Clock::SetDefault(&fClock);
 	BLocaleRoster::Default()->SetPreferredLanguages({"en"});
 	BLocaleRoster::Default()->SetCatalog(nullptr);
+	// Haiku's light colors, whatever the system or the environment chose
+	BApplication::SetColorScheme(BColorScheme::Light);
 }
 
 
@@ -112,6 +115,7 @@ TestEnvironment::~TestEnvironment()
 {
 	Clock::SetDefault(nullptr);
 	BLocaleRoster::Default()->SetPreferredLanguages({});
+	BApplication::SetColorScheme(BColorScheme::System);
 }
 
 

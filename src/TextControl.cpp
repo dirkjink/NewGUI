@@ -734,7 +734,7 @@ BTextControl::DoLayout()
 void
 BTextControl::_UpdateTextViewColors(bool enable)
 {
-	const Palette& palette = Palette::Default();
+	const Palette palette = Palette::Current();
 	gfx::Color textColor = palette.Get(BColorWhich::DocumentText);
 	gfx::Color viewColor = palette.Get(BColorWhich::DocumentBackground);
 	const gfx::Color panel = ViewColor().value_or(palette.Get(BColorWhich::PanelBackground));
@@ -962,6 +962,9 @@ BTextControl::MessageReceived(BMessage* message)
 			}
 		}
 	}
+	// the text view's colors of the application's new colors
+	if (message->what == kColorsUpdated)
+		_UpdateTextViewColors(IsEnabled());
 	BControl::MessageReceived(message);
 }
 

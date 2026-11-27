@@ -1002,7 +1002,7 @@ BTabView::_InitObject(bool layouted, BButtonWidth width)
 	fBorderStyle = BBorderStyle::Fancy;
 	fTabSide = BTabSide::Top;
 
-	SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	SetViewUIColor(BColorWhich::PanelBackground);
 
 	const TextSystem& text = TextSystem::Default();
 	const FontHeight fh = text.Height(FontRole::Plain);
@@ -1044,7 +1044,7 @@ BTabView::_InitContainerView(bool layouted)
 		_LayoutContainerView(layouted);
 
 	if (createdContainer) {
-		fContainerView->SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+		fContainerView->SetViewUIColor(BColorWhich::PanelBackground);
 		AddChild(std::move(container));
 	}
 }

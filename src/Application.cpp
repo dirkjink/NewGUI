@@ -6,6 +6,7 @@
 
 
 #include <ngui/Application.h>
+#include <ngui/Palette.h>
 
 #include <algorithm>
 #include <atomic>
@@ -59,6 +60,8 @@ std::string sSignature;
 platform::Platform* sPlatform = nullptr;
 // who draws the frames of new windows (from any thread)
 std::atomic<BWindowFrames> sWindowFrames = BWindowFrames::System;
+// which colors the application shows (from any thread)
+std::atomic<BColorScheme> sColorScheme = BColorScheme::System;
 
 
 bool
@@ -159,6 +162,16 @@ BApplication::BApplication(std::string_view signature, int argc, char** argv)
 		else if (*frames == "system")
 			sWindowFrames = BWindowFrames::System;
 	}
+	// the colors (BColorScheme)
+	if (const std::optional<std::string> scheme = detail::EnvironmentVariable(
+			"NGUI_COLOR_SCHEME")) {
+		if (*scheme == "light")
+			sColorScheme = BColorScheme::Light;
+		else if (*scheme == "dark")
+			sColorScheme = BColorScheme::Dark;
+		else if (*scheme == "system")
+			sColorScheme = BColorScheme::System;
+	}
 	// Remote control only when asked (rule T4): here by the environment.
 	if (detail::EnvironmentVariable("NGUI_REMOTE_CONTROL").value_or("") == "1") {
 		if (const auto path = EnableRemoteControl(); !path.has_value())
@@ -253,6 +266,8 @@ BApplication::Run()
 		}
 		// the process's cursor on the new platform
 		detail::CursorState::Default().PlatformChanged();
+		// the colors of the system's choice
+		detail::ApplyColorScheme();
 		PlatformEvents events(*fPlatform);
 		_RunOnThisThread(&events);
 	}
@@ -299,6 +314,10 @@ BApplication::DispatchMessage(BMessage* message, BHandler* handler)
 			break;
 		case kAboutRequested:
 			AboutRequested();
+			break;
+		case platform::kSystemColorsChanged:
+			// the user switched the system's colors
+			detail::ApplyColorScheme();
 			break;
 		default:
 			BLooper::DispatchMessage(message, handler);
@@ -398,6 +417,36 @@ AppMessenger()
 {
 	std::scoped_lock lock(sLock);
 	return sMessenger;
+}
+
+
+void
+BApplication::SetColorScheme(BColorScheme scheme)
+{
+	sColorScheme = scheme;
+	detail::ApplyColorScheme();
+}
+
+
+BColorScheme
+BApplication::ColorScheme()
+{
+	return sColorScheme;
+}
+
+
+void
+detail::ApplyColorScheme()
+{
+	// Haiku's light or dark ui colors, by the application's choice or the
+	// system's
+	bool dark = sColorScheme == BColorScheme::Dark;
+	if (sColorScheme == BColorScheme::System) {
+		platform::Platform* platform = platform::Current();
+		dark = platform != nullptr
+			&& platform->ColorScheme() == platform::SystemColorScheme::Dark;
+	}
+	Palette::SetCurrent(dark ? Palette::Dark() : Palette::Default());
 }
 
 
@@ -508,6 +557,13 @@ bool
 platform::Platform::HasTransparentWindows() const
 {
 	return false;
+}
+
+
+platform::SystemColorScheme
+platform::Platform::ColorScheme() const
+{
+	return SystemColorScheme::Unknown;
 }
 
 

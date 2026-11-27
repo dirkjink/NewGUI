@@ -232,6 +232,33 @@ TEST(SnapshotSkiaTest, TheFormInTheHaikuLook)
 }
 
 
+TEST(SnapshotSkiaTest, TheFormInTheDarkColors)
+{
+	// What is tested: The form of SnapshotsAreWhatTheWindowShows in the BeOS
+	// look after the application switched to Haiku's dark colors
+	// (BColorScheme::Dark), against its reference snapshot.
+	// Success criteria: It matches SnapshotSkiaTest_DarkForm.be.skia.1x.png
+	// within the text tolerance: the same controls on Haiku's dark panel, a
+	// black text field with light text, light labels.
+	// Why it matters: Dark mode shows Haiku's dark colors through the looks
+	// and the views' UI colors; the reference, checked by eye, pins that the
+	// whole window follows (module G6).
+	//
+	// Given
+	FormApp app;
+
+	// When
+	BApplication::SetColorScheme(BColorScheme::Dark);
+	ASSERT_TRUE(app.Drive().WaitForIdle().has_value());
+	WindowRef window = app.Window();
+
+	// Then
+	EXPECT_IMAGE_SNAPSHOT(window, "DarkForm",
+		{.look = "be", .backend = "skia", .tolerance = Tolerance::Text()});
+	BApplication::SetColorScheme(BColorScheme::Light);
+}
+
+
 TEST(SnapshotSkiaTest, TheFormInTheFlatLook)
 {
 	// What is tested: The form of SnapshotsAreWhatTheWindowShows, opened

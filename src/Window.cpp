@@ -316,8 +316,9 @@ BWindow::BWindow(gfx::Rect frame, std::string_view title, BWindowLook look, BWin
 		sWindowPlaces.push_back({frame, false, 0});
 	}
 	fLook = LookRegistry::DefaultLook();
+	fPalette = Palette::Current();
 	fRoot = std::make_unique<BView>(Bounds(), "root", kFollowAll, BViewFlags());
-	fRoot->SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	fRoot->SetViewUIColor(BColorWhich::PanelBackground);
 	fRoot->_Attach(this);
 
 	if (platform::Platform* platform = platform::Current()) {
@@ -493,6 +494,15 @@ void
 BWindow::_TakeLook()
 {
 	fLook = fOwnLook != nullptr ? fOwnLook : LookRegistry::DefaultLook();
+	// the colors too: one palette for the whole frame
+	fPalette = Palette::Current();
+}
+
+
+const Palette&
+BWindow::_FramePalette() const
+{
+	return fPalette;
 }
 
 
@@ -1146,6 +1156,20 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 			fFrame = {where.x, where.y, where.x + fFrame.Width(), where.y + fFrame.Height()};
 			_PublishPlace(false);
 			FrameMoved(where);
+			return;
+		}
+		case kColorsUpdated:
+		{
+			// the application's colors changed (B_COLORS_UPDATED): the views
+			// hear it and draw anew, the frame NewGUI draws too
+			_TakeLook();
+			ForEachView(fRoot.get(), [message](BView* view) { view->MessageReceived(message); });
+			for (const std::unique_ptr<PopupSurface>& popup : fPopups) {
+				ForEachView(popup->root.get(),
+					[message](BView* view) { view->MessageReceived(message); });
+			}
+			if (fDecorator != nullptr)
+				_FrameChanged();
 			return;
 		}
 		case kLookChanged:
@@ -2692,7 +2716,7 @@ BWindow::_Update()
 	const gfx::Caps caps = fBackend->Capabilities();
 
 	if (drawMain && platformDraws) {
-		const DrawEnvironment environment{caps, Palette::Default(), text, fScale};
+		const DrawEnvironment environment{caps, fPalette, text, fScale};
 		fLastFrame = fRoot->RecordTree(environment);
 		fFrameCount++;
 		if (fDecorator != nullptr) {
@@ -2701,7 +2725,7 @@ BWindow::_Update()
 				gfx::Color{0, 0, 0, 0});
 		} else {
 			(void)fPlatformWindow->PresentList(fLastFrame,
-				Palette::Default().Get(BColorWhich::PanelBackground));
+				fPalette.Get(BColorWhich::PanelBackground));
 		}
 		fDirty.clear();
 		fFrameDirty = false;
@@ -2724,7 +2748,7 @@ BWindow::_Update()
 			fDirty.push_back(Bounds());
 		}
 
-		const DrawEnvironment environment{caps, Palette::Default(), text, fScale};
+		const DrawEnvironment environment{caps, fPalette, text, fScale};
 		fLastFrame = fRoot->RecordTree(environment);
 		_AddFonts(text);
 		fFrameCount++;
@@ -2733,7 +2757,7 @@ BWindow::_Update()
 			fBackend->BeginFrame(*fSurface, gfx::Color{0, 0, 0, 0});
 			fBackend->Render(*_WithFrame(fLastFrame, environment), {0, 0});
 		} else {
-			fBackend->BeginFrame(*fSurface, Palette::Default().Get(BColorWhich::PanelBackground));
+			fBackend->BeginFrame(*fSurface, fPalette.Get(BColorWhich::PanelBackground));
 			fBackend->Render(*fLastFrame, {0, 0});
 		}
 		fBackend->EndFrame(*fSurface);
@@ -2816,10 +2840,10 @@ BWindow::_UpdatePopup(PopupSurface& popup, const gfx::Caps& caps, const TextSyst
 		popup.dirty.push_back({0, 0, frame.Width(), frame.Height()});
 	}
 
-	const DrawEnvironment environment{caps, Palette::Default(), text, popup.scale};
+	const DrawEnvironment environment{caps, fPalette, text, popup.scale};
 	popup.lastFrame = popup.root->RecordTree(environment);
 	_AddFonts(text);
-	fBackend->BeginFrame(*popup.surface, Palette::Default().Get(BColorWhich::MenuBackground));
+	fBackend->BeginFrame(*popup.surface, fPalette.Get(BColorWhich::MenuBackground));
 	fBackend->Render(*popup.lastFrame, {0, 0});
 	fBackend->EndFrame(*popup.surface);
 
@@ -2987,7 +3011,7 @@ BWindow::_Record(const BSnapshotOptions& options, BView* view, const gfx::Caps& 
 	if (view != nullptr && !view->IsLayoutValid())
 		view->Layout(false);
 
-	const DrawEnvironment environment{caps, Palette::Default(), TextSystem::Default(), scale};
+	const DrawEnvironment environment{caps, fPalette, TextSystem::Default(), scale};
 	BView* root = view != nullptr ? view : fRoot.get();
 	const gfx::Rect bounds = view != nullptr ? view->Bounds() : Bounds();
 	const gfx::Rect area = options.area.value_or(bounds);
@@ -2999,7 +3023,7 @@ BWindow::_Record(const BSnapshotOptions& options, BView* view, const gfx::Caps& 
 	gfx::Canvas canvas({area.x0, area.y0, area.x1, area.y1});
 	if (background) {
 		canvas.FillRect(area,
-			gfx::Paint{.color = Palette::Default().Get(BColorWhich::PanelBackground)});
+			gfx::Paint{.color = fPalette.Get(BColorWhich::PanelBackground)});
 	}
 	canvas.DrawList(root->RecordTree(environment), {0, 0});
 	if (view == nullptr && options.includePopups) {
@@ -3007,7 +3031,7 @@ BWindow::_Record(const BSnapshotOptions& options, BView* view, const gfx::Caps& 
 			const gfx::Rect frame = popup->root->Frame();
 			const gfx::Point at{frame.x0 - fFrame.x0, frame.y0 - fFrame.y0};
 			canvas.FillRect({at.x, at.y, at.x + frame.Width(), at.y + frame.Height()},
-				gfx::Paint{.color = Palette::Default().Get(BColorWhich::MenuBackground)});
+				gfx::Paint{.color = fPalette.Get(BColorWhich::MenuBackground)});
 			canvas.DrawList(popup->root->RecordTree(environment), at);
 		}
 	}
@@ -3075,7 +3099,7 @@ BWindow::_Snapshot(const BSnapshotOptions& options, BView* view)
 	const gfx::SurfaceRef surface = backend->CreateOffscreenSurface(device, scale);
 	if (surface == nullptr)
 		return Failure(ErrorCode::NotSupported, "the backend has no offscreen surfaces");
-	backend->BeginFrame(*surface, Palette::Default().Get(BColorWhich::PanelBackground));
+	backend->BeginFrame(*surface, fPalette.Get(BColorWhich::PanelBackground));
 	backend->Render(*list, {-area.x0, -area.y0});
 	backend->EndFrame(*surface);
 	const std::optional<gfx::CpuPixels> pixels = surface->Pixels();

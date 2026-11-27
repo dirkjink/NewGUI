@@ -223,7 +223,7 @@ BControl::SetTracking(bool state)
 void
 BControl::_InitData()
 {
-	SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	SetViewUIColor(BColorWhich::PanelBackground);
 
 	fLabel.clear();
 	fValue = kControlOff;

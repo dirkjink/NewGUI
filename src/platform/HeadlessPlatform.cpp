@@ -11,6 +11,7 @@
 #include <utility>
 
 #include <ngui/AppDefs.h>
+#include <ngui/Application.h>
 
 #include "PlatformEvent.h"
 
@@ -547,6 +548,27 @@ bool
 HeadlessPlatform::HasTransparentWindows() const
 {
 	return true;
+}
+
+
+SystemColorScheme
+HeadlessPlatform::ColorScheme() const
+{
+	std::scoped_lock lock(fShared->lock);
+	return fOptions.colorScheme;
+}
+
+
+void
+HeadlessPlatform::SetColorScheme(SystemColorScheme scheme)
+{
+	{
+		std::scoped_lock lock(fShared->lock);
+		if (fOptions.colorScheme == scheme)
+			return;
+		fOptions.colorScheme = scheme;
+	}
+	(void)AppMessenger().SendMessage(kSystemColorsChanged);
 }
 
 

@@ -133,6 +133,11 @@ inline constexpr std::uint32_t kWindowActivated = FourCharCode("_ACT");
 	its own lays out and draws anew with the new look (L11). */
 inline constexpr std::uint32_t kLookChanged = FourCharCode("_LKC");
 
+/*!	The application's colors changed (B_COLORS_UPDATED): sent by
+	Palette::SetCurrent() to every window, which passes it to its views
+	(BView::MessageReceived()) and draws anew. */
+inline constexpr std::uint32_t kColorsUpdated = FourCharCode("_CLU");
+
 
 /*!	Files chosen to open (B_REFS_RECEIVED), e.g. in a BFilePanel: their
 	paths as UTF-8 strings in "paths" (NewGUI; Haiku: entry_refs in

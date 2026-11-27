@@ -52,7 +52,7 @@ inline void
 AdoptPanelColor(BView* view)
 {
 	if (view->ViewColor() == gfx::Color{1, 1, 1, 1})
-		view->SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+		view->SetViewUIColor(BColorWhich::PanelBackground);
 }
 
 

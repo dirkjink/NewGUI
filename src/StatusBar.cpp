@@ -401,7 +401,7 @@ BStatusBar::MaxValue() const
 gfx::Color
 BStatusBar::BarColor() const
 {
-	return fBarColor.value_or(Palette::Default().Get(BColorWhich::StatusBar));
+	return fBarColor.value_or(Palette::Current().Get(BColorWhich::StatusBar));
 }
 
 

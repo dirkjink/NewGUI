@@ -1478,7 +1478,7 @@ MenuFrame::MenuFrame(gfx::Rect frame, BMenu* menu)
 	BView(frame, "menu frame", kFollowAll, BViewFlag::WillDraw),
 	fMenu(menu)
 {
-	SetViewColor(Palette::Default().Get(BColorWhich::MenuBackground));
+	SetViewUIColor(BColorWhich::MenuBackground);
 }
 
 
@@ -1694,7 +1694,7 @@ MenuScroller::MenuScroller(gfx::Rect frame, bool upper)
 	BView(frame, "menu scroller", kFollowLeftTop, BViewFlag::WillDraw),
 	fUpper(upper)
 {
-	SetViewColor(Palette::Default().Get(BColorWhich::MenuBackground));
+	SetViewUIColor(BColorWhich::MenuBackground);
 }
 
 

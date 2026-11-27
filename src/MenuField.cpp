@@ -342,9 +342,9 @@ BMenuField::AttachedToWindow()
 	// Our low color must match the parent's view color (Haiku's
 	// AdoptParentColors(), else AdoptSystemColors()).
 	if (Parent() != nullptr && Parent()->ViewColor().has_value())
-		SetViewColor(Parent()->ViewColor());
+		AdoptParentColors();
 	else
-		SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+		SetViewUIColor(BColorWhich::PanelBackground);
 }
 
 

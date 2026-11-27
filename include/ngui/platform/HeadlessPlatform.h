@@ -194,6 +194,9 @@ public:
 			gfx::Rect			usable = {0, 0, 0, 0};
 									/*!< The part of the screen free of panels
 										(DisplayInfo::usable); empty for all of it. */
+			SystemColorScheme	colorScheme = SystemColorScheme::Light;
+									/*!< The colors the user chose for the virtual
+										system (ColorScheme()). */
 			bool				systemDrag = false;
 									/*!< Acts as a platform whose drags go on to other
 										applications (PlatformWindow::CanDragToSystem()). */
@@ -244,6 +247,9 @@ public:
 										earlier one takes its place. */
 			bool				HasTransparentWindows() const override;
 									/*!< True: its windows show whatever they draw. */
+			SystemColorScheme	ColorScheme() const override;
+									/*!< Options::colorScheme, or as SetColorScheme() set
+										it. */
 
 			void				Post(std::function<void()> work);
 									/*!< Runs \a work on the main thread in the next
@@ -257,6 +263,9 @@ public:
 									/*!< The cursor set last. */
 			bool				CursorVisible() const;
 									/*!< Whether the cursor shows. */
+			void				SetColorScheme(SystemColorScheme scheme);
+									/*!< Acts as a user switching the system to light or
+										dark: kSystemColorsChanged to the application. */
 			void				SetFileDialogAnswer(FileDialogAnswer answer);
 									/*!< How file dialogs are answered from now on;
 										nullptr: as cancelled. */

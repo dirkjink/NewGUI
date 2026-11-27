@@ -1318,11 +1318,13 @@ BTextView::GetSelection(int32* start, int32* end) const
 void
 BTextView::AdoptSystemColors()
 {
-	const gfx::Color background = Palette::Default().Get(BColorWhich::DocumentBackground);
+	// Haiku's AdoptSystemColors(): the UI colors, which follow the
+	// application's colors
 	if (IsEditable())
-		SetViewColor(background);
+		SetViewUIColor(BColorWhich::DocumentBackground);
 	else
-		SetViewColor(TintColor(background, _UneditableTint()));
+		SetViewUIColor(BColorWhich::DocumentBackground, _UneditableTint());
+	SetTextUIColor(BColorWhich::DocumentText);
 }
 
 
@@ -1333,6 +1335,18 @@ BTextView::SetTextColor(std::optional<gfx::Color> color)
 		return;
 
 	fTextColor = color;
+	Invalidate();
+}
+
+
+void
+BTextView::SetTextUIColor(BColorWhich which)
+{
+	if (fTextUIColor == which && !fTextColor.has_value())
+		return;
+
+	fTextColor.reset();
+	fTextUIColor = which;
 	Invalidate();
 }
 
@@ -1969,10 +1983,11 @@ BTextView::MakeEditable(bool editable)
 	if (editable == fEditable)
 		return;
 
-	// NewGUI: Haiku's HasSystemColors(), the color of the other state
-	const gfx::Color background = Palette::Default().Get(BColorWhich::DocumentBackground);
-	const bool systemColors = ViewColor() == (fEditable ? background
-		: TintColor(background, _UneditableTint()));
+	// Haiku's HasSystemColors()
+	float tint = kNoTint;
+	const bool systemColors = ViewUIColor(&tint) == BColorWhich::DocumentBackground
+		&& (tint == kNoTint || tint == _UneditableTint()) && !fTextColor.has_value()
+		&& fTextUIColor == BColorWhich::DocumentText;
 
 	fEditable = editable;
 
@@ -3071,8 +3086,7 @@ BTextView::_LayoutRuns() const
 gfx::Color
 BTextView::_ResolvedColor(const std::optional<gfx::Color>& color) const
 {
-	return color.value_or(fTextColor.value_or(
-		Palette::Default().Get(BColorWhich::DocumentText)));
+	return color.value_or(fTextColor.value_or(Palette::Current().Get(fTextUIColor)));
 }
 
 
@@ -3748,7 +3762,7 @@ float
 BTextView::_UneditableTint() const
 {
 	// Haiku's rgb_color::IsLight(): brightness above 127
-	const gfx::Color background = Palette::Default().Get(BColorWhich::DocumentBackground);
+	const gfx::Color background = Palette::Current().Get(BColorWhich::DocumentBackground);
 	const float brightness = (background.r * 299 + background.g * 587
 		+ background.b * 114) * 255 / 1000;
 	return brightness > 127 ? kDarken1Tint : 0.853f;

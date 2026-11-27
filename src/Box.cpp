@@ -243,7 +243,7 @@ BBox::AttachedToWindow()
 
 	// AdoptParentColors(); the system colors are already set
 	if (Parent() != nullptr && Parent()->ViewColor().has_value())
-		SetViewColor(Parent()->ViewColor());
+		AdoptParentColors();
 }
 
 
@@ -409,7 +409,7 @@ BBox::_InitObject()
 	fLayoutData = LayoutData();
 
 	// AdoptSystemColors()
-	SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	SetViewUIColor(BColorWhich::PanelBackground);
 }
 
 

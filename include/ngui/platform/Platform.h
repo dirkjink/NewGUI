@@ -83,6 +83,10 @@ struct SystemMenuItem {
 };
 
 
+/*!	The user changed the system's colors (light or dark): to the
+	application, which takes its colors anew (BApplication::ColorScheme()). */
+inline constexpr std::uint32_t kSystemColorsChanged = FourCharCode("_SCC");
+
 /*!	A system menu item was chosen: to the window, with its id in "id"
 	(int64). */
 inline constexpr std::uint32_t kSystemMenuInvoked = FourCharCode("_SMI");
@@ -327,6 +331,14 @@ struct CursorShape {
 };
 
 
+/*!	The colors the user chose for the system (module G6). */
+enum class SystemColorScheme : std::uint8_t {
+	Unknown,	/*!< The system does not say. */
+	Light,		/*!< Dark text on light backgrounds. */
+	Dark		/*!< Light text on dark backgrounds. */
+};
+
+
 /*!	A file dialog of the system (module P2): what to ask for. */
 struct FileDialogSpec {
 	/*!	What the dialog picks. */
@@ -448,6 +460,10 @@ public:
 										\a done gets the result later, on any thread. From
 										any thread. NotSupported by default. */
 
+	virtual	SystemColorScheme	ColorScheme() const;
+									/*!< Light or dark as the user chose for the system;
+										kSystemColorsChanged to the application when it
+										changes. Unknown by default. */
 	virtual	bool				HasTransparentWindows() const;
 									/*!< Whether windows may be transparent (WindowSpec::
 										transparent), for the frames NewGUI draws. False
