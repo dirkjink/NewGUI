@@ -105,7 +105,7 @@ NGUI_FUZZ_TARGET(Shape)
 	// Success criteria: No crash or sanitizer report. The iterator hands
 	// out curves in threes. ToPath() is a valid sequence of verbs; with
 	// small coordinates and radii it is finite, and an arc becomes at most
-	// four curves.
+	// four curves; each step adds at most one Close.
 	// Why it matters: Shapes come from applications and files (Haiku's
 	// archived BShape, icons); the arc conversion computes with radii and
 	// angles anyone may pass.
@@ -158,9 +158,10 @@ NGUI_FUZZ_TARGET(Shape)
 	(void)shape.Bounds();
 	if (!wild) {
 		NGUI_FUZZ_CHECK(path.IsFinite());
-		// every step but an arc gives at most one verb plus a Move; an arc
-		// at most four curves
+		// every step but an arc gives at most one verb plus a Move, an arc
+		// at most four curves plus a Move and a line; each step can be
+		// followed by one Close (BShape drops a second one)
 		NGUI_FUZZ_CHECK(path.Verbs().size()
-			<= static_cast<std::size_t>(2 * others + 5 * arcs + 2 * arcs + 64));
+			<= static_cast<std::size_t>(3 * others + 8 * arcs + 64));
 	}
 }
