@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 # Check out vcpkg at exactly the builtin-baseline of vcpkg.json, bootstrap it
-# and restore the binary cache; on Linux also make sure Ninja is present.
+# and restore the binary cache; on Linux and macOS also make sure Ninja is
+# present.
 # Sets VCPKG_ROOT and VCPKG_BINARY_SOURCES for the following steps. The
 # repository itself must already be checked out.
 
@@ -36,16 +37,21 @@ runs:
         path: vcpkg
         persist-credentials: false
 
-    - name: Bootstrap vcpkg (Linux)
+    - name: Bootstrap vcpkg (Linux, macOS)
       if: runner.os != 'Windows'
       shell: bash
       run: ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
     # Preinstalled on the GitHub runners; vcpkg and the presets need it.
     - name: Ensure Ninja (Linux)
-      if: runner.os != 'Windows'
+      if: runner.os == 'Linux'
       shell: bash
       run: command -v ninja || "$GITHUB_WORKSPACE/.github/scripts/apt-install.sh" ninja-build
+
+    - name: Ensure Ninja (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: command -v ninja || brew install ninja
 
     - name: Bootstrap vcpkg (Windows)
       if: runner.os == 'Windows'

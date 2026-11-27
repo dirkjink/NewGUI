@@ -64,7 +64,21 @@ struct Recorder {
 };
 
 
-std::atomic<std::shared_ptr<Recorder>> sRecorder;
+// The running recorder. Not std::atomic<std::shared_ptr>: libc++ (Xcode's)
+// does not have it; the flag keeps the check of every event cheap.
+std::mutex sRecorderLock;
+std::shared_ptr<Recorder> sRecorder;
+std::atomic<bool> sRecording = false;
+
+
+std::shared_ptr<Recorder>
+CurrentRecorder()
+{
+	if (!sRecording.load(std::memory_order_acquire))
+		return nullptr;
+	const std::scoped_lock lock(sRecorderLock);
+	return sRecorder;
+}
 
 
 // The number of the window with \a serial in the recording.
@@ -180,7 +194,7 @@ DecodeAt(std::span<const std::byte> bytes, std::size_t* offset, bool* end)
 std::expected<void, Error>
 StartRecorder(const std::filesystem::path& path, const RecordingStart& start)
 {
-	if (sRecorder.load() != nullptr)
+	if (CurrentRecorder() != nullptr)
 		return Failure(ErrorCode::InvalidArgument, "a recording is running");
 	auto recorder = std::make_shared<Recorder>();
 	recorder->file = OpenPrivate(path);
@@ -201,9 +215,13 @@ StartRecorder(const std::filesystem::path& path, const RecordingStart& start)
 		recorder->startSerials.push_back(window.serial);
 	recorder->firstNewSerial = NextWindowSerial();
 	recorder->begin = Clock::Default().Now();
-	std::shared_ptr<Recorder> none;
-	if (!sRecorder.compare_exchange_strong(none, recorder))
-		return Failure(ErrorCode::InvalidArgument, "a recording is running");
+	{
+		const std::scoped_lock lock(sRecorderLock);
+		if (sRecorder != nullptr)
+			return Failure(ErrorCode::InvalidArgument, "a recording is running");
+		sRecorder = recorder;
+		sRecording.store(true, std::memory_order_release);
+	}
 	// the windows' frames and scales as their first events
 	for (const WindowEntry& window : windows)
 		(void)window.messenger.SendMessage(kRecordWindowState);
@@ -214,7 +232,13 @@ StartRecorder(const std::filesystem::path& path, const RecordingStart& start)
 void
 StopRecorder()
 {
-	const std::shared_ptr<Recorder> recorder = sRecorder.exchange(nullptr);
+	std::shared_ptr<Recorder> recorder;
+	{
+		const std::scoped_lock lock(sRecorderLock);
+		recorder = std::move(sRecorder);
+		sRecorder = nullptr;
+		sRecording.store(false, std::memory_order_release);
+	}
 	if (recorder == nullptr)
 		return;
 	std::scoped_lock lock(recorder->lock);
@@ -227,14 +251,14 @@ StopRecorder()
 bool
 IsRecording()
 {
-	return sRecorder.load() != nullptr;
+	return sRecording.load(std::memory_order_acquire);
 }
 
 
 void
 RecordPlatformEvent(BLooper& looper, const BHandler* target, const BMessage& message)
 {
-	const std::shared_ptr<Recorder> recorder = sRecorder.load();
+	const std::shared_ptr<Recorder> recorder = CurrentRecorder();
 	if (recorder == nullptr)
 		return;
 	RecordedEvent event;
@@ -254,7 +278,7 @@ RecordPlatformEvent(BLooper& looper, const BHandler* target, const BMessage& mes
 void
 RecordWindowState(BWindow& window, const gfx::Rect& frame, float scale)
 {
-	const std::shared_ptr<Recorder> recorder = sRecorder.load();
+	const std::shared_ptr<Recorder> recorder = CurrentRecorder();
 	if (recorder == nullptr)
 		return;
 	RecordedEvent event;

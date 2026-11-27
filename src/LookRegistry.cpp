@@ -143,7 +143,8 @@ LookRegistry::Available(const gfx::Caps& caps) const
 std::shared_ptr<const ControlLook>
 LookRegistry::Current() const
 {
-	return fCurrent.load();
+	const std::scoped_lock lock(fCurrentLock);
+	return fCurrent;
 }
 
 
@@ -183,9 +184,15 @@ LookRegistry::SetCurrent(std::string_view id)
 	auto look = Find(id, BackendCaps());
 	if (!look.has_value())
 		return std::unexpected(look.error());
-	const std::shared_ptr<const ControlLook> previous = fCurrent.exchange(std::move(*look));
+	std::shared_ptr<const ControlLook> previous;
+	bool changed = false;
+	{
+		const std::scoped_lock lock(fCurrentLock);
+		previous = std::exchange(fCurrent, std::move(*look));
+		changed = previous != fCurrent;
+	}
 	// 18.5, step 3: the windows lay out and draw anew (L11)
-	if (fTellsWindows && previous != fCurrent.load())
+	if (fTellsWindows && changed)
 		detail::PostToWindows(kLookChanged);
 	return {};
 }

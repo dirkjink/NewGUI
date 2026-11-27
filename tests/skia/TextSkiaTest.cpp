@@ -1013,7 +1013,6 @@ TEST(TextSkiaTest, MenuFieldsMatchTheirSnapshots)
 		"MenuFieldOpen"};
 	for (std::size_t i = 0; i < fields.size(); i++) {
 		const gfx::Rect bounds = fields[i]->Bounds();
-		const gfx::Caps caps;
 		Canvas canvas({0, 0, bounds.Width(), bounds.Height()});
 		canvas.FillRect({0, 0, bounds.Width(), bounds.Height()},
 			gfx::Paint{.color = Palette::Default().Get(BColorWhich::PanelBackground)});
@@ -1430,7 +1429,6 @@ TEST(TextSkiaTest, TextControlsMatchTheirSnapshots)
 		"TextControlDisabled", "TextControlInvalid"};
 	for (std::size_t i = 0; i < controls.size(); i++) {
 		const gfx::Rect bounds = controls[i]->Bounds();
-		const gfx::Caps caps;
 		Canvas canvas({0, 0, bounds.Width(), bounds.Height()});
 		canvas.FillRect({0, 0, bounds.Width(), bounds.Height()},
 			gfx::Paint{.color = Palette::Default().Get(BColorWhich::PanelBackground)});
