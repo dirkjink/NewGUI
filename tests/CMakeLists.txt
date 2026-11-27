@@ -58,6 +58,7 @@ add_executable(ngui_tests
     ScriptingPropertiesTest.cpp
     ScriptingTest.cpp
     MessengerTest.cpp
+    NotificationTest.cpp
     OutlineListViewTest.cpp
     PaletteTest.cpp
     PrintJobTest.cpp
@@ -381,6 +382,16 @@ if(NGUI_WITH_SDL3)
         if(X11_FOUND AND X11_Xtst_FOUND AND NGUI_XLIB_INCLUDE_DIR)
             target_sources(ngui_sdl3_tests PRIVATE sdl3/SdlX11DragDropTest.cpp)
             target_link_libraries(ngui_sdl3_tests PRIVATE X11::X11 X11::Xtst)
+        endif()
+    endif()
+    # The desktop's notifications on Linux (module P5): the test is the
+    # notification server, with libdbus of its own; it needs a session bus
+    # (dbus-run-session in the CI) and is skipped without one.
+    if(UNIX AND NOT APPLE)
+        find_package(DBus1 CONFIG QUIET)
+        if(TARGET dbus-1)
+            target_sources(ngui_sdl3_tests PRIVATE sdl3/DbusNotificationsTest.cpp)
+            target_link_libraries(ngui_sdl3_tests PRIVATE dbus-1)
         endif()
     endif()
     # The application's menu bar (module P3) and drag & drop (module P4) on

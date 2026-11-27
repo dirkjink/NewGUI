@@ -6,11 +6,13 @@
 #pragma once
 
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -20,6 +22,7 @@
 #include <ngui/Accessibility.h>
 #include <ngui/Error.h>
 #include <ngui/InterfaceDefs.h>
+#include <ngui/Message.h>
 #include <ngui/Messenger.h>
 #include <ngui/SupportDefs.h>
 #include <ngui/gfx/Backend.h>
@@ -297,6 +300,42 @@ struct FileDialogSpec {
 using FileDialogResult = std::expected<std::vector<std::string>, Error>;
 
 
+/*!	A notification of the system (module P5): what BNotification::Send()
+	hands on. */
+struct NotificationSpec {
+	/*!	How it matters (Haiku's notification_type). */
+	enum class Kind : std::uint8_t {
+		Information,	/*!< Something to know. */
+		Important,		/*!< Something to see soon. */
+		Error,			/*!< Something that went wrong. */
+		Progress		/*!< How far a task has come (progress). */
+	};
+
+			Kind				kind = Kind::Information;
+												/*!< How it matters. */
+			std::string			application;	/*!< The name of the sending
+													application. */
+			std::string			group;			/*!< The group it shows in, empty for
+													the application's. */
+			std::string			title;			/*!< The headline. */
+			std::string			content;		/*!< The text. */
+			std::string			id;				/*!< Replaces the one shown before with
+													the same id; empty for a new one. */
+			float				progress = 0;	/*!< Progress: 0 to 1. */
+			std::int32_t		iconWidth = 0;	/*!< The icon's width in pixels. */
+			std::int32_t		iconHeight = 0;	/*!< The icon's height in pixels. */
+			std::vector<std::uint8_t> icon;		/*!< The icon: RGBA bytes, not
+													premultiplied, rows without
+													padding; empty for none. */
+			std::chrono::milliseconds timeout{-1};
+												/*!< How long it shows, negative for
+													as long as the system likes. */
+			BMessenger			target;			/*!< Where a click goes. */
+			std::optional<BMessage> onClick;	/*!< Sent to target when the user
+													clicks it; nullopt for no click. */
+};
+
+
 /*!	The window system (module P1): windows, screens and the events of the
 	main thread. BApplication::UsePlatform() hands it to the application,
 	whose loop then waits for the platform's events and its own messages
@@ -346,6 +385,12 @@ public:
 									/*!< Shows the system's file dialog and returns at once;
 										\a done gets the result later, on any thread. From
 										any thread. NotSupported by default. */
+
+	virtual	std::expected<void, Error> ShowNotification(const NotificationSpec& spec);
+									/*!< Hands \a spec to the system's notifications and
+										returns at once; a click later sends its onClick to
+										its target. From any thread. NotSupported by
+										default. */
 };
 
 

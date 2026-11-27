@@ -43,6 +43,9 @@
 #ifdef NGUI_WITH_X11_DND
 #include "platform/sdl3/X11DragDrop.h"
 #endif
+#ifdef NGUI_WITH_DBUS_NOTIFICATIONS
+#include "platform/sdl3/DbusNotifications.h"
+#endif
 #ifdef __APPLE__
 #include "platform/sdl3/CocoaDragDrop.h"
 #include "platform/sdl3/CocoaMenuBar.h"
@@ -277,6 +280,12 @@ public:
 #ifdef __APPLE__
 	// the window whose menus the menu bar shows (main thread only)
 	std::weak_ptr<WindowState> menuOwner;
+#endif
+#ifdef NGUI_WITH_DBUS_NOTIFICATIONS
+	// the desktop's notifications over D-Bus (module P5), connected on first
+	// use, under notifyLock
+	std::mutex				notifyLock;
+	std::unique_ptr<sdl3::DbusNotifications> notifications;
 #endif
 
 	// The backend with GPU surfaces that renders GPU windows, or nullptr;
@@ -1621,6 +1630,26 @@ struct ClipboardOffer {
 
 
 } // namespace
+
+
+std::expected<void, Error>
+SdlPlatform::ShowNotification(const NotificationSpec& spec)
+{
+#ifdef NGUI_WITH_DBUS_NOTIFICATIONS
+	std::scoped_lock lock(fData->notifyLock);
+	if (fData->notifications == nullptr) {
+		auto connected = sdl3::DbusNotifications::Create();
+		if (!connected.has_value())
+			return std::unexpected(connected.error());
+		fData->notifications = std::move(*connected);
+	}
+	fData->notifications->Show(spec);
+	return {};
+#else
+	(void)spec;
+	return Failure(ErrorCode::NotSupported, "no notifications");
+#endif
+}
 
 
 std::expected<void, Error>

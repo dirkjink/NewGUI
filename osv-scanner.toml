@@ -4,8 +4,10 @@
 # that it is assessed again.
 
 # expat comes in as a dependency of Skia (port skia, feature skia) and of
-# D-Bus (port dbus, whose headers only SDL uses: it loads the system's
-# libdbus at run time, so vcpkg's libdbus is linked nowhere). In
+# D-Bus (port dbus, whose headers SDL and NewGUI's notifications use: both
+# load the system's libdbus at run time, so vcpkg's libdbus is linked only
+# into the notification test, which plays the server; libdbus itself parses
+# no XML, only dbus-daemon's configuration does). In
 # libskia.a it is called from two objects only: Skia's XML parser
 # (SkXMLParser, for its SVG module) and the parser of Android's font
 # configuration (SkFontMgr_android_parser). NewGUI calls neither: there is no
