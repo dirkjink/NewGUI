@@ -108,6 +108,11 @@ struct WindowState {
 	// popups); main thread
 	void*					dropTarget = nullptr;
 #endif
+#ifdef NGUI_WITH_X11_DND
+	// an X11 window (not a popup) that takes drops and drags out with XDND
+	// (module P4)
+	bool					x11Drops = false;
+#endif
 #ifdef __APPLE__
 	// an NSWindow of SDL's Cocoa driver (not a popup): its menus go into
 	// the application's menu bar (module P3), as its BWindow passed them on
@@ -714,7 +719,7 @@ public:
 			}
 #endif
 #ifdef NGUI_WITH_X11_DND
-			if (state->native.kind == gfx::NativeWindow::Kind::X11)
+			if (state->x11Drops)
 				sdl3::ForgetX11Drops(state->window);
 #endif
 #ifdef __APPLE__
@@ -748,6 +753,9 @@ public:
 #elif defined(__APPLE__)
 		std::scoped_lock lock(fState->lock);
 		return fState->cocoa;
+#elif defined(NGUI_WITH_X11_DND)
+		std::scoped_lock lock(fState->lock);
+		return fState->x11Drops;
 #else
 		return false;
 #endif
@@ -794,6 +802,21 @@ public:
 			}
 			if (window != nullptr)
 				(void)sdl3::StartCocoaDrag(window, items, target);
+		});
+		return {};
+#elif defined(NGUI_WITH_X11_DND)
+		if (!CanDragToSystem())
+			return Failure(ErrorCode::NotSupported, "no drags to other applications");
+		// XDND from the window, following the pointer while SDL keeps it
+		// grabbed; the release comes to the window as usual
+		_Main([state = fState, items = std::move(items)] {
+			SDL_Window* window = nullptr;
+			{
+				std::scoped_lock lock(state->lock);
+				window = state->window;
+			}
+			if (window != nullptr)
+				(void)sdl3::StartX11Drag(window, items);
 		});
 		return {};
 #else
@@ -1232,8 +1255,8 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 #endif
 #ifdef NGUI_WITH_X11_DND
 		// drops with all their data (module P4)
-		if (!spec.popup && state->native.kind == gfx::NativeWindow::Kind::X11)
-			sdl3::AcceptX11Drops(window, data->dropDataEvent);
+		state->x11Drops = !spec.popup && state->native.kind == gfx::NativeWindow::Kind::X11
+			&& sdl3::AcceptX11Drops(window, data->dropDataEvent);
 #endif
 #ifdef _WIN32
 		// drops with all their data, drags out to other programs (module P4)
