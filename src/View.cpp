@@ -835,6 +835,37 @@ BView::Record(const BSnapshotOptions& options)
 }
 
 
+void
+BView::DragMessage(const BMessage& message, gfx::Rect dragRect, BHandler* replyTo)
+{
+	BWindow* window = Window();
+	if (window == nullptr)
+		return;
+	// NewGUI: the part of the view itself under the mouse, at scale 1
+	std::unique_ptr<BBitmap> image;
+	BSnapshotOptions options;
+	options.area = dragRect;
+	options.scale = 1;
+	if (auto shot = Snapshot(options); shot.has_value())
+		image = std::make_unique<BBitmap>(std::move(*shot));
+	const gfx::Point corner = ConvertToScreen({dragRect.x0, dragRect.y0});
+	const gfx::Point mouse = window->fLastMouse.value_or(corner);
+	DragMessage(message, std::move(image), {mouse.x - corner.x, mouse.y - corner.y}, replyTo);
+}
+
+
+void
+BView::DragMessage(const BMessage& message, std::unique_ptr<BBitmap> image, gfx::Point offset,
+	BHandler* replyTo)
+{
+	BWindow* window = Window();
+	if (window == nullptr)
+		return;
+	BHandler* replies = replyTo != nullptr ? replyTo : this;
+	window->_StartDrag(message, std::move(image), offset, BMessenger(replies, window));
+}
+
+
 gfx::DisplayListRef
 BView::RecordTree(const DrawEnvironment& environment)
 {

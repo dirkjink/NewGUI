@@ -168,13 +168,14 @@ public:
 	// Drag and drop
 
 			bool				WasDropped() const;
-									/*!< It was dropped on a view (a file or text dragged
-										from another application, module P2). */
+									/*!< It was dropped on a view: dragged in the
+										application (BView::DragMessage()) or a file or text
+										from another application (module P2). */
 			gfx::Point			DropPoint(gfx::Point* offset = nullptr) const;
 									/*!< Where it was dropped, on the screen; (0, 0) if it
-										was not. \a offset gets (0, 0): NewGUI drags no
-										image of its own (Haiku: the point under the mouse
-										in the dragged image). */
+										was not. \a offset gets the point of the drag's
+										image under the mouse ((0, 0) for drags from other
+										applications). */
 
 	// Delivery and replies
 
@@ -625,6 +626,7 @@ private:
 			std::unique_ptr<MessageDelivery> fDelivery;
 			std::optional<gfx::Point> fDropPoint;
 									// set by the window it was dropped on
+			gfx::Point			fDropOffset = {0, 0};
 			std::int32_t		fCurrentSpecifier = -1;
 									// the specifier left to resolve, -1 for none
 			bool				fPlatformEvent = false;
