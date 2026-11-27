@@ -1,6 +1,7 @@
 {
   "name": "accesskit-c",
   "version": "0.23.2",
+  "port-version": 1,
   "description": "C bindings of AccessKit, a cross-platform accessibility infrastructure (AT-SPI, UI Automation, NSAccessibility); the prebuilt static libraries of the release.",
   "homepage": "https://github.com/AccessKit/accesskit-c",
   "license": "MIT OR Apache-2.0",

@@ -14,6 +14,7 @@
 #include <ngui/LookRegistry.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -47,12 +48,14 @@ using DestroyFunction = void (*)(ControlLook*);
 using BuildKeyFunction = const char* (*)();
 
 
+// The file name extensions of plugins; on macOS also CMake's for MODULE
+// libraries.
 #if defined(_WIN32)
-constexpr std::string_view kLibraryExtension = ".dll";
+constexpr std::array<std::string_view, 1> kLibraryExtensions = {".dll"};
 #elif defined(__APPLE__)
-constexpr std::string_view kLibraryExtension = ".dylib";
+constexpr std::array<std::string_view, 2> kLibraryExtensions = {".dylib", ".so"};
 #else
-constexpr std::string_view kLibraryExtension = ".so";
+constexpr std::array<std::string_view, 1> kLibraryExtensions = {".so"};
 #endif
 
 
@@ -180,8 +183,11 @@ LookRegistry::LoadPlugins(const std::filesystem::path& directory)
 	std::vector<std::filesystem::path> files;
 	for (std::filesystem::directory_iterator entry(directory, error), end;
 			!error && entry != end; entry.increment(error)) {
-		if (entry->is_regular_file(error) && entry->path().extension() == kLibraryExtension)
+		if (entry->is_regular_file(error)
+				&& std::ranges::find(kLibraryExtensions, entry->path().extension().string())
+					!= kLibraryExtensions.end()) {
 			files.push_back(entry->path());
+		}
 	}
 	if (error) {
 		report.warnings.push_back("cannot read the look plugins in " + directory.string()

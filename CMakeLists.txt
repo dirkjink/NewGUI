@@ -4,6 +4,13 @@
 
 cmake_minimum_required(VERSION 3.25)
 
+# Static libraries appear on a link line only as often as the linker needs
+# them (CMake 3.29+): Apple's ld warns about repeated ones, which CMake adds
+# for linkers that resolve in one pass.
+if(POLICY CMP0156)
+    cmake_policy(SET CMP0156 NEW)
+endif()
+
 project(NewGUI
     VERSION 0.1.0
     DESCRIPTION "Cross-platform C++ UI toolkit inspired by the Haiku Interface Kit"

@@ -143,7 +143,7 @@ public:
 			LookPluginReport	LoadPlugins(const std::filesystem::path& directory);
 									/*!< LoadPlugin() for every shared library in
 										\a directory (.so, under Windows .dll, under macOS
-										.dylib), in the order of their names, not in
+										.dylib or .so), in the order of their names, not in
 										subdirectories. */
 
 private:
