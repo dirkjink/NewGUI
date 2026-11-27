@@ -210,7 +210,10 @@ TEST(SdlCocoaDragDropTest, AWindowTakesDropsWithAllTheirData)
 	// When
 	std::thread steps([&] {
 		const auto deadline = std::chrono::steady_clock::now() + 10s;
-		while (!AppMessenger().IsValid() && std::chrono::steady_clock::now() < deadline)
+		// until Run() has made the platform the current one: the
+		// application's messenger is valid before, but a window made then
+		// gets no Cocoa window
+		while (ngui::platform::Current() != raw && std::chrono::steady_clock::now() < deadline)
 			std::this_thread::sleep_for(10ms);
 		auto owned = std::make_unique<DropWindow>(lock, dropped, done);
 		owned->Show();
