@@ -19,6 +19,7 @@
 #	include <winsock2.h>
 #	include <afunix.h>
 #else
+#	include <fcntl.h>
 #	include <poll.h>
 #	include <sys/socket.h>
 #	include <sys/stat.h>
@@ -90,6 +91,22 @@ AddressOf(const std::filesystem::path& path)
 }
 
 
+#ifdef __APPLE__
+// What Linux sets when making a socket: closed on exec, and no SIGPIPE when
+// the peer is gone (macOS has neither SOCK_CLOEXEC nor MSG_NOSIGNAL).
+int
+Prepared(int native)
+{
+	if (native >= 0) {
+		(void)fcntl(native, F_SETFD, FD_CLOEXEC);
+		const int on = 1;
+		(void)setsockopt(native, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
+	}
+	return native;
+}
+#endif
+
+
 NativeSocket
 NewSocket()
 {
@@ -97,15 +114,10 @@ NewSocket()
 	if (!StartWinsock())
 		return kInvalid;
 	return static_cast<NativeSocket>(socket(AF_UNIX, SOCK_STREAM, 0));
+#elif defined(__APPLE__)
+	return Prepared(socket(AF_UNIX, SOCK_STREAM, 0));
 #else
-	const int native = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-#	ifdef __APPLE__
-	if (native >= 0) {
-		const int on = 1;
-		(void)setsockopt(native, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
-	}
-#	endif
-	return native;
+	return socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
 #endif
 }
 
@@ -259,6 +271,8 @@ Socket::Accept(std::chrono::milliseconds timeout)
 		return std::nullopt;
 #ifdef _WIN32
 	Socket accepted(static_cast<NativeSocket>(accept(Handle(fNative), nullptr, nullptr)));
+#elif defined(__APPLE__)
+	Socket accepted(Prepared(accept(fNative, nullptr, nullptr)));
 #else
 	Socket accepted(accept4(fNative, nullptr, nullptr, SOCK_CLOEXEC));
 #endif

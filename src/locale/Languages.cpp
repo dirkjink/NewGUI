@@ -8,7 +8,9 @@
 #include "Languages.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
+#include <string>
 #include <system_error>
 
 #include "../Environment.h"
@@ -21,6 +23,9 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#endif
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
 #endif
 
 
@@ -174,6 +179,17 @@ ExecutableDirectory()
 #elif defined(__linux__)
 	std::error_code error;
 	path = std::filesystem::read_symlink("/proc/self/exe", error);
+	if (error)
+		return {};
+#elif defined(__APPLE__)
+	std::uint32_t size = 0;
+	(void)_NSGetExecutablePath(nullptr, &size);
+	std::string buffer(size, '\0');
+	if (_NSGetExecutablePath(buffer.data(), &size) != 0)
+		return {};
+	buffer.resize(std::char_traits<char>::length(buffer.c_str()));
+	std::error_code error;
+	path = std::filesystem::canonical(buffer, error);
 	if (error)
 		return {};
 #else
