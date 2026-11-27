@@ -439,14 +439,17 @@ void
 detail::ApplyColorScheme()
 {
 	// Haiku's light or dark ui colors, by the application's choice or the
-	// system's
+	// system's; following the system, with its accent color too
 	bool dark = sColorScheme == BColorScheme::Dark;
+	std::optional<gfx::Color> accent;
 	if (sColorScheme == BColorScheme::System) {
-		platform::Platform* platform = platform::Current();
-		dark = platform != nullptr
-			&& platform->ColorScheme() == platform::SystemColorScheme::Dark;
+		if (platform::Platform* platform = platform::Current()) {
+			dark = platform->ColorScheme() == platform::SystemColorScheme::Dark;
+			accent = platform->AccentColor();
+		}
 	}
-	Palette::SetCurrent(dark ? Palette::Dark() : Palette::Default());
+	const Palette& base = dark ? Palette::Dark() : Palette::Default();
+	Palette::SetCurrent(accent.has_value() ? base.WithAccent(*accent) : base);
 }
 
 
@@ -564,6 +567,13 @@ platform::SystemColorScheme
 platform::Platform::ColorScheme() const
 {
 	return SystemColorScheme::Unknown;
+}
+
+
+std::optional<gfx::Color>
+platform::Platform::AccentColor() const
+{
+	return std::nullopt;
 }
 
 

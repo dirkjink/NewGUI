@@ -167,7 +167,8 @@ public:
 										(Palette::Current()); System by default, or as the
 										environment variable NGUI_COLOR_SCHEME=light, dark
 										or system says. With System the colors follow the
-										user's choice while the application runs. */
+										user's choice while the application runs, with the
+										system's accent color (Palette::WithAccent()). */
 	static	BColorScheme		ColorScheme();
 									/*!< Which colors the application shows. */
 			Clock::Time			PulseRate() const;

@@ -8,8 +8,7 @@
 
 // The desktop's notifications on Linux (module P5): the Desktop
 // Notifications Specification of freedesktop.org, org.freedesktop.Notifications
-// on the session bus. The system's libdbus is loaded with dlopen(), as SDL
-// loads it; NewGUI builds against its headers only.
+// on the session bus, through the system's libdbus (Dbus.h).
 
 
 #include <expected>

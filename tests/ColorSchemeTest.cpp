@@ -261,4 +261,79 @@ TEST(ColorSchemeTest, TheColorsFollowTheSystemsChoice)
 }
 
 
+TEST(ColorSchemeTest, TheAccentColorDerivesTheFocusColors)
+{
+	// What is tested: Haiku's light colors with GNOME's blue accent, 53, 132,
+	// 228 (Palette::WithAccent()).
+	// Success criteria: As Haiku's Appearance preferences derive them: the
+	// status bar is the accent; the control highlight 96, 136, 184 (half
+	// the saturation); the control mark 37, 73, 116 (less saturated, darker);
+	// keyboard navigation 0, 0, 185 (the strongest channel only); the other
+	// colors stay, the yellow tab too.
+	// Why it matters: The system's accent color becomes the color of focus
+	// and selection in NewGUI's controls, by Haiku's own rules (as decided
+	// for this block).
+	//
+	// Given
+	const Palette& light = Palette::Default();
+
+	// When
+	const Palette accented = light.WithAccent(Rgb(53, 132, 228));
+
+	// Then
+	EXPECT_EQ(accented.Get(BColorWhich::StatusBar), Rgb(53, 132, 228));
+	EXPECT_EQ(accented.Get(BColorWhich::ControlHighlight), Rgb(96, 136, 184));
+	EXPECT_EQ(accented.Get(BColorWhich::ControlMark), Rgb(37, 73, 116));
+	EXPECT_EQ(accented.Get(BColorWhich::KeyboardNavigation), Rgb(0, 0, 185));
+	EXPECT_EQ(accented.Get(BColorWhich::WindowTab), light.Get(BColorWhich::WindowTab));
+	EXPECT_EQ(accented.Get(BColorWhich::PanelBackground),
+		light.Get(BColorWhich::PanelBackground));
+}
+
+
+TEST(ColorSchemeTest, TheSystemsAccentColorIsTaken)
+{
+	// What is tested: An application on a headless system set to dark with
+	// GNOME's blue accent, with the colors of the system's choice; the user
+	// chooses a green accent (SetAccentColor()), then none; then the
+	// application asks for Haiku's dark colors itself (BColorScheme::Dark).
+	// Success criteria: It shows Haiku's dark colors with the blue accent,
+	// then with the green one, then without an accent; with
+	// BColorScheme::Dark Haiku's dark colors without any accent.
+	// Why it matters: Following the system means its accent color too, also
+	// when the user changes it; a program choosing its colors gets Haiku's
+	// own.
+	//
+	// Given
+	ColorApp app(SystemColorScheme::Dark);
+	app.Platform().SetAccentColor(Rgb(53, 132, 228));
+	BApplication::SetColorScheme(BColorScheme::System);
+	(void)app.Drive().WaitForIdle();
+	const Palette blue = Palette::Current();
+	const auto waitFor = [&app](const Palette& expected) {
+		const auto deadline = std::chrono::steady_clock::now() + 5s;
+		while (Palette::Current() != expected && std::chrono::steady_clock::now() < deadline)
+			std::this_thread::sleep_for(5ms);
+		(void)app.Drive().WaitForIdle();
+		return Palette::Current();
+	};
+
+	// When
+	app.Platform().SetAccentColor(Rgb(46, 194, 126));
+	const Palette green = waitFor(Palette::Dark().WithAccent(Rgb(46, 194, 126)));
+	app.Platform().SetAccentColor(std::nullopt);
+	const Palette none = waitFor(Palette::Dark());
+	app.Platform().SetAccentColor(Rgb(53, 132, 228));
+	(void)waitFor(Palette::Dark().WithAccent(Rgb(53, 132, 228)));
+	BApplication::SetColorScheme(BColorScheme::Dark);
+	const Palette chosen = Palette::Current();
+
+	// Then
+	EXPECT_EQ(blue, Palette::Dark().WithAccent(Rgb(53, 132, 228)));
+	EXPECT_EQ(green, Palette::Dark().WithAccent(Rgb(46, 194, 126)));
+	EXPECT_EQ(none, Palette::Dark());
+	EXPECT_EQ(chosen, Palette::Dark());
+}
+
+
 } // namespace

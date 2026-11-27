@@ -38,6 +38,7 @@
 #include "SdlEvents.h"
 #include "platform/sdl3/DropPayload.h"
 #include "platform/sdl3/FrameHit.h"
+#include "platform/sdl3/SystemAccent.h"
 #ifdef NGUI_WITH_ACCESSKIT
 #include "platform/sdl3/AccessKitBridge.h"
 #endif
@@ -326,6 +327,11 @@ public:
 #elif defined(__APPLE__)
 	std::unique_ptr<sdl3::CocoaNotifications> notifications;
 #endif
+	// the system's accent color (module G6), asked on first use, under
+	// accentLock; nullptr where it cannot be asked
+	std::mutex				accentLock;
+	bool					accentAsked = false;
+	std::unique_ptr<sdl3::SystemAccent> accent;
 
 	// The backend with GPU surfaces that renders GPU windows, or nullptr;
 	// on the main thread.
@@ -1762,6 +1768,32 @@ SdlPlatform::ColorScheme() const
 				return SystemColorScheme::Unknown;
 		}
 	});
+}
+
+
+std::optional<gfx::Color>
+SdlPlatform::AccentColor() const
+{
+#if defined(NGUI_WITH_DBUS_NOTIFICATIONS) || defined(_WIN32) || defined(__APPLE__)
+	std::scoped_lock lock(fData->accentLock);
+	if (!fData->accentAsked) {
+		fData->accentAsked = true;
+		const auto create = [] {
+			// a change makes the application take its colors anew
+			return sdl3::CreateSystemAccent(
+				[] { (void)AppMessenger().SendMessage(kSystemColorsChanged); });
+		};
+#ifdef __APPLE__
+		// AppKit's colors and notifications on the main thread
+		fData->accent = fData->OnMain(create);
+#else
+		fData->accent = create();
+#endif
+	}
+	return fData->accent != nullptr ? fData->accent->Color() : std::nullopt;
+#else
+	return std::nullopt;
+#endif
 }
 
 

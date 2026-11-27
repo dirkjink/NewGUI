@@ -559,6 +559,27 @@ HeadlessPlatform::ColorScheme() const
 }
 
 
+std::optional<gfx::Color>
+HeadlessPlatform::AccentColor() const
+{
+	std::scoped_lock lock(fShared->lock);
+	return fOptions.accentColor;
+}
+
+
+void
+HeadlessPlatform::SetAccentColor(std::optional<gfx::Color> accent)
+{
+	{
+		std::scoped_lock lock(fShared->lock);
+		if (fOptions.accentColor == accent)
+			return;
+		fOptions.accentColor = accent;
+	}
+	(void)AppMessenger().SendMessage(kSystemColorsChanged);
+}
+
+
 void
 HeadlessPlatform::SetColorScheme(SystemColorScheme scheme)
 {

@@ -96,6 +96,12 @@ public:
 			bool				IsDark() const;
 									/*!< Its panel background is dark, as Haiku's
 										rgb_color::IsDark(). */
+			Palette				WithAccent(const gfx::Color& accent) const;
+									/*!< These colors with \a accent as the status bar
+										color and the colors Haiku's Appearance
+										preferences derive from it: control highlight,
+										control mark, keyboard navigation (the focus and
+										selection of controls). */
 
 private:
 			std::array<gfx::Color, kColorWhichCount> fColors = {};

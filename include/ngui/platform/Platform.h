@@ -464,6 +464,10 @@ public:
 									/*!< Light or dark as the user chose for the system;
 										kSystemColorsChanged to the application when it
 										changes. Unknown by default. */
+	virtual	std::optional<gfx::Color> AccentColor() const;
+									/*!< The accent color the user chose for the system;
+										kSystemColorsChanged to the application when it
+										changes. std::nullopt (none) by default. */
 	virtual	bool				HasTransparentWindows() const;
 									/*!< Whether windows may be transparent (WindowSpec::
 										transparent), for the frames NewGUI draws. False

@@ -7,6 +7,7 @@
 
 #include <ngui/Palette.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -15,6 +16,7 @@
 
 #include <ngui/AppDefs.h>
 
+#include "Hsl.h"
 #include "WindowList.h"
 
 
@@ -199,6 +201,41 @@ Palette::IsDark() const
 	const auto brightness = static_cast<std::uint8_t>(std::round(std::sqrt(
 		0.299f * red * red + 0.587f * green * green + 0.114f * blue * blue)));
 	return brightness <= 127;
+}
+
+
+Palette
+Palette::WithAccent(const gfx::Color& accent) const
+{
+	// Haiku's ColorsView::_SetColor() of B_STATUS_BAR_COLOR with the secondary
+	// colors picked automatically (src/preferences/appearance/ColorsView.cpp)
+	Palette result = *this;
+	result.Set(BColorWhich::StatusBar, accent);
+	const detail::HslColor statusColorHSL = detail::HslColor::FromRgb(accent);
+
+	detail::HslColor controlHighlight = statusColorHSL;
+	controlHighlight.saturation = std::max(0.2f, controlHighlight.saturation / 2.f);
+	result.Set(BColorWhich::ControlHighlight, controlHighlight.ToRgb());
+
+	detail::HslColor controlMark = statusColorHSL;
+	controlMark.saturation = std::max(0.2f, controlMark.saturation * 0.67f);
+	controlMark.lightness = std::max(0.25f, controlMark.lightness * 0.55f);
+	result.Set(BColorWhich::ControlMark, controlMark.ToRgb());
+
+	detail::HslColor keyboardNavHSL = statusColorHSL;
+	keyboardNavHSL.lightness = std::max(0.2f, keyboardNavHSL.lightness * 0.75f);
+	const gfx::Color keyboardNav = keyboardNavHSL.ToRgb();
+	// Use primary color channel only.
+	const std::uint8_t red = _ToByte(keyboardNav.r);
+	const std::uint8_t green = _ToByte(keyboardNav.g);
+	const std::uint8_t blue = _ToByte(keyboardNav.b);
+	if (blue >= std::max(red, green))
+		result.Set(BColorWhich::KeyboardNavigation, gfx::Color::FromRgba8(0, 0, blue, 255));
+	else if (red >= std::max(green, blue))
+		result.Set(BColorWhich::KeyboardNavigation, gfx::Color::FromRgba8(red, 0, 0, 255));
+	else
+		result.Set(BColorWhich::KeyboardNavigation, gfx::Color::FromRgba8(0, green, 0, 255));
+	return result;
 }
 
 
