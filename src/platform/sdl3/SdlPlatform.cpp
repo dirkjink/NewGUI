@@ -51,6 +51,7 @@
 #endif
 #ifdef __APPLE__
 #include "platform/sdl3/CocoaDragDrop.h"
+#include "platform/sdl3/CocoaNotifications.h"
 #include "platform/sdl3/CocoaMenuBar.h"
 #endif
 #ifdef _WIN32
@@ -286,12 +287,14 @@ public:
 #endif
 	// the system's notifications (module P5), made on first use, under
 	// notifyLock: the desktop's over D-Bus on Linux, the icon in the
-	// notification area on Windows
+	// notification area on Windows, UNUserNotificationCenter on macOS
 	std::mutex				notifyLock;
 #ifdef NGUI_WITH_DBUS_NOTIFICATIONS
 	std::unique_ptr<sdl3::DbusNotifications> notifications;
 #elif defined(_WIN32)
 	std::unique_ptr<sdl3::WinNotifications> notifications;
+#elif defined(__APPLE__)
+	std::unique_ptr<sdl3::CocoaNotifications> notifications;
 #endif
 
 	// The backend with GPU surfaces that renders GPU windows, or nullptr;
@@ -1641,11 +1644,13 @@ struct ClipboardOffer {
 std::expected<void, Error>
 SdlPlatform::ShowNotification(const NotificationSpec& spec)
 {
-#if defined(NGUI_WITH_DBUS_NOTIFICATIONS) || defined(_WIN32)
+#if defined(NGUI_WITH_DBUS_NOTIFICATIONS) || defined(_WIN32) || defined(__APPLE__)
 	std::scoped_lock lock(fData->notifyLock);
 	if (fData->notifications == nullptr) {
 #ifdef _WIN32
 		auto connected = sdl3::WinNotifications::Create();
+#elif defined(__APPLE__)
+		auto connected = sdl3::CocoaNotifications::Create();
 #else
 		auto connected = sdl3::DbusNotifications::Create();
 #endif

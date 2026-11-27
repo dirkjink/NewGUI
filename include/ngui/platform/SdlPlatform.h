@@ -93,8 +93,10 @@ public:
 										org.freedesktop.Notifications on the session bus
 										(NotSupported without one), under Windows a
 										balloon of an icon in the notification area
-										(Shell_NotifyIcon(), shown as a toast);
-										NotSupported elsewhere for now. */
+										(Shell_NotifyIcon(), shown as a toast), under
+										macOS UNUserNotificationCenter, in an
+										application bundle only (NotSupported
+										otherwise). */
 
 			void				SetGpuRendering(bool gpu);
 									/*!< Whether windows made from now on render on the GPU
