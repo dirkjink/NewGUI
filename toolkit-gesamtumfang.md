@@ -97,7 +97,7 @@ Ersetzt die grobe Schätzung T1 aus der Spezifikation (Entwurf 0.5: 2.000 – 3.
 | P1 Plattform-Abstraktion | `Platform`, `NativeWindow`, `Display`, `Cursor`, `Clipboard`, Einbindung in den Event-Loop | 400 – 700 |
 | P2 **SDL3-Implementierung** | Fenster mit Abbildung von Look und Feel (modal, floating, popup); Übersetzung der Ereignisse in Messages mit eigenen Tastencodes und Modifiern; Eingabemethoden (`SDL_EVENT_TEXT_EDITING` → InlineInput, Kandidatenfenster über `SDL_SetTextInputArea`); Zwischenablage mit MIME-Typen; Dateien per Drag & Drop; Cursor; Monitore und Wechsel der Pixeldichte; Weiterleiten an den Hauptthread; Datei- und Meldungsdialoge von SDL3 | 2.500 – 4.000 |
 | **Basis zusammen** | | **2.900 – 4.700** |
-| P3 *nativ:* globale Menüleiste unter macOS | Brücke zu `NSMenu` in Objective-C++ | 500 – 900 |
+| P3 *nativ:* globale Menüleiste unter macOS | Brücke zu `NSMenu` in Objective-C++; **umgesetzt (2026-11-27):** die `BMenuBar` des Fensters im Vordergrund als `NSApp.mainMenu`, mit Programmmenü, im Fenster ausgeblendet | 500 – 900 |
 | P4 *nativ:* Drag & Drop beliebiger Daten zwischen Anwendungen | pro Betriebssystem (OLE, NSPasteboard, Wayland/X11) | 600 – 1.200 |
 | P5 *nativ:* Benachrichtigungen | pro Betriebssystem | 300 – 600 |
 | **Plattformschicht gesamt** | | **4.300 – 7.400** |

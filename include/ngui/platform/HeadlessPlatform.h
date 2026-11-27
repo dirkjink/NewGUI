@@ -79,6 +79,11 @@ public:
 										first. */
 			void				UpdateAccessibility(const AccessibleTree& tree) override;
 									/*!< Keeps \a tree as the last one and counts it. */
+			bool				HasSystemMenuBar() const override;
+									/*!< Options::systemMenuBar, for a window that is no
+										popup. */
+			void				SetSystemMenuBar(std::vector<SystemMenuItem> menus) override;
+									/*!< Keeps \a menus as the last ones and counts them. */
 
 			std::string			Title() const;
 									/*!< The title. */
@@ -112,6 +117,17 @@ public:
 										before the first. */
 			std::size_t			CountAccessibleUpdates() const;
 									/*!< How many trees its BWindow passed on. */
+			std::vector<SystemMenuItem> SystemMenuBar() const;
+									/*!< The menus its BWindow passed on last for the
+										system's menu bar. */
+			std::size_t			CountSystemMenuBarUpdates() const;
+									/*!< How many times it passed them on. */
+			std::expected<void, Error> ChooseSystemMenuItem(std::uint64_t id) const;
+									/*!< Acts as a user choosing the entry \a id in the
+										system's menu bar: the menus open
+										(kSystemMenusBeginning), the entry is chosen
+										(kSystemMenuInvoked), the menus close
+										(kSystemMenusEnded). */
 
 private:
 	friend class HeadlessPlatform;
@@ -136,6 +152,8 @@ private:
 			bool				fAccessibilityActive = false;
 			std::optional<AccessibleTree> fAccessibleTree;
 			std::size_t			fAccessibleUpdates = 0;
+			std::vector<SystemMenuItem> fSystemMenus;
+			std::size_t			fSystemMenuUpdates = 0;
 };
 
 
@@ -158,6 +176,10 @@ public:
 									/*!< Its size in logical pixels. */
 			float				scale = 1;
 									/*!< Device pixels per logical pixel. */
+			bool				systemMenuBar = false;
+									/*!< Acts as a platform with a menu bar of the
+										system (macOS): windows take their menus there
+										(PlatformWindow::HasSystemMenuBar()). */
 	};
 
 	/*!	How the placeholder answers a file dialog. */

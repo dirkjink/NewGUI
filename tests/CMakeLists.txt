@@ -62,6 +62,7 @@ add_executable(ngui_tests
     PrintJobTest.cpp
     ShapeTest.cpp
     SupportDefsTest.cpp
+    SystemMenuBarTest.cpp
     TextControlTest.cpp
     TextLayoutTest.cpp
     TextStyleTest.cpp
@@ -365,6 +366,12 @@ if(NGUI_WITH_SDL3)
                 PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
         endif()
         target_compile_definitions(ngui_sdl3_tests PRIVATE NGUI_WITH_ACCESSKIT=1)
+    endif()
+    # The application's menu bar on macOS (module P3), with SDL's Cocoa windows.
+    if(APPLE)
+        target_sources(ngui_sdl3_tests PRIVATE sdl3/SdlCocoaMenuBarTest.mm)
+        set_source_files_properties(sdl3/SdlCocoaMenuBarTest.mm
+            PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     endif()
     gtest_discover_tests(ngui_sdl3_tests
         DISCOVERY_MODE PRE_TEST

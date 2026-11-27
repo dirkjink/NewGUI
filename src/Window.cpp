@@ -23,6 +23,7 @@
 #include <ngui/Cursor.h>
 #include <ngui/LookRegistry.h>
 #include <ngui/MenuBar.h>
+#include <ngui/SeparatorItem.h>
 #include <ngui/MenuItem.h>
 #include <ngui/MessageRunner.h>
 #include <ngui/TextSystem.h>
@@ -894,6 +895,22 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 			// assistive technology listens: the whole tree at the next update
 			fAccessibleTree.reset();
 			_ScheduleUpdate();
+			return;
+		case platform::kSystemMenuInvoked:
+			// an item chosen in the system's menu bar, if it still is there
+			if (BMenuItem* item = _SystemMenuItem(static_cast<std::uint64_t>(
+					message->GetInt64("id", 0)));
+					item != nullptr && item->IsEnabled()) {
+				(void)item->Invoke();
+			}
+			return;
+		case platform::kSystemMenusBeginning:
+			// the items as the program makes them up for the opening menu
+			MenusBeginning();
+			_UpdateSystemMenuBar();
+			return;
+		case platform::kSystemMenusEnded:
+			MenusEnded();
 			return;
 		case detail::kRecordWindowState:
 			// a recording begins: its frame and scale as it has them
@@ -1955,6 +1972,7 @@ BWindow::_Update()
 	for (const std::unique_ptr<PopupSurface>& popup : fPopups)
 		_UpdatePopup(*popup, caps, text);
 	_UpdateAccessibility();
+	_UpdateSystemMenuBar();
 }
 
 
@@ -2383,6 +2401,87 @@ BMenuBar*
 BWindow::KeyMenuBar() const
 {
 	return fKeyMenuBar;
+}
+
+
+namespace {
+
+
+// The items of \a menu for the system's menu bar (module P3); the id of an
+// entry is its item's address, checked against the menus when chosen.
+std::vector<platform::SystemMenuItem>
+SystemItemsOf(const BMenu& menu)
+{
+	std::vector<platform::SystemMenuItem> items;
+	for (int32 index = 0; index < menu.CountItems(); index++) {
+		const BMenuItem* item = menu.ItemAt(index);
+		platform::SystemMenuItem entry;
+		entry.id = reinterpret_cast<std::uintptr_t>(item);
+		if (dynamic_cast<const BSeparatorItem*>(item) != nullptr) {
+			entry.separator = true;
+			items.push_back(std::move(entry));
+			continue;
+		}
+		entry.label = item->Label();
+		entry.enabled = item->IsEnabled();
+		entry.marked = item->IsMarked();
+		entry.shortcut = item->Shortcut(&entry.modifiers);
+		if (const BMenu* submenu = item->Submenu())
+			entry.items = SystemItemsOf(*submenu);
+		items.push_back(std::move(entry));
+	}
+	return items;
+}
+
+
+// The item of \a menu or its submenus with the address \a id.
+BMenuItem*
+FindSystemItem(const BMenu& menu, std::uint64_t id)
+{
+	for (int32 index = 0; index < menu.CountItems(); index++) {
+		BMenuItem* item = menu.ItemAt(index);
+		if (reinterpret_cast<std::uintptr_t>(item) == id)
+			return item;
+		if (const BMenu* submenu = item->Submenu()) {
+			if (BMenuItem* found = FindSystemItem(*submenu, id))
+				return found;
+		}
+	}
+	return nullptr;
+}
+
+
+} // namespace
+
+
+// Passes the key menu bar on to the system's menu bar when it changed, and
+// hides it in the window (module P3).
+void
+BWindow::_UpdateSystemMenuBar()
+{
+	if (fPlatformWindow == nullptr || !fPlatformWindow->HasSystemMenuBar())
+		return;
+	std::vector<platform::SystemMenuItem> menus;
+	if (fKeyMenuBar != nullptr && fKeyMenuBar->UsesSystemMenuBar()) {
+		if (!fKeyMenuBar->fHiddenForSystemMenuBar) {
+			fKeyMenuBar->fHiddenForSystemMenuBar = true;
+			fKeyMenuBar->Hide();
+		}
+		menus = SystemItemsOf(*fKeyMenuBar);
+	}
+	if (menus == fSystemMenus)
+		return;
+	fSystemMenus = menus;
+	fPlatformWindow->SetSystemMenuBar(std::move(menus));
+}
+
+
+BMenuItem*
+BWindow::_SystemMenuItem(std::uint64_t id) const
+{
+	if (id == 0 || fKeyMenuBar == nullptr || !fKeyMenuBar->UsesSystemMenuBar())
+		return nullptr;
+	return FindSystemItem(*fKeyMenuBar, id);
 }
 
 

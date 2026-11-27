@@ -19,6 +19,7 @@
 
 #include <ngui/Accessibility.h>
 #include <ngui/Error.h>
+#include <ngui/InterfaceDefs.h>
 #include <ngui/Messenger.h>
 #include <ngui/SupportDefs.h>
 #include <ngui/gfx/Backend.h>
@@ -52,6 +53,39 @@ struct ShownFrame {
 			std::int32_t		height = 0;		/*!< Height in device pixels. */
 			std::vector<std::byte> rgba;		/*!< `width * height * 4` bytes. */
 };
+
+
+/*!	An entry of a system menu bar (macOS, module P3): an item of the
+	window's key menu bar as the platform shows it. */
+struct SystemMenuItem {
+			std::uint64_t		id = 0;		/*!< What kSystemMenuInvoked names. */
+			std::string			label{};	/*!< Its label; empty for a separator. */
+			bool				separator = false;	/*!< A separator line. */
+			bool				enabled = true;		/*!< It can be chosen. */
+			bool				marked = false;		/*!< It has a check mark. */
+			std::uint32_t		shortcut = 0;	/*!< The character of its shortcut, 0
+												if none. */
+			BModifierFlags		modifiers{};	/*!< Its modifiers as BMenuItem::Shortcut()
+												gives them: with Command unless
+												BModifier::NoCommand is among them. */
+			std::vector<SystemMenuItem> items{};	/*!< The items of its submenu. */
+
+			bool				operator==(const SystemMenuItem& other) const = default;
+									/*!< Everything the same. */
+};
+
+
+/*!	A system menu item was chosen: to the window, with its id in "id"
+	(int64). */
+inline constexpr std::uint32_t kSystemMenuInvoked = FourCharCode("_SMI");
+
+/*!	A menu of the system menu bar is about to open: to the window, which
+	calls MenusBeginning() and passes its menus on again. */
+inline constexpr std::uint32_t kSystemMenusBeginning = FourCharCode("_SMB");
+
+/*!	The menus of the system menu bar have closed: to the window, which calls
+	MenusEnded(). */
+inline constexpr std::uint32_t kSystemMenusEnded = FourCharCode("_SME");
 
 
 /*!	What a new window looks like (module P1). Look and feel of BWindow
@@ -157,6 +191,15 @@ public:
 									/*!< What the window shows of the last PresentList()
 										(BWindow::CaptureFrame()). NotSupported by
 										default. */
+
+	virtual	bool				HasSystemMenuBar() const;
+									/*!< Whether the window's menus belong in a menu bar of
+										the system (macOS, module P3): its key menu bar then
+										hides and passes its menus on. False by default. */
+	virtual	void				SetSystemMenuBar(std::vector<SystemMenuItem> menus);
+									/*!< The window's menus for the system menu bar, empty
+										for none; shown while the window is the one in
+										front. Ignored by default. */
 };
 
 

@@ -39,6 +39,9 @@
 #ifdef NGUI_WITH_ACCESSKIT
 #include "platform/sdl3/AccessKitBridge.h"
 #endif
+#ifdef __APPLE__
+#include "platform/sdl3/CocoaMenuBar.h"
+#endif
 
 
 namespace ngui::platform {
@@ -91,6 +94,12 @@ struct WindowState {
 	// assistive technology (windows, not popups); made and freed on the
 	// main thread
 	std::unique_ptr<sdl3::AccessKitBridge> accessibility;
+#endif
+#ifdef __APPLE__
+	// an NSWindow of SDL's Cocoa driver (not a popup): its menus go into
+	// the application's menu bar (module P3), as its BWindow passed them on
+	bool					cocoa = false;
+	std::vector<SystemMenuItem> systemMenus;
 #endif
 };
 
@@ -245,6 +254,10 @@ public:
 	bool					gpuBackendTried = false;
 	std::unordered_set<gfx::FontId> gpuFonts;
 	bool					gpuWarned = false;
+#ifdef __APPLE__
+	// the window whose menus the menu bar shows (main thread only)
+	std::weak_ptr<WindowState> menuOwner;
+#endif
 
 	// The backend with GPU surfaces that renders GPU windows, or nullptr;
 	// on the main thread.
@@ -627,6 +640,32 @@ MakeGpuWindow(sdl3::PlatformState& platform, const WindowSpec& spec, SDL_WindowF
 }
 
 
+#ifdef __APPLE__
+// Puts the menus of \a state's window into the application's menu bar: when
+// it got the focus, or when it changed them and is the window in front (or
+// none was yet); main thread.
+void
+ShowMenusOf(sdl3::PlatformState& platform, const std::shared_ptr<WindowState>& state,
+	bool focused)
+{
+	const std::shared_ptr<WindowState> owner = platform.menuOwner.lock();
+	if (!focused && owner != nullptr && owner != state)
+		return;
+	std::vector<SystemMenuItem> menus;
+	BMessenger target;
+	{
+		std::scoped_lock lock(state->lock);
+		if (state->window == nullptr || !state->cocoa)
+			return;
+		menus = state->systemMenus;
+		target = state->target;
+	}
+	platform.menuOwner = state;
+	sdl3::InstallMenuBar(menus, target);
+}
+#endif
+
+
 class SdlWindow final : public PlatformWindow {
 public:
 	SdlWindow(std::shared_ptr<sdl3::PlatformState> platform, std::shared_ptr<WindowState> state)
@@ -652,6 +691,13 @@ public:
 			// before the window it subclasses
 			state->accessibility.reset();
 #endif
+#ifdef __APPLE__
+			// its menus leave the menu bar with it
+			if (platform->menuOwner.lock() == state) {
+				platform->menuOwner.reset();
+				sdl3::InstallMenuBar({}, BMessenger());
+			}
+#endif
 			// the GPU surface with its context current, then the context
 			if (state->gl != nullptr) {
 				(void)SDL_GL_MakeCurrent(state->window, state->gl);
@@ -664,6 +710,29 @@ public:
 			SDL_DestroyWindow(state->window);
 			state->window = nullptr;
 		});
+	}
+
+	bool HasSystemMenuBar() const override
+	{
+#ifdef __APPLE__
+		std::scoped_lock lock(fState->lock);
+		return fState->cocoa;
+#else
+		return false;
+#endif
+	}
+
+	void SetSystemMenuBar(std::vector<SystemMenuItem> menus) override
+	{
+#ifdef __APPLE__
+		{
+			std::scoped_lock lock(fState->lock);
+			fState->systemMenus = std::move(menus);
+		}
+		_Main([state = fState, platform = fPlatform] { ShowMenusOf(*platform, state, false); });
+#else
+		(void)menus;
+#endif
 	}
 
 	bool DrawsLists() const override
@@ -1063,6 +1132,10 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 		state->native = NativeOf(window);
 		state->gl = gl;
 		state->gpuSurface = std::move(gpuSurface);
+#ifdef __APPLE__
+		state->cocoa = !spec.popup && SDL_GetPointerProperty(SDL_GetWindowProperties(window),
+			SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr) != nullptr;
+#endif
 		UpdateGeometry(*state);
 #ifdef NGUI_WITH_ACCESSKIT
 		// while the window is hidden, as the Windows adapter requires
@@ -1202,6 +1275,13 @@ SdlPlatform::ProcessEvents()
 #endif
 				target = state->target;
 			}
+#ifdef __APPLE__
+			// the window in front shows its menus in the menu bar
+			if (translated.message.what == kWindowActivated
+				&& translated.message.GetBool("active", false)) {
+				ShowMenusOf(*fData, state, true);
+			}
+#endif
 			(void)target.SendMessage(translated.message);
 		}
 	}
