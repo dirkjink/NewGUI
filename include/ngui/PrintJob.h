@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <expected>
+#include <functional>
 #include <memory>
 #include <span>
 #include <string>
@@ -15,6 +16,7 @@
 #include <vector>
 
 #include <ngui/Error.h>
+#include <ngui/Messenger.h>
 #include <ngui/SupportDefs.h>
 #include <ngui/gfx/DisplayList.h>
 #include <ngui/gfx/Point.h>
@@ -26,6 +28,7 @@ namespace ngui {
 
 
 class BView;
+class BWindow;
 
 
 /*!	A paper size, in points (1/72 inch), standing upright. */
@@ -158,8 +161,9 @@ public:
 	- The settings are a BPrintSettings, not a BMessage.
 	- FirstPage() and LastPage() tell the program what to draw; the job
 	  does not drop pages outside them.
-	- ConfigPage() and ConfigJob() (the dialogs) come later; until then a
-	  program sets the settings with SetSettings().
+	- ConfigPage() and ConfigJob() are asynchronous, as BAlert::Go(): they
+	  show their panel and return at once; the result comes through a
+	  callback (Haiku blocked and returned a status).
 	- PrinterType() is gone: printers print in color.
 */
 class BPrintJob {
@@ -171,6 +175,22 @@ public:
 								~BPrintJob();
 								BPrintJob(const BPrintJob&) = delete;
 			BPrintJob&			operator=(const BPrintJob&) = delete;
+
+			std::expected<BMessenger, Error> ConfigPage(
+									std::function<void(bool accepted)> done = nullptr);
+									/*!< Shows the page setup panel (paper, orientation,
+										scale) in front of the window whose thread calls,
+										and returns at once with the panel's messenger. OK
+										makes its choices the job's settings, then \a done
+										gets true; Cancel or closing it leaves them, \a done
+										gets false. \a done runs on the panel's thread, the
+										job must live until then. */
+			std::expected<BMessenger, Error> ConfigJob(
+									std::function<void(bool accepted)> done = nullptr);
+									/*!< As ConfigPage() with the print panel: the printers
+										of the print service, the file for one that writes
+										files, copies, all pages or a range. NotSupported
+										without a print service. */
 
 			std::expected<void, Error> BeginJob();
 									/*!< Starts the job without pages. NotSupported without
@@ -200,8 +220,9 @@ public:
 									/*!< Whether the job is begun and not cancelled,
 										committed or failed. */
 
-			const BPrintSettings& Settings() const;
-									/*!< The settings. */
+			BPrintSettings		Settings() const;
+									/*!< The settings (a copy: a panel may change them on
+										its thread). */
 			void				SetSettings(const BPrintSettings& settings);
 									/*!< Replaces them; copies below 1 become 1, a scale
 										that is not positive 100. */
@@ -222,6 +243,8 @@ public:
 
 private:
 			struct Data;
+
+	static	std::expected<BMessenger, Error> _ShowPanel(std::unique_ptr<BWindow> panel);
 
 			std::unique_ptr<Data> fData;
 };

@@ -7,6 +7,7 @@
 
 #include <ngui/PrintJob.h>
 
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <string>
@@ -18,6 +19,10 @@
 #include <ngui/Application.h>
 #include <ngui/Bitmap.h>
 #include <ngui/Looper.h>
+#include <ngui/MenuField.h>
+#include <ngui/MenuItem.h>
+#include <ngui/PopUpMenu.h>
+#include <ngui/TextControl.h>
 #include <ngui/View.h>
 #include <ngui/Window.h>
 #include <ngui/gfx/Canvas.h>
@@ -43,7 +48,8 @@ class RecordingService : public BPrintService {
 public:
 	std::vector<BPrinterInfo> Printers() const override
 	{
-		return {{"Office", "Office printer", true, false}, {"Lab", "", false, false}};
+		return {{"Office", "Office printer", true, false}, {"Lab", "", false, false},
+			{"PDF", "PDF file", false, true}};
 	}
 
 	std::expected<void, Error> Print(std::string_view jobName,
@@ -303,6 +309,174 @@ TEST(PrintJobTest, ItSaysWhatIsWrong)
 	EXPECT_EQ(BPaper::Standard().front(), a4);
 	EXPECT_EQ(job.FirstPage(), 1);
 	EXPECT_GE(job.LastPage(), job.FirstPage());
+}
+
+
+// The marked item of the menu field \a field marked anew at \a index, and
+// invoked as a click on it would.
+void
+Choose(const ViewRef& field, int32 index)
+{
+	(void)field.Run([index](BView& view) {
+		BMenuItem* item = static_cast<BMenuField&>(view).Menu()->ItemAt(index);
+		item->SetMarked(true);
+		(void)item->Invoke();
+	});
+}
+
+
+void
+SetText(const ViewRef& control, const char* text)
+{
+	(void)control.Run([text](BView& view) { static_cast<BTextControl&>(view).SetText(text); });
+}
+
+
+TEST(PrintJobTest, ThePageSetupPanelSetsPaperOrientationAndScale)
+{
+	// What is tested: ConfigPage() of a job on A4 upright at 100 %: the panel
+	// "Page setup" shown, US Letter chosen, "Landscape" clicked, 150 typed
+	// as the scale, OK clicked; then the panel again, set to A5 and
+	// cancelled; then again and closed.
+	// Success criteria: ConfigPage() returns at once with the panel's
+	// messenger; the panel shows the paper, both orientations and the
+	// scale. After OK the job's settings are Letter, landscape, 150 % and
+	// the callback gets true; after Cancel and after closing it they stay,
+	// the callback gets false, and the panel is gone.
+	// Why it matters: Haiku's programs let the user choose the paper before
+	// printing (ConfigPage()); the choice must reach the job, a cancelled
+	// one must not.
+	//
+	// Given
+	TestEnvironment environment;
+	FixedTextSystem text;
+	TextSystem::SetDefault(&text);
+	BApplication app("application/x-vnd.ngui-page-setup-test");
+	Driver driver(app);
+	BPrintJob job("Setup");
+	std::atomic<int> accepted = 0;
+	std::atomic<int> declined = 0;
+	const auto count = [&](bool ok) { (ok ? accepted : declined)++; };
+
+	// When
+	const auto shown = job.ConfigPage(count);
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	WindowRef panel = driver.Window("Page setup");
+	const bool complete = panel.Find("paper").Exists() && panel.Find("portrait").Exists()
+		&& panel.Find("landscape").Exists() && panel.Find("scale").Exists();
+	const std::optional<std::int32_t> portrait = panel.Find("portrait").Value();
+	Choose(panel.Find("paper"), 2);
+	ASSERT_TRUE(driver.Click(panel.Find("landscape")).has_value());
+	SetText(panel.Find("scale"), "150");
+	ASSERT_TRUE(driver.Click(panel.Find("ok")).has_value());
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	const BPrintSettings afterOk = job.Settings();
+	const int acceptedAfterOk = accepted;
+
+	(void)job.ConfigPage(count);
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	panel = driver.Window("Page setup");
+	Choose(panel.Find("paper"), 1);
+	ASSERT_TRUE(driver.Click(panel.Find("cancel")).has_value());
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	const BPaper afterCancel = job.Settings().paper;
+
+	const auto closing = job.ConfigPage(count);
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	ASSERT_TRUE(closing.has_value());
+	(void)closing->SendMessage(kQuitRequested);
+	ASSERT_TRUE(closing->WaitForLooperQuit(5s).has_value());
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	const bool gone = !driver.Window("Page setup").IsValid();
+	TextSystem::SetDefault(nullptr);
+
+	// Then
+	ASSERT_TRUE(shown.has_value()) << shown.error().message;
+	EXPECT_TRUE(complete);
+	EXPECT_EQ(portrait, kControlOn);
+	EXPECT_EQ(afterOk.paper, BPaper::Letter());
+	EXPECT_EQ(afterOk.orientation, BPrintOrientation::Landscape);
+	EXPECT_FLOAT_EQ(afterOk.scale, 150);
+	EXPECT_EQ(acceptedAfterOk, 1);
+	EXPECT_EQ(afterCancel, BPaper::Letter());
+	EXPECT_EQ(accepted, 1);
+	EXPECT_EQ(declined, 2);
+	EXPECT_TRUE(gone);
+}
+
+
+TEST(PrintJobTest, ThePrintPanelSetsPrinterFileCopiesAndPages)
+{
+	// What is tested: ConfigJob() with a print service of three printers
+	// (Office the default, Lab, a PDF printer that writes files): the panel
+	// "Print" shown; the PDF printer chosen, a file and 3 copies typed,
+	// "Pages" clicked with 2 to 4, Print clicked. ConfigJob() without a
+	// print service.
+	// Success criteria: The panel starts on Office with the file field
+	// disabled and all pages (from and to disabled); choosing the PDF
+	// printer enables the file, "Pages" the range. After Print the job's
+	// settings are the PDF printer, the file, 3 copies, pages 2 to 4, and
+	// the callback gets true. Without a service ConfigJob() is
+	// NotSupported.
+	// Why it matters: The print panel is where a user picks the printer and
+	// what to print (Haiku's ConfigJob()); the program prints what it
+	// reports.
+	//
+	// Given
+	TestEnvironment environment;
+	FixedTextSystem text;
+	TextSystem::SetDefault(&text);
+	BApplication app("application/x-vnd.ngui-print-panel-test");
+	Driver driver(app);
+	BPrintJob job("Panel");
+	const auto withoutService = job.ConfigJob();
+	RecordingService service;
+	const ScopedService installed(&service);
+	std::atomic<int> accepted = 0;
+
+	// When
+	const auto shown = job.ConfigJob([&](bool ok) { accepted += ok ? 1 : 0; });
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	WindowRef panel = driver.Window("Print");
+	std::string firstPrinter;
+	(void)panel.Find("printer").Run([&](BView& view) {
+		if (const BMenuItem* marked = static_cast<BMenuField&>(view).Menu()->FindMarked())
+			firstPrinter = marked->Label();
+	});
+	const bool fileAtFirst = panel.Find("file").IsEnabled();
+	const bool rangeAtFirst = panel.Find("from").IsEnabled() || panel.Find("to").IsEnabled();
+	Choose(panel.Find("printer"), 2);
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	const bool fileForPdf = panel.Find("file").IsEnabled();
+	SetText(panel.Find("file"), "/tmp/out.pdf");
+	SetText(panel.Find("copies"), "3");
+	ASSERT_TRUE(driver.Click(panel.Find("range")).has_value());
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	const bool rangeEnabled = panel.Find("from").IsEnabled() && panel.Find("to").IsEnabled();
+	SetText(panel.Find("from"), "2");
+	SetText(panel.Find("to"), "4");
+	ASSERT_TRUE(driver.Click(panel.Find("print")).has_value());
+	ASSERT_TRUE(driver.WaitForIdle().has_value());
+	const BPrintSettings settings = job.Settings();
+	TextSystem::SetDefault(nullptr);
+
+	// Then
+	ASSERT_FALSE(withoutService.has_value());
+	EXPECT_EQ(withoutService.error().code, ErrorCode::NotSupported);
+	ASSERT_TRUE(shown.has_value()) << shown.error().message;
+	EXPECT_EQ(firstPrinter, "Office");
+	EXPECT_FALSE(fileAtFirst);
+	EXPECT_FALSE(rangeAtFirst);
+	EXPECT_TRUE(fileForPdf);
+	EXPECT_TRUE(rangeEnabled);
+	EXPECT_EQ(settings.printer, "PDF");
+	EXPECT_EQ(settings.file, "/tmp/out.pdf");
+	EXPECT_EQ(settings.copies, 3);
+	EXPECT_EQ(settings.firstPage, 2);
+	EXPECT_EQ(settings.lastPage, 4);
+	EXPECT_EQ(job.FirstPage(), 2);
+	EXPECT_EQ(job.LastPage(), 4);
+	EXPECT_EQ(accepted, 1);
 }
 
 

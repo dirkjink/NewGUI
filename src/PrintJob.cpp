@@ -10,10 +10,14 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <mutex>
 #include <utility>
 
+#include <ngui/Looper.h>
 #include <ngui/View.h>
 #include <ngui/Window.h>
+
+#include "PrintPanels.h"
 
 
 namespace ngui {
@@ -94,7 +98,10 @@ BPrintService::SetDefault(BPrintService* service)
 
 struct BPrintJob::Data {
 			std::string			name;
-			BPrintSettings		settings;
+			// the settings, shared with the panels, which change them on
+			// their threads
+			std::shared_ptr<std::mutex> lock = std::make_shared<std::mutex>();
+			std::shared_ptr<BPrintSettings> settings = std::make_shared<BPrintSettings>();
 			std::vector<BPrintPage> pages;
 			bool				begun = false;
 			bool				pageOpen = false;
@@ -126,19 +133,80 @@ BPrintJob::BPrintJob(std::string name)
 BPrintJob::~BPrintJob() = default;
 
 
+namespace {
+
+
+
+
+// What a panel does with its result: the job's settings and \a done.
+PrintPanelDone
+Apply(std::shared_ptr<std::mutex> lock, std::shared_ptr<BPrintSettings> settings,
+	std::function<void(bool accepted)> done)
+{
+	return [lock = std::move(lock), settings = std::move(settings), done = std::move(done)](
+		std::optional<BPrintSettings> chosen) {
+		if (chosen.has_value()) {
+			const std::scoped_lock guard(*lock);
+			*settings = std::move(*chosen);
+		}
+		if (done != nullptr)
+			done(chosen.has_value());
+	};
+}
+
+
+} // namespace
+
+
+// Shows \a panel in front of the window whose thread calls, if any.
+std::expected<BMessenger, Error>
+BPrintJob::_ShowPanel(std::unique_ptr<BWindow> panel)
+{
+	panel->ResizeToPreferred();
+	if (const BWindow* parent = BWindow::_DispatchingWindow()) {
+		const gfx::Rect frame = parent->Frame();
+		const gfx::Rect own = panel->Frame();
+		panel->MoveTo({std::floor(frame.x0 + (frame.Width() - own.Width()) / 2),
+			std::floor(frame.y0 + (frame.Height() - own.Height()) / 3)});
+	}
+	panel->Show();
+	return BLooper::Run(std::move(panel));
+}
+
+
+std::expected<BMessenger, Error>
+BPrintJob::ConfigPage(std::function<void(bool accepted)> done)
+{
+	return _ShowPanel(MakePageSetupPanel(Settings(),
+		Apply(fData->lock, fData->settings, std::move(done))));
+}
+
+
+std::expected<BMessenger, Error>
+BPrintJob::ConfigJob(std::function<void(bool accepted)> done)
+{
+	BPrintService* service = BPrintService::Default();
+	if (service == nullptr)
+		return Failure(ErrorCode::NotSupported, "no print service is installed");
+	return _ShowPanel(MakePrintPanel(Settings(), service->Printers(),
+		Apply(fData->lock, fData->settings, std::move(done))));
+}
+
+
 std::expected<void, Error>
 BPrintJob::BeginJob()
 {
 	BPrintService* service = BPrintService::Default();
 	if (service == nullptr)
 		return Failure(ErrorCode::NotSupported, "no print service is installed");
-	if (!fData->settings.printer.empty()) {
+	const BPrintSettings settings = Settings();
+	if (!settings.printer.empty()) {
 		const std::vector<BPrinterInfo> printers = service->Printers();
 		const bool known = std::ranges::any_of(printers, [&](const BPrinterInfo& printer) {
-			return printer.name == fData->settings.printer;
+			return printer.name == settings.printer;
 		});
 		if (!known)
-			return Failure(ErrorCode::NotFound, "no printer " + fData->settings.printer);
+			return Failure(ErrorCode::NotFound, "no printer " + settings.printer);
 	}
 	fData->pages.clear();
 	fData->pageOpen = false;
@@ -177,8 +245,7 @@ BPrintJob::DrawList(gfx::DisplayListRef list, gfx::Rect area, gfx::Point where)
 	const gfx::Rect printable = PrintableRect();
 	BPrintPage& page = fData->CurrentPage({paper.Width(), paper.Height()});
 	page.placements.push_back({std::move(list), area,
-		{printable.x0 + where.x, printable.y0 + where.y},
-		0.75f * fData->settings.scale / 100});
+		{printable.x0 + where.x, printable.y0 + where.y}, 0.75f * Settings().scale / 100});
 	return {};
 }
 
@@ -211,7 +278,7 @@ BPrintJob::CommitJob()
 	BPrintService* service = BPrintService::Default();
 	if (service == nullptr)
 		return Failure(ErrorCode::NotSupported, "no print service is installed");
-	return service->Print(fData->name, pages, fData->settings);
+	return service->Print(fData->name, pages, Settings());
 }
 
 
@@ -231,28 +298,31 @@ BPrintJob::CanContinue() const
 }
 
 
-const BPrintSettings&
+BPrintSettings
 BPrintJob::Settings() const
 {
-	return fData->settings;
+	const std::scoped_lock guard(*fData->lock);
+	return *fData->settings;
 }
 
 
 void
 BPrintJob::SetSettings(const BPrintSettings& settings)
 {
-	fData->settings = settings;
-	fData->settings.copies = std::max(settings.copies, 1);
+	const std::scoped_lock guard(*fData->lock);
+	*fData->settings = settings;
+	fData->settings->copies = std::max(settings.copies, 1);
 	if (!std::isfinite(settings.scale) || settings.scale <= 0)
-		fData->settings.scale = 100;
+		fData->settings->scale = 100;
 }
 
 
 gfx::Rect
 BPrintJob::PaperRect() const
 {
-	const gfx::Size size = fData->settings.paper.size;
-	if (fData->settings.orientation == BPrintOrientation::Landscape)
+	const BPrintSettings settings = Settings();
+	const gfx::Size size = settings.paper.size;
+	if (settings.orientation == BPrintOrientation::Landscape)
 		return {0, 0, size.h, size.w};
 	return {0, 0, size.w, size.h};
 }
@@ -262,7 +332,7 @@ gfx::Rect
 BPrintJob::PrintableRect() const
 {
 	const gfx::Rect paper = PaperRect();
-	const BPrintMargins& margins = fData->settings.margins;
+	const BPrintMargins margins = Settings().margins;
 	gfx::Rect printable{paper.x0 + margins.left, paper.y0 + margins.top,
 		paper.x1 - margins.right, paper.y1 - margins.bottom};
 	if (printable.x1 < printable.x0)
@@ -277,7 +347,7 @@ void
 BPrintJob::GetResolution(int32* xDPI, int32* yDPI) const
 {
 	const BPrintService* service = BPrintService::Default();
-	const int32 dpi = service != nullptr ? service->Resolution(fData->settings.printer) : 300;
+	const int32 dpi = service != nullptr ? service->Resolution(Settings().printer) : 300;
 	if (xDPI != nullptr)
 		*xDPI = dpi;
 	if (yDPI != nullptr)
@@ -288,14 +358,14 @@ BPrintJob::GetResolution(int32* xDPI, int32* yDPI) const
 int32
 BPrintJob::FirstPage() const
 {
-	return std::max(fData->settings.firstPage, 1);
+	return std::max(Settings().firstPage, 1);
 }
 
 
 int32
 BPrintJob::LastPage() const
 {
-	return std::max(fData->settings.lastPage, FirstPage());
+	return std::max(Settings().lastPage, FirstPage());
 }
 
 
