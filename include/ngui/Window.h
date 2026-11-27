@@ -365,6 +365,7 @@ private:
 	friend class MenuTracker;
 	friend class BMenu;
 	friend class BMenuItem;
+	friend class BMenuBar;
 	friend class BAlert;
 	friend class BPopUpMenu;
 	friend class BTextView;
@@ -404,6 +405,8 @@ private:
 			std::expected<gfx::DisplayListRef, Error> _RecordForExport(
 									const BSnapshotOptions& options, BView* view);
 			void				_ScheduleUpdate();
+			void				_UpdateSystemMenuBar();
+			BMenuItem*			_SystemMenuItem(std::uint64_t id) const;
 	static	BWindow*			_DispatchingWindow();
 			void				_SetTextInputArea(gfx::Rect rect, int32 cursor);
 			void				_ClearComposition();
@@ -438,6 +441,8 @@ private:
 			BWindowFeel			fFeel = BWindowFeel::Normal;
 			std::unique_ptr<BView> fRoot;
 			std::unique_ptr<platform::PlatformWindow> fPlatformWindow;
+			std::vector<platform::SystemMenuItem> fSystemMenus;
+									// passed on last (module P3)
 			std::unique_ptr<gfx::Backend> fBackend;
 			gfx::SurfaceRef		fSurface;
 			const TextSystem*	fFontsOf = nullptr;

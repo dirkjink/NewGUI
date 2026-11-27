@@ -434,6 +434,19 @@ platform::PlatformWindow::ReadShownFrame()
 }
 
 
+bool
+platform::PlatformWindow::HasSystemMenuBar() const
+{
+	return false;
+}
+
+
+void
+platform::PlatformWindow::SetSystemMenuBar(std::vector<SystemMenuItem> /*menus*/)
+{
+}
+
+
 void
 platform::PlatformWindow::UpdateAccessibility(const AccessibleTree& /*tree*/)
 {

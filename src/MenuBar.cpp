@@ -66,6 +66,29 @@ BMenuBar::AttachedToWindow()
 
 
 void
+BMenuBar::SetUsesSystemMenuBar(bool uses)
+{
+	if (fUsesSystemMenuBar == uses)
+		return;
+	fUsesSystemMenuBar = uses;
+	// back into the window, or out of it at the window's next update
+	if (!uses && fHiddenForSystemMenuBar) {
+		fHiddenForSystemMenuBar = false;
+		Show();
+	}
+	if (Window() != nullptr)
+		Window()->_ScheduleUpdate();
+}
+
+
+bool
+BMenuBar::UsesSystemMenuBar() const
+{
+	return fUsesSystemMenuBar;
+}
+
+
+void
 BMenuBar::DetachedFromWindow()
 {
 	fTracker->Stop(nullptr);

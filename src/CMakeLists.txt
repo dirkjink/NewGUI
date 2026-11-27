@@ -317,6 +317,13 @@ if(NGUI_WITH_SDL3)
             SDL3::SDL3)
     # internal headers (PlatformEvent.h)
     target_include_directories(ngui_sdl3 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    # The application's menu bar on macOS (module P3; Objective-C++).
+    if(APPLE)
+        target_sources(ngui_sdl3 PRIVATE platform/sdl3/CocoaMenuBar.mm)
+        set_source_files_properties(platform/sdl3/CocoaMenuBar.mm
+            PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+        target_link_libraries(ngui_sdl3 PRIVATE "-framework AppKit")
+    endif()
     # Screen readers through AccessKit (toolkit scope 11.3; vcpkg feature
     # accessibility, overlay port ports/accesskit-c).
     if(NGUI_WITH_ACCESSKIT)

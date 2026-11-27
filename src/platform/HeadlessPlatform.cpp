@@ -34,6 +34,7 @@ struct HeadlessWindow::Shared {
 	bool								cursorVisible = true;
 	HeadlessPlatform::FileDialogAnswer	answer;
 	std::vector<FileDialogSpec>			dialogs;
+	bool								systemMenuBar = false;
 };
 
 
@@ -292,6 +293,52 @@ HeadlessWindow::CountAccessibleUpdates() const
 }
 
 
+bool
+HeadlessWindow::HasSystemMenuBar() const
+{
+	std::scoped_lock lock(fShared->lock);
+	return fShared->systemMenuBar && !fPopup;
+}
+
+
+void
+HeadlessWindow::SetSystemMenuBar(std::vector<SystemMenuItem> menus)
+{
+	std::scoped_lock lock(fLock);
+	fSystemMenus = std::move(menus);
+	fSystemMenuUpdates++;
+}
+
+
+std::vector<SystemMenuItem>
+HeadlessWindow::SystemMenuBar() const
+{
+	std::scoped_lock lock(fLock);
+	return fSystemMenus;
+}
+
+
+std::size_t
+HeadlessWindow::CountSystemMenuBarUpdates() const
+{
+	std::scoped_lock lock(fLock);
+	return fSystemMenuUpdates;
+}
+
+
+std::expected<void, Error>
+HeadlessWindow::ChooseSystemMenuItem(std::uint64_t id) const
+{
+	if (auto opened = Send(BMessage(kSystemMenusBeginning)); !opened.has_value())
+		return opened;
+	BMessage chosen(kSystemMenuInvoked);
+	(void)chosen.AddInt64("id", static_cast<std::int64_t>(id));
+	if (auto sent = Send(chosen); !sent.has_value())
+		return sent;
+	return Send(BMessage(kSystemMenusEnded));
+}
+
+
 std::expected<void, Error>
 HeadlessWindow::Send(const BMessage& message) const
 {
@@ -324,6 +371,7 @@ HeadlessPlatform::HeadlessPlatform(const Options& options)
 	fOptions(options),
 	fShared(std::make_shared<HeadlessWindow::Shared>())
 {
+	fShared->systemMenuBar = options.systemMenuBar;
 }
 
 

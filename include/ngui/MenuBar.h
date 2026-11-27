@@ -43,6 +43,11 @@ enum class BMenuBarBorder : std::uint8_t {
 	shortcuts of the items work while the menus are closed (see
 	BWindow::AddShortcut()).
 
+	On a platform with a menu bar of the system (macOS, module P3) the
+	window's key menu bar is shown there while the window is in front, and
+	hides in the window; SetUsesSystemMenuBar(false) keeps it in the
+	window.
+
 	Differences to Haiku: tracking runs on the window's thread, driven by
 	events (Haiku: a thread of its own that polls the mouse); the window
 	hands it all mouse events and the keys while it runs. Enter, Space and
@@ -87,6 +92,13 @@ public:
 			bool				IsTracking() const;
 									/*!< Whether its menus are open. */
 
+			void				SetUsesSystemMenuBar(bool uses);
+									/*!< Whether, as the key menu bar, it goes into the
+										system's menu bar where there is one (macOS) and
+										hides in the window; true by default. */
+			bool				UsesSystemMenuBar() const;
+									/*!< Whether it goes into the system's menu bar. */
+
 	// Accessibility
 
 			void				GetAccessibleInfo(AccessibleInfo* info) const override;
@@ -109,6 +121,9 @@ private:
 			BMenuBarBorder		fBorder = BMenuBarBorder::Frame;
 			BorderFlags			fBorders = kAllBorders;
 			std::unique_ptr<MenuTracker> fTracker;
+			bool				fUsesSystemMenuBar = true;
+			bool				fHiddenForSystemMenuBar = false;
+									// hidden by the window for the system's menu bar
 };
 
 
