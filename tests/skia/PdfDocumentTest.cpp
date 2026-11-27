@@ -40,6 +40,7 @@
 #include <ngui/text/FontTextSystem.h>
 
 #include "look/LookGallery.h"
+#include "skia/Poppler.h"
 
 
 namespace {
@@ -54,86 +55,6 @@ std::string_view
 Text(std::span<const std::byte> bytes)
 {
 	return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
-}
-
-
-// Page \a page (from 1) of the PDF \a bytes rastered by pdftoppm at \a dpi;
-// an empty image without pdftoppm or if it fails.
-Image
-Raster(std::span<const std::byte> bytes, int dpi, int page = 1)
-{
-#if defined(NGUI_TEST_PDFTOPPM)
-	const std::filesystem::path directory = testing::TempDir();
-	const std::string name = testing::UnitTest::GetInstance()->current_test_info()->name();
-	const std::filesystem::path pdf = directory / (name + ".pdf");
-	const std::filesystem::path png = directory / (name + "-raster");
-	{
-		std::ofstream out(pdf, std::ios::binary);
-		out.write(reinterpret_cast<const char*>(bytes.data()),
-			static_cast<std::streamsize>(bytes.size()));
-	}
-	const std::string command = std::string("\"") + NGUI_TEST_PDFTOPPM + "\" -png -singlefile -r "
-		+ std::to_string(dpi) + " -f " + std::to_string(page) + " -l " + std::to_string(page)
-		+ " \"" + pdf.string() + "\" \"" + png.string() + "\"";
-	if (std::system(command.c_str()) != 0)
-		return {};
-	auto image = ReadPng(png.string() + ".png");
-	return image.has_value() ? std::move(*image) : Image{};
-#else
-	(void)bytes;
-	(void)dpi;
-	(void)page;
-	return {};
-#endif
-}
-
-
-// The text of the PDF \a bytes as pdftotext reads it; empty without it.
-std::string
-TextOf(std::span<const std::byte> bytes)
-{
-#if defined(NGUI_TEST_PDFTOTEXT)
-	const std::filesystem::path directory = testing::TempDir();
-	const std::string name = testing::UnitTest::GetInstance()->current_test_info()->name();
-	const std::filesystem::path pdf = directory / (name + "-text.pdf");
-	const std::filesystem::path text = directory / (name + ".txt");
-	{
-		std::ofstream out(pdf, std::ios::binary);
-		out.write(reinterpret_cast<const char*>(bytes.data()),
-			static_cast<std::streamsize>(bytes.size()));
-	}
-	const std::string command = std::string("\"") + NGUI_TEST_PDFTOTEXT + "\" \""
-		+ pdf.string() + "\" \"" + text.string() + "\"";
-	if (std::system(command.c_str()) != 0)
-		return {};
-	std::ifstream in(text, std::ios::binary);
-	return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
-#else
-	(void)bytes;
-	return {};
-#endif
-}
-
-
-bool
-CanRaster()
-{
-#if defined(NGUI_TEST_PDFTOPPM)
-	return true;
-#else
-	return false;
-#endif
-}
-
-
-bool
-CanReadText()
-{
-#if defined(NGUI_TEST_PDFTOTEXT)
-	return true;
-#else
-	return false;
-#endif
 }
 
 

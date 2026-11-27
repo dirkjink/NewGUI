@@ -59,6 +59,7 @@ add_executable(ngui_tests
     MessengerTest.cpp
     OutlineListViewTest.cpp
     PaletteTest.cpp
+    PrintJobTest.cpp
     ShapeTest.cpp
     SupportDefsTest.cpp
     TextControlTest.cpp
@@ -271,8 +272,16 @@ if(NGUI_WITH_SKIA)
             unofficial::skia::skia)
     # Text drawn with the bundled fonts (vcpkg feature text).
     if(NGUI_WITH_TEXT)
-        target_sources(ngui_skia_tests PRIVATE skia/PdfDocumentTest.cpp skia/TextSkiaTest.cpp
-            skia/SnapshotSkiaTest.cpp)
+        target_sources(ngui_skia_tests PRIVATE skia/PdfDocumentTest.cpp skia/SkiaPrintTest.cpp
+            skia/TextSkiaTest.cpp skia/SnapshotSkiaTest.cpp)
+        # A stand-in for libcups, loaded by the print service in its place.
+        if(NOT WIN32)
+            add_library(ngui_fake_cups MODULE print/FakeCups.cpp)
+            ngui_configure_target(ngui_fake_cups)
+            add_dependencies(ngui_skia_tests ngui_fake_cups)
+            target_compile_definitions(ngui_skia_tests
+                PRIVATE NGUI_TEST_FAKE_CUPS="$<TARGET_FILE:ngui_fake_cups>")
+        endif()
         target_link_libraries(ngui_skia_tests PRIVATE ngui::text)
     endif()
     # The alert's type icon (vcpkg feature svg).

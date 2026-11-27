@@ -18,6 +18,11 @@
 class SkCanvas;
 
 
+namespace ngui {
+class SkiaPrintService;
+}
+
+
 namespace ngui::gfx {
 
 
@@ -96,14 +101,16 @@ public:
 
 private:
 			friend class PdfDocument;
+			friend class ngui::SkiaPrintService;
 
 			struct Data;
 
-			// Draws \a list on \a canvas as vectors: at \a offset, \a scale
-			// device units per logical pixel, the canvas mapping them to its
-			// own; clips as paths, since regions ignore the canvas matrix.
-			void				_RenderVector(SkCanvas* canvas, const DisplayList& list,
-									Point offset, float scale);
+			// Draws \a list on \a canvas at \a offset, \a scale device units
+			// per logical pixel. For \a vector canvases (documents) the canvas
+			// may map device units to its own; clips are then set as paths,
+			// since regions ignore the canvas matrix.
+			void				_RenderOnCanvas(SkCanvas* canvas, const DisplayList& list,
+									Point offset, float scale, bool vector);
 
 			std::unique_ptr<Data> fData;
 };

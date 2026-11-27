@@ -793,6 +793,14 @@ Umgesetzt ist der PDF-Weg (`ngui_skia`, vcpkg-Feature `pdf` von Skia), das eigen
 - **Determinismus:** Ohne Datum ergeben gleiche Listen gleiche Bytes. Seiten sind höchstens `kPdfMaxPageSize` = 14400 Punkte (200 Zoll) groß.
 - **Aufzeichnen für den Export:** `BWindow::Record()` und `BView::Record()` zeichnen Fenster oder View wie `Snapshot()` neu auf (S1), auf dem Hintergrund des Panels, und geben die Liste zurück; ihre `Bounds()` sind der Bereich.
 
+**Drucken.** `BPrintJob` folgt Haiku: `BeginJob()`, `DrawView(view, rechteck, wo)` bzw. `DrawList()`, `SpoolPage()`, `CommitJob()`, `CancelJob()`; `PaperRect()` und `PrintableRect()` in Punkten, `wo` relativ zum druckbaren Bereich; ein logisches Pixel ist `BPrintSettings::scale` Prozent von 0,75 Punkten. Die Einstellungen sind ein `BPrintSettings` (Drucker, Papier, Ausrichtung, Ränder, Maßstab, Kopien, Seitenbereich, Datei) statt einer `BMessage`; Fehler kommen als `std::expected` zurück. Die Seiten (DisplayLists mit Platzierung) gehen beim Commit an den `BPrintService` des Programms. Der Kern hat keinen; `SkiaPrintService` aus `ngui_skia` bietet:
+
+- den **PDF-Drucker** `"PDF"`, der in `BPrintSettings::file` schreibt (überall, Vorgabe ohne andere Drucker);
+- **CUPS** unter Linux, BSD und macOS: `libcups` wird erst bei Bedarf per `dlopen` geladen; Drucker sind die Ziele von `cupsGetDests` (Instanzen als `name/instanz`), ein Auftrag ist das PDF (`application/pdf`) mit der Option `copies`;
+- **GDI** unter Windows: Drucker aus `EnumPrinters`, Seiten von Skia in der Druckerauflösung (höchstens 300 dpi) gerastert (`RenderPage()`) und mit `StretchDIBits` gedruckt; Papiergröße, Ausrichtung und Kopien im `DEVMODE`, eine Datei in `BPrintSettings::file` geht an `DOCINFO::lpszOutput`.
+
+Die Dialoge `ConfigPage()`/`ConfigJob()` folgen als eigene Fenster.
+
 ### 19.5 Abgrenzung: SVG-Import
 
 SVG-*Icons* in der Oberfläche anzeigen, also SVG lesen und ins Bild rendern, ist nicht Gegenstand dieses Abschnitts. Geeignet wären das SVG-Modul von Skia (`SkSVGDOM`) oder kleine Bibliotheken wie lunasvg bzw. ThorVG. Haikus HVIF-Icons wären ein eigenes Modul.
