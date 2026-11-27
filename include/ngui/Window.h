@@ -215,9 +215,10 @@ public:
 									/*!< Resizes the content area, within the size limits. */
 			void				Zoom();
 									/*!< Haiku's Zoom(): makes the window as large as the
-										screen allows, within the zoom and size limits and
-										with its frame, or puts it back where it was if it
-										has that size; through the hook Zoom(origin, width,
+										screen allows without the system's panels (Haiku:
+										Deskbar), within the zoom and size limits and with
+										its frame, or puts it back where it was if it has
+										that size; through the hook Zoom(origin, width,
 										height). The zoom button calls it. */
 	virtual	void				Zoom(gfx::Point origin, float width, float height);
 									/*!< The hook of Zoom(): moves the content area's left top

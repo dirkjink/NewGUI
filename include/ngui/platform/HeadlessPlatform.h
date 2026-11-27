@@ -191,6 +191,9 @@ public:
 									/*!< Its size in logical pixels. */
 			float				scale = 1;
 									/*!< Device pixels per logical pixel. */
+			gfx::Rect			usable = {0, 0, 0, 0};
+									/*!< The part of the screen free of panels
+										(DisplayInfo::usable); empty for all of it. */
 			bool				systemDrag = false;
 									/*!< Acts as a platform whose drags go on to other
 										applications (PlatformWindow::CanDragToSystem()). */

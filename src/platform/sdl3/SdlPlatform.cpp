@@ -1079,7 +1079,17 @@ public:
 					: static_cast<int>(std::lround(size));
 			};
 			SDL_SetWindowMinimumSize(state->window, limit(min.w), limit(min.h));
-			SDL_SetWindowMaximumSize(state->window, limit(max.w), limit(max.h));
+			// With one side limited, SDL tells X11's window manager 0 for
+			// the other, which it takes as 0 (GNOME's Mutter then keeps the
+			// window at its minimum height): the largest side X11 has instead.
+			int maxWidth = limit(max.w);
+			int maxHeight = limit(max.h);
+			constexpr int kLargestSide = 32767;
+			if (maxWidth == 0 && maxHeight != 0)
+				maxWidth = kLargestSide;
+			else if (maxHeight == 0 && maxWidth != 0)
+				maxHeight = kLargestSide;
+			SDL_SetWindowMaximumSize(state->window, maxWidth, maxHeight);
 		});
 	}
 
@@ -1092,6 +1102,40 @@ public:
 			SDL_SetWindowSize(state->window, static_cast<int>(std::lround(size.w)),
 				static_cast<int>(std::lround(size.h)));
 			UpdateGeometry(*state);
+		});
+		// The window system may give another size (GNOME's Mutter refuses
+		// one larger than the screen without its top bar); the window
+		// hears the size it got.
+		_Main([state = fState, size] {
+			SDL_Window* window = nullptr;
+			{
+				std::scoped_lock lock(state->lock);
+				window = state->window;
+			}
+			if (window == nullptr)
+				return;
+			(void)SDL_SyncWindow(window);
+			int width = 0;
+			int height = 0;
+			if (!SDL_GetWindowSize(window, &width, &height)
+				|| (width == static_cast<int>(std::lround(size.w))
+					&& height == static_cast<int>(std::lround(size.h)))) {
+				return;
+			}
+			BMessenger target;
+			float scale = 1;
+			{
+				std::scoped_lock lock(state->lock);
+				UpdateGeometry(*state);
+				target = state->target;
+				scale = state->scale > 0 ? state->scale : 1;
+			}
+			BMessage resized(kWindowResized);
+			(void)resized.AddFloat("width", static_cast<float>(width));
+			(void)resized.AddFloat("height", static_cast<float>(height));
+			(void)resized.AddFloat("be:scale", scale);
+			PlatformEventMark::Set(resized);
+			(void)target.SendMessage(resized);
 		});
 	}
 
@@ -1372,6 +1416,13 @@ SdlPlatform::Displays() const
 			DisplayInfo display{{static_cast<float>(bounds.x), static_cast<float>(bounds.y),
 				static_cast<float>(bounds.x + bounds.w), static_cast<float>(bounds.y + bounds.h)},
 				scale > 0 ? scale : 1, ids[i] == primary};
+			// without the system's panels (GNOME's top bar, a task bar)
+			SDL_Rect usable{};
+			if (SDL_GetDisplayUsableBounds(ids[i], &usable) && usable.w > 0 && usable.h > 0) {
+				display.usable = {static_cast<float>(usable.x), static_cast<float>(usable.y),
+					static_cast<float>(usable.x + usable.w),
+					static_cast<float>(usable.y + usable.h)};
+			}
 			if (display.primary)
 				displays.insert(displays.begin(), display);
 			else

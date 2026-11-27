@@ -808,7 +808,7 @@ BWindow::Zoom()
 {
 	// Haiku's BWindow::Zoom(): the smallest of the zoom limits, the size
 	// limits and the screen (NewGUI: the screen the window is on, without
-	// Deskbar)
+	// the system's panels in place of Deskbar)
 	float maxZoomWidth = std::min(fMaxZoom.w, fMaxSize.w);
 	float maxZoomHeight = std::min(fMaxZoom.h, fMaxSize.h);
 
@@ -819,11 +819,15 @@ BWindow::Zoom()
 	if (displays.empty())
 		return;
 	const gfx::Point center = {(fFrame.x0 + fFrame.x1) / 2, (fFrame.y0 + fFrame.y1) / 2};
-	gfx::Rect screenFrame = displays.front().frame;
+	const platform::DisplayInfo* screen = &displays.front();
 	for (const platform::DisplayInfo& display : displays) {
 		if (display.frame.Contains(center))
-			screenFrame = display.frame;
+			screen = &display;
 	}
+	// NewGUI: the part free of the system's panels, as Haiku removes the
+	// area taken up by Deskbar
+	const gfx::Rect screenFrame = screen->usable.Width() > 0 && screen->usable.Height() > 0
+		? screen->usable : screen->frame;
 	maxZoomWidth = std::min(maxZoomWidth, screenFrame.Width());
 	maxZoomHeight = std::min(maxZoomHeight, screenFrame.Height());
 
@@ -837,16 +841,15 @@ BWindow::Zoom()
 	zoomArea.x1 -= borderWidth;
 	zoomArea.y1 -= borderWidth;
 
-	// inset towards center
+	// inset towards center (NewGUI: to the limit exactly, so that a second
+	// Zoom() finds the size it gave and puts the window back)
 	if (zoomArea.Height() > maxZoomHeight) {
-		const float inset = std::round((zoomArea.Height() - maxZoomHeight) / 2);
-		zoomArea.y0 += inset;
-		zoomArea.y1 -= inset;
+		zoomArea.y0 += std::floor((zoomArea.Height() - maxZoomHeight) / 2);
+		zoomArea.y1 = zoomArea.y0 + maxZoomHeight;
 	}
 	if (zoomArea.Width() > maxZoomWidth) {
-		const float inset = std::round((zoomArea.Width() - maxZoomWidth) / 2);
-		zoomArea.x0 += inset;
-		zoomArea.x1 -= inset;
+		zoomArea.x0 += std::floor((zoomArea.Width() - maxZoomWidth) / 2);
+		zoomArea.x1 = zoomArea.x0 + maxZoomWidth;
 	}
 
 	// Un-Zoom
