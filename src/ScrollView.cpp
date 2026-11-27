@@ -667,7 +667,7 @@ BScrollView::_Init(std::unique_ptr<BView> target, bool horizontal, bool vertical
 	fHighlighted = false;
 	fBorders = kAllBorders;
 
-	SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	SetViewUIColor(BColorWhich::PanelBackground);
 
 	if (horizontal) {
 		fHorizontalScrollBar = static_cast<BScrollBar*>(AddChild(

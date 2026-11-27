@@ -191,7 +191,7 @@ LintWindow(BWindow& window, const LintOptions& options)
 	// texts cut to fit: each view drawn anew, its children's lists kept,
 	// so that a report belongs to the view that drew
 	const gfx::Caps caps;
-	const DrawEnvironment environment{caps, Palette::Default(), TextSystem::Default(), 1};
+	const DrawEnvironment environment{caps, Palette::Current(), TextSystem::Default(), 1};
 	for (const Entry& entry : entries) {
 		std::set<std::string> cut;
 		TextSystem::SetTruncationObserver([&](std::string_view text, std::string_view shown) {

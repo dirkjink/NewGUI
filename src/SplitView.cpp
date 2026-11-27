@@ -27,7 +27,7 @@ BSplitView::BSplitView(BOrientation orientation, float spacing)
 	BView(std::string_view{}, BViewFlag::WillDraw | BViewFlag::FullUpdateOnResize
 		| BViewFlag::InvalidateAfterLayout)
 {
-	SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	SetViewUIColor(BColorWhich::PanelBackground);
 	auto layout = std::make_unique<BSplitLayout>(orientation, spacing);
 	fSplitLayout = layout.get();
 	BView::SetLayout(std::move(layout));
@@ -222,7 +222,7 @@ BSplitView::AttachedToWindow()
 
 	// AdoptParentColors()
 	if (Parent() != nullptr && Parent()->ViewColor().has_value())
-		SetViewColor(Parent()->ViewColor());
+		AdoptParentColors();
 }
 
 

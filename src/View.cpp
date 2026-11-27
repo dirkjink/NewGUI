@@ -444,6 +444,13 @@ BView::MessageReceived(BMessage* message)
 		}
 	}
 
+	// the application's colors changed: drawn anew in them (Haiku's view
+	// takes its UI colors anew here)
+	if (message->what == kColorsUpdated) {
+		Invalidate();
+		return;
+	}
+
 	if (message->what == kMouseIdle) {
 		std::shared_ptr<BToolTip> tip;
 		if (GetToolTipAt(message->GetPoint("where", {0, 0}), &tip))
@@ -778,16 +785,56 @@ BView::IsValid() const
 void
 BView::SetViewColor(std::optional<gfx::Color> color)
 {
-	if (color != fViewColor)
+	if (color != fViewColor || fViewUIColor.has_value())
 		Invalidate();
 	fViewColor = color;
+	fViewUIColor.reset();
 }
 
 
 std::optional<gfx::Color>
 BView::ViewColor() const
 {
+	if (fViewUIColor.has_value()) {
+		// in the colors of the frame being drawn
+		const Palette palette = Window() != nullptr ? Window()->_FramePalette()
+			: Palette::Current();
+		return TintColor(palette.Get(*fViewUIColor), fViewUITint);
+	}
 	return fViewColor;
+}
+
+
+void
+BView::SetViewUIColor(BColorWhich which, float tint)
+{
+	if (fViewUIColor != which || fViewUITint != tint)
+		Invalidate();
+	fViewUIColor = which;
+	fViewUITint = tint;
+	fViewColor.reset();
+}
+
+
+std::optional<BColorWhich>
+BView::ViewUIColor(float* tint) const
+{
+	if (tint != nullptr)
+		*tint = fViewUITint;
+	return fViewUIColor;
+}
+
+
+void
+BView::AdoptParentColors()
+{
+	if (Parent() == nullptr)
+		return;
+	float tint = kNoTint;
+	if (const std::optional<BColorWhich> which = Parent()->ViewUIColor(&tint))
+		SetViewUIColor(*which, tint);
+	else
+		SetViewColor(Parent()->ViewColor());
 }
 
 
@@ -795,8 +842,12 @@ gfx::DisplayListRef
 BView::_RecordOwn(const DrawEnvironment& environment)
 {
 	gfx::Canvas canvas(Bounds());
-	if (fViewColor.has_value())
+	if (fViewUIColor.has_value()) {
+		canvas.FillRect(Bounds(), gfx::Paint{.color = TintColor(
+			environment.palette.Get(*fViewUIColor), fViewUITint)});
+	} else if (fViewColor.has_value()) {
 		canvas.FillRect(Bounds(), gfx::Paint{.color = *fViewColor});
+	}
 	if (fFlags.Has(BViewFlag::WillDraw)) {
 		DrawContext context{canvas, environment.caps, environment.palette, environment.text,
 			environment.scale};

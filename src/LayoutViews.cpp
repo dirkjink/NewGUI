@@ -33,7 +33,7 @@ BGroupView::BGroupView(std::string_view name, BOrientation orientation,
 	:
 	BView(name, BViewFlags())
 {
-	SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	SetViewUIColor(BColorWhich::PanelBackground);
 	BView::SetLayout(std::make_unique<BGroupLayout>(orientation, spacing));
 }
 
@@ -76,7 +76,7 @@ BGridView::BGridView(std::string_view name, float horizontalSpacing,
 	:
 	BView(name, BViewFlags())
 {
-	SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	SetViewUIColor(BColorWhich::PanelBackground);
 	BView::SetLayout(std::make_unique<BGridLayout>(horizontalSpacing,
 		verticalSpacing));
 }
@@ -112,7 +112,7 @@ BCardView::BCardView(std::string_view name)
 	:
 	BView(name, BViewFlags())
 {
-	SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	SetViewUIColor(BColorWhich::PanelBackground);
 	BView::SetLayout(std::make_unique<BCardLayout>());
 }
 

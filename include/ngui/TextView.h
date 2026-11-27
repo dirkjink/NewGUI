@@ -216,6 +216,11 @@ public:
 										SetFontAndColor() gave it a color. */
 			std::optional<gfx::Color> TextColor() const;
 									/*!< The color set by SetTextColor(). */
+			void				SetTextUIColor(BColorWhich which);
+									/*!< NewGUI, as Haiku's SetHighUIColor(): the text
+										without a color of its own is the palette's color
+										\a which and follows the application's colors
+										(B_DOCUMENT_TEXT_COLOR by default). */
 
 			void				SetFontAndColor(const BFont* font,
 									BFontModeFlags mode = kFontAll,
@@ -533,6 +538,7 @@ private:
 			std::unique_ptr<BMessageRunner> fCaretRunner;
 			std::unique_ptr<UndoBuffer> fUndo;
 			std::optional<gfx::Color> fTextColor;
+			BColorWhich			fTextUIColor = BColorWhich::DocumentText;
 			std::unique_ptr<TextStyleBuffer> fStyles;
 			bool				fStylable = false;
 			std::unique_ptr<InlineInput> fInline;

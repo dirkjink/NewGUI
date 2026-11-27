@@ -1184,7 +1184,7 @@ BColumnListView::ResetColors()
 gfx::Color
 BColumnListView::Color(BColumnListViewColor which) const
 {
-	return _Color(which, Palette::Default());
+	return _Color(which, Palette::Current());
 }
 
 
@@ -1681,7 +1681,7 @@ void
 BColumnListView::_Init(BBorderStyle border, bool showHorizontalScrollBar)
 {
 	fBorderStyle = border;
-	SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	SetViewUIColor(BColorWhich::PanelBackground);
 
 	fRowView = static_cast<ColumnRowView*>(AddChild(std::make_unique<ColumnRowView>(this)));
 	fTitleView = static_cast<ColumnTitleView*>(

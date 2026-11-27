@@ -66,7 +66,7 @@ public:
 		:
 		BView({0, 0, 10, 10}, "tool tip", kFollowLeftTop, BViewFlag::WillDraw)
 	{
-		SetViewColor(Palette::Default().Get(BColorWhich::ToolTipBackground));
+		SetViewUIColor(BColorWhich::ToolTipBackground);
 		auto layout = std::make_unique<BGroupLayout>(BOrientation::Vertical);
 		// NewGUI: one pixel more for the border
 		const float inset = BLayoutUtils::ComposeSpacing(kUseHalfItemSpacing) + 1;
@@ -188,8 +188,8 @@ MakeTextView(std::string_view text)
 	auto view = std::make_unique<BTextView>("tool tip text");
 	view->SetText(text);
 	view->MakeEditable(false);
-	view->SetViewColor(Palette::Default().Get(BColorWhich::ToolTipBackground));
-	view->SetTextColor(Palette::Default().Get(BColorWhich::ToolTipText));
+	view->SetViewUIColor(BColorWhich::ToolTipBackground);
+	view->SetTextUIColor(BColorWhich::ToolTipText);
 	view->SetWordWrap(false);
 	// NewGUI: SetWordWrap() scrolled to the caret while the view had no
 	// size yet (as Haiku's does); a tooltip shows its text from the start.

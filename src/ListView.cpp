@@ -1073,7 +1073,7 @@ BListView::_InitObject(BListViewType type)
 
 	fTrack = TrackData{{0, 0}, -1, 0, false, false, std::nullopt};
 
-	SetViewColor(Palette::Default().Get(BColorWhich::ListBackground));
+	SetViewUIColor(BColorWhich::ListBackground);
 }
 
 

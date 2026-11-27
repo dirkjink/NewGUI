@@ -464,6 +464,7 @@ private:
 			void				_Resized(float width, float height, float scale);
 			void				_LayoutInvalidated();
 			void				_TakeLook();
+			const Palette&		_FramePalette() const;
 			void				_LookChanged();
 
 			std::string			fTitle;
@@ -498,6 +499,8 @@ private:
 			int					fHideLevel = 1;
 			bool				fUpdatePending = false;
 			std::shared_ptr<const ControlLook> fLook;
+			Palette				fPalette;
+									// the application's colors for this frame
 			std::shared_ptr<const ControlLook> fOwnLook;
 									// SetControlLook(), or nullptr for the current one.
 			BButton*			fDefaultButton = nullptr;

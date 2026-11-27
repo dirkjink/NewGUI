@@ -33,6 +33,14 @@ class RemoteServer;
 }
 
 
+/*!	Which colors the application shows (Haiku's light or dark ui colors). */
+enum class BColorScheme : std::uint8_t {
+	System,	/*!< As the user chose for the system (light without a choice). */
+	Light,	/*!< Haiku's light colors (Palette::Default()). */
+	Dark	/*!< Haiku's dark colors (Palette::Dark()). */
+};
+
+
 /*!	Who draws the frames of the windows (title tab, borders). */
 enum class BWindowFrames : std::uint8_t {
 	System,	/*!< The window system, as it draws them for other programs. */
@@ -154,6 +162,14 @@ public:
 										environment variable NGUI_WINDOW_FRAMES=look. */
 	static	BWindowFrames		WindowFrames();
 									/*!< Who draws the frames of new windows. */
+	static	void				SetColorScheme(BColorScheme scheme);
+									/*!< NewGUI: which colors the application shows
+										(Palette::Current()); System by default, or as the
+										environment variable NGUI_COLOR_SCHEME=light, dark
+										or system says. With System the colors follow the
+										user's choice while the application runs. */
+	static	BColorScheme		ColorScheme();
+									/*!< Which colors the application shows. */
 			Clock::Time			PulseRate() const;
 									/*!< The interval of Pulse(), 0 if stopped. */
 			bool				IsLaunching() const;

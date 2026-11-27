@@ -123,7 +123,7 @@ public:
 		:
 		BView("TAlertView", BViewFlag::WillDraw)
 	{
-		SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+		SetViewUIColor(BColorWhich::PanelBackground);
 	}
 
 	// Haiku's SetBitmap(); \a typeIcon: the system icon \a name, which is
@@ -498,8 +498,8 @@ BAlert::_Init(std::string_view text, std::string_view button1, std::string_view 
 	fTextView->MakeEditable(false);
 	fTextView->MakeSelectable(false);
 	// NewGUI: after MakeEditable(), which adopts the document colors
-	fTextView->SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
-	fTextView->SetTextColor(Palette::Default().Get(BColorWhich::PanelText));
+	fTextView->SetViewUIColor(BColorWhich::PanelBackground);
+	fTextView->SetTextUIColor(BColorWhich::PanelText);
 	fTextView->SetWordWrap(true);
 	fTextView->SetExplicitMaxSize({kSizeUnlimited, kSizeUnlimited});
 

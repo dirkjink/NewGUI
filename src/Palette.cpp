@@ -7,8 +7,15 @@
 
 #include <ngui/Palette.h>
 
+#include <array>
 #include <cmath>
 #include <cstdint>
+#include <mutex>
+#include <optional>
+
+#include <ngui/AppDefs.h>
+
+#include "WindowList.h"
 
 
 namespace ngui {
@@ -62,6 +69,56 @@ constexpr std::uint8_t kDefaultColors[kColorWhichCount][4] = {
 };
 
 
+// Haiku's _kDefaultColorsDark, src/kits/interface/InterfaceDefs.cpp (commit
+// b1d497bb69), in the order of BColorWhich.
+constexpr std::array<std::array<std::uint8_t, 4>, kColorWhichCount> kDarkColors = {{
+	{43, 43, 43, 255},		// PanelBackground
+	{28, 28, 28, 255},		// MenuBackground
+	{227, 73, 17, 255},		// WindowTab
+	{0, 0, 229, 255},		// KeyboardNavigation
+	{51, 102, 152, 255},	// Desktop
+	{90, 90, 90, 255},		// MenuSelectedBackground
+	{255, 255, 255, 255},	// MenuItemText
+	{255, 255, 255, 255},	// MenuSelectedItemText
+	{0, 0, 0, 255},			// MenuSelectedBorder
+	{253, 253, 253, 255},	// PanelText
+	{0, 0, 0, 255},			// DocumentBackground
+	{234, 234, 234, 255},	// DocumentText
+	{29, 29, 29, 255},		// ControlBackground
+	{230, 230, 230, 255},	// ControlText
+	{195, 195, 195, 255},	// ControlBorder
+	{75, 124, 168, 255},	// ControlHighlight
+	{0, 0, 0, 255},			// NavigationPulse
+	{255, 255, 255, 255},	// Shine
+	{0, 0, 0, 255},			// Shadow
+	{76, 68, 79, 255},		// ToolTipBackground
+	{255, 255, 255, 255},	// ToolTipText
+	{255, 255, 255, 255},	// WindowText
+	{203, 32, 9, 255},		// WindowInactiveTab
+	{255, 255, 255, 255},	// WindowInactiveText
+	{227, 73, 17, 255},		// WindowBorder
+	{203, 32, 9, 255},		// WindowInactiveBorder
+	{27, 82, 140, 255},		// ControlMark
+	{0, 0, 0, 255},			// ListBackground
+	{90, 90, 90, 255},		// ListSelectedBackground
+	{255, 255, 255, 255},	// ListItemText
+	{255, 255, 255, 255},	// ListSelectedItemText
+	{39, 39, 39, 255},		// ScrollBarThumb
+	{106, 112, 212, 255},	// LinkText
+	{102, 152, 203, 255},	// LinkHover
+	{145, 112, 155, 255},	// LinkVisited
+	{121, 142, 203, 255},	// LinkActive
+	{50, 150, 255, 255},	// StatusBar
+	{46, 204, 64, 255},		// Success
+	{255, 40, 54, 255},		// Failure
+}};
+
+
+// The application's colors (Palette::Current()), from any thread.
+std::mutex sCurrentLock;
+std::optional<Palette> sCurrent;
+
+
 // A float component as Haiku's 8-bit value.
 std::uint8_t
 _ToByte(float value)
@@ -86,6 +143,62 @@ Palette::Default()
 		return palette;
 	}();
 	return sDefault;
+}
+
+
+const Palette&
+Palette::Dark()
+{
+	static const Palette sDark = [] {
+		Palette palette;
+		for (std::size_t i = 0; i < kColorWhichCount; i++) {
+			const auto& c = kDarkColors[i];
+			palette.fColors[i] = gfx::Color::FromRgba8(c[0], c[1], c[2], c[3]);
+		}
+		return palette;
+	}();
+	return sDark;
+}
+
+
+Palette
+Palette::Current()
+{
+	std::scoped_lock lock(sCurrentLock);
+	return sCurrent.value_or(Default());
+}
+
+
+void
+Palette::SetCurrent(const Palette& palette)
+{
+	{
+		std::scoped_lock lock(sCurrentLock);
+		if (sCurrent.value_or(Default()) == palette)
+			return;
+		sCurrent = palette;
+	}
+	// every window draws anew in the new colors (B_COLORS_UPDATED)
+	detail::PostToWindows(kColorsUpdated);
+}
+
+
+bool
+Palette::IsDark() const
+{
+	// Haiku's rgb_color::IsDark() of the panel background: the perceived
+	// brightness (Brightness(), http://alienryderflex.com/hsp.html) at most
+	// 127
+	const gfx::Color panel = Get(BColorWhich::PanelBackground);
+	const auto component = [](float value) {
+		return static_cast<float>(_ToByte(value));
+	};
+	const float red = component(panel.r);
+	const float green = component(panel.g);
+	const float blue = component(panel.b);
+	const auto brightness = static_cast<std::uint8_t>(std::round(std::sqrt(
+		0.299f * red * red + 0.587f * green * green + 0.114f * blue * blue)));
+	return brightness <= 127;
 }
 
 

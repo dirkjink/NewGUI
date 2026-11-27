@@ -66,13 +66,25 @@ inline constexpr std::size_t kColorWhichCount = static_cast<std::size_t>(BColorW
 
 /*!	The system colors a look and self-drawing views take their colors from
 	(specification 18.1, L3), the counterpart of Haiku's ui_color(). A value
-	type: a look gets the palette through its DrawContext. Change
-	notification and user settings come with module G6.
+	type: a look gets the palette through its DrawContext, a view the colors
+	of its UI colors (BView::SetViewUIColor()) from the palette of the frame
+	it is drawn in. Current() is what the application shows; a change sends
+	kColorsUpdated (B_COLORS_UPDATED) to every window.
 */
 class Palette {
 public:
 	static	const Palette&		Default();
 									/*!< Haiku's default light colors. */
+	static	const Palette&		Dark();
+									/*!< Haiku's default dark colors (_kDefaultColorsDark). */
+	static	Palette				Current();
+									/*!< The application's colors now, Haiku's ui_color():
+										light or dark as BApplication::ColorScheme() says,
+										Default() until set. From any thread. */
+	static	void				SetCurrent(const Palette& palette);
+									/*!< Makes \a palette the application's colors; every
+										window hears kColorsUpdated and draws anew. From
+										any thread. */
 
 			gfx::Color			Get(BColorWhich which) const;
 									/*!< The color for \a which. */
@@ -81,6 +93,9 @@ public:
 
 			bool				operator==(const Palette& other) const = default;
 									/*!< The same colors. */
+			bool				IsDark() const;
+									/*!< Its panel background is dark, as Haiku's
+										rgb_color::IsDark(). */
 
 private:
 			std::array<gfx::Color, kColorWhichCount> fColors = {};

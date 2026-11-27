@@ -318,7 +318,21 @@ public:
 									/*!< The background filled before Draw(); std::nullopt
 										for none (B_TRANSPARENT_COLOR). White by default. */
 			std::optional<gfx::Color> ViewColor() const;
-									/*!< The background, std::nullopt if transparent. */
+									/*!< The background, std::nullopt if transparent; a UI
+										color in the colors of the frame being drawn (or
+										the application's). */
+			void				SetViewUIColor(BColorWhich which, float tint = kNoTint);
+									/*!< Haiku's SetViewUIColor(): the background is the
+										palette's color \a which, tinted (TintColor()), and
+										follows the application's colors when they change
+										(kColorsUpdated). */
+			std::optional<BColorWhich> ViewUIColor(float* tint = nullptr) const;
+									/*!< The UI color of the background and its tint,
+										std::nullopt if it is none (SetViewColor()). */
+			void				AdoptParentColors();
+									/*!< Haiku's AdoptParentColors(): the parent's
+										background, its UI color if it has one. Nothing
+										without a parent. */
 
 			gfx::DisplayListRef	RecordTree(const DrawEnvironment& environment);
 									/*!< The DisplayList of the view and its visible subtree
@@ -650,6 +664,8 @@ private:
 			BResizingMode		fResizingMode;
 			BViewFlags			fFlags;
 			std::optional<gfx::Color> fViewColor;
+			std::optional<BColorWhich> fViewUIColor;
+			float				fViewUITint = kNoTint;
 			int					fHideLevel = 0;
 			BView*				fParent = nullptr;
 			BWindow*			fWindow = nullptr;

@@ -46,7 +46,8 @@ class WindowRef;
 class TestEnvironment {
 public:
 								TestEnvironment();
-									/*!< Sets the clock and the language. */
+									/*!< Sets the clock, the language and Haiku's light
+										colors (BColorScheme::Light). */
 								~TestEnvironment();
 									/*!< Restores the system clock and the user's
 										languages. */

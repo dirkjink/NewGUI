@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <ngui/AppDefs.h>
 #include <ngui/LayoutUtils.h>
 #include <ngui/Message.h>
 #include <ngui/Palette.h>
@@ -132,8 +133,10 @@ BSlider::~BSlider()
 void
 BSlider::_InitBarColor()
 {
-	SetBarColor(Look().SliderBarColor(Palette::Default(),
-		Palette::Default().Get(BColorWhich::PanelBackground)));
+	const Palette palette = Palette::Current();
+	SetBarColor(Look().SliderBarColor(palette, palette.Get(BColorWhich::PanelBackground)));
+	// NewGUI: the bar follows the application's colors until set
+	fDefaultBarColor = true;
 	UseFillColor(false, nullptr);
 }
 
@@ -156,7 +159,7 @@ BSlider::AttachedToWindow()
 	BControl::AttachedToWindow();
 
 	// AdoptSystemColors()
-	SetViewColor(Palette::Default().Get(BColorWhich::PanelBackground));
+	SetViewUIColor(BColorWhich::PanelBackground);
 
 	ResizeToPreferred();
 
@@ -894,7 +897,20 @@ void
 BSlider::SetBarColor(gfx::Color barColor)
 {
 	fBarColor = barColor;
+	fDefaultBarColor = false;
 	Invalidate();
+}
+
+
+void
+BSlider::MessageReceived(BMessage* message)
+{
+	// NewGUI: the default bar in the application's new colors
+	if (message->what == kColorsUpdated && fDefaultBarColor) {
+		const Palette palette = Palette::Current();
+		fBarColor = Look().SliderBarColor(palette, palette.Get(BColorWhich::PanelBackground));
+	}
+	BControl::MessageReceived(message);
 }
 
 

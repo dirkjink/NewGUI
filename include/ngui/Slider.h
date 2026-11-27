@@ -81,6 +81,9 @@ public:
 									/*!< Arrows, Home and End move the value. */
 			void				KeyUp(std::string_view bytes) override;
 									/*!< Sends the message after a key moved the value. */
+			void				MessageReceived(BMessage* message) override;
+									/*!< NewGUI: kColorsUpdated gives the default bar the
+										application's new colors; then as BControl's. */
 			void				MouseDown(gfx::Point where) override;
 									/*!< Moves the thumb there and follows the mouse. */
 			void				MouseUp(gfx::Point where) override;
@@ -243,6 +246,7 @@ private:
 			gfx::Color			fBarColor;
 			gfx::Color			fFillColor;
 			bool				fUseFillColor = false;
+			bool				fDefaultBarColor = true;
 
 			std::string			fMinLimitLabel;
 			std::string			fMaxLimitLabel;
