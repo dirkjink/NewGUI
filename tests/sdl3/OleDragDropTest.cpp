@@ -29,9 +29,13 @@
 #include <windows.h>
 #include <ole2.h>
 #include <shellapi.h>
-// windows.h's macro would turn BMessenger::SendMessage() into SendMessageA()
+// windows.h's macros would turn BMessenger::SendMessage() into
+// SendMessageA() and BLooper::DispatchMessage() into DispatchMessageA()
 #ifdef SendMessage
 #undef SendMessage
+#endif
+#ifdef DispatchMessage
+#undef DispatchMessage
 #endif
 
 #include <gtest/gtest.h>
