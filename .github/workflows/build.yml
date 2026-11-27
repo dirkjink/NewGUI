@@ -6,8 +6,8 @@
 # supported compilers and with Skia (preset "skia"), check that the build is
 # reproducible and that the rationale blocks of the tests are well-formed.
 # The job "Build" summarizes these jobs and is the required status check for
-# "main". The dependency scan, Skia on Windows and macOS run alongside,
-# outside the required check.
+# "main". The dependency scan and Skia on Windows run alongside, outside
+# the required check.
 #
 # All actions are pinned to commit SHAs, not mutable tags: a moved tag would
 # otherwise run foreign code with this workflow's token. Dependabot keeps the
@@ -112,8 +112,8 @@ jobs:
           path: build/ci/snapshot-report
           if-no-files-found: ignore
 
-  # macOS on Apple Silicon with Xcode's Clang and libc++. Outside the
-  # required check until it has proven stable.
+  # macOS on Apple Silicon with Xcode's Clang and libc++. Part of the
+  # required check "Build".
   macos:
     name: macOS (apple-clang)
     runs-on: macos-15
@@ -233,8 +233,8 @@ jobs:
 
   # Skia, SDL3 and AccessKit on macOS (Apple Silicon, Xcode's Clang); SDL3
   # runs on its offscreen driver as on Linux. poppler's tools read the PDFs
-  # of the export tests (19.4). Outside the required check until it has
-  # proven stable.
+  # of the export tests (19.4); the Cocoa tests (NSAccessibility, menu
+  # bar) use SDL's Cocoa driver. Part of the required check "Build".
   skia-macos:
     name: macOS (skia, apple-clang)
     runs-on: macos-15
@@ -400,7 +400,7 @@ jobs:
   build:
     name: Build
     if: always()
-    needs: [linux, windows, skia, reproducible, test-rationale]
+    needs: [linux, windows, skia, macos, skia-macos, reproducible, test-rationale]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -409,9 +409,12 @@ jobs:
           LINUX: ${{ needs.linux.result }}
           WINDOWS: ${{ needs.windows.result }}
           SKIA: ${{ needs.skia.result }}
+          MACOS: ${{ needs.macos.result }}
+          SKIA_MACOS: ${{ needs.skia-macos.result }}
           REPRODUCIBLE: ${{ needs.reproducible.result }}
           RATIONALE: ${{ needs.test-rationale.result }}
         run: |
-          echo "linux: $LINUX, windows: $WINDOWS, skia: $SKIA, reproducible: $REPRODUCIBLE, test rationale: $RATIONALE"
+          echo "linux: $LINUX, windows: $WINDOWS, skia: $SKIA, macos: $MACOS, skia-macos: $SKIA_MACOS, reproducible: $REPRODUCIBLE, test rationale: $RATIONALE"
           test "$LINUX" = success && test "$WINDOWS" = success && test "$SKIA" = success \
+            && test "$MACOS" = success && test "$SKIA_MACOS" = success \
             && test "$REPRODUCIBLE" = success && test "$RATIONALE" = success
