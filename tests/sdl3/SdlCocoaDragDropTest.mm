@@ -241,7 +241,9 @@ TEST(SdlCocoaDragDropTest, AWindowTakesDropsWithAllTheirData)
 					info.draggingPasteboard = board;
 					info.draggingLocation = NSMakePoint(50,
 						window.contentView.frame.size.height - 40);
-					taken = [window performDragOperation:(id<NSDraggingInfo>)info];
+					// SDL's window class is the drag destination, not NSWindow
+					taken = [(id<NSDraggingDestination>)window
+						performDragOperation:(id<NSDraggingInfo>)info];
 					[board releaseGlobally];
 				}
 			});
