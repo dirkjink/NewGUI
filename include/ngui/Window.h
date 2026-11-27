@@ -369,6 +369,7 @@ private:
 	friend class BPopUpMenu;
 	friend class BTextView;
 	friend class BFilePanel;
+	friend class BPrintJob;
 	friend class BToolTipManager;
 	friend class ToolTipPopup;
 	friend struct WindowAccess;

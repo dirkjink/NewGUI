@@ -799,7 +799,7 @@ Umgesetzt ist der PDF-Weg (`ngui_skia`, vcpkg-Feature `pdf` von Skia), das eigen
 - **CUPS** unter Linux, BSD und macOS: `libcups` wird erst bei Bedarf per `dlopen` geladen; Drucker sind die Ziele von `cupsGetDests` (Instanzen als `name/instanz`), ein Auftrag ist das PDF (`application/pdf`) mit der Option `copies`;
 - **GDI** unter Windows: Drucker aus `EnumPrinters`, Seiten von Skia in der Druckerauflösung (höchstens 300 dpi) gerastert (`RenderPage()`) und mit `StretchDIBits` gedruckt; Papiergröße, Ausrichtung und Kopien im `DEVMODE`, eine Datei in `BPrintSettings::file` geht an `DOCINFO::lpszOutput`.
 
-Die Dialoge `ConfigPage()`/`ConfigJob()` folgen als eigene Fenster.
+Die Dialoge sind eigene Fenster, modal zur Anwendung und asynchron wie `BAlert::Go()`: `ConfigPage(fertig)` zeigt „Page setup“ (Papier, Ausrichtung, Maßstab), `ConfigJob(fertig)` zeigt „Print“ (Drucker des Dienstes, Datei für einen Drucker, der Dateien schreibt, Kopien, alle Seiten oder ein Bereich). Beide kehren sofort mit dem Messenger des Fensters zurück; OK übernimmt die Einstellungen in den Job und ruft `fertig(true)` auf dem Thread des Fensters, Abbrechen oder Schließen ruft `fertig(false)`. `Settings()` gibt deshalb eine Kopie zurück.
 
 ### 19.5 Abgrenzung: SVG-Import
 

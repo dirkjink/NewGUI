@@ -102,6 +102,7 @@ add_library(ngui
     Polygon.cpp
     PopUpMenu.cpp
     PrintJob.cpp
+    PrintPanels.cpp
     RadioButton.cpp
     ScrollBar.cpp
     Shape.cpp
