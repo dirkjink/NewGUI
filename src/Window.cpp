@@ -522,6 +522,29 @@ void
 BWindow::_LookChanged()
 {
 	_TakeLook();
+	// NewGUI's frame follows the look, if the new one has a decorator
+	if (fDecorator != nullptr) {
+		std::unique_ptr<detail::Decorator> next = detail::MakeDecorator(fLook->Info().id,
+			TextSystem::Default());
+		if (next != nullptr) {
+			next->SetLook(fDecorator->GetLook());
+			next->SetFlags(fDecorator->IsClosable(), fDecorator->IsZoomable(),
+				fDecorator->IsResizable());
+			next->SetTitle(fDecorator->Title());
+			next->SetFocus(fDecorator->IsFocus());
+			next->SetContentSize(fFrame.Width(), fFrame.Height());
+			fDecorator = std::move(next);
+			// the content stays where it is; the window around it changes
+			if (fPlatformWindow != nullptr) {
+				const gfx::Rect outer = _PlatformFrame(fFrame);
+				fPlatformWindow->MoveTo({outer.x0, outer.y0});
+				fPlatformWindow->ResizeTo({outer.Width(), outer.Height()});
+				SetSizeLimits(fMinSize.w, fMaxSize.w, fMinSize.h, fMaxSize.h);
+			}
+			fSurface.reset();
+			_FrameChanged();
+		}
+	}
 	fRoot->InvalidateLayout(true);
 	ForEachView(fRoot.get(), [](BView* view) { view->Invalidate(); });
 	for (const std::unique_ptr<PopupSurface>& popup : fPopups) {

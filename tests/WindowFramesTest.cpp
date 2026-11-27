@@ -25,6 +25,7 @@
 #include <ngui/AppDefs.h>
 #include <ngui/Application.h>
 #include <ngui/InterfaceDefs.h>
+#include <ngui/LookRegistry.h>
 #include <ngui/Looper.h>
 #include <ngui/View.h>
 #include <ngui/Window.h>
@@ -395,6 +396,74 @@ TEST(WindowFramesTest, TheFlagsShapeTheFrame)
 	// the corner is a border without resizing: dragging it moves the window
 	EXPECT_EQ(afterCorner, (gfx::Rect{150, 120, 350, 220}));
 	EXPECT_EQ(afterBorder, afterCorner);
+}
+
+
+TEST(WindowFramesTest, TheHaikuAndFlatDecoratorsHaveTabDecoratorsButtons)
+{
+	// What is tested: The decorators of the looks "haiku" (Haiku's
+	// DefaultDecorator) and "flat" (FlatDecorator) around content of 200 ×
+	// 100 with the title "Frames"; a look without a decorator.
+	// Success criteria: Both have the border of 5 and TabDecorator's buttons
+	// (offset 5, inset 2, size tab height - 10 + 2 = 11): the tab spans -5
+	// to 110, the close button {0, -19, 12, -7}, the zoom button {93, -19,
+	// 105, -7}. A look without a decorator gives none.
+	// Why it matters: Haiku's own decorators keep TabDecorator's layout; only
+	// the BeDecorator has buttons of its own size. A look that brings no
+	// frame leaves the window system's.
+	//
+	// Given
+	FixedTextSystem text;
+
+	for (const char* look : {"haiku", "flat"}) {
+		// When
+		std::unique_ptr<detail::Decorator> decorator = detail::MakeDecorator(look, text);
+		ASSERT_NE(decorator, nullptr) << look;
+		decorator->SetTitle("Frames");
+		decorator->SetContentSize(200, 100);
+
+		// Then
+		EXPECT_EQ(decorator->BorderWidth(), 5) << look;
+		EXPECT_EQ(decorator->TabRect(), (gfx::Rect{-5, -24, 110, -4})) << look;
+		EXPECT_EQ(decorator->CloseRect(), (gfx::Rect{0, -19, 12, -7})) << look;
+		EXPECT_EQ(decorator->ZoomRect(), (gfx::Rect{93, -19, 105, -7})) << look;
+	}
+	EXPECT_EQ(detail::MakeDecorator("plugin", text), nullptr);
+}
+
+
+TEST(WindowFramesTest, TheFrameFollowsTheLook)
+{
+	// What is tested: A framed window in the look "be"; the look "haiku"
+	// becomes current, then "be" again.
+	// Success criteria: In "haiku" the window's tab is Haiku's (115 pixels
+	// wide instead of the BeDecorator's 113); the content stays at {100,
+	// 100, 300, 200}. Back in "be" the tab is 113 wide again.
+	// Why it matters: The demo and the user switch looks while windows are
+	// open; the frame belongs to the look (as decided for this block).
+	//
+	// Given
+	const LookFrames frames;
+	FramedApp app;
+	const auto tabWidth = [&app]() {
+		const gfx::Rect tab = app.Platform()->FrameLayout().shape.back();
+		return tab.x1 - tab.x0;
+	};
+	const float be = tabWidth();
+
+	// When
+	(void)LookRegistry::Default().SetCurrent("haiku");
+	const gfx::Rect content = app.Frame();
+	const float haiku = tabWidth();
+	(void)LookRegistry::Default().SetCurrent("be");
+	(void)app.Drive().WaitForIdle();
+	const float back = tabWidth();
+
+	// Then
+	EXPECT_FLOAT_EQ(be, 113);
+	EXPECT_FLOAT_EQ(haiku, 115);
+	EXPECT_EQ(content, (gfx::Rect{100, 100, 300, 200}));
+	EXPECT_FLOAT_EQ(back, 113);
 }
 
 
