@@ -230,6 +230,18 @@ ShowFrame(WindowState& state)
 	SDL_Surface* surface = SDL_GetWindowSurface(state.window);
 	if (surface == nullptr)
 		return;
+	// SDL may keep a surface of the size before (GNOME's Mutter under
+	// Wayland, a window resized before it was first shown): one that does
+	// not fit the window's pixels is made anew, or the frame would be cut
+	int pixelWidth = 0;
+	int pixelHeight = 0;
+	if (SDL_GetWindowSizeInPixels(state.window, &pixelWidth, &pixelHeight)
+		&& (surface->w != pixelWidth || surface->h != pixelHeight)) {
+		(void)SDL_DestroyWindowSurface(state.window);
+		surface = SDL_GetWindowSurface(state.window);
+		if (surface == nullptr)
+			return;
+	}
 
 	// A new surface (the window's size changed, under Wayland after the
 	// frame was drawn) holds nothing yet: all of the frame goes into it.
