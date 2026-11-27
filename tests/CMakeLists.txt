@@ -373,6 +373,15 @@ if(NGUI_WITH_SDL3)
         target_sources(ngui_sdl3_tests PRIVATE sdl3/OleDragDropTest.cpp)
         target_link_libraries(ngui_sdl3_tests PRIVATE ole32 shell32)
     endif()
+    # ... on X11 (XDND): the test is the other program, with Xlib of its own;
+    # it needs an X server (Xvfb in the CI) and is skipped without one.
+    if(UNIX AND NOT APPLE)
+        find_package(X11)
+        if(X11_FOUND AND NGUI_XLIB_INCLUDE_DIR)
+            target_sources(ngui_sdl3_tests PRIVATE sdl3/SdlX11DragDropTest.cpp)
+            target_link_libraries(ngui_sdl3_tests PRIVATE X11::X11)
+        endif()
+    endif()
     # The application's menu bar (module P3) and drag & drop (module P4) on
     # macOS, with SDL's Cocoa windows.
     if(APPLE)

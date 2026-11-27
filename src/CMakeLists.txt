@@ -323,6 +323,17 @@ if(NGUI_WITH_SDL3)
         target_sources(ngui_sdl3 PRIVATE platform/sdl3/OleDragDrop.cpp)
         target_link_libraries(ngui_sdl3 PRIVATE ole32 shell32 uuid)
     endif()
+    # ... and on X11 (XDND); Xlib's headers only, the library comes with
+    # dlopen() as SDL loads it.
+    if(UNIX AND NOT APPLE)
+        find_path(NGUI_XLIB_INCLUDE_DIR X11/Xlib.h)
+        if(NGUI_XLIB_INCLUDE_DIR)
+            target_sources(ngui_sdl3 PRIVATE platform/sdl3/X11DragDrop.cpp)
+            target_include_directories(ngui_sdl3 SYSTEM PRIVATE "${NGUI_XLIB_INCLUDE_DIR}")
+            target_compile_definitions(ngui_sdl3 PRIVATE NGUI_WITH_X11_DND=1)
+            target_link_libraries(ngui_sdl3 PRIVATE ${CMAKE_DL_LIBS})
+        endif()
+    endif()
     # The application's menu bar (module P3) and drag & drop with other
     # programs (module P4) on macOS; Objective-C++.
     if(APPLE)

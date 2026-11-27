@@ -40,6 +40,9 @@
 #ifdef NGUI_WITH_ACCESSKIT
 #include "platform/sdl3/AccessKitBridge.h"
 #endif
+#ifdef NGUI_WITH_X11_DND
+#include "platform/sdl3/X11DragDrop.h"
+#endif
 #ifdef __APPLE__
 #include "platform/sdl3/CocoaDragDrop.h"
 #include "platform/sdl3/CocoaMenuBar.h"
@@ -710,6 +713,10 @@ public:
 				state->dropTarget = nullptr;
 			}
 #endif
+#ifdef NGUI_WITH_X11_DND
+			if (state->native.kind == gfx::NativeWindow::Kind::X11)
+				sdl3::ForgetX11Drops(state->window);
+#endif
 #ifdef __APPLE__
 			if (state->cocoa)
 				sdl3::ForgetCocoaDrops(state->window);
@@ -1222,6 +1229,11 @@ SdlPlatform::CreateWindow(const WindowSpec& spec)
 		// drops with all their data (module P4)
 		if (state->cocoa)
 			sdl3::AcceptCocoaDrops(window, data->dropDataEvent);
+#endif
+#ifdef NGUI_WITH_X11_DND
+		// drops with all their data (module P4)
+		if (!spec.popup && state->native.kind == gfx::NativeWindow::Kind::X11)
+			sdl3::AcceptX11Drops(window, data->dropDataEvent);
 #endif
 #ifdef _WIN32
 		// drops with all their data, drags out to other programs (module P4)
