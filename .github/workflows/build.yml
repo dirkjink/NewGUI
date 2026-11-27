@@ -235,12 +235,18 @@ jobs:
       # Skia's OpenGL backend needs those of EGL, OpenGL and GLES. Mesa's
       # software renderer (llvmpipe) gives the GPU tests an OpenGL context
       # without a GPU (phase G); poppler's tools read the PDFs of the export
-      # tests (19.4).
+      # tests (19.4); Xvfb is the X server of the XDND tests (module P4).
       - name: Install the window system headers
-        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev libgl-dev libgles-dev libegl-mesa0 libgl1-mesa-dri poppler-utils
+        run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev libgl-dev libgles-dev libegl-mesa0 libgl1-mesa-dri poppler-utils xvfb xauth
 
       - name: Configure, build and test with Skia and SDL3
         run: cmake --workflow --preset skia
+
+      # Drag & drop with other programs on X11 (module P4): the tests need an
+      # X server, and the other tests run without one (SDL's offscreen
+      # driver), so these run on their own under Xvfb.
+      - name: Test drag & drop on X11
+        run: xvfb-run -a build/skia/tests/ngui_sdl3_tests --gtest_filter='SdlX11*'
 
       # vcpkg's new packages for later runs, also when the step failed
       - name: Keep the vcpkg packages
