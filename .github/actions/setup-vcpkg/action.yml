@@ -4,7 +4,14 @@
 
 # Check out vcpkg at exactly the builtin-baseline of vcpkg.json, bootstrap it
 # and restore the binary cache; on Linux and macOS also make sure Ninja is
-# present.
+# present. The job saves the packages it built with ../save-vcpkg.
+#
+# The cache: each run that builds packages saves the whole directory under a
+# key of its own, and a run restores the newest one (restore-keys), so new
+# packages are found by the next run. vcpkg's own CMake (pinned by the
+# baseline) builds the ports: the runners' CMake changes with their images,
+# and vcpkg hashes its version into every package, so that a new image found
+# none of the old ones (macOS, while two images were rolled out).
 # Sets VCPKG_ROOT and VCPKG_BINARY_SOURCES for the following steps. The
 # repository itself must already be checked out.
 
@@ -28,6 +35,7 @@ runs:
         echo "VCPKG_ROOT=$GITHUB_WORKSPACE/vcpkg" >> "$GITHUB_ENV"
         echo "VCPKG_BINARY_SOURCES=clear;files,$GITHUB_WORKSPACE/.vcpkg-cache,readwrite" >> "$GITHUB_ENV"
         echo "VCPKG_DISABLE_METRICS=1" >> "$GITHUB_ENV"
+        echo "VCPKG_FORCE_DOWNLOADED_BINARIES=1" >> "$GITHUB_ENV"
 
     - name: Check out vcpkg at the baseline
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -58,9 +66,23 @@ runs:
       shell: cmd
       run: vcpkg\bootstrap-vcpkg.bat -disableMetrics
 
-    - name: Cache vcpkg packages
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    - name: Restore vcpkg packages
+      id: restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: .vcpkg-cache
-        key: vcpkg-${{ runner.os }}-${{ inputs.cache-key }}-${{ hashFiles('vcpkg.json') }}
-        restore-keys: vcpkg-${{ runner.os }}-${{ inputs.cache-key }}-
+        key: vcpkg2-${{ runner.os }}-${{ inputs.cache-key }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg2-${{ runner.os }}-${{ inputs.cache-key }}-${{ hashFiles('vcpkg.json') }}-
+          vcpkg2-${{ runner.os }}-${{ inputs.cache-key }}-
+
+    # What save-vcpkg compares with, and the key it saves under.
+    - name: Count vcpkg packages
+      shell: bash
+      env:
+        KEY: vcpkg2-${{ runner.os }}-${{ inputs.cache-key }}-${{ hashFiles('vcpkg.json') }}
+      run: |
+        count=$(find .vcpkg-cache -type f | wc -l | tr -d ' ')
+        echo "packages restored: $count"
+        echo "VCPKG_CACHE_FILES=$count" >> "$GITHUB_ENV"
+        echo "VCPKG_CACHE_KEY=$KEY-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"

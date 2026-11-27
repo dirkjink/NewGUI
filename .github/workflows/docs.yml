@@ -97,6 +97,11 @@ jobs:
       - name: Build, test and generate the API reference
         run: cmake --workflow --preset docs
 
+      # vcpkg's new packages for later runs, also when the step failed
+      - name: Keep the vcpkg packages
+        if: always()
+        uses: ./.github/actions/save-vcpkg
+
       # Library code only, the Skia backend and the SDL3 platform included:
       # the tests and the generated headers in the build directory are not
       # what the coverage is about.

@@ -74,6 +74,11 @@ jobs:
           cmake --preset skia -DNGUI_BUILD_TESTS=OFF -DNGUI_BUILD_EXAMPLES=OFF
           -DVCPKG_MANIFEST_FEATURES="text;svg;skia;sdl3;blend2d;accessibility"
 
+      # vcpkg's new packages for later runs, also when the step failed
+      - name: Keep the vcpkg packages
+        if: always()
+        uses: ./.github/actions/save-vcpkg
+
       # Overlay databases (incremental PR analysis) need build-mode none.
       # For C++ the manual build stays: it is more precise, and a build-less
       # extraction would miss the headers vcpkg installs. Without this, init
