@@ -131,8 +131,8 @@ TEST(FormatsTest, TheSystemsLocalesWriteTheirWay)
 	// Success criteria: German: "1.234.567,5", "25.11.2026", "21:05",
 	// "21:05:09"; the long date "Mi 25 Nov 2026" from the C library,
 	// "Mittwoch, 25. November 2026" under Windows. English: "1,234,567.5",
-	// "11/25/2026", the short time "09:05 PM" (C library) or "9:05 PM"
-	// (Windows).
+	// "11/25/2026", the short time "09:05 PM" (glibc), "9:05 PM" (Windows)
+	// or "21:05" (macOS, whose en_US writes 24 hours).
 	// Why it matters: The user's settings decide how numbers and dates
 	// look, as decided for module G7.
 	//
@@ -164,8 +164,11 @@ TEST(FormatsTest, TheSystemsLocalesWriteTheirWay)
 		EXPECT_EQ(englishNumbers.Format(1234567.5), "1,234,567.5");
 		EXPECT_EQ(englishNumbers.Format(std::int64_t{-1000}), "-1,000");
 		EXPECT_EQ(dates.Format(kTime, BDateFormatStyle::Short, true), "11/25/2026");
-#ifdef _WIN32
+#if defined(_WIN32)
 		EXPECT_EQ(times.Format(kTime, BTimeFormatStyle::Short, true), "9:05 PM");
+#elif defined(__APPLE__)
+		// macOS's C library writes en_US times with 24 hours (T_FMT %H:%M:%S)
+		EXPECT_EQ(times.Format(kTime, BTimeFormatStyle::Short, true), "21:05");
 #else
 		EXPECT_EQ(times.Format(kTime, BTimeFormatStyle::Short, true), "09:05 PM");
 #endif
