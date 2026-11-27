@@ -9,7 +9,9 @@
 
 #include <cstddef>
 #include <deque>
+#include <algorithm>
 #include <map>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -31,8 +33,8 @@ namespace ngui::platform::sdl3 {
 namespace {
 
 
-// The functions of Xlib the drop target needs, from the library SDL loaded
-// too (libX11.so.6).
+// The functions of Xlib XDND needs, from the library SDL loaded too
+// (libX11.so.6).
 struct Xlib {
 	void*		library = nullptr;
 	Atom		(*InternAtom)(Display*, const char*, Bool) = nullptr;
@@ -46,6 +48,11 @@ struct Xlib {
 					Window*) = nullptr;
 	Window		(*RootWindowOf)(Display*) = nullptr;
 	int			(*Flush)(Display*) = nullptr;
+	int			(*SetSelectionOwner)(Display*, Atom, Window, Time) = nullptr;
+	int			(*ChangeProperty)(Display*, Window, Atom, Atom, int, int, const unsigned char*,
+					int) = nullptr;
+	Bool		(*QueryPointer)(Display*, Window, Window*, Window*, int*, int*, int*, int*,
+					unsigned int*) = nullptr;
 
 	bool Load()
 	{
@@ -68,6 +75,9 @@ struct Xlib {
 		bind(TranslateCoordinates, "XTranslateCoordinates");
 		bind(RootWindowOf, "XDefaultRootWindow");
 		bind(Flush, "XFlush");
+		bind(SetSelectionOwner, "XSetSelectionOwner");
+		bind(ChangeProperty, "XChangeProperty");
+		bind(QueryPointer, "XQueryPointer");
 		return complete;
 	}
 };
@@ -98,6 +108,8 @@ struct Atoms {
 	Atom	utf8String;
 	Atom	property;	// where the source puts the data for NewGUI
 	Atom	incr;
+	Atom	aware;
+	Atom	targets;
 
 	Atoms(const Xlib& x, Display* display)
 		:
@@ -112,7 +124,9 @@ struct Atoms {
 		actionCopy(x.InternAtom(display, "XdndActionCopy", False)),
 		utf8String(x.InternAtom(display, "UTF8_STRING", False)),
 		property(x.InternAtom(display, "NGUI_XDND", False)),
-		incr(x.InternAtom(display, "INCR", False))
+		incr(x.InternAtom(display, "INCR", False)),
+		aware(x.InternAtom(display, "XdndAware", False)),
+		targets(x.InternAtom(display, "TARGETS", False))
 	{
 	}
 };
@@ -150,6 +164,38 @@ struct Target {
 std::map<Window, Target> sTargets;
 std::uint32_t sDropEvent = 0;
 bool sHooked = false;
+
+
+// A drag out of the application: NewGUI's window is the XDND source and
+// owns XdndSelection; the drop target under the pointer, as far as known.
+struct Drag {
+	Drag(Display* connection, Window window, const Atoms& interned)
+		:
+		display(connection),
+		source(window),
+		atoms(interned)
+	{
+	}
+
+	Display*				display;
+	Window					source;
+	Atoms					atoms;
+	// the data by type offered (several text types for text/plain)
+	std::vector<std::pair<Atom, std::vector<std::byte>>> offered;
+	Window					target = 0;
+	long					version = 0;
+	bool					accepted = false;
+	// a position sent, its XdndStatus not here yet
+	bool					waiting = false;
+	bool					moved = false;
+	bool					released = false;
+	bool					dropped = false;
+	int						rootX = 0;
+	int						rootY = 0;
+};
+
+
+std::optional<Drag> sDrag;
 
 
 std::string
@@ -362,15 +408,230 @@ SelectionOf(const Xlib& x, const XSelectionEvent& selection, Target& target)
 }
 
 
+void
+SendTo(const Xlib& x, const Drag& drag, Atom type, long l1, long l2, long l3, long l4)
+{
+	XEvent event{};
+	event.xclient.type = ClientMessage;
+	event.xclient.display = drag.display;
+	event.xclient.window = drag.target;
+	event.xclient.message_type = type;
+	event.xclient.format = 32;
+	event.xclient.data.l[0] = static_cast<long>(drag.source);
+	event.xclient.data.l[1] = l1;
+	event.xclient.data.l[2] = l2;
+	event.xclient.data.l[3] = l3;
+	event.xclient.data.l[4] = l4;
+	(void)x.SendEvent(drag.display, drag.target, False, NoEventMask, &event);
+	(void)x.Flush(drag.display);
+}
+
+
+// The XDND version of \a window, 0 for a window that takes no drops.
+long
+AwareOf(const Xlib& x, const Drag& drag, Window window)
+{
+	Atom type = None;
+	int format = 0;
+	unsigned long count = 0;
+	unsigned long after = 0;
+	unsigned char* data = nullptr;
+	long version = 0;
+	if (x.GetWindowProperty(drag.display, window, drag.atoms.aware, 0, 1, False, XA_ATOM,
+			&type, &format, &count, &after, &data) == Success
+		&& data != nullptr && count == 1) {
+		version = static_cast<long>(*reinterpret_cast<const Atom*>(data));
+	}
+	if (data != nullptr)
+		x.Free(data);
+	return version;
+}
+
+
+// The window under the point of the root window that takes drops (with
+// XdndAware, the application's window inside the window manager's frame),
+// and its version.
+std::pair<Window, long>
+TargetAt(const Xlib& x, const Drag& drag, int rootX, int rootY)
+{
+	const Window root = x.RootWindowOf(drag.display);
+	Window window = root;
+	for (int depth = 0; depth < 16; depth++) {
+		int childX = 0;
+		int childY = 0;
+		Window child = 0;
+		if (!x.TranslateCoordinates(drag.display, root, window, rootX, rootY, &childX, &childY,
+				&child) || child == 0) {
+			break;
+		}
+		window = child;
+		if (const long version = AwareOf(x, drag, window); version >= 3)
+			return {window, version};
+	}
+	return {0, 0};
+}
+
+
+void
+SendPosition(const Xlib& x, Drag& drag)
+{
+	SendTo(x, drag, drag.atoms.position, 0, (static_cast<long>(drag.rootX) << 16)
+		| (drag.rootY & 0xffff), CurrentTime, static_cast<long>(drag.atoms.actionCopy));
+	drag.waiting = true;
+	drag.moved = false;
+}
+
+
+// The release: the drop where the target took it, else no drop.
+void
+Release(const Xlib& x, Drag& drag)
+{
+	if (drag.target != 0 && drag.accepted) {
+		SendTo(x, drag, drag.atoms.drop, 0, CurrentTime, 0, 0);
+		drag.dropped = true;
+		return;
+	}
+	if (drag.target != 0)
+		SendTo(x, drag, drag.atoms.leave, 0, 0, 0, 0);
+	sDrag.reset();
+}
+
+
+// Follows the pointer: the target under it hears of the drag, the release
+// ends it.
+void
+Track(const Xlib& x, Drag& drag)
+{
+	if (drag.dropped || drag.released)
+		return;
+	Window root = 0;
+	Window child = 0;
+	int windowX = 0;
+	int windowY = 0;
+	unsigned int buttons = 0;
+	if (!x.QueryPointer(drag.display, x.RootWindowOf(drag.display), &root, &child, &drag.rootX,
+			&drag.rootY, &windowX, &windowY, &buttons)) {
+		return;
+	}
+	const auto [target, version] = TargetAt(x, drag, drag.rootX, drag.rootY);
+	if (target != drag.target) {
+		if (drag.target != 0)
+			SendTo(x, drag, drag.atoms.leave, 0, 0, 0, 0);
+		drag.target = target;
+		drag.version = std::min(version, 5L);
+		drag.accepted = false;
+		drag.waiting = false;
+		if (target != 0) {
+			// the types in XdndTypeList, so any number of them
+			SendTo(x, drag, drag.atoms.enter, (drag.version << 24) | 1, 0, 0, 0);
+		}
+	}
+	if ((buttons & (Button1Mask | Button2Mask | Button3Mask)) == 0) {
+		drag.released = true;
+		// with a position on its way, its status decides
+		if (!drag.waiting)
+			Release(x, drag);
+		return;
+	}
+	if (drag.target == 0)
+		return;
+	if (drag.waiting)
+		drag.moved = true;
+	else
+		SendPosition(x, drag);
+}
+
+
+// The target's answers: XdndStatus and XdndFinished.
+bool
+SourceMessageOf(const Xlib& x, const XClientMessageEvent& message)
+{
+	if (!sDrag.has_value() || message.window != sDrag->source)
+		return false;
+	Drag& drag = *sDrag;
+	if (message.message_type == drag.atoms.status) {
+		if (static_cast<Window>(message.data.l[0]) == drag.target) {
+			drag.accepted = (message.data.l[1] & 1) != 0;
+			drag.waiting = false;
+			if (drag.released)
+				Release(x, drag);
+			else if (drag.moved)
+				SendPosition(x, drag);
+		}
+		return true;
+	}
+	if (message.message_type == drag.atoms.finished) {
+		if (drag.dropped && static_cast<Window>(message.data.l[0]) == drag.target)
+			sDrag.reset();
+		return true;
+	}
+	return false;
+}
+
+
+// A request of the target for the data of a type.
+bool
+RequestOf(const Xlib& x, const XSelectionRequestEvent& request)
+{
+	if (!sDrag.has_value() || request.owner != sDrag->source
+		|| request.selection != sDrag->atoms.selection) {
+		return false;
+	}
+	const Drag& drag = *sDrag;
+	const Atom property = request.property != None ? request.property : request.target;
+	XEvent reply{};
+	reply.xselection.type = SelectionNotify;
+	reply.xselection.display = drag.display;
+	reply.xselection.requestor = request.requestor;
+	reply.xselection.selection = request.selection;
+	reply.xselection.target = request.target;
+	reply.xselection.time = request.time;
+	reply.xselection.property = None;
+	if (request.target == drag.atoms.targets) {
+		std::vector<Atom> types = {drag.atoms.targets};
+		for (const auto& [type, bytes] : drag.offered)
+			types.push_back(type);
+		(void)x.ChangeProperty(drag.display, request.requestor, property, XA_ATOM, 32,
+			PropModeReplace, reinterpret_cast<const unsigned char*>(types.data()),
+			static_cast<int>(types.size()));
+		reply.xselection.property = property;
+	}
+	for (const auto& [type, bytes] : drag.offered) {
+		if (type != request.target)
+			continue;
+		(void)x.ChangeProperty(drag.display, request.requestor, property, type, 8,
+			PropModeReplace, reinterpret_cast<const unsigned char*>(bytes.data()),
+			static_cast<int>(bytes.size()));
+		reply.xselection.property = property;
+		break;
+	}
+	(void)x.SendEvent(drag.display, request.requestor, False, NoEventMask, &reply);
+	(void)x.Flush(drag.display);
+	return true;
+}
+
+
 // SDL's X11 event hook: the XDND messages of the windows that take drops,
-// and the data they asked for; everything else goes on to SDL.
+// the data they asked for, and the drag out of the application; everything
+// else goes on to SDL.
 bool SDLCALL
 Hook(void* /*userdata*/, XEvent* event)
 {
 	const Xlib* x = Library();
 	if (x == nullptr)
 		return true;
+	// the pointer of a drag out, whichever event moved or released it
+	// (core or XInput 2)
+	if (sDrag.has_value()
+		&& (event->type == MotionNotify || event->type == ButtonRelease
+			|| event->type == GenericEvent)) {
+		Track(*x, *sDrag);
+	}
+	if (event->type == SelectionRequest)
+		return !RequestOf(*x, event->xselectionrequest);
 	if (event->type == ClientMessage) {
+		if (SourceMessageOf(*x, event->xclient))
+			return false;
 		const auto found = sTargets.find(event->xclient.window);
 		if (found == sTargets.end())
 			return true;
@@ -402,24 +663,25 @@ Hook(void* /*userdata*/, XEvent* event)
 } // namespace
 
 
-void
+bool
 AcceptX11Drops(SDL_Window* window, std::uint32_t eventType)
 {
 	if (Library() == nullptr)
-		return;
+		return false;
 	const SDL_PropertiesID properties = SDL_GetWindowProperties(window);
 	auto* display = static_cast<Display*>(SDL_GetPointerProperty(properties,
 		SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr));
 	const auto handle = static_cast<Window>(SDL_GetNumberProperty(properties,
 		SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0));
 	if (display == nullptr || handle == 0)
-		return;
+		return false;
 	sDropEvent = eventType;
 	sTargets.insert_or_assign(handle, Target(window, display, Atoms(*Library(), display)));
 	if (!sHooked) {
 		sHooked = true;
 		SDL_SetX11EventHook(&Hook, nullptr);
 	}
+	return true;
 }
 
 
@@ -429,6 +691,47 @@ ForgetX11Drops(SDL_Window* window)
 	const auto handle = static_cast<Window>(SDL_GetNumberProperty(
 		SDL_GetWindowProperties(window), SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0));
 	sTargets.erase(handle);
+	if (sDrag.has_value() && sDrag->source == handle)
+		sDrag.reset();
+}
+
+
+bool
+StartX11Drag(SDL_Window* window, const std::vector<DragItem>& items)
+{
+	const Xlib* x = Library();
+	const SDL_PropertiesID properties = SDL_GetWindowProperties(window);
+	auto* display = static_cast<Display*>(SDL_GetPointerProperty(properties,
+		SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr));
+	const auto handle = static_cast<Window>(SDL_GetNumberProperty(properties,
+		SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0));
+	const auto found = sTargets.find(handle);
+	if (x == nullptr || display == nullptr || found == sTargets.end())
+		return false;
+	// a drag before it that never finished is given up
+	if (sDrag.has_value() && sDrag->target != 0 && !sDrag->dropped)
+		SendTo(*x, *sDrag, sDrag->atoms.leave, 0, 0, 0, 0);
+	Drag drag(display, handle, found->second.atoms);
+	for (const DragItem& item : items) {
+		if (item.type == "text/plain") {
+			// UTF-8, under the names programs ask for
+			for (const char* name : {"text/plain;charset=utf-8", "UTF8_STRING", "text/plain"})
+				drag.offered.emplace_back(x->InternAtom(display, name, False), item.data);
+			continue;
+		}
+		drag.offered.emplace_back(x->InternAtom(display, item.type.c_str(), False), item.data);
+	}
+	if (drag.offered.empty())
+		return false;
+	std::vector<Atom> types;
+	for (const auto& [type, bytes] : drag.offered)
+		types.push_back(type);
+	(void)x->ChangeProperty(display, handle, drag.atoms.typeList, XA_ATOM, 32, PropModeReplace,
+		reinterpret_cast<const unsigned char*>(types.data()), static_cast<int>(types.size()));
+	(void)x->SetSelectionOwner(display, drag.atoms.selection, handle, CurrentTime);
+	sDrag.emplace(std::move(drag));
+	Track(*x, *sDrag);
+	return true;
 }
 
 

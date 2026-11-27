@@ -5,10 +5,12 @@
  */
 
 
-// Drops of other programs on X11 (module P4): the test is the other program,
-// an XDND source on a connection of its own, and drops on a window of SDL's
-// X11 driver as file managers and browsers do. Needs an X server (Xvfb in
-// the CI); without one the test is skipped.
+// Drag & drop with other programs on X11 (module P4): the test is the other
+// program on a connection of its own. As an XDND source it drops on a
+// window of SDL's X11 driver as file managers and browsers do; as an XDND
+// target it takes a drag out of a NewGUI window, with the mouse moved and
+// pressed through XTest as a user would. Needs an X server (Xvfb in the
+// CI); without one the tests are skipped.
 
 
 #include <atomic>
@@ -16,9 +18,11 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <string_view>
 #include <thread>
+#include <vector>
 
 #include <SDL3/SDL.h>
 #include <gtest/gtest.h>
@@ -36,6 +40,7 @@
 // macros
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
+#include <X11/extensions/XTest.h>
 
 
 namespace {
@@ -297,6 +302,288 @@ TEST(SdlX11DragDropTest, AWindowTakesDropsWithAllTheirData)
 	const auto png = dropped.FindData("image/png", BTypeCode::Mime);
 	ASSERT_TRUE(png.has_value());
 	EXPECT_EQ(png->size(), 4u);
+}
+
+
+// A window "Drags" whose view drags "hello" and a PNG when it is pressed.
+class DragWindow : public BWindow {
+public:
+	DragWindow()
+		:
+		BWindow({200, 200, 400, 320}, "Drags", BWindowLook::Titled)
+	{
+		class DragView : public BView {
+		public:
+			DragView()
+				:
+				BView(gfx::Rect{0, 0, 200, 120}, "drag", kFollowAll, BViewFlag::WillDraw)
+			{
+			}
+
+			void MouseDown(gfx::Point /*where*/) override
+			{
+				BMessage message(kSimpleData);
+				const std::string_view hello = "hello";
+				const std::string_view png = "\x89PNG";
+				(void)message.AddData("text/plain", BTypeCode::Mime,
+					std::as_bytes(std::span(hello)));
+				(void)message.AddData("image/png", BTypeCode::Mime,
+					std::as_bytes(std::span(png)));
+				DragMessage(message, gfx::Rect{0, 0, 10, 10});
+			}
+		};
+		AddChild(std::make_unique<DragView>());
+	}
+};
+
+
+// An XDND target (version 5) of the test's own, a window at (600, 200) of
+// the screen; it takes every drag, and asks for UTF8_STRING and image/png.
+class DropTarget {
+public:
+	explicit DropTarget(Display* display)
+		:
+		fDisplay(display)
+	{
+		XSetWindowAttributes attributes{};
+		attributes.override_redirect = True;
+		fWindow = XCreateWindow(display, DefaultRootWindow(display), 600, 200, 200, 150, 0,
+			CopyFromParent, InputOutput, CopyFromParent, CWOverrideRedirect, &attributes);
+		const Atom version = 5;
+		(void)XChangeProperty(display, fWindow, Intern("XdndAware"), XA_ATOM, 32,
+			PropModeReplace, reinterpret_cast<const unsigned char*>(&version), 1);
+		(void)XMapRaised(display, fWindow);
+		(void)XSync(display, False);
+	}
+
+	~DropTarget()
+	{
+		XDestroyWindow(fDisplay, fWindow);
+		XCloseDisplay(fDisplay);
+	}
+
+	Atom Intern(const char* name) const
+	{
+		return XInternAtom(fDisplay, name, False);
+	}
+
+	// Handles the XDND messages and data that came.
+	void Pump()
+	{
+		while (XPending(fDisplay) > 0) {
+			XEvent event;
+			XNextEvent(fDisplay, &event);
+			if (event.type == ClientMessage)
+				_Message(event.xclient);
+			else if (event.type == SelectionNotify)
+				_Data(event.xselection);
+		}
+	}
+
+	std::vector<std::string>	types;
+	int							positions = 0;
+	bool						dropped = false;
+	bool						left = false;
+	bool						finished = false;
+	std::string					text;
+	std::string					png;
+
+private:
+	void _Message(const XClientMessageEvent& message)
+	{
+		const Window source = static_cast<Window>(message.data.l[0]);
+		if (message.message_type == Intern("XdndEnter")) {
+			fSource = source;
+			types.clear();
+			Atom type = None;
+			int format = 0;
+			unsigned long count = 0;
+			unsigned long after = 0;
+			unsigned char* data = nullptr;
+			if ((message.data.l[1] & 1) != 0
+				&& XGetWindowProperty(fDisplay, source, Intern("XdndTypeList"), 0, 64, False,
+					XA_ATOM, &type, &format, &count, &after, &data) == Success && data) {
+				const auto* atoms = reinterpret_cast<const Atom*>(data);
+				for (unsigned long i = 0; i < count; i++) {
+					char* name = XGetAtomName(fDisplay, atoms[i]);
+					types.emplace_back(name);
+					XFree(name);
+				}
+			}
+			if (data != nullptr)
+				XFree(data);
+		} else if (message.message_type == Intern("XdndPosition")) {
+			positions++;
+			_Send(Intern("XdndStatus"), 1, 0, static_cast<long>(Intern("XdndActionCopy")));
+		} else if (message.message_type == Intern("XdndLeave")) {
+			left = true;
+		} else if (message.message_type == Intern("XdndDrop")) {
+			dropped = true;
+			fTime = static_cast<Time>(message.data.l[2]);
+			_Ask("UTF8_STRING");
+		}
+	}
+
+	void _Data(const XSelectionEvent& selection)
+	{
+		std::string bytes;
+		if (selection.property != None) {
+			Atom type = None;
+			int format = 0;
+			unsigned long count = 0;
+			unsigned long after = 0;
+			unsigned char* data = nullptr;
+			if (XGetWindowProperty(fDisplay, fWindow, selection.property, 0, 1024, True,
+					AnyPropertyType, &type, &format, &count, &after, &data) == Success
+				&& data != nullptr) {
+				bytes.assign(reinterpret_cast<const char*>(data), count);
+			}
+			if (data != nullptr)
+				XFree(data);
+		}
+		if (selection.target == Intern("UTF8_STRING")) {
+			text = bytes;
+			_Ask("image/png");
+			return;
+		}
+		png = bytes;
+		_Send(Intern("XdndFinished"), 1, static_cast<long>(Intern("XdndActionCopy")), 0);
+		finished = true;
+	}
+
+	void _Ask(const char* type)
+	{
+		(void)XConvertSelection(fDisplay, Intern("XdndSelection"), Intern(type),
+			Intern("TEST_DATA"), fWindow, fTime);
+		(void)XFlush(fDisplay);
+	}
+
+	void _Send(Atom type, long l1, long l2, long l4)
+	{
+		XEvent event{};
+		event.xclient.type = ClientMessage;
+		event.xclient.display = fDisplay;
+		event.xclient.window = fSource;
+		event.xclient.message_type = type;
+		event.xclient.format = 32;
+		event.xclient.data.l[0] = static_cast<long>(fWindow);
+		event.xclient.data.l[1] = l1;
+		event.xclient.data.l[2] = l2;
+		event.xclient.data.l[4] = l4;
+		(void)XSendEvent(fDisplay, fSource, False, NoEventMask, &event);
+		(void)XFlush(fDisplay);
+	}
+
+	Display* fDisplay;
+	Window fWindow = 0;
+	Window fSource = 0;
+	Time fTime = CurrentTime;
+};
+
+
+TEST(SdlX11DragDropTest, DragsGoToOtherPrograms)
+{
+	// What is tested: An application on the SDL platform with SDL's X11
+	// driver and a window "Drags" whose view drags "hello" (text/plain)
+	// and a PNG (image/png) when pressed; the test, as another program, has
+	// an XDND target window at (600, 200) of the screen. Through XTest the
+	// mouse is pressed in the view, moved in steps onto the target and
+	// released there; the target accepts every position and asks for
+	// UTF8_STRING and image/png after the drop.
+	// Success criteria: The target hears XdndEnter with the types
+	// text/plain;charset=utf-8, UTF8_STRING, text/plain and image/png in
+	// XdndTypeList, at least one XdndPosition and the XdndDrop, no
+	// XdndLeave; it gets "hello" and the PNG's four bytes. Skipped without
+	// an X server or XTest.
+	// Why it matters: A drag out of NewGUI's windows must reach other
+	// programs on X11 as on Windows and macOS (module P4); SDL drags
+	// nothing out.
+	//
+	// Given
+	Display* display = XOpenDisplay(nullptr);
+	if (display == nullptr)
+		GTEST_SKIP() << "no X server";
+	int event = 0;
+	int error = 0;
+	int major = 0;
+	int minor = 0;
+	if (!XTestQueryExtension(display, &event, &error, &major, &minor)) {
+		XCloseDisplay(display);
+		GTEST_SKIP() << "no XTest";
+	}
+	DropTarget target(display);
+	const ScopedEnvironment driver("SDL_VIDEODRIVER", "x11");
+	RunningApp app;
+	if (app.Platform() == nullptr)
+		GTEST_SKIP() << "no X11 video";
+	auto owned = std::make_unique<DragWindow>();
+	owned->Show();
+	(void)BLooper::Run(std::move(owned));
+	Window window = 0;
+	const auto deadline = std::chrono::steady_clock::now() + 5s;
+	while (window == 0 && std::chrono::steady_clock::now() < deadline) {
+		window = app.OnMain([] {
+			Window found = 0;
+			int count = 0;
+			SDL_Window** windows = SDL_GetWindows(&count);
+			for (int i = 0; windows != nullptr && i < count; i++) {
+				const char* title = SDL_GetWindowTitle(windows[i]);
+				if (title != nullptr && std::strcmp(title, "Drags") == 0
+					&& (SDL_GetWindowFlags(windows[i]) & SDL_WINDOW_HIDDEN) == 0) {
+					found = static_cast<Window>(SDL_GetNumberProperty(
+						SDL_GetWindowProperties(windows[i]), SDL_PROP_WINDOW_X11_WINDOW_NUMBER,
+						0));
+				}
+			}
+			SDL_free(windows);
+			return found;
+		});
+		if (window == 0)
+			std::this_thread::sleep_for(20ms);
+	}
+	ASSERT_NE(window, 0u);
+	// the window drawn and taking the mouse
+	std::this_thread::sleep_for(200ms);
+	int startX = 0;
+	int startY = 0;
+	Window child = 0;
+	(void)XTranslateCoordinates(display, window, DefaultRootWindow(display), 50, 40, &startX,
+		&startY, &child);
+	const auto pause = [&target](std::chrono::milliseconds time) {
+		const auto end = std::chrono::steady_clock::now() + time;
+		while (std::chrono::steady_clock::now() < end) {
+			target.Pump();
+			std::this_thread::sleep_for(5ms);
+		}
+	};
+
+	// When
+	(void)XTestFakeMotionEvent(display, -1, startX, startY, CurrentTime);
+	(void)XFlush(display);
+	pause(100ms);
+	(void)XTestFakeButtonEvent(display, 1, True, CurrentTime);
+	(void)XFlush(display);
+	pause(100ms);
+	for (int step = 1; step <= 20; step++) {
+		(void)XTestFakeMotionEvent(display, -1, startX + (700 - startX) * step / 20,
+			startY + (270 - startY) * step / 20, CurrentTime);
+		(void)XFlush(display);
+		pause(40ms);
+	}
+	(void)XTestFakeButtonEvent(display, 1, False, CurrentTime);
+	(void)XFlush(display);
+	const auto end = std::chrono::steady_clock::now() + 5s;
+	while (!target.finished && std::chrono::steady_clock::now() < end)
+		pause(10ms);
+
+	// Then
+	EXPECT_EQ(target.types, (std::vector<std::string>{"text/plain;charset=utf-8",
+		"UTF8_STRING", "text/plain", "image/png"}));
+	EXPECT_GE(target.positions, 1);
+	EXPECT_TRUE(target.dropped);
+	EXPECT_FALSE(target.left);
+	EXPECT_EQ(target.text, "hello");
+	EXPECT_EQ(target.png, "\x89PNG");
 }
 
 
