@@ -75,7 +75,9 @@ public:
 										"Folder_generic", "flags/DE Germany"), into
 										\a result; NotFound for an icon neither built in
 										nor in the icon directory. Built in: Alert_Info,
-										Alert_Idea, Alert_Warning, Alert_Stop. */
+										Alert_Idea, Alert_Warning, Alert_Stop (BAlert),
+										Notify_Notice, Notify_Achtung, Notify_Danger
+										(BNotification). */
 	static	std::expected<void, Error> GetTypeIcon(const BMimeType& type, BBitmap* result);
 									/*!< NewGUI: the icon of \a type as Tracker finds it
 										(BNodeInfo::GetTrackerIcon()): the type's own

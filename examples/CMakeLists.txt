@@ -25,3 +25,11 @@ add_custom_command(TARGET ngui_example_button POST_BUILD
         "${CMAKE_CURRENT_SOURCE_DIR}/button/locale"
         "$<TARGET_FILE_DIR:ngui_example_button>/locale"
     VERBATIM)
+# Haiku's icons beside it, where it points BIconUtils::SetSystemIconDirectory()
+# (icons/haiku): those NewGUI does not build in, for its pages of icons and
+# files.
+add_custom_command(TARGET ngui_example_button POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${PROJECT_SOURCE_DIR}/data/icons/haiku"
+        "$<TARGET_FILE_DIR:ngui_example_button>/icons/haiku"
+    VERBATIM)

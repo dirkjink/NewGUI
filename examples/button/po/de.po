@@ -215,6 +215,34 @@ msgctxt "Demo"
 msgid "NewGUI\n\nHaiku's Interface Kit on SDL3 and Skia."
 msgstr "NewGUI\n\nHaikus Interface Kit auf SDL3 und Skia."
 
+msgctxt "Demo"
+msgid "Icons"
+msgstr "Icons"
+
+msgctxt "Demo"
+msgid "Notify"
+msgstr "Benachrichtigen"
+
+msgctxt "Demo"
+msgid "Information"
+msgstr "Information"
+
+msgctxt "Demo"
+msgid "Important"
+msgstr "Wichtig"
+
+msgctxt "Demo"
+msgid "Error"
+msgstr "Fehler"
+
+msgctxt "Demo"
+msgid "NewGUI demo"
+msgstr "NewGUI-Demo"
+
+msgctxt "Demo"
+msgid "A notification with Haiku's icon of its type."
+msgstr "Eine Benachrichtigung mit Haikus Icon ihrer Art."
+
 #, c-format
 msgctxt "Demo"
 msgid "Clicked %d time"
