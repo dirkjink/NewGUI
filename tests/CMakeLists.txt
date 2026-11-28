@@ -373,10 +373,10 @@ if(NGUI_WITH_SDL3)
     endif()
     # Drag & drop with other programs on Windows (module P4), OLE's objects,
     # and the notifications there (module P5), the icon in the notification
-    # area.
+    # area, and the accent color (module G6) in the registry.
     if(WIN32)
         target_sources(ngui_sdl3_tests PRIVATE sdl3/OleDragDropTest.cpp
-            sdl3/WinNotificationsTest.cpp)
+            sdl3/WinNotificationsTest.cpp sdl3/WinAccentTest.cpp)
         target_link_libraries(ngui_sdl3_tests PRIVATE ole32 shell32)
     endif()
     # ... on X11 (XDND): the test is the other program, with Xlib of its own
@@ -396,20 +396,24 @@ if(NGUI_WITH_SDL3)
     if(UNIX AND NOT APPLE)
         find_package(DBus1 CONFIG QUIET)
         if(TARGET dbus-1)
-            # ... and the desktop's light or dark colors through its portal
-            # (module G6), with SDL's X11 driver as well
+            # ... and the desktop's colors through its portal (module G6):
+            # the accent color alone, light or dark and the accent with SDL's
+            # X11 driver
             target_sources(ngui_sdl3_tests PRIVATE sdl3/DbusNotificationsTest.cpp
-                sdl3/SdlX11ThemeTest.cpp)
+                sdl3/DbusAccentTest.cpp sdl3/SdlX11ThemeTest.cpp)
             target_link_libraries(ngui_sdl3_tests PRIVATE dbus-1)
         endif()
     endif()
-    # The application's menu bar (module P3), drag & drop (module P4) and
-    # the notifications (module P5) on macOS, with SDL's Cocoa windows.
+    # The application's menu bar (module P3), drag & drop (module P4), the
+    # notifications (module P5) and the accent color (module G6) on macOS,
+    # with SDL's Cocoa windows.
     if(APPLE)
         target_sources(ngui_sdl3_tests PRIVATE sdl3/SdlCocoaDragDropTest.mm
-            sdl3/SdlCocoaMenuBarTest.mm sdl3/SdlCocoaNotificationsTest.mm)
+            sdl3/SdlCocoaMenuBarTest.mm sdl3/SdlCocoaNotificationsTest.mm
+            sdl3/SdlCocoaAccentTest.mm)
         set_source_files_properties(sdl3/SdlCocoaDragDropTest.mm sdl3/SdlCocoaMenuBarTest.mm
-            sdl3/SdlCocoaNotificationsTest.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+            sdl3/SdlCocoaNotificationsTest.mm sdl3/SdlCocoaAccentTest.mm
+            PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     endif()
     gtest_discover_tests(ngui_sdl3_tests
         DISCOVERY_MODE PRE_TEST

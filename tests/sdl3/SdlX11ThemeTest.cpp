@@ -5,26 +5,25 @@
  */
 
 
-// The system's light or dark colors on Linux (module G6): SDL reads them
-// from the desktop's portal (org.freedesktop.portal.Settings, namespace
-// org.freedesktop.appearance, key color-scheme) and hears their change
-// (SettingChanged). The test is the portal, on a session bus of its own;
-// SDL's X11 driver needs an X server (Xvfb in the CI). Without either, or
-// when a real portal owns the name, the test is skipped.
+// The system's colors on Linux (module G6): SDL reads light or dark from
+// the desktop's portal (org.freedesktop.portal.Settings, namespace
+// org.freedesktop.appearance, key color-scheme), NewGUI the accent color
+// (key accent-color); both hear their change (SettingChanged). The test is
+// the portal (FakePortal.h), on a session bus of its own; SDL's X11 driver
+// needs an X server (Xvfb in the CI). Without either, or when a real portal
+// owns the name, the tests are skipped.
 
 
-#include <atomic>
 #include <chrono>
-#include <cstdint>
 #include <cstdlib>
 #include <thread>
 
-#include <dbus/dbus.h>
 #include <gtest/gtest.h>
 
 #include <ngui/Application.h>
 #include <ngui/Palette.h>
 
+#include "sdl3/FakePortal.h"
 #include "sdl3/RunningApp.h"
 #include "support/ScopedEnvironment.h"
 
@@ -35,118 +34,6 @@ namespace {
 using namespace ngui;
 using namespace ngui::test;
 using namespace std::chrono_literals;
-
-
-constexpr const char* kPortalInterface = "org.freedesktop.portal.Settings";
-
-
-// The desktop's portal, as far as SDL asks it: Read() of the color scheme
-// (1 dark, 2 light) and SettingChanged when it changes. Answers on a thread
-// of its own, since SDL asks while the application starts.
-class Portal {
-public:
-	explicit Portal(std::uint32_t scheme)
-		:
-		fScheme(scheme)
-	{
-		DBusError error;
-		dbus_error_init(&error);
-		fConnection = dbus_bus_get_private(DBUS_BUS_SESSION, &error);
-		dbus_error_free(&error);
-		if (fConnection == nullptr)
-			return;
-		dbus_connection_set_exit_on_disconnect(fConnection, FALSE);
-		fOwner = dbus_bus_request_name(fConnection, "org.freedesktop.portal.Desktop",
-			DBUS_NAME_FLAG_DO_NOT_QUEUE, &error) == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER;
-		dbus_error_free(&error);
-		if (fOwner)
-			fThread = std::thread([this] { _Serve(); });
-	}
-
-	~Portal()
-	{
-		fStop = true;
-		if (fThread.joinable())
-			fThread.join();
-		if (fConnection != nullptr) {
-			dbus_connection_close(fConnection);
-			dbus_connection_unref(fConnection);
-		}
-	}
-
-	bool IsOwner() const
-	{
-		return fOwner;
-	}
-
-	// The user switches the system: SettingChanged with \a scheme.
-	void Switch(std::uint32_t scheme)
-	{
-		fScheme = scheme;
-		fSwitch = true;
-	}
-
-private:
-	void _Serve()
-	{
-		while (!fStop) {
-			(void)dbus_connection_read_write(fConnection, 20);
-			while (DBusMessage* message = dbus_connection_pop_message(fConnection)) {
-				if (dbus_message_is_method_call(message, kPortalInterface, "Read"))
-					_Answer(message);
-				dbus_message_unref(message);
-			}
-			if (fSwitch.exchange(false))
-				_Changed();
-		}
-	}
-
-	// Read() answers <<u>>: the value in a variant in a variant.
-	void _Answer(DBusMessage* call)
-	{
-		DBusMessage* reply = dbus_message_new_method_return(call);
-		DBusMessageIter args;
-		DBusMessageIter outer;
-		DBusMessageIter inner;
-		const dbus_uint32_t scheme = fScheme;
-		dbus_message_iter_init_append(reply, &args);
-		(void)dbus_message_iter_open_container(&args, DBUS_TYPE_VARIANT, "v", &outer);
-		(void)dbus_message_iter_open_container(&outer, DBUS_TYPE_VARIANT, "u", &inner);
-		(void)dbus_message_iter_append_basic(&inner, DBUS_TYPE_UINT32, &scheme);
-		(void)dbus_message_iter_close_container(&outer, &inner);
-		(void)dbus_message_iter_close_container(&args, &outer);
-		(void)dbus_connection_send(fConnection, reply, nullptr);
-		dbus_message_unref(reply);
-		dbus_connection_flush(fConnection);
-	}
-
-	void _Changed()
-	{
-		DBusMessage* signal = dbus_message_new_signal("/org/freedesktop/portal/desktop",
-			kPortalInterface, "SettingChanged");
-		DBusMessageIter args;
-		DBusMessageIter variant;
-		const char* name = "org.freedesktop.appearance";
-		const char* key = "color-scheme";
-		const dbus_uint32_t scheme = fScheme;
-		dbus_message_iter_init_append(signal, &args);
-		(void)dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &name);
-		(void)dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &key);
-		(void)dbus_message_iter_open_container(&args, DBUS_TYPE_VARIANT, "u", &variant);
-		(void)dbus_message_iter_append_basic(&variant, DBUS_TYPE_UINT32, &scheme);
-		(void)dbus_message_iter_close_container(&args, &variant);
-		(void)dbus_connection_send(fConnection, signal, nullptr);
-		dbus_message_unref(signal);
-		dbus_connection_flush(fConnection);
-	}
-
-	DBusConnection* fConnection = nullptr;
-	bool fOwner = false;
-	std::atomic<std::uint32_t> fScheme;
-	std::atomic<bool> fSwitch = false;
-	std::atomic<bool> fStop = false;
-	std::thread fThread;
-};
 
 
 // Waits until the application's colors are \a palette; false after 5 s.
@@ -167,9 +54,10 @@ TEST(SdlX11ThemeTest, TheColorsFollowTheDesktop)
 	// choice (BColorScheme::System); then the user switches the desktop to
 	// light (SettingChanged with 2).
 	// Success criteria: The platform reports Dark and the application shows
-	// Haiku's dark colors; after the switch it reports Light and shows the
-	// light ones, without being restarted. Skipped without an X server or a
-	// session bus, or when a real portal runs.
+	// Haiku's dark colors (the portal has no accent color); after the switch
+	// it reports Light and shows the light ones, without being restarted.
+	// Skipped without an X server or a session bus, or when a real portal
+	// runs.
 	// Why it matters: By default NewGUI follows the user's light or dark
 	// choice, also while it runs (as decided for this block); on Linux the
 	// desktop tells it through its portal.
@@ -177,7 +65,7 @@ TEST(SdlX11ThemeTest, TheColorsFollowTheDesktop)
 	// Given
 	if (std::getenv("DBUS_SESSION_BUS_ADDRESS") == nullptr || std::getenv("DISPLAY") == nullptr)
 		GTEST_SKIP() << "no session bus or no X server";
-	Portal portal(1);
+	FakePortal portal(1);
 	if (!portal.IsOwner())
 		GTEST_SKIP() << "a portal of the desktop runs";
 	const ScopedEnvironment driver("SDL_VIDEODRIVER", "x11");
@@ -189,7 +77,7 @@ TEST(SdlX11ThemeTest, TheColorsFollowTheDesktop)
 		GTEST_SKIP() << "no X11 video";
 	const bool dark = WaitForColors(Palette::Dark());
 	const platform::SystemColorScheme reportedDark = app.Platform()->ColorScheme();
-	portal.Switch(2);
+	portal.SwitchScheme(2);
 	const bool light = WaitForColors(Palette::Default());
 	const platform::SystemColorScheme reportedLight = app.Platform()->ColorScheme();
 
@@ -198,6 +86,47 @@ TEST(SdlX11ThemeTest, TheColorsFollowTheDesktop)
 	EXPECT_EQ(reportedDark, platform::SystemColorScheme::Dark);
 	EXPECT_TRUE(light);
 	EXPECT_EQ(reportedLight, platform::SystemColorScheme::Light);
+}
+
+
+TEST(SdlX11ThemeTest, TheAccentColorFollowsTheDesktop)
+{
+	// What is tested: The desktop's portal says dark with GNOME's blue accent
+	// (53, 132, 228); an application on SDL's X11 driver with the colors of
+	// the system's choice; then the user picks GNOME's green (46, 194, 126),
+	// then no accent color (SettingChanged of accent-color).
+	// Success criteria: The application shows Haiku's dark colors with the
+	// blue accent (Palette::WithAccent()), then with the green one, then
+	// without one, without being restarted. Skipped as above.
+	// Why it matters: Following the system includes its accent color as the
+	// color of focus and selection, also when the user changes it (as decided
+	// for this block); SDL does not report it, NewGUI asks the portal itself.
+	//
+	// Given
+	if (std::getenv("DBUS_SESSION_BUS_ADDRESS") == nullptr || std::getenv("DISPLAY") == nullptr)
+		GTEST_SKIP() << "no session bus or no X server";
+	FakePortal portal(1, FakePortal::Rgb{53 / 255.0, 132 / 255.0, 228 / 255.0});
+	if (!portal.IsOwner())
+		GTEST_SKIP() << "a portal of the desktop runs";
+	const ScopedEnvironment driver("SDL_VIDEODRIVER", "x11");
+	BApplication::SetColorScheme(BColorScheme::System);
+	const gfx::Color blue = gfx::Color::FromRgba8(53, 132, 228, 255);
+	const gfx::Color green = gfx::Color::FromRgba8(46, 194, 126, 255);
+
+	// When
+	RunningApp app;
+	if (app.Platform() == nullptr)
+		GTEST_SKIP() << "no X11 video";
+	const bool withBlue = WaitForColors(Palette::Dark().WithAccent(blue));
+	portal.SetAccent(FakePortal::Rgb{46 / 255.0, 194 / 255.0, 126 / 255.0});
+	const bool withGreen = WaitForColors(Palette::Dark().WithAccent(green));
+	portal.SetAccent(std::nullopt);
+	const bool withNone = WaitForColors(Palette::Dark());
+
+	// Then
+	EXPECT_TRUE(withBlue);
+	EXPECT_TRUE(withGreen);
+	EXPECT_TRUE(withNone);
 }
 
 

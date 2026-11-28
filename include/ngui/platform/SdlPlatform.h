@@ -94,6 +94,13 @@ public:
 										under Windows and macOS their own setting;
 										SDL_EVENT_SYSTEM_THEME_CHANGED becomes
 										kSystemColorsChanged. */
+			std::optional<gfx::Color> AccentColor() const override;
+									/*!< Under Linux the desktop's portal
+										(org.freedesktop.appearance accent-color), under
+										Windows the desktop window manager's (the registry),
+										under macOS NSColor's controlAccentColor; a change
+										becomes kSystemColorsChanged. Asked on first
+										use. */
 			bool				HasTransparentWindows() const override;
 									/*!< Under Wayland, Windows and macOS; under X11 while a
 										compositing manager runs; not with the offscreen

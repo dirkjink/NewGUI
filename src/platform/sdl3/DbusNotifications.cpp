@@ -12,21 +12,15 @@
 #include <cmath>
 #include <cstdint>
 #include <deque>
-#include <filesystem>
 #include <map>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
-#include <type_traits>
 #include <utility>
 
-#include <dlfcn.h>
-
-#include <dbus/dbus.h>
-
-#include "Environment.h"
+#include "platform/sdl3/Dbus.h"
 
 
 namespace ngui::platform::sdl3 {
@@ -38,93 +32,6 @@ namespace {
 constexpr const char* kService = "org.freedesktop.Notifications";
 constexpr const char* kPath = "/org/freedesktop/Notifications";
 constexpr const char* kInterface = "org.freedesktop.Notifications";
-
-
-// The functions of libdbus the notifications need, from the system's
-// library (libdbus-1.so.3), which SDL loads too.
-struct Dbus {
-	void*			library = nullptr;
-	void			(*ErrorInit)(DBusError*) = nullptr;
-	void			(*ErrorFree)(DBusError*) = nullptr;
-	DBusConnection*	(*BusGetPrivate)(DBusBusType, DBusError*) = nullptr;
-	void			(*BusAddMatch)(DBusConnection*, const char*, DBusError*) = nullptr;
-	void			(*ConnectionClose)(DBusConnection*) = nullptr;
-	void			(*ConnectionUnref)(DBusConnection*) = nullptr;
-	void			(*SetExitOnDisconnect)(DBusConnection*, dbus_bool_t) = nullptr;
-	dbus_bool_t		(*ReadWrite)(DBusConnection*, int) = nullptr;
-	DBusMessage*	(*PopMessage)(DBusConnection*) = nullptr;
-	DBusMessage*	(*SendWithReplyAndBlock)(DBusConnection*, DBusMessage*, int, DBusError*)
-						= nullptr;
-	DBusMessage*	(*NewMethodCall)(const char*, const char*, const char*, const char*)
-						= nullptr;
-	void			(*MessageUnref)(DBusMessage*) = nullptr;
-	dbus_bool_t		(*IsSignal)(DBusMessage*, const char*, const char*) = nullptr;
-	dbus_bool_t		(*GetArgs)(DBusMessage*, DBusError*, int, ...) = nullptr;
-	void			(*IterInitAppend)(DBusMessage*, DBusMessageIter*) = nullptr;
-	dbus_bool_t		(*AppendBasic)(DBusMessageIter*, int, const void*) = nullptr;
-	dbus_bool_t		(*AppendFixedArray)(DBusMessageIter*, int, const void*, int) = nullptr;
-	dbus_bool_t		(*OpenContainer)(DBusMessageIter*, int, const char*, DBusMessageIter*)
-						= nullptr;
-	dbus_bool_t		(*CloseContainer)(DBusMessageIter*, DBusMessageIter*) = nullptr;
-
-	bool Load()
-	{
-		library = dlopen("libdbus-1.so.3", RTLD_NOW | RTLD_LOCAL);
-		if (library == nullptr)
-			return false;
-		bool complete = true;
-		const auto bind = [&](auto& function, const char* name) {
-			// POSIX: a function's address passes through dlsym()'s void*.
-			void* symbol = dlsym(library, name);
-			complete = complete && symbol != nullptr;
-			function = reinterpret_cast<std::remove_reference_t<decltype(function)>>(symbol);
-		};
-		bind(ErrorInit, "dbus_error_init");
-		bind(ErrorFree, "dbus_error_free");
-		bind(BusGetPrivate, "dbus_bus_get_private");
-		bind(BusAddMatch, "dbus_bus_add_match");
-		bind(ConnectionClose, "dbus_connection_close");
-		bind(ConnectionUnref, "dbus_connection_unref");
-		bind(SetExitOnDisconnect, "dbus_connection_set_exit_on_disconnect");
-		bind(ReadWrite, "dbus_connection_read_write");
-		bind(PopMessage, "dbus_connection_pop_message");
-		bind(SendWithReplyAndBlock, "dbus_connection_send_with_reply_and_block");
-		bind(NewMethodCall, "dbus_message_new_method_call");
-		bind(MessageUnref, "dbus_message_unref");
-		bind(IsSignal, "dbus_message_is_signal");
-		bind(GetArgs, "dbus_message_get_args");
-		bind(IterInitAppend, "dbus_message_iter_init_append");
-		bind(AppendBasic, "dbus_message_iter_append_basic");
-		bind(AppendFixedArray, "dbus_message_iter_append_fixed_array");
-		bind(OpenContainer, "dbus_message_iter_open_container");
-		bind(CloseContainer, "dbus_message_iter_close_container");
-		return complete;
-	}
-};
-
-
-const Dbus*
-Library()
-{
-	static const Dbus* const library = []() -> const Dbus* {
-		static Dbus functions;
-		return functions.Load() ? &functions : nullptr;
-	}();
-	return library;
-}
-
-
-// Whether there is a session bus to connect to without starting one
-// (libdbus would otherwise try to launch a bus through X11).
-bool
-HasSessionBus()
-{
-	if (detail::EnvironmentVariable("DBUS_SESSION_BUS_ADDRESS").has_value())
-		return true;
-	const std::optional<std::string> runtime = detail::EnvironmentVariable("XDG_RUNTIME_DIR");
-	std::error_code error;
-	return runtime.has_value() && std::filesystem::exists(*runtime + "/bus", error);
-}
 
 
 // The urgency of the specification: 0 low, 1 normal, 2 critical.
@@ -147,7 +54,7 @@ UrgencyOf(NotificationSpec::Kind kind)
 
 
 struct DbusNotifications::Impl {
-	const Dbus&				dbus;
+	const dbus::Library&	dbus;
 	DBusConnection*			connection;
 	std::thread				thread;
 	std::mutex				lock;
@@ -158,7 +65,7 @@ struct DbusNotifications::Impl {
 	std::map<std::string, dbus_uint32_t> ids;
 	std::map<dbus_uint32_t, std::pair<BMessenger, BMessage>> clicks;
 
-	Impl(const Dbus& functions, DBusConnection* bus)
+	Impl(const dbus::Library& functions, DBusConnection* bus)
 		:
 		dbus(functions),
 		connection(bus)
@@ -333,20 +240,15 @@ DbusNotifications::DbusNotifications(std::unique_ptr<Impl> impl)
 std::expected<std::unique_ptr<DbusNotifications>, Error>
 DbusNotifications::Create()
 {
-	const Dbus* dbus = Library();
+	const dbus::Library* dbus = dbus::Load();
 	if (dbus == nullptr)
 		return Failure(ErrorCode::NotSupported, "no libdbus");
-	if (!HasSessionBus())
-		return Failure(ErrorCode::NotSupported, "no session bus");
+	auto connected = dbus::ConnectSession(*dbus);
+	if (!connected.has_value())
+		return std::unexpected(connected.error());
+	DBusConnection* connection = *connected;
 	DBusError error;
 	dbus->ErrorInit(&error);
-	DBusConnection* connection = dbus->BusGetPrivate(DBUS_BUS_SESSION, &error);
-	if (connection == nullptr) {
-		const std::string message = error.message != nullptr ? error.message : "no session bus";
-		dbus->ErrorFree(&error);
-		return Failure(ErrorCode::NotSupported, message);
-	}
-	dbus->SetExitOnDisconnect(connection, FALSE);
 	// the server's signals of clicks and closing
 	dbus->BusAddMatch(connection,
 		"type='signal',interface='org.freedesktop.Notifications'", &error);

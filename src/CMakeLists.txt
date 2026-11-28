@@ -87,6 +87,7 @@ add_library(ngui
     IconUtils.cpp
     LayoutViews.cpp
     Handler.cpp
+    Hsl.cpp
     Invoker.cpp
     Layout.cpp
     LayoutContext.cpp
@@ -324,10 +325,11 @@ if(NGUI_WITH_SDL3)
     # internal headers (PlatformEvent.h)
     target_include_directories(ngui_sdl3 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     # Drag & drop with other programs on Windows (module P4; OLE) and the
-    # system's notifications there (module P5; Shell_NotifyIcon).
+    # system's notifications there (module P5; Shell_NotifyIcon), and its
+    # accent color (module G6; the registry).
     if(WIN32)
         target_sources(ngui_sdl3 PRIVATE platform/sdl3/OleDragDrop.cpp
-            platform/sdl3/WinNotifications.cpp)
+            platform/sdl3/WinNotifications.cpp platform/sdl3/WinAccent.cpp)
         target_link_libraries(ngui_sdl3 PRIVATE ole32 shell32 uuid)
     endif()
     # ... and on X11 (XDND); Xlib's headers only, the library comes with
@@ -341,12 +343,14 @@ if(NGUI_WITH_SDL3)
             target_link_libraries(ngui_sdl3 PRIVATE ${CMAKE_DL_LIBS})
         endif()
     endif()
-    # The desktop's notifications on Linux (module P5): D-Bus's headers only,
-    # the system's libdbus comes with dlopen() as SDL loads it.
+    # The desktop's notifications on Linux (module P5) and its accent color
+    # (module G6, through the portal): D-Bus's headers only, the system's
+    # libdbus comes with dlopen() as SDL loads it.
     if(UNIX AND NOT APPLE)
         find_package(DBus1 CONFIG QUIET)
         if(TARGET dbus-1)
-            target_sources(ngui_sdl3 PRIVATE platform/sdl3/DbusNotifications.cpp)
+            target_sources(ngui_sdl3 PRIVATE platform/sdl3/Dbus.cpp
+                platform/sdl3/DbusNotifications.cpp platform/sdl3/DbusAccent.cpp)
             target_include_directories(ngui_sdl3 SYSTEM PRIVATE
                 "$<TARGET_PROPERTY:dbus-1,INTERFACE_INCLUDE_DIRECTORIES>")
             target_compile_definitions(ngui_sdl3 PRIVATE NGUI_WITH_DBUS_NOTIFICATIONS=1)
@@ -354,13 +358,15 @@ if(NGUI_WITH_SDL3)
         endif()
     endif()
     # The application's menu bar (module P3), drag & drop with other
-    # programs (module P4) and the notifications (module P5) on macOS;
-    # Objective-C++.
+    # programs (module P4), the notifications (module P5) and the accent
+    # color (module G6) on macOS; Objective-C++.
     if(APPLE)
         target_sources(ngui_sdl3 PRIVATE platform/sdl3/CocoaDragDrop.mm
-            platform/sdl3/CocoaMenuBar.mm platform/sdl3/CocoaNotifications.mm)
+            platform/sdl3/CocoaMenuBar.mm platform/sdl3/CocoaNotifications.mm
+            platform/sdl3/CocoaAccent.mm)
         set_source_files_properties(platform/sdl3/CocoaDragDrop.mm platform/sdl3/CocoaMenuBar.mm
-            platform/sdl3/CocoaNotifications.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+            platform/sdl3/CocoaNotifications.mm platform/sdl3/CocoaAccent.mm
+            PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
         target_link_libraries(ngui_sdl3 PRIVATE "-framework AppKit"
             "-framework UniformTypeIdentifiers" "-framework UserNotifications")
     endif()

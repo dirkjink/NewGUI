@@ -236,8 +236,8 @@ jobs:
       # software renderer (llvmpipe) gives the GPU tests an OpenGL context
       # without a GPU (phase G); poppler's tools read the PDFs of the export
       # tests (19.4); Xvfb is the X server of the XDND tests (module P4), XTest
-      # moves and presses their mouse; dbus gives the notification test its
-      # session bus (module P5).
+      # moves and presses their mouse; dbus gives the notification and color
+      # tests their session bus (modules P5, G6).
       - name: Install the window system headers
         run: .github/scripts/apt-install.sh libx11-dev libxext-dev libwayland-dev wayland-protocols libxkbcommon-dev libegl-dev libgl-dev libgles-dev libegl-mesa0 libgl1-mesa-dri poppler-utils xvfb xauth libxtst-dev dbus
 
@@ -251,10 +251,11 @@ jobs:
       - name: Test drag & drop, frames and colors on X11
         run: dbus-run-session -- xvfb-run -a build/skia/tests/ngui_sdl3_tests --gtest_filter='SdlX11*'
 
-      # The desktop's notifications (module P5): the test is the notification
-      # server on a session bus of its own, which the other tests do without.
-      - name: Test notifications over D-Bus
-        run: dbus-run-session -- env SDL_VIDEODRIVER=offscreen build/skia/tests/ngui_sdl3_tests --gtest_filter='DbusNotifications*'
+      # The desktop's notifications (module P5) and its accent color (module
+      # G6): the tests are the notification server and the portal on a
+      # session bus of their own, which the other tests do without.
+      - name: Test notifications and the accent color over D-Bus
+        run: dbus-run-session -- env SDL_VIDEODRIVER=offscreen build/skia/tests/ngui_sdl3_tests --gtest_filter='Dbus*'
 
       # vcpkg's new packages for later runs, also when the step failed
       - name: Keep the vcpkg packages

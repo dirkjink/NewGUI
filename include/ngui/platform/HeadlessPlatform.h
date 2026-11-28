@@ -197,6 +197,9 @@ public:
 			SystemColorScheme	colorScheme = SystemColorScheme::Light;
 									/*!< The colors the user chose for the virtual
 										system (ColorScheme()). */
+			std::optional<gfx::Color> accentColor = std::nullopt;
+									/*!< Its accent color (AccentColor()), none by
+										default. */
 			bool				systemDrag = false;
 									/*!< Acts as a platform whose drags go on to other
 										applications (PlatformWindow::CanDragToSystem()). */
@@ -250,6 +253,9 @@ public:
 			SystemColorScheme	ColorScheme() const override;
 									/*!< Options::colorScheme, or as SetColorScheme() set
 										it. */
+			std::optional<gfx::Color> AccentColor() const override;
+									/*!< Options::accentColor, or as SetAccentColor() set
+										it. */
 
 			void				Post(std::function<void()> work);
 									/*!< Runs \a work on the main thread in the next
@@ -266,6 +272,9 @@ public:
 			void				SetColorScheme(SystemColorScheme scheme);
 									/*!< Acts as a user switching the system to light or
 										dark: kSystemColorsChanged to the application. */
+			void				SetAccentColor(std::optional<gfx::Color> accent);
+									/*!< Acts as a user choosing another accent color:
+										kSystemColorsChanged to the application. */
 			void				SetFileDialogAnswer(FileDialogAnswer answer);
 									/*!< How file dialogs are answered from now on;
 										nullptr: as cancelled. */
