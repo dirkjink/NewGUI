@@ -965,6 +965,15 @@ BTextControl::MessageReceived(BMessage* message)
 	// the text view's colors of the application's new colors
 	if (message->what == kColorsUpdated)
 		_UpdateTextViewColors(IsEnabled());
+	// NewGUI: the look's font may be another (LookInfo::fonts): without a
+	// layout the control takes the height its constructor gives it now
+	// (18.7), measured after its text view took the new fonts (the views
+	// hear it parents first)
+	if (message->what == kLookChanged) {
+		fText->MessageReceived(message);
+		if (!Flags().Has(BViewFlag::SupportsLayout))
+			_ValidateLayout();
+	}
 	BControl::MessageReceived(message);
 }
 

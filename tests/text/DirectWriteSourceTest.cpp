@@ -22,6 +22,8 @@
 #include <ngui/Font.h>
 #include <ngui/text/FontTextSystem.h>
 
+#include "support/ScopedLook.h"
+
 
 namespace {
 
@@ -106,13 +108,15 @@ TEST(DirectWriteSourceTest, ATextSystemUsesTheSystemsFonts)
 	// the plain role; a BFont set to Arial Bold, with the text system as
 	// default. Skipped on other systems.
 	// Success criteria: 日 comes from a font of the system (a FontId of its
-	// own, a real glyph), "a" stays in Noto Sans. Arial Bold is among the
-	// styles, and the BFont measures "A" with it: 1479 of 2048 units at
-	// 12 px, 8.666 px (Noto Sans: 7.668).
+	// own after the six bundled ones, a real glyph), "a" stays in Noto
+	// Sans. Arial Bold is among the styles, and the BFont measures "A" with
+	// it: 1479 of 2048 units at 12 px, 8.666 px (Noto Sans: 7.668).
 	// Why it matters: Text that the bundled fonts cannot show is drawn with
 	// the system's fonts, and applications can choose them (module X1).
 	//
 	// Given
+	// the bundled Noto as the role fonts: a look that names none
+	const test::ScopedLook noto("haiku");
 	auto source = CreateDirectWriteSource();
 	if (!source.has_value() && source.error().code == ErrorCode::NotSupported)
 		GTEST_SKIP() << source.error().message;
@@ -130,7 +134,7 @@ TEST(DirectWriteSourceTest, ATextSystemUsesTheSystemsFonts)
 	// Then
 	ASSERT_EQ(shaped.fontRuns.size(), 2u);
 	EXPECT_EQ(shaped.fontRuns[0].font, 1u);
-	EXPECT_GE(shaped.fontRuns[1].font, 4u);
+	EXPECT_GE(shaped.fontRuns[1].font, 7u);
 	ASSERT_EQ(shaped.glyphs.size(), 2u);
 	EXPECT_NE(shaped.glyphs[1], 0u);
 	EXPECT_TRUE(text->Style("Arial", "Bold").has_value());

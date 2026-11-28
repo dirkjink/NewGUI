@@ -1183,8 +1183,20 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 			return;
 		case kLookChanged:
 			// a window with a look of its own keeps it (18.5)
-			if (fOwnLook == nullptr)
+			if (fOwnLook == nullptr) {
 				_LookChanged();
+			} else {
+				// NewGUI: the role fonts follow the application's look
+				// (LookInfo::fonts), so laid out and drawn anew
+				fRoot->InvalidateLayout(true);
+				ForEachView(fRoot.get(), [](BView* view) { view->Invalidate(); });
+			}
+			// the views hear it: a text view takes the new role fonts
+			ForEachView(fRoot.get(), [message](BView* view) { view->MessageReceived(message); });
+			for (const std::unique_ptr<PopupSurface>& popup : fPopups) {
+				ForEachView(popup->root.get(),
+					[message](BView* view) { view->MessageReceived(message); });
+			}
 			return;
 		case kAccessibleAction:
 			_AccessibleAction(message);

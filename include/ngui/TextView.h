@@ -7,6 +7,7 @@
 #pragma once
 
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -540,6 +541,9 @@ private:
 			std::optional<gfx::Color> fTextColor;
 			BColorWhich			fTextUIColor = BColorWhich::DocumentText;
 			std::unique_ptr<TextStyleBuffer> fStyles;
+			// the role fonts when it was made or the look last changed
+			// (be_plain_font, be_bold_font, be_fixed_font)
+			std::array<BFont, 3> fRoleFonts;
 			bool				fStylable = false;
 			std::unique_ptr<InlineInput> fInline;
 			std::vector<std::pair<uint32, BModifierFlags>> fInstalledShortcuts;

@@ -136,6 +136,26 @@ enum class ConformanceLevel : std::uint8_t {
 };
 
 
+/*!	A font of a look's role (NewGUI): family and style by name, as
+	FontFamilyStyle names them; an empty family leaves the role to the text
+	system. */
+struct LookFont {
+			std::string_view	family;			/*!< "Liberation Sans"; empty: the default. */
+			std::string_view	style;			/*!< "Regular", "Bold". */
+};
+
+
+/*!	The fonts a look draws its text in (NewGUI, specification 24 point 9):
+	the families of be_plain_font, be_bold_font and be_fixed_font while it is
+	the current look. Only fonts the text system bundles count, so that every
+	machine shows the same; others leave the role to the text system. */
+struct LookFonts {
+			LookFont			plain;			/*!< FontRole::Plain. */
+			LookFont			bold;			/*!< FontRole::Bold. */
+			LookFont			fixed;			/*!< FontRole::Fixed. */
+};
+
+
 /*!	Who a look is and what it needs (specification 18.3). */
 struct LookInfo {
 			std::string_view	id;				/*!< Stable key: "be", "haiku", "flat". */
@@ -144,6 +164,8 @@ struct LookInfo {
 			ConformanceLevel	required;		/*!< Needed level; `requires` in the
 													specification, a C++20 keyword. */
 			gfx::Caps			extendedCaps;	/*!< With Extended: the capabilities needed. */
+			LookFonts			fonts = {};		/*!< The fonts of its roles; empty: those of
+													the text system (Noto Sans). */
 };
 
 

@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <utility>
 #include <vector>
@@ -19,6 +20,9 @@
 #include <hb.h>
 #include <linebreak.h>
 #include <wordbreak.h>
+
+#include <ngui/ControlLook.h>
+#include <ngui/LookRegistry.h>
 
 #include "TruncateString.h"
 
@@ -31,6 +35,12 @@ extern const unsigned char kNotoSansBold[];
 extern const std::size_t kNotoSansBoldSize;
 extern const unsigned char kNotoSansMonoRegular[];
 extern const std::size_t kNotoSansMonoRegularSize;
+extern const unsigned char kLiberationSansRegular[];
+extern const std::size_t kLiberationSansRegularSize;
+extern const unsigned char kLiberationSansBold[];
+extern const std::size_t kLiberationSansBoldSize;
+extern const unsigned char kLiberationMonoRegular[];
+extern const std::size_t kLiberationMonoRegularSize;
 
 } // namespace ngui::embedded
 
@@ -39,6 +49,12 @@ namespace ngui::text {
 
 
 namespace {
+
+
+// The bundled fonts: Noto Sans, Bold and Mono (ids 1 to 3), then the BeOS
+// look's Liberation Sans, Bold and Mono (ids 4 to 6).
+constexpr std::size_t kNotoFonts = 3;
+constexpr std::size_t kBundledFonts = 6;
 
 
 // A code point of a text and the byte it begins at.
@@ -88,7 +104,10 @@ BundledStyles()
 {
 	return {{"Noto Sans", "Regular", 1, BFontFace::Regular, false},
 		{"Noto Sans", "Bold", 2, BFontFace::Bold, false},
-		{"Noto Sans Mono", "Regular", 3, BFontFace::Regular, true}};
+		{"Noto Sans Mono", "Regular", 3, BFontFace::Regular, true},
+		{"Liberation Sans", "Regular", 4, BFontFace::Regular, false},
+		{"Liberation Sans", "Bold", 5, BFontFace::Bold, false},
+		{"Liberation Mono", "Regular", 6, BFontFace::Regular, true}};
 }
 
 
@@ -302,7 +321,13 @@ FontTextSystem::Create(std::unique_ptr<FontSource> fonts, float size)
 	const Bundled bundled[] = {
 		{1, FontRole::Plain, embedded::kNotoSansRegular, embedded::kNotoSansRegularSize},
 		{2, FontRole::Bold, embedded::kNotoSansBold, embedded::kNotoSansBoldSize},
-		{3, FontRole::Fixed, embedded::kNotoSansMonoRegular, embedded::kNotoSansMonoRegularSize}
+		{3, FontRole::Fixed, embedded::kNotoSansMonoRegular, embedded::kNotoSansMonoRegularSize},
+		// the BeOS look's (LookInfo::fonts)
+		{4, FontRole::Plain, embedded::kLiberationSansRegular,
+			embedded::kLiberationSansRegularSize},
+		{5, FontRole::Bold, embedded::kLiberationSansBold, embedded::kLiberationSansBoldSize},
+		{6, FontRole::Fixed, embedded::kLiberationMonoRegular,
+			embedded::kLiberationMonoRegularSize}
 	};
 	const std::vector<FontFamilyStyle> styles = BundledStyles();
 	for (std::size_t i = 0; i < std::size(bundled); i++) {
@@ -343,9 +368,10 @@ FontTextSystem::_Font(gfx::FontId id) const
 
 
 // The font for the grapheme cluster \a cluster that \a primary lacks:
-// the first of the other bundled fonts and the source's font that has all
-// of it, else the first that has its first missing character; nullptr if
-// none has that.
+// the first of the other Noto fonts (that of \a primary's role first) and
+// the source's font that has all of it, else the first that has its first
+// missing character; nullptr if none has that. A look's bundled font
+// (Liberation) so falls back on Noto before the system's fonts.
 const FontTextSystem::Font*
 FontTextSystem::_FontFor(const Font& primary, std::span<const char32_t> cluster) const
 {
@@ -357,9 +383,12 @@ FontTextSystem::_FontFor(const Font& primary, std::span<const char32_t> cluster)
 	std::vector<const Font*> candidates;
 	{
 		std::scoped_lock lock(fLock);
-		for (std::size_t i = 0; i < 3; i++) {
-			if (fFonts[i].get() != &primary)
-				candidates.push_back(fFonts[i].get());
+		for (const bool sameRole : {true, false}) {
+			for (std::size_t i = 0; i < kNotoFonts; i++) {
+				const Font* noto = fFonts[i].get();
+				if (noto != &primary && (noto->file.role == primary.file.role) == sameRole)
+					candidates.push_back(noto);
+			}
 		}
 	}
 	if (const Font* found = _SourceFont(primary, *missing))
@@ -495,7 +524,7 @@ FontTextSystem::_ListLocked(std::vector<SourceFont> listed) const
 		fStyleIndex.emplace(key, fStyles.size());
 		fStyles.push_back(*known.look);
 	}
-	for (std::size_t i = 0; i < 3; i++)
+	for (std::size_t i = 0; i < kBundledFonts; i++)
 		fStyleIndex.emplace(std::pair(fStyles[i].family, fStyles[i].style), i);
 	fListed = true;
 }
@@ -700,6 +729,22 @@ FontTextSystem::RoleFont(FontRole role) const
 		font = 2;
 	else if (role == FontRole::Fixed)
 		font = 3;
+	// the current look's font of the role, if the text system bundles it
+	// (LookInfo::fonts)
+	if (const std::shared_ptr<const ControlLook> look = LookRegistry::Default().Current()) {
+		const LookFonts& fonts = look->Info().fonts;
+		const LookFont& wanted = role == FontRole::Bold ? fonts.bold
+			: role == FontRole::Fixed ? fonts.fixed : fonts.plain;
+		if (!wanted.family.empty()) {
+			static const std::vector<FontFamilyStyle> kStyles = BundledStyles();
+			for (const FontFamilyStyle& style : kStyles) {
+				if (style.family == wanted.family && style.style == wanted.style) {
+					font = style.font;
+					break;
+				}
+			}
+		}
+	}
 	return {font, fSize};
 }
 

@@ -825,6 +825,20 @@ BTextView::MessageReceived(BMessage* message)
 			Undo(&BClipboard::System());
 			break;
 
+		case kLookChanged:
+		{
+			// NewGUI: the role fonts follow the application's look
+			// (LookInfo::fonts); text in the old ones takes the new ones,
+			// fonts the application chose stay
+			const std::array<BFont, 3> roles = {BFont::Plain(), BFont::Bold(), BFont::Fixed()};
+			for (std::size_t i = 0; i < roles.size(); i++)
+				fStyles->ReplaceFont(fRoleFonts[i], roles[i]);
+			fRoleFonts = roles;
+			InvalidateLayout();
+			_Refresh();
+			break;
+		}
+
 		case kSelectAll:
 			SelectAll();
 			break;
@@ -2326,6 +2340,7 @@ BTextView::_InitObject(gfx::Rect textRect)
 {
 	fTextRect = textRect;
 	fStyles = std::make_unique<TextStyleBuffer>(BFont::Plain(), std::nullopt);
+	fRoleFonts = {BFont::Plain(), BFont::Bold(), BFont::Fixed()};
 	_UpdateInsets(textRect);
 	AdoptSystemColors();
 	SetDoesUndo(true);

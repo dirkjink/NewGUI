@@ -33,6 +33,7 @@
 #include <utility>
 
 #include <ngui/AbstractLayoutItem.h>
+#include <ngui/AppDefs.h>
 #include <ngui/ControlLook.h>
 #include <ngui/LayoutUtils.h>
 #include <ngui/Menu.h>
@@ -356,7 +357,27 @@ BMenuField::AllAttached()
 	// NewGUI: only without layout, which sizes the field otherwise.
 	if (Flags().Has(BViewFlag::SupportsLayout))
 		return;
+	_FitWithoutLayout();
+}
 
+
+void
+BMenuField::MessageReceived(BMessage* message)
+{
+	// NewGUI: the look's font may be another (LookInfo::fonts): without a
+	// layout the menu bar and the field take the heights they would have
+	// had from the start (18.7)
+	if (message->what == kLookChanged && !Flags().Has(BViewFlag::SupportsLayout)) {
+		_InitObject2();
+		_FitWithoutLayout();
+	}
+	BView::MessageReceived(message);
+}
+
+
+void
+BMenuField::_FitWithoutLayout()
+{
 	float width = Bounds().Width();
 	if (!fFixedSizeMB && _MenuBarWidth() < kMinMenuBarWidth) {
 		// The menu bar is too narrow, resize it to fit the menu items

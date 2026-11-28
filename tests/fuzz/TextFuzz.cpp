@@ -157,7 +157,7 @@ NGUI_FUZZ_TARGET(Text)
 	std::size_t runEnd = 0;
 	for (const ngui::ShapedFontRun& run : shaped.fontRuns) {
 		NGUI_FUZZ_CHECK(run.end >= runEnd && run.end <= shaped.glyphs.size());
-		NGUI_FUZZ_CHECK(run.font >= 1 && run.font <= 3);
+		NGUI_FUZZ_CHECK(run.font >= 1 && run.font <= 6);
 		runEnd = run.end;
 	}
 	NGUI_FUZZ_CHECK(shaped.fontRuns.empty() || runEnd == shaped.glyphs.size());

@@ -20,6 +20,8 @@
 #include <ngui/Font.h>
 #include <ngui/text/FontTextSystem.h>
 
+#include "support/ScopedLook.h"
+
 
 namespace {
 
@@ -145,7 +147,7 @@ TEST(FontconfigSourceTest, ATextSystemOffersTheSystemsFamilies)
 	// of the KR face, its text shaped, "a日" in the plain role, and a BFont
 	// set to the KR face with the text system as default. Skipped without
 	// fontconfig.
-	// Success criteria: Styles() begins with the three bundled styles and
+	// Success criteria: Styles() begins with the six bundled styles and
 	// lists the CJK faces after them, the bundled "Noto Sans" "Regular" only
 	// once. The KR face has a FontId of its own, loaded only when used: then
 	// its text is one run in it (the Hangul glyph is no missing glyph) and
@@ -156,6 +158,8 @@ TEST(FontconfigSourceTest, ATextSystemOffersTheSystemsFamilies)
 	// style, as with Haiku's get_font_family() and BFont (module X1).
 	//
 	// Given
+	// the bundled Noto as the role fonts: a look that names none
+	const test::ScopedLook noto("haiku");
 	const TestConfig config;
 	auto source = CreateFontconfigSource(config.File());
 	if (!source.has_value() && source.error().code == ErrorCode::NotSupported)
@@ -178,7 +182,7 @@ TEST(FontconfigSourceTest, ATextSystemOffersTheSystemsFamilies)
 	TextSystem::SetDefault(nullptr);
 
 	// Then
-	ASSERT_GE(styles.size(), 5u);
+	ASSERT_GE(styles.size(), 8u);
 	EXPECT_EQ(styles[0].family, "Noto Sans");
 	EXPECT_EQ(styles[2].family, "Noto Sans Mono");
 	int sansRegular = 0;
@@ -189,18 +193,18 @@ TEST(FontconfigSourceTest, ATextSystemOffersTheSystemsFamilies)
 	EXPECT_EQ(sansRegular, 1);
 	ASSERT_TRUE(kr.has_value());
 	ASSERT_TRUE(jp.has_value());
-	EXPECT_GE(kr->font, 4u);
+	EXPECT_GE(kr->font, 7u);
 	EXPECT_NE(kr->font, jp->font);
-	EXPECT_EQ(fontsBefore, 3u);
+	EXPECT_EQ(fontsBefore, 6u);
 	EXPECT_EQ(hangul.font, kr->font);
 	EXPECT_TRUE(hangul.fontRuns.empty());
 	ASSERT_EQ(hangul.glyphs.size(), 1u);
 	EXPECT_NE(hangul.glyphs[0], 0u);
 	ASSERT_EQ(mixed.fontRuns.size(), 2u);
 	EXPECT_EQ(mixed.fontRuns[1].font, jp->font);
-	ASSERT_EQ(fonts.size(), 5u);
-	EXPECT_EQ(fonts[3].id, kr->font);
-	EXPECT_EQ(fonts[3].faceIndex, 1u);
+	ASSERT_EQ(fonts.size(), 8u);
+	EXPECT_EQ(fonts[6].id, kr->font);
+	EXPECT_EQ(fonts[6].faceIndex, 1u);
 	EXPECT_TRUE(chosen);
 	EXPECT_NEAR(width, 11.04f, 1e-3f);
 	EXPECT_NEAR(width, hangul.advance, 1e-3f);

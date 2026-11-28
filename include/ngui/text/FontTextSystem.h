@@ -103,16 +103,25 @@ public:
 									std::string_view style) const override;
 									/*!< The style from Styles(), looked up by name. */
 									/*!< "Noto Sans" Regular (font 1) and Bold (font 2),
-										"Noto Sans Mono" Regular (font 3). */
+										"Noto Sans Mono" Regular (font 3), "Liberation
+										Sans" Regular (font 4) and Bold (font 5),
+										"Liberation Mono" Regular (font 6), then the
+										system's. */
 			FontSpec			RoleFont(FontRole role) const override;
-									/*!< Fonts 1 to 3 at the size of the text system. */
+									/*!< The current look's font of \a role if it names a
+										bundled one (LookInfo::fonts; the BeOS look's are
+										Liberation Sans, Bold and Mono, fonts 4 to 6),
+										else font 1, 2 or 3 (Noto); at the size of the
+										text system. What a Liberation font lacks comes
+										from Noto (its role's first), then from the
+										system's fonts. */
 			std::optional<gfx::Path> GlyphOutline(gfx::FontId font, std::uint32_t glyph,
 									float sizePx) const override;
 									/*!< The glyph's outline from HarfBuzz
 										(hb_font_draw_glyph()), quadratic curves as cubic
 										ones. */
 			std::vector<FontFile> Fonts() const override;
-									/*!< The three bundled fonts, ids 1 to 3, then the
+									/*!< The six bundled fonts, ids 1 to 6, then the
 										fallback fonts loaded so far. */
 
 			using				TextSystem::Height;
@@ -171,7 +180,7 @@ private:
 									// what the source found, 0 for nothing
 			mutable std::vector<std::unique_ptr<Known>> fKnown;
 									// the fonts of the source, by location
-			mutable gfx::FontId	fNextId = 4;
+			mutable gfx::FontId	fNextId = 7;
 			mutable std::vector<FontFamilyStyle> fStyles;
 									// the bundled and the source's fonts, once listed
 			mutable std::map<std::pair<std::string, std::string>, std::size_t> fStyleIndex;

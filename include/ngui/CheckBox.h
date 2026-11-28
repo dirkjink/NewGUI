@@ -8,6 +8,7 @@
 
 
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include <ngui/Control.h>
@@ -49,6 +50,10 @@ public:
 
 			void				KeyDown(std::string_view bytes) override;
 									/*!< Enter and space move to the next state. */
+			void				MessageReceived(BMessage* message) override;
+									/*!< NewGUI: when the look changes, a check box made with
+										a frame takes the height its constructor gives it
+										with the new look's font (specification 18.7). */
 			void				MouseDown(gfx::Point where) override;
 									/*!< Outlines the box and follows the mouse. */
 			void				MouseUp(gfx::Point where) override;
@@ -93,6 +98,8 @@ private:
 			int32				_NextState() const;
 
 			gfx::Size			fPreferredSize = kUnsetSize;
+			// the height the frame constructor was given
+			std::optional<float> fFrameHeight;
 			bool				fOutlined = false;
 			bool				fPartialToOff = false;
 };

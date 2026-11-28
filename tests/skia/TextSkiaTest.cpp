@@ -72,6 +72,7 @@
 #include "support/FakePlatform.h"
 
 #include "Rendered.h"
+#include "support/ScopedLook.h"
 
 
 namespace {
@@ -129,7 +130,7 @@ Measure(const Rendered& rendered, int width, int height)
 
 TEST(TextSkiaTest, GlyphRunsAreDrawnInTheTextSystemsFont)
 {
-	// What is tested: "OK" shaped by the bundled text system and rendered by
+	// What is tested: "OK" shaped by the bundled text system (Noto Sans) and rendered by
 	// Skia once with the text system's fonts added to the backend and once
 	// without; AddFont() with a real font file and with bytes that are none.
 	// Success criteria: With the fonts the glyphs are drawn: full black in
@@ -143,6 +144,8 @@ TEST(TextSkiaTest, GlyphRunsAreDrawnInTheTextSystemsFont)
 	// the look put it (21.2: "positions of the baseline identical").
 	//
 	// Given
+	// Noto's metrics: a look that names no fonts of its own
+	const test::ScopedLook noto("haiku");
 	const auto text = std::move(*text::FontTextSystem::CreateBundled());
 	const DisplayListRef list = Ok(*text);
 	SkiaBackend backend;
@@ -265,6 +268,8 @@ TEST(TextSkiaTest, RightToLeftTextMatchesItsSnapshot)
 	// the fallback fonts together, as a user sees them (module X3).
 	//
 	// Given
+	// Noto, as the reference shows it: a look that names no fonts of its own
+	const test::ScopedLook noto("haiku");
 	const auto text = std::move(*text::FontTextSystem::Create(
 		std::make_unique<RightToLeftSource>()));
 	const TextLayout layout(*text,
