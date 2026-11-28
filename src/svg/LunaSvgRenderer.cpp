@@ -19,6 +19,8 @@
 #include <ngui/Bitmap.h>
 #include <ngui/svg/MediaQueries.h>
 
+#include "svg/IconGamma.h"
+
 
 namespace ngui::svg {
 
@@ -31,7 +33,11 @@ LunaSvgRenderer::Render(std::span<const std::uint8_t> icon, BBitmap& result) con
 
 	if (icon.empty())
 		return Failure(ErrorCode::BadData, "no SVG");
-	const std::string_view text(reinterpret_cast<const char*>(icon.data()), icon.size());
+	// Blended in linear light as Haiku's IconRenderer: the colors into it
+	// before drawing, the pixels back after.
+	const std::string linear = svg::detail::LinearizeColors(
+		std::string_view(reinterpret_cast<const char*>(icon.data()), icon.size()));
+	const std::string_view text = linear;
 	std::unique_ptr<lunasvg::Document> document
 		= lunasvg::Document::loadFromData(text.data(), text.size());
 	if (document == nullptr)
@@ -91,7 +97,9 @@ LunaSvgRenderer::Render(std::span<const std::uint8_t> icon, BBitmap& result) con
 	document->render(canvas, lunasvg::Matrix(scale, 0, 0, scale, x, y));
 
 	// lunasvg's ARGB32 lies in memory as B, G, R, A like B_RGBA32, but
-	// premultiplied; B_RGBA32 is not.
+	// premultiplied; B_RGBA32 is not. Out of linear light as Haiku's
+	// apply_gamma_inv(), on the colors that are not premultiplied.
+	const svg::detail::IconGamma& gamma = svg::detail::IconGamma::Haiku();
 	const std::span<std::uint8_t> bits = result.Bits();
 	const auto stride = static_cast<std::size_t>(canvas.stride());
 	const auto bytesPerRow = static_cast<std::size_t>(result.BytesPerRow());
@@ -103,7 +111,7 @@ LunaSvgRenderer::Render(std::span<const std::uint8_t> icon, BBitmap& result) con
 			for (int component = 0; component < 3; component++) {
 				const std::uint32_t value = alpha == 0 ? 0
 					: std::min<std::uint32_t>(255, (from[component] * 255u + alpha / 2) / alpha);
-				to[component] = static_cast<std::uint8_t>(value);
+				to[component] = gamma.inv[value];
 			}
 			to[3] = static_cast<std::uint8_t>(alpha);
 			from += 4;

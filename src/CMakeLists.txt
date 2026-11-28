@@ -305,6 +305,7 @@ endif()
 if(NGUI_WITH_SVG)
     find_package(lunasvg CONFIG REQUIRED)
     add_library(ngui_svg
+        svg/IconGamma.cpp
         svg/LunaSvgRenderer.cpp
         svg/MediaQueries.cpp)
     add_library(ngui::svg ALIAS ngui_svg)
@@ -313,6 +314,8 @@ if(NGUI_WITH_SVG)
             ngui::ngui
         PRIVATE
             lunasvg::lunasvg)
+    # internal headers (svg/IconGamma.h)
+    target_include_directories(ngui_svg PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     ngui_configure_target(ngui_svg)
 endif()
 
