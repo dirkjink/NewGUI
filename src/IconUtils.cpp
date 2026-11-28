@@ -27,6 +27,7 @@
 #include <vector>
 
 #include <ngui/Bitmap.h>
+#include <ngui/MimeType.h>
 
 #include "Environment.h"
 
@@ -180,6 +181,68 @@ BIconUtils::GetSystemIcon(std::string_view name, BBitmap* result)
 	if (icon.empty())
 		return Failure(ErrorCode::NotFound, "no system icon of that name");
 	return GetVectorIcon(icon, result);
+}
+
+
+std::expected<void, Error>
+BIconUtils::GetTypeIcon(const BMimeType& type, BBitmap* result)
+{
+	// BNodeInfo::GetTrackerIcon() without preferred applications: the type's
+	// icon, else the supertype's
+	if (type.GetIcon(result).has_value())
+		return {};
+	if (const auto super = type.GetSupertype(); super.has_value()) {
+		if (super->GetIcon(result).has_value())
+			return {};
+	}
+	return Failure(ErrorCode::NotFound, "neither the type nor its supertype has an icon");
+}
+
+
+std::expected<void, Error>
+BIconUtils::GetFileIcon(std::string_view path, BBitmap* result)
+{
+	const std::filesystem::path file(std::u8string(path.begin(), path.end()));
+	std::error_code error;
+	const std::filesystem::file_status link = std::filesystem::symlink_status(file, error);
+	if (error || !std::filesystem::exists(link))
+		return Failure(ErrorCode::NotFound, "no such file");
+	// Tracker shows a link with its target's icon
+	const std::filesystem::file_status status = std::filesystem::status(file, error);
+	if (std::filesystem::is_symlink(link) && (error || !std::filesystem::exists(status)))
+		return GetTypeIcon(BMimeType(kSymlinkMimeType), result);
+	if (std::filesystem::is_directory(status)) {
+		// the root of a file system is a volume
+		const std::filesystem::path absolute = std::filesystem::absolute(file, error);
+		const bool root = !error && absolute == absolute.root_path();
+		return GetTypeIcon(BMimeType(root ? std::string_view("application/x-vnd.Be-volume")
+			: kDirectoryMimeType), result);
+	}
+	// a link's type by the name of what it leads to
+	std::string name(path);
+	if (std::filesystem::is_symlink(link)) {
+		const std::u8string target = std::filesystem::canonical(file, error).u8string();
+		if (!error)
+			name.assign(target.begin(), target.end());
+	}
+	const BMimeType type = BMimeType::GuessMimeType(name);
+	if (type == kFileMimeType && std::filesystem::is_regular_file(status)) {
+#ifdef _WIN32
+		std::u8string extension = file.extension().u8string();
+		for (char8_t& c : extension) {
+			if (c >= u8'A' && c <= u8'Z')
+				c = static_cast<char8_t>(c - u8'A' + u8'a');
+		}
+		const bool runs = extension == u8".exe" || extension == u8".com"
+			|| extension == u8".bat" || extension == u8".cmd";
+#else
+		const bool runs = (status.permissions() & std::filesystem::perms::owner_exec)
+			!= std::filesystem::perms::none;
+#endif
+		if (runs)
+			return GetTypeIcon(BMimeType(kAppMimeType), result);
+	}
+	return GetTypeIcon(type, result);
 }
 
 
