@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>CR Costa Rica</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 -0.078125 0.671875 0 1.5 31.5)" color-interpolation="sRGB"><stop offset="0" stop-color="#00a0a0"/><stop offset="0.0382" stop-color="#05a29b"/><stop offset="0.0764" stop-color="#12a78c"/><stop offset="0.1146" stop-color="#29b073"/><stop offset="0.1529" stop-color="#49bc50"/><stop offset="0.1911" stop-color="#69c92d"/><stop offset="0.2293" stop-color="#80d214"/><stop offset="0.2675" stop-color="#8dd705"/><stop offset="0.3057" stop-color="#92d900"/><stop offset="0.3925" stop-color="#90da06"/><stop offset="0.4793" stop-color="#8bde1a"/><stop offset="0.5661" stop-color="#82e43a"/><stop offset="0.6529" stop-color="#75ec68"/><stop offset="0.7396" stop-color="#68f496"/><stop offset="0.8264" stop-color="#5ffab6"/><stop offset="0.9132" stop-color="#5afeca"/><stop offset="1" stop-color="#58ffd0"/></linearGradient>
+</defs>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#002b7f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.695652 -1.032258 9.739131)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869564)" fill="#ce1126"/>
+<path d="M5 33C5 35 7 37 8 37C9 37 9 38 9 38L11 38C11 38 11 37 12 37C13 37 15 36 15 33C15 32 13 33 13 33C13 33 14 26 10 26C6 26 7 33 7 33C7 33 5 32 5 33Z" transform="matrix(1 0 0 1 10 0)" stroke="#ffea4f" fill="none" stroke-width="2"/>
+<path d="M5 33C5 35 7 37 8 37C9 37 9 38 9 38L11 38C11 38 11 37 12 37C13 37 15 36 15 33C15 32 13 33 13 33C13 33 14 26 10 26C6 26 7 33 7 33C7 33 5 32 5 33Z" transform="matrix(1 0 0 1 10 0)" fill="url(#g1)"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

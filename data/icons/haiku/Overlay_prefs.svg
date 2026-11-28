@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Overlay_prefs</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+@media (max-width:21.12px){.lod2{display:inline}}
+</style>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.123294 0.083422 -0.56039 0.828229 36.884636 20.348497)" color-interpolation="sRGB"><stop offset="0" stop-color="#ebebeb"/><stop offset="0.125" stop-color="#e9e9e9"/><stop offset="0.25" stop-color="#e3e3e3"/><stop offset="0.375" stop-color="#dadada"/><stop offset="0.5" stop-color="#cccccc"/><stop offset="0.625" stop-color="#bebebe"/><stop offset="0.75" stop-color="#b5b5b5"/><stop offset="0.875" stop-color="#afafaf"/><stop offset="1" stop-color="#adadad"/></linearGradient>
+</defs>
+<path d="M12 34L12 40L16 42L20 40L20 34L24 38L24 44L20 47L20 60C20 60 20 62 16 62C12 62 12 60 12 60L12 47L8 44L8 38Z" class="lod1" stroke="#010000" fill="none" stroke-width="4" stroke-linejoin="round"/>
+<path d="M12 34L12 40L16 42L20 40L20 34L24 38L24 44L20 47L20 60C20 60 20 62 16 62C12 62 12 60 12 60L12 47L8 44L8 38Z" class="lod2" display="none" stroke="#010000" fill="none" stroke-width="6" stroke-linejoin="round"/>
+<path d="M12 34L12 40L16 42L20 40L20 34L24 38L24 44L20 47L20 60C20 60 20 62 16 62C12 62 12 60 12 60L12 47L8 44L8 38Z" fill="url(#g1)"/>
+</svg>

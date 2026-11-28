@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>File_Mail_4</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+@media (max-width:21.12px){.lod2{display:inline}}
+</style>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.571429 0 0 0.333333 26 35)" color-interpolation="sRGB"><stop offset="0.4886" stop-color="#c6bea6"/><stop offset="0.5526" stop-color="#c8c0a9"/><stop offset="0.6165" stop-color="#cdc6b1"/><stop offset="0.6804" stop-color="#d6d0bf"/><stop offset="0.7443" stop-color="#e2ded2"/><stop offset="0.8082" stop-color="#efede6"/><stop offset="0.8722" stop-color="#f8f7f4"/><stop offset="0.9361" stop-color="#fdfdfc"/><stop offset="1" stop-color="#ffffff"/></radialGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.088253 0.35224 -0.877635 0.219888 56.519764 19.524633)" color-interpolation="sRGB"><stop offset="0" stop-color="#e2e2e2"/><stop offset="0.0928" stop-color="#e3e3e2"/><stop offset="0.1856" stop-color="#e6e6e4"/><stop offset="0.2784" stop-color="#eaeae6"/><stop offset="0.3712" stop-color="#f0f0ea"/><stop offset="0.464" stop-color="#f7f6ed"/><stop offset="0.5568" stop-color="#fbfaef"/><stop offset="0.6496" stop-color="#fefdf1"/><stop offset="0.7424" stop-color="#fffef1"/><stop offset="0.7746" stop-color="#fefdf1"/><stop offset="0.8068" stop-color="#fcfbef"/><stop offset="0.839" stop-color="#f7f7ed"/><stop offset="0.8712" stop-color="#f2f1ea"/><stop offset="0.9034" stop-color="#ecebe8"/><stop offset="0.9356" stop-color="#e7e7e6"/><stop offset="0.9678" stop-color="#e5e5e4"/><stop offset="1" stop-color="#e4e4e4"/></linearGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.145911 -0.172403 0.763318 0.646023 11.045606 14.528742)" color-interpolation="sRGB"><stop offset="0" stop-color="#010101"/><stop offset="0.125" stop-color="#060606"/><stop offset="0.25" stop-color="#151515"/><stop offset="0.375" stop-color="#2d2d2d"/><stop offset="0.5" stop-color="#505050"/><stop offset="0.625" stop-color="#727272"/><stop offset="0.75" stop-color="#8a8a8a"/><stop offset="0.875" stop-color="#999999"/><stop offset="1" stop-color="#9e9e9e"/></linearGradient>
+<linearGradient id="g4" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.081885 0.183738 -0.285705 0.127328 26.637447 43.873669)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffffff"/><stop offset="0.125" stop-color="#fefefc"/><stop offset="0.25" stop-color="#faf9f2"/><stop offset="0.375" stop-color="#f4f2e1"/><stop offset="0.5" stop-color="#ece8c9"/><stop offset="0.625" stop-color="#e4ddb1"/><stop offset="0.75" stop-color="#ded6a0"/><stop offset="0.875" stop-color="#dad196"/><stop offset="1" stop-color="#d9d093"/></linearGradient>
+</defs>
+<path d="M27 57L29 59L32.136 55.831L37 59L45.399 47.547L64 38L59 35L61 37L36 49ZM58 34L62 31L58 29L55 32Z" fill="#010101" fill-opacity="0.5725"/>
+<path d="M6.25 30C6.25 30 11.875 36 16.875 42.5C21.875 49 26.25 55.75 26.25 55.75L59.125 36.875L32 15Z" stroke="#010101" fill="none" stroke-width="4"/>
+<path d="M6.25 30C6.25 30 11.875 36 16.875 42.5C21.875 49 26.25 55.75 26.25 55.75L59.125 36.875L32 15Z" fill="url(#g1)"/>
+<path d="M2.625 30.875C2.625 30.875 10.953 36.266 19 41.875C27.443 47.76 35.75 52.75 35.75 52.75L58.125 26.375C58.125 26.375 45.446 20.707 35.375 15.375C30.187 12.628 26 9.375 26 9.375Z" stroke="#010101" fill="none" stroke-width="4"/>
+<path d="M2.625 30.875C2.625 30.875 10.953 36.266 19 41.875C27.443 47.76 35.75 52.75 35.75 52.75L58.125 26.375C58.125 26.375 45.446 20.707 35.375 15.375C30.187 12.628 26 9.375 26 9.375Z" fill="url(#g2)"/>
+<path d="M20 36L34.875 20.875M14 32L26.875 19M26 40L38.75 26.875M32 44L42.75 32.375" class="lod1" stroke="url(#g3)" fill="none" stroke-width="1"/>
+<path d="M20 36L34.875 20.875M14 32L26.875 19M26 40L38.75 26.875M32 44L42.75 32.375" class="lod2" display="none" stroke="url(#g3)" fill="none" stroke-width="2"/>
+<path d="M29 42L44 26.375M23 38L34.75 26.25M17 34L28.125 22.625" class="lod1" stroke="url(#g3)" fill="none" stroke-width="1"/>
+<path d="M4 44L4 60L28 60L28 44Z" class="lod1" stroke="#010101" fill="none" stroke-width="4"/>
+<path d="M4 44L4 60L28 60L28 44Z" class="lod2" display="none" stroke="#010101" fill="none" stroke-width="6"/>
+<path d="M4 44L4 60L28 60L28 44Z" fill="url(#g4)"/>
+<path d="M4 44C4 44 14 52 16 52C18 52 28 44 28 44C28 44 24.571 48.8 20.286 52L28 60L19.429 52.8C17.714 54.4 16.715 54 16 54C15.284 54 14.286 54.4 12.571 52.8L4 60L11.714 52C7.429 48.8 4 44 4 44Z" fill="#6b5222"/>
+</svg>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Overlay_query</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.018061 0.019321 -0.148388 0.138711 14.809679 49.312828)" color-interpolation="sRGB"><stop offset="0" stop-color="#d4d4d4"/><stop offset="0.125" stop-color="#d0d0d0"/><stop offset="0.25" stop-color="#c2c2c2"/><stop offset="0.375" stop-color="#acacac"/><stop offset="0.5" stop-color="#8e8e8e"/><stop offset="0.625" stop-color="#6f6f6f"/><stop offset="0.75" stop-color="#595959"/><stop offset="0.875" stop-color="#4b4b4b"/><stop offset="1" stop-color="#474747"/></linearGradient>
+<radialGradient id="g2" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.203125 0 0 0.203125 19 46)" color-interpolation="sRGB"><stop offset="0" stop-color="#dcf4ff"/><stop offset="0.125" stop-color="#d8f1fc"/><stop offset="0.25" stop-color="#cce8f4"/><stop offset="0.375" stop-color="#b9d9e7"/><stop offset="0.5" stop-color="#9ec4d4"/><stop offset="0.625" stop-color="#83afc2"/><stop offset="0.75" stop-color="#70a0b5"/><stop offset="0.875" stop-color="#6497ad"/><stop offset="1" stop-color="#6094aa"/></radialGradient>
+</defs>
+<path d="M8 54L4 58C4 58 3.875 59.125 4.375 59.625C4.875 60.125 6 60 6 60L10 56L13 51Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M8 54L4 58C4 58 3.875 59.125 4.375 59.625C4.875 60.125 6 60 6 60L10 56L13 51Z" fill="url(#g1)"/>
+<path d="M18 38C13.582 38 10 41.582 10 46C10 50.418 13.582 54 18 54C22.418 54 26 50.418 26 46C26 41.582 22.418 38 18 38Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M18 38C13.582 38 10 41.582 10 46C10 50.418 13.582 54 18 54C22.418 54 26 50.418 26 46C26 41.582 22.418 38 18 38Z" fill="url(#g2)"/>
+<path d="M18 38C13.582 38 10 41.582 10 46C10 50.418 13.582 54 18 54C22.418 54 26 50.418 26 46C26 41.582 22.418 38 18 38Z" transform="matrix(0.25 0 0 0.25 11.5 31.5)" fill="#ffffff"/>
+</svg>

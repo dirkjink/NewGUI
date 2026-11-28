@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Action_Stop</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.197042 0.258193 -0.496844 0.379171 50.961723 20.086624)" color-interpolation="sRGB"><stop offset="0" stop-color="#c80505"/><stop offset="0.0613" stop-color="#c70505"/><stop offset="0.1226" stop-color="#c30505"/><stop offset="0.1839" stop-color="#bc0505"/><stop offset="0.2452" stop-color="#b20404"/><stop offset="0.3066" stop-color="#a90404"/><stop offset="0.3679" stop-color="#a20404"/><stop offset="0.4292" stop-color="#9e0404"/><stop offset="0.4905" stop-color="#9d0404"/><stop offset="0.5542" stop-color="#9e0404"/><stop offset="0.6179" stop-color="#a00404"/><stop offset="0.6816" stop-color="#a30404"/><stop offset="0.7452" stop-color="#a80404"/><stop offset="0.8089" stop-color="#ae0404"/><stop offset="0.8726" stop-color="#b10404"/><stop offset="0.9363" stop-color="#b30404"/><stop offset="1" stop-color="#b40404"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.10122 0.231936 -0.65875 0.287488 54.004917 26.113245)" color-interpolation="sRGB"><stop offset="0" stop-color="#ff3e3e"/><stop offset="0.125" stop-color="#ff3c3c"/><stop offset="0.25" stop-color="#fe3737"/><stop offset="0.375" stop-color="#fd2e2e"/><stop offset="0.5" stop-color="#fb2222"/><stop offset="0.625" stop-color="#f91616"/><stop offset="0.75" stop-color="#f80d0d"/><stop offset="0.875" stop-color="#f70808"/><stop offset="1" stop-color="#f70606"/></linearGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.189189 0.208108 -0.254354 0.231231 43.085297 4.94114)" color-interpolation="sRGB"><stop offset="0" stop-color="#ff9090"/><stop offset="0.125" stop-color="#ff8f8f"/><stop offset="0.25" stop-color="#ff8d8d"/><stop offset="0.375" stop-color="#ff8888"/><stop offset="0.5" stop-color="#ff8282"/><stop offset="0.625" stop-color="#ff7d7d"/><stop offset="0.75" stop-color="#ff7878"/><stop offset="0.875" stop-color="#ff7676"/><stop offset="1" stop-color="#ff7575"/></linearGradient>
+</defs>
+<path d="M14 44L22 46L29.4 41.26L34 50L42 52L48 46L40 31L50.375 19.75L42 17.375L35 21L32 14L24 12L14 14L24 32Z" stroke="#010101" fill="none" stroke-width="4"/>
+<path d="M22 17L28 28L32 35L42 52L48 46L32 14Z" fill="url(#g1)"/>
+<path d="M40 31L50.375 19.75L42 24L32 35ZM22 46L30 40L28 39Z" fill="#750303"/>
+<path d="M14 44L22 46L28 39L34 50L42 52L32 35L42 24L34 21L28 27.875L22 17L14 14L24 32Z" fill="url(#g2)"/>
+<path d="M34 21L42 24L50.375 19.75L42 17.375ZM14 14L22 17L32 14L24 12Z" fill="url(#g3)"/>
+<path d="M15 14.125L24.5 12.625M28 28L34 22L42 17.75M24.25 32.5L14.625 43.875" stroke="#ffffff" stroke-opacity="0.2667" fill="none" stroke-width="1"/>
+</svg>

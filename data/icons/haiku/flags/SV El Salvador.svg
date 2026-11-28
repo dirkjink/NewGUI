@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>SV El Salvador</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#0e46af"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869566)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M32 25C28.134 25 25 28.134 25 32C25 35.866 28.134 39 32 39C35.866 39 39 35.866 39 32C39 28.134 35.866 25 32 25Z" transform="matrix(0.875009 0 0 0.875009 3.999712 3.999712)" stroke="#ffd223" fill="none" stroke-width="3"/>
+<path d="M29 30C29 30 26 34 32 36C38 34 35 30 35 30" transform="matrix(-0.792586 0 0 -0.792586 57.242237 57.655712)" stroke="#0e46af" fill="none" stroke-width="1"/>
+<path d="M29 33L32 28L35 33Z" transform="matrix(1 0 0 1.2 0 -5.6)" fill="#ffd223"/>
+<path d="M29 30C29 30 26 34 32 36C38 34 35 30 35 30" stroke="#1e6019" fill="none" stroke-width="1"/>
+</svg>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>TT Trinidad and Tobago</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#ce1126"/>
+<path d="M0 8L44 56L48 56L4 8Z" fill="#ffffff"/>
+<path d="M0 8L44 56L48 56L4 8Z" transform="matrix(1 0 0 1 16 0)" fill="#ffffff"/>
+<path d="M4 8L48 56L60 56L16 8Z" fill="#010101"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

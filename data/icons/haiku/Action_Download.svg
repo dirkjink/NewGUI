@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Action_Download</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.265625 0 0 0.453125 30 9)" color-interpolation="sRGB"><stop offset="0" stop-color="#eeffac"/><stop offset="0.125" stop-color="#edfeab"/><stop offset="0.25" stop-color="#ebfca8"/><stop offset="0.375" stop-color="#e7f8a4"/><stop offset="0.5" stop-color="#e2f29e"/><stop offset="0.625" stop-color="#dced97"/><stop offset="0.75" stop-color="#d8e993"/><stop offset="0.875" stop-color="#d6e790"/><stop offset="1" stop-color="#d5e68f"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.162318 0.128071 -0.189082 0.239642 45.221569 22.150478)" color-interpolation="sRGB"><stop offset="0" stop-color="#4c5e02"/><stop offset="0.125" stop-color="#4d5f02"/><stop offset="0.25" stop-color="#506302"/><stop offset="0.375" stop-color="#546802"/><stop offset="0.5" stop-color="#5a7002"/><stop offset="0.625" stop-color="#617903"/><stop offset="0.75" stop-color="#657e03"/><stop offset="0.875" stop-color="#688203"/><stop offset="1" stop-color="#698303"/></linearGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.143323 0.235169 -0.346902 0.211419 41.372139 21.29598)" color-interpolation="sRGB"><stop offset="0" stop-color="#97e306"/><stop offset="0.125" stop-color="#96e106"/><stop offset="0.25" stop-color="#94db06"/><stop offset="0.375" stop-color="#91d005"/><stop offset="0.5" stop-color="#8cc205"/><stop offset="0.625" stop-color="#87b405"/><stop offset="0.75" stop-color="#84a904"/><stop offset="0.875" stop-color="#82a304"/><stop offset="1" stop-color="#81a104"/></linearGradient>
+</defs>
+<path d="M22 24L14 30L29 46L42 40L49 33L41 31L41 18L29 15L22 20Z" stroke="#010000" fill="none" stroke-width="4"/>
+<path d="M21 25L14 30L22.042 32.872L24.048 25.871Z" fill="url(#g1)"/>
+<path d="M42 40L49 33L34 34L34.044 37.159Z" fill="url(#g1)"/>
+<path d="M41 37L49 33L40.842 30.669L34 32L34.044 37.159Z" fill="#b4d339"/>
+<path d="M34 23L32 26L32 38L34 38L41 31L41 18Z" fill="url(#g2)"/>
+<path d="M42 40L29 46L14 30L22.042 32.872L22 20L34 23L34.044 37.159Z" fill="url(#g3)"/>
+<path d="M22 20L34 24L41 18L29 15Z" fill="url(#g1)"/>
+</svg>

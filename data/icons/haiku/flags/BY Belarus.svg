@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>BY Belarus</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.258065 0 0 1.043478 -0.258064 -1.391304)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.774194 0 0 0.347826 15.225806 36.869565)" fill="#009900"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.774194 0 0 0.695652 15.225806 1.739131)" fill="#cc0000"/>
+<path d="M5 11L3 15L5 19L7 15ZM3 25L5 22L8 26L5 32L3 28M8 20L9 18L10 20L9 22Z" transform="matrix(1 0 0 0.960741 0 0.34406)" stroke="#cc0000" fill="none" stroke-width="2"/>
+<path d="M5 11L3 15L5 19L7 15ZM3 25L5 22L8 26L5 32L3 28" transform="matrix(-1.048768 0 0 0.960741 17.855711 0.34406)" stroke="#cc0000" fill="none" stroke-width="2"/>
+<path d="M5 11L3 15L5 19L7 15ZM3 25L5 22L8 26L5 32L3 28" transform="matrix(1 0 0 -0.884412 0 63.514858)" stroke="#cc0000" fill="none" stroke-width="2"/>
+<path d="M5 11L3 15L5 19L7 15ZM3 25L5 22L8 26L5 32L3 28M8 20L9 18L10 20L9 22Z" transform="matrix(-1.048768 0 0 -0.884412 17.855711 63.514858)" stroke="#cc0000" fill="none" stroke-width="2"/>
+<path d="M8 20L9 18L10 20L9 22Z" transform="matrix(-0.956522 0 0 1 17.130434 13)" stroke="#cc0000" fill="none" stroke-width="1"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

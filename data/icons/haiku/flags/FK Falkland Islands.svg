@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>FK Falkland Islands</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#07286b"/>
+<path d="M38 22C38 45 39 45 48 48C58 45 59 45 59 22C56 22 42 22 38 22Z" fill="#0071c3"/>
+<path d="M64 12L64 17L10 52L0 52L0 47L54 12ZM0 12L8 12L64 46L64 52L56 52L0 18Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M64 12L7 52L0 52L57 12ZM0 12L64 48L64 52L0 16Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#cc0000"/>
+<path d="M0 26L26 26L26 12L38 12L38 26L64 26L64 38L38 38L38 52L26 52L26 38L0 38Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M0 36L0 28L28 28L28 12L36 12L36 28L64 28L64 36L36 36L36 52L28 52L28 36Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#cc0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M40 28C40 28 42 25 43 25C44 25 45 27 46 27C47 27 53 26 56 27C57 29 56 35 56 35L55 35L55 33L54 33L54 35L53 35L53 33C53 33 48 34 47 33C47 34 47 35 47 35L45 35C45 35 46 33 45 33C44 33 42 30 43 29C40 30 40 28 40 28Z" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.241935 0 0 0.043478 41.758064 34.608696)" fill="#005020"/>
+<path d="M39 39C39 39 42 35 46 39C50 43 51 39 51 39C51 39 55 35 58 39" transform="matrix(1 0 0 0.821802 0 7.450604)" stroke="#ffffff" fill="none" stroke-width="2"/>
+<path d="M39 39C39 39 42 35 46 39C50 43 51 39 51 39C51 39 55 35 58 39" transform="matrix(0.805539 0 0 0.821802 9.428422 11.450604)" stroke="#ffffff" fill="none" stroke-width="2"/>
+</svg>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>BN Brunei</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391305)" fill="#f7e017"/>
+<path d="M0 11L64 33L64 43L0 21Z" fill="#ffffff"/>
+<path d="M0 11L64 33L64 43L0 21Z" transform="matrix(1 0 0 1 0 10)" fill="#010101"/>
+<path d="M41 19L37 25L27 29L32 30C32 30 26.392 37.493 33 43C39 48 30 44 30 44C30 44 30.018 49.009 30 50C29.982 50.991 31.976 48.988 33 49C35.234 49.026 37.016 51 41 51M39 30C39 30 37 36 38 42C30 42 34 30 34 30Z" transform="matrix(1 0 0 1 -8 -4)" fill="#cf1125"/>
+<path d="M41 19L37 25L27 29L32 30C32 30 26.392 37.493 33 43C39 48 30 44 30 44C30 44 30.018 49.009 30 50C29.982 50.991 31.976 48.988 33 49C35.234 49.026 37.016 51 41 51M39 30C39 30 37 36 38 42C30 42 34 30 34 30Z" transform="matrix(-1 0 0 1 73 -4)" fill="#cf1125"/>
+<path d="M11 25C11 25 12 30 14 30C14 33 14 42 14 42C14 42 16 44 17 42C17 40 17 30 17 30C17 30 14 27.414 14 26C13 25 11 25 11 25Z" transform="matrix(1 0 0 1 2 -1)" fill="#cf1125"/>
+<path d="M11 25C11 25 12 30 14 30C14 33 14 42 14 42C14 42 16 44 17 42C17 40 17 30 17 30C17 30 14 27.414 14 26C13 25 11 25 11 25Z" transform="matrix(-1.166667 0 0 1 65.833338 -1)" fill="#cf1125"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

@@ -11,10 +11,13 @@
 #include <cmath>
 #include <cstring>
 #include <memory>
+#include <string>
+#include <string_view>
 
 #include <lunasvg.h>
 
 #include <ngui/Bitmap.h>
+#include <ngui/svg/MediaQueries.h>
 
 
 namespace ngui::svg {
@@ -28,15 +31,11 @@ LunaSvgRenderer::Render(std::span<const std::uint8_t> icon, BBitmap& result) con
 
 	if (icon.empty())
 		return Failure(ErrorCode::BadData, "no SVG");
-	const std::unique_ptr<lunasvg::Document> document = lunasvg::Document::loadFromData(
-		reinterpret_cast<const char*>(icon.data()), icon.size());
+	const std::string_view text(reinterpret_cast<const char*>(icon.data()), icon.size());
+	std::unique_ptr<lunasvg::Document> document
+		= lunasvg::Document::loadFromData(text.data(), text.size());
 	if (document == nullptr)
 		return Failure(ErrorCode::BadData, "not an SVG lunasvg can read");
-	// Dashed strokes are drawn solid: plutovg makes every dash a path of its
-	// own, so a long line with short dashes takes gigabytes and can crash
-	// (found by the fuzz target VectorIcon). Icons need no dashes; Haiku's
-	// HVIF has none.
-	document->applyStyleSheet("*{stroke-dasharray:none !important}");
 	const float iconWidth = document->width();
 	const float iconHeight = document->height();
 	if (!(iconWidth > 0) || !(iconHeight > 0) || !std::isfinite(iconWidth)
@@ -52,6 +51,22 @@ LunaSvgRenderer::Render(std::span<const std::uint8_t> icon, BBitmap& result) con
 		static_cast<float>(height) / iconHeight);
 	const float x = (static_cast<float>(width) - iconWidth * scale) / 2;
 	const float y = (static_cast<float>(height) - iconHeight * scale) / 2;
+
+	// The level of detail of Haiku's icons: media queries on the width drawn,
+	// which lunasvg does not evaluate, resolved before it reads the icon anew.
+	if (text.find("@media") != std::string_view::npos) {
+		const std::string resolved = ResolveMediaQueries(text, iconWidth * scale);
+		document = lunasvg::Document::loadFromData(resolved.data(), resolved.size());
+		if (document == nullptr)
+			return Failure(ErrorCode::BadData, "not an SVG lunasvg can read");
+		if (document->width() != iconWidth || document->height() != iconHeight)
+			return Failure(ErrorCode::BadData, "the SVG's size depends on its media queries");
+	}
+	// Dashed strokes are drawn solid: plutovg makes every dash a path of its
+	// own, so a long line with short dashes takes gigabytes and can crash
+	// (found by the fuzz target VectorIcon). Icons need no dashes; Haiku's
+	// HVIF has none.
+	document->applyStyleSheet("*{stroke-dasharray:none !important}");
 
 	// Nothing may reach far out of the bitmap: plutovg's rasterizer (from
 	// FreeType) computes with long, which has 32 bits on Windows, and hung

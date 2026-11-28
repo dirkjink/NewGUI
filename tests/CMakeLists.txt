@@ -15,7 +15,7 @@ if(NOT NGUI_WITH_TEXT)
     list(FILTER fuzzTargetSources EXCLUDE REGEX "/(Text|TextLayout)Fuzz\\.cpp$")
 endif()
 if(NOT NGUI_WITH_SVG)
-    list(FILTER fuzzTargetSources EXCLUDE REGEX "/VectorIconFuzz\\.cpp$")
+    list(FILTER fuzzTargetSources EXCLUDE REGEX "/(VectorIcon|MediaQueries)Fuzz\\.cpp$")
 endif()
 if(NOT NGUI_WITH_SKIA)
     list(FILTER fuzzTargetSources EXCLUDE REGEX "/PdfExportFuzz\\.cpp$")
@@ -184,8 +184,12 @@ endif()
 
 # The vector icon renderer (vcpkg feature svg).
 if(NGUI_WITH_SVG)
-    target_sources(ngui_tests PRIVATE AlertIconTest.cpp IconUtilsTest.cpp)
+    target_sources(ngui_tests PRIVATE AlertIconTest.cpp IconUtilsTest.cpp
+        MediaQueriesTest.cpp)
     target_link_libraries(ngui_tests PRIVATE ngui::svg)
+    # Haiku's icons as SVG, all of them drawn by the tests
+    target_compile_definitions(ngui_tests
+        PRIVATE NGUI_HAIKU_ICONS_DIR="${PROJECT_SOURCE_DIR}/data/icons/haiku")
 endif()
 
 ngui_configure_target(ngui_tests)

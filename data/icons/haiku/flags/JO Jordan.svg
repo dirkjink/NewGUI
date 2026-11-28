@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>JO Jordan</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#250005"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#007229"/>
+<path d="M0 64L48 32L0 0Z" transform="matrix(0.625 0 0 0.75 0 7.999999)" fill="#d20f33"/>
+<path d="M95.237 49.976L94.355 52.717L91.663 51.697L93.256 54.095L90.78 55.564L93.648 55.814L93.253 58.666L95.237 56.579L97.22 58.666L96.825 55.814L99.693 55.564L97.218 54.095L98.811 51.697L96.118 52.717Z" transform="matrix(1.345236 0 0 1.345236 -117.340572 -41.253455)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

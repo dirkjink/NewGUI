@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>App_Vision2</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+</style>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.295765 0 0 0.263153 28.552856 8.474304)" color-interpolation="sRGB"><stop offset="0" stop-color="#f2f2f2"/><stop offset="0.1123" stop-color="#f2f1eb"/><stop offset="0.2245" stop-color="#f0efd4"/><stop offset="0.3368" stop-color="#eeecb0"/><stop offset="0.449" stop-color="#ebe77c"/><stop offset="0.5613" stop-color="#e8e248"/><stop offset="0.6735" stop-color="#e6df24"/><stop offset="0.7858" stop-color="#e4dd0d"/><stop offset="0.898" stop-color="#e4dc06"/></radialGradient>
+</defs>
+<path d="M40 61C40 61 45.661 63.085 50 62C54 61 58 58 59 54C61.196 45.215 54 40 54 40C47 40 42 49 42 49Z" transform="matrix(1.572235 0 0 1.572235 -32.576888 -32.999007)" fill="#010101" fill-opacity="0.4235"/>
+<path d="M32 8C29 8 26 11 26 14C26 17 29 20 32 20C35 20 38 17 38 14C38 11 35 8 32 8Z" transform="matrix(1.572235 0 0 1.572235 -4.710066 -9.432418)" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M32 8C29 8 26 11 26 14C26 17 29 20 32 20C35 20 38 17 38 14C38 11 35 8 32 8Z" transform="matrix(1.572235 0 0 1.572235 -4.710066 -9.432418)" fill="url(#g1)"/>
+<path d="M32 8C29 8 26 11 26 14C26 17 29 20 32 20C35 20 38 17 38 14C38 11 35 8 32 8Z" transform="matrix(1.947215 0 0 2.009711 -46.731999 -9.057085)" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M32 8C29 8 26 11 26 14C26 17 29 20 32 20C35 20 38 17 38 14C38 11 35 8 32 8Z" transform="matrix(1.947215 0 0 2.009711 -46.731999 -9.057085)" fill="url(#g1)"/>
+<path d="M28 13L30 13M28 9L30 9" transform="matrix(1.572235 0 0 1.572235 -4.710066 -6.287948)" class="lod1" stroke="#000000" fill="none" stroke-width="2"/>
+<path d="M44.5 11L44.5 5.5C44.5 5.5 47.5 5.216 47.5 7C47.5 8.843 45 8.5 45 8.5" transform="matrix(1.572235 0 0 1.572235 -23.576888 0.000993)" class="lod1" stroke="#000000" fill="none" stroke-width="1"/>
+<path d="M32 4C28 4 24 8 24 12C24 16 28 20 32 20C36 20 40 16 40 12C40 8 36 4 32 4Z" transform="matrix(2.122211 0 0 2.222207 -31.676124 14.701331)" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M32 4C28 4 24 8 24 12C24 16 28 20 32 20C36 20 40 16 40 12C40 8 36 4 32 4Z" transform="matrix(2.122211 0 0 2.222207 -31.676124 14.701331)" fill="url(#g1)"/>
+<path d="M28 13L30 13M28 9L30 9" transform="matrix(2.122211 0 0 2.222207 -31.676124 14.701331)" stroke="#000000" fill="none" stroke-width="2"/>
+<path d="M28 9L30 9" transform="matrix(1.947215 0 0 2.009711 -46.731999 -5.037663)" class="lod1" stroke="#000000" fill="none" stroke-width="2"/>
+<path d="M32 7C32 7 36 8 36 12C36 16 32 17 32 17C32 17 34 14 34 12C34 10 32 7 32 7ZM30.088 10.559C30.088 10.559 29.667 12.912 29.206 13.833C28.667 14.902 27.716 16.059 27.716 16.059L27.716 10.559Z" transform="matrix(1.825514 0 0 1.482161 -42.83757 1.418538)" class="lod1" fill="#000000"/>
+<path d="M32 7C32 7 36 8 36 12C36 16 32 17 32 17C32 17 34 14 34 12C34 10 32 7 32 7Z" transform="matrix(2.122211 0 0 2.222207 -31.676124 14.701331)" fill="#000000"/>
+</svg>

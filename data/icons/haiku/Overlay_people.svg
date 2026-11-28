@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Overlay_people</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.118851 0.160977 -0.251076 0.185372 20.797632 40.866432)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffdb97"/><stop offset="0.125" stop-color="#ffda94"/><stop offset="0.25" stop-color="#ffd689"/><stop offset="0.375" stop-color="#fecf78"/><stop offset="0.5" stop-color="#fec560"/><stop offset="0.625" stop-color="#fdbb48"/><stop offset="0.75" stop-color="#fcb437"/><stop offset="0.875" stop-color="#fcb02c"/><stop offset="1" stop-color="#fcaf29"/></linearGradient>
+<radialGradient id="g2" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.204861 0 0 0.200893 12.625 28.375)" color-interpolation="sRGB"><stop offset="0" stop-color="#f2f2f2"/><stop offset="0.0843" stop-color="#eeeeee"/><stop offset="0.1686" stop-color="#e3e3e3"/><stop offset="0.2528" stop-color="#d1d0d0"/><stop offset="0.3371" stop-color="#b8b6b6"/><stop offset="0.4214" stop-color="#9e9c9c"/><stop offset="0.5057" stop-color="#8c8989"/><stop offset="0.59" stop-color="#817e7e"/><stop offset="0.6742" stop-color="#7d7a7a"/><stop offset="0.715" stop-color="#7f7b7a"/><stop offset="0.7557" stop-color="#857f7b"/><stop offset="0.7964" stop-color="#8f857d"/><stop offset="0.8371" stop-color="#9c8e7f"/><stop offset="0.8778" stop-color="#aa9681"/><stop offset="0.9186" stop-color="#b49c83"/><stop offset="0.9593" stop-color="#baa084"/><stop offset="1" stop-color="#bca184"/></radialGradient>
+</defs>
+<path d="M8 36L8 46L10 48L10 58L18 58L18 48L20 46L20 36L14 34Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M8 36L8 46L10 48L10 58L18 58L18 48L20 46L20 36L14 34Z" fill="url(#g1)"/>
+<path d="M14 26C11.791 26 10 27.791 10 30C10 32.209 11.791 34 14 34C16.209 34 18 32.209 18 30C18 27.791 16.209 26 14 26Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M14 26C11.791 26 10 27.791 10 30C10 32.209 11.791 34 14 34C16.209 34 18 32.209 18 30C18 27.791 16.209 26 14 26Z" fill="url(#g2)"/>
+</svg>

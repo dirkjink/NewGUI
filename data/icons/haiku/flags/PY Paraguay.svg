@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>PY Paraguay</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#ce1126"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#0037a8"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M28 19C27 18 26 19 26 19C26 19 16 24 27 31C30 31 31 31 31 31C31 31 20 26 28 19Z" transform="matrix(0.534859 -0.089008 0.089008 0.534859 13.938551 21.622492)" fill="#009900"/>
+<path d="M28 19C27 18 26 19 26 19C26 19 16 24 27 31C30 31 31 31 31 31C31 31 20 26 28 19Z" transform="matrix(-0.603169 -0.07248 -0.06469 0.538342 51.643114 21.098863)" fill="#009900"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.125 0 0 0.125 28 28)" fill="#0037a8"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.39395 0 0 0.39395 19.393599 19.393595)" stroke="#ce1126" fill="none" stroke-width="5"/>
+</svg>

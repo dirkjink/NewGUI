@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>KY Cayman Islands</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.236795 0.39832 -0.362634 0.21558 56.993092 14.401403)" color-interpolation="sRGB"><stop offset="0" stop-color="#7f0000"/><stop offset="0.0502" stop-color="#7b0000"/><stop offset="0.1005" stop-color="#6f0000"/><stop offset="0.1507" stop-color="#5c0000"/><stop offset="0.2009" stop-color="#400000"/><stop offset="0.2511" stop-color="#240101"/><stop offset="0.3014" stop-color="#110101"/><stop offset="0.3516" stop-color="#050101"/><stop offset="0.4018" stop-color="#010101"/><stop offset="0.4309" stop-color="#010505"/><stop offset="0.46" stop-color="#011111"/><stop offset="0.489" stop-color="#012424"/><stop offset="0.5181" stop-color="#004040"/><stop offset="0.5472" stop-color="#005c5c"/><stop offset="0.5763" stop-color="#006f6f"/><stop offset="0.6054" stop-color="#007b7b"/><stop offset="0.6344" stop-color="#007f7f"/><stop offset="0.6801" stop-color="#088383"/><stop offset="0.7258" stop-color="#208f8f"/><stop offset="0.7715" stop-color="#48a3a3"/><stop offset="0.8172" stop-color="#80bfbf"/><stop offset="0.8629" stop-color="#b7dbdb"/><stop offset="0.9086" stop-color="#dfefef"/><stop offset="0.9543" stop-color="#f7fbfb"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+</defs>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391305)" fill="#000066"/>
+<path d="M64 12L64 17L10 52L0 52L0 47L54 12ZM0 12L8 12L64 46L64 52L56 52L0 18Z" transform="matrix(0.5 0 0 0.575 0 1.100001)" fill="#ffffff"/>
+<path d="M64 12L7 52L0 52L57 12ZM0 12L64 48L64 52L0 16Z" transform="matrix(0.5 0 0 0.575 0 1.100001)" fill="#cc0000"/>
+<path d="M0 26L26 26L26 12L38 12L38 26L64 26L64 38L38 38L38 52L26 52L26 38L0 38Z" transform="matrix(0.5 0 0 0.575 0 1.100001)" fill="#ffffff"/>
+<path d="M0 36L0 28L28 28L28 12L36 12L36 28L64 28L64 36L36 36L36 52L28 52L28 36Z" transform="matrix(0.5 0 0 0.575 0 1.100001)" fill="#cc0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M43 12C43 12 44 14 45 15C46 16 45 18 46 19C47 20 46 20 46 20C46 20 44 22 45 23C46 24 46 25 46 25C46 25 44 23 43 22C42 21 41 22 41 23C41 24 44 25 44 25L42 27C42 27 37 35 38 37C39 39 41 41 43 41C45 41 50 40 54 40C56.236 40 58 39 58 39C58 39 58 27 56 25C54 23 53 28 53 28L53 25C53 25 56 23 56 22C56 21 56 19 55 20C54 21 52 22 52 22L51 20L50 18L50 16C50 16 48 14 47 14C46 14 48 12 48 12L46 13L45 11L45 13ZM48 27L46 37L44 32ZM55 30L53 40L50 26Z" transform="matrix(0.751746 0 0 0.766667 12.398756 10.566667)" fill="url(#g1)"/>
+</svg>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Overlay_leaf</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+@media (max-width:21.12px){.lod2{display:inline}}
+</style>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.087467 -0.379023 0.474796 0.109568 8.149543 41.588856)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffb11b"/><stop offset="0.125" stop-color="#ffb320"/><stop offset="0.25" stop-color="#ffba30"/><stop offset="0.375" stop-color="#ffc54b"/><stop offset="0.5" stop-color="#ffd571"/><stop offset="0.625" stop-color="#ffe597"/><stop offset="0.75" stop-color="#fff0b2"/><stop offset="0.875" stop-color="#fff7c2"/><stop offset="1" stop-color="#fff9c7"/></radialGradient>
+</defs>
+<path d="M15 36C15 36 11 40 11 47C9 43 4 42 4 42C4 42 3 48 9 51C9 51 9 52 3 52C3 52 6 58 14 56L14 60L16 60L16 56C24 58 27 52 27 52C21 52 21 51 21 51C27 48 26 42 26 42C26 42 21 43 19 47C19 40 15 36 15 36Z" class="lod1" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M15 36C15 36 11 40 11 47C9 43 4 42 4 42C4 42 3 48 9 51C9 51 9 52 3 52C3 52 6 58 14 56L14 60L16 60L16 56C24 58 27 52 27 52C21 52 21 51 21 51C27 48 26 42 26 42C26 42 21 43 19 47C19 40 15 36 15 36Z" class="lod2" display="none" stroke="#000000" fill="none" stroke-width="6"/>
+<path d="M15 36C15 36 11 40 11 47C9 43 4 42 4 42C4 42 3 48 9 51C9 51 9 52 3 52C3 52 6 58 14 56L14 60L16 60L16 56C24 58 27 52 27 52C21 52 21 51 21 51C27 48 26 42 26 42C26 42 21 43 19 47C19 40 15 36 15 36Z" fill="url(#g1)"/>
+</svg>

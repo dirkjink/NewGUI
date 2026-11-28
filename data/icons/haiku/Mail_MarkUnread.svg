@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Mail_MarkUnread</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.21875 -1 0 64 22)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffff80"/><stop offset="1" stop-color="#ffd400"/></linearGradient>
+</defs>
+<path d="M2 8L40 8L40 36L2 36Z" transform="matrix(1.411765 0 0 1.411765 3.823529 2.352941)" stroke="#000000" stroke-opacity="0.4" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M2 8L40 8L40 36L2 36Z" transform="matrix(1.411765 0 0 1.411765 1 -0.470588)" stroke="#bf5000" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M2 8L40 8L40 36L2 36Z" transform="matrix(1.411765 0 0 1.411765 1 -0.470588)" fill="url(#g1)"/>
+<path d="M40 7.99L21 21L2 7.99L21 25ZM40 36L28 18L26 20ZM16 20L14 18L2 36Z" transform="matrix(1.411765 0 0 1.411765 1 -0.470588)" fill="#bf5000"/>
+</svg>

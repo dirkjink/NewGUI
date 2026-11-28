@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>TJ Tajikistan</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#cc0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#006600"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M21 39L19 35C19 35 24 35 24 34C24 35 30 34 30 32L30 32C30 34 36 34.861 36 34C36 35 41 35 41 35L39 39C30 36 21 39 21 39Z" transform="matrix(0.639501 0 0 0.718753 13.363757 9.848316)" stroke="#f8c300" fill="none" stroke-width="3"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.044926 -0.017971 0.024221 0.060553 30.287283 25.137367)" fill="#f8c300"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.044926 -0.017971 0.024221 0.060553 35.287283 27.137367)" fill="#f8c300"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.044926 -0.017971 0.024221 0.060553 25.287283 27.137367)" fill="#f8c300"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.044926 -0.017971 0.024221 0.060553 21.287283 30.137367)" fill="#f8c300"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.044926 -0.017971 0.024221 0.060553 39.287283 30.137367)" fill="#f8c300"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.044926 -0.017971 0.024221 0.060553 40.287283 34.137367)" fill="#f8c300"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.044926 -0.017971 0.024221 0.060553 20.287283 34.137367)" fill="#f8c300"/>
+</svg>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Prefs_Touchpad2</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.347621 0.081512 -0.130453 0.556336 27.743164 2.678818)" color-interpolation="sRGB"><stop offset="0" stop-color="#8fcacc"/><stop offset="0.125" stop-color="#8dc8ca"/><stop offset="0.25" stop-color="#88c1c3"/><stop offset="0.375" stop-color="#80b5b7"/><stop offset="0.5" stop-color="#75a6a7"/><stop offset="0.625" stop-color="#6a9697"/><stop offset="0.75" stop-color="#628a8b"/><stop offset="0.875" stop-color="#5d8384"/><stop offset="1" stop-color="#5b8182"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.290339 0.05198 -0.080864 0.451675 54.016602 27.333862)" color-interpolation="sRGB"><stop offset="0" stop-color="#122425"/><stop offset="0.125" stop-color="#132626"/><stop offset="0.25" stop-color="#162a2b"/><stop offset="0.375" stop-color="#1a3232"/><stop offset="0.5" stop-color="#213c3d"/><stop offset="0.625" stop-color="#284648"/><stop offset="0.75" stop-color="#2c4e4f"/><stop offset="0.875" stop-color="#2f5254"/><stop offset="1" stop-color="#305455"/></linearGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(-0.288311 -0.281789 0.320728 -0.32815 13.382629 43.657471)" color-interpolation="sRGB"><stop offset="0" stop-color="#305455"/><stop offset="0.125" stop-color="#335859"/><stop offset="0.25" stop-color="#3c6365"/><stop offset="0.375" stop-color="#4c7778"/><stop offset="0.5" stop-color="#629294"/><stop offset="0.625" stop-color="#77acaf"/><stop offset="0.75" stop-color="#87c0c2"/><stop offset="0.875" stop-color="#90cbce"/><stop offset="1" stop-color="#93cfd2"/></linearGradient>
+<radialGradient id="g4" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.104673 -0.402435 0.415888 0.108172 15.585373 35.670364)" color-interpolation="sRGB"><stop offset="0" stop-color="#959595"/><stop offset="0.125" stop-color="#929292"/><stop offset="0.25" stop-color="#8a8a8a"/><stop offset="0.375" stop-color="#7d7d7d"/><stop offset="0.5" stop-color="#6a6a6a"/><stop offset="0.625" stop-color="#585858"/><stop offset="0.75" stop-color="#4b4b4b"/><stop offset="0.875" stop-color="#434343"/><stop offset="1" stop-color="#404040"/></radialGradient>
+<linearGradient id="g5" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.102817 -0.18283 0.258764 0.14552 13.220156 39.368721)" color-interpolation="sRGB"><stop offset="0.3346" stop-color="#909090"/><stop offset="0.3702" stop-color="#8d8d8d"/><stop offset="0.4059" stop-color="#838383"/><stop offset="0.4415" stop-color="#727272"/><stop offset="0.4772" stop-color="#5b5b5b"/><stop offset="0.5128" stop-color="#444444"/><stop offset="0.5485" stop-color="#333333"/><stop offset="0.5841" stop-color="#292929"/><stop offset="0.6198" stop-color="#262626"/></linearGradient>
+</defs>
+<path d="M44 60L49 60L64 38L62 37Z" fill="#010101" fill-opacity="0.4941"/>
+<path d="M2 34C2 34 2 40 2 42C5 48 8.739 52.422 15 56C22 60 36 61 44 59C46 56 60 37 60 37L60 33L21 19Z" stroke="#010000" fill="none" stroke-width="4"/>
+<path d="M2 34C3 40 9.789 47.394 17 51C25 55 37 56 44 53C47 49 60 33 60 33L21 19C21 19 6 31 2 34Z" fill="url(#g1)"/>
+<path d="M44 53L44 58L60 37L60 33Z" fill="url(#g2)"/>
+<path d="M2 34C2 35 2 39 2 41C4 47 8.789 52.394 16 56C24 60 37 60 44 59C44 56 44 58 44 53C38 56 25 55 18 51C11 47 3 41 2 34Z" fill="url(#g3)"/>
+<path d="M10 32L43 48L55 33L22 21Z" fill="url(#g4)"/>
+<path d="M11 32L22 23L22 21L11 30Z" fill="#000000"/>
+<path d="M22 23L54 34L54 33L22 22Z" fill="#000000"/>
+<path d="M22 23L54 34L54 33L22 22Z" transform="matrix(1 0 0 1 0 -1)" fill="#a3a3a3"/>
+<path d="M9 34L22 41C22 41 19 44 17 47C14 46 8 42 6 38C8 34 9 34 9 34Z" fill="url(#g5)"/>
+<path d="M9 34L22 41C22 41 19 44 17 47C14 46 8 42 6 38C8 34 9 34 9 34Z" stroke="#000000" fill="none" stroke-width="1"/>
+<path d="M26 43L41 49C41 49 42 49 40 52C37 53 25 52 21 49C24 45 26 43 26 43Z" fill="url(#g5)"/>
+<path d="M26 43L41 49C41 49 42 49 40 52C37 53 25 52 21 49C24 45 26 43 26 43Z" stroke="#000000" fill="none" stroke-width="1"/>
+<path d="M16 33L36 42C36 42 37 43 38 42C39 41 38 40 38 40L18 31C18 31 17 30 16 31C15 32 16 33 16 33Z" fill="#e5b65c"/>
+<path d="M43 39C43 39 42 40 43 41C44 42 45 41 45 41L49 36C49 36 50 35 49 34C48 33 47 34 47 34Z" fill="#e5b65c"/>
+</svg>

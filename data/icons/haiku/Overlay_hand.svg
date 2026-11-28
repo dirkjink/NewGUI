@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Overlay_hand</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+@media (max-width:21.12px){.lod2{display:inline}}
+</style>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.1875 0 0 0.21875 16 45)" color-interpolation="sRGB"><stop offset="0.4728" stop-color="#ffffff"/><stop offset="1" stop-color="#ececec"/></radialGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.125 -0.3125 0 28.000002 48)" color-interpolation="sRGB"><stop offset="0" stop-color="#bebebe"/><stop offset="1" stop-color="#8a8a8a"/></linearGradient>
+</defs>
+<path d="M26 56C26 57 25 58 24 58L16 58C15 58 13 57 12 56L8 52M22 40L22 54L26 54L26 44M14 41L14 54L18 54L18 38" class="lod1" stroke="#010000" fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M26 56C26 57 25 58 24 58L16 58C15 58 13 57 12 56L8 52M22 40L22 54L26 54L26 44M14 41L14 54L18 54L18 38" class="lod2" display="none" stroke="#010000" fill="none" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M26 56C26 57 25 58 24 58L16 58C15 58 13 57 12 56L8 52M22 40L22 54L26 54L26 44M14 41L14 54L18 54L18 38" stroke="url(#g1)" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M24.51 43.94C24.5 50 23.5 49 23.5 49L21.5 49C21.5 49 20.5 47 20.51 39.03C20.5 47 19.5 49 19.5 49L17.5 49C17.5 49 15.5 49 15.5 42C15.5 49 14.5 49 14.5 49L13.01 50L27 50L25.5 49C25.5 49 24.5 50 24.51 43.94Z" fill="url(#g2)"/>
+<path d="M18 57C17 49 12 53 12 53C16 53 18 57 18 57Z" fill="url(#g2)"/>
+</svg>

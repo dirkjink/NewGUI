@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>IL Israel</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391305)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.173913 -1.032258 10.434783)" fill="#0037b8"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.173913 -1.032258 42.434783)" fill="#0037b8"/>
+<path d="M34 41L44 23L54 41Z" transform="matrix(-0.675372 0 0 -0.675372 62.365641 56.322034)" stroke="#0037b8" fill="none" stroke-width="3"/>
+<path d="M34 41L44 23L54 41Z" transform="matrix(0.675372 0 0 0.675372 2.634359 8.958987)" stroke="#0037b8" fill="none" stroke-width="3"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

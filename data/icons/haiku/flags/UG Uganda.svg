@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>UG Uganda</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.695652 -1.032258 1.73913)" fill="#020202"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.173913 -1.032258 14.434782)" fill="#ffe700"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.173913 -1.032258 22.434782)" fill="#de3807"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.173913 -1.032258 38.434782)" fill="#ffe700"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.173913 -1.032258 46.434782)" fill="#de3807"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.5 0 0 0.5 16 16)" fill="#ffffff"/>
+<path d="M29 28L31 28C31 28 30 28 31 27C31 26 31 26 31 26C31 26 33 25 34 27C35 29 33 27 33 27C33 27 34 28 33 29C32 30 32 30 33 31C34 32 39 32 38 34C37 36 37 35 37 35L37 34L35 34C35 34 36 35 35 35C34 35 34 38 34 38L31 39L32 38L31 38C31 38 33 38 33 37C33 36 30 36 29 36C28.66 36 33 35 33 35C33 35 29 35 30 32C31 29 29 28 29 28Z" transform="matrix(1 0 0 1 -1 0)" fill="#020202"/>
+</svg>

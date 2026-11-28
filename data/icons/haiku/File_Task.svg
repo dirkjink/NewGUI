@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>File_Task</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(-0.174027 -0.296125 -0.31461 0.184891 41.506592 32.58252)" color-interpolation="sRGB"><stop offset="0" stop-color="#e8ca06"/><stop offset="0.0672" stop-color="#e9cb06"/><stop offset="0.1343" stop-color="#ebd005"/><stop offset="0.2015" stop-color="#eed604"/><stop offset="0.2686" stop-color="#f4e003"/><stop offset="0.3358" stop-color="#f9ea02"/><stop offset="0.4029" stop-color="#fcf001"/><stop offset="0.4701" stop-color="#fef500"/><stop offset="0.5373" stop-color="#fff600"/><stop offset="0.5951" stop-color="#fff606"/><stop offset="0.6529" stop-color="#fff716"/><stop offset="0.7108" stop-color="#fff832"/><stop offset="0.7686" stop-color="#fff95a"/><stop offset="0.8265" stop-color="#fffa81"/><stop offset="0.8843" stop-color="#fffb9d"/><stop offset="0.9422" stop-color="#fffcad"/><stop offset="1" stop-color="#fffcb3"/></linearGradient>
+<radialGradient id="g2" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.644825 -0.043869 0.022275 0.327425 17.506714 10.539734)" color-interpolation="sRGB"><stop offset="0" stop-color="#fff675"/><stop offset="0.125" stop-color="#fff671"/><stop offset="0.25" stop-color="#fef467"/><stop offset="0.375" stop-color="#fef355"/><stop offset="0.5" stop-color="#fcf03c"/><stop offset="0.625" stop-color="#fbed23"/><stop offset="0.75" stop-color="#fbec11"/><stop offset="0.875" stop-color="#faea07"/><stop offset="1" stop-color="#faea03"/></radialGradient>
+</defs>
+<path d="M16 4L16 36L56 56C54 44 58 34 56 26L56 20Z" stroke="#010000" stroke-opacity="0.4353" fill="none" stroke-width="4"/>
+<path d="M16 10C14.02 12 16 36 14 40C24.02 46 44 54 50.02 60C54.02 58 52 28 56.02 26L56 20L16 4Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M16 10C14.02 12 16 36 14 40C24.02 46 44 54 50.02 60C54.02 58 52 28 56.02 26L56 20L16 4Z" fill="url(#g1)"/>
+<path d="M56 26L56 20L16 4L16 10Z" fill="url(#g2)"/>
+<path d="M24 22C24 26 26 30 28 32M22 26L28 26M28 40L30 44C30 44 34 42 33 39C32 36 28 38 24 38" stroke="#000000" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M32 26C31 27 31 29 32 30C33 31 35 32 37 30C39 28 36 24 32 24" stroke="#000000" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M32 26C31 27 31 29 32 30C33 31 35 32 37 30C39 28 36 24 32 24" transform="matrix(1 0 0 1 5 11)" stroke="#000000" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

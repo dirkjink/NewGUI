@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <expected>
+#include <filesystem>
 #include <span>
 #include <string_view>
 
@@ -51,8 +52,11 @@ public:
 
 	Differences to Haiku: icons are SVG, not HVIF, drawn by
 	VectorIconRenderer::Default(); there are no icon attributes of files, no
-	CMAP8 and no archived bitmaps. The system icons are NewGUI's own, built
-	into the library.
+	CMAP8 and no archived bitmaps. The system icons are Haiku's, converted to
+	SVG (data/icons/haiku/): those NewGUI shows itself are built into the
+	library, the others are read from the icon directory
+	(SetSystemIconDirectory()), where an application installs
+	data/icons/haiku/.
 */
 class BIconUtils {
 public:
@@ -65,12 +69,28 @@ public:
 										icon that cannot be read. */
 	static	std::expected<void, Error> GetSystemIcon(std::string_view name,
 									BBitmap* result);
-									/*!< Draws the system icon \a name ("dialog-information",
-										"dialog-idea", "dialog-warning", "dialog-error")
-										into \a result; NotFound for another name. */
+									/*!< Draws the system icon \a name, the name of Haiku's
+										icon file without ".svg" ("Alert_Warning",
+										"Folder_generic", "flags/DE Germany"), into
+										\a result; NotFound for an icon neither built in
+										nor in the icon directory. Built in: Alert_Info,
+										Alert_Idea, Alert_Warning, Alert_Stop. */
 	static	std::span<const std::uint8_t> SystemIconData(std::string_view name);
 									/*!< NewGUI: the SVG of the system icon \a name, empty
-										for an unknown one. */
+										for an unknown one. An icon from the directory is
+										read once and kept for the process; a name with
+										"..", ".", an empty part, a backslash or colon is
+										none. */
+	static	void				SetSystemIconDirectory(
+									const std::filesystem::path& directory);
+									/*!< NewGUI: the directory of the system icons that are
+										not built in, a copy of data/icons/haiku/;
+										overrides NGUI_ICON_DIR, an empty path returns to
+										it. */
+	static	std::filesystem::path SystemIconDirectory();
+									/*!< NewGUI: the directory SetSystemIconDirectory()
+										set, else the environment variable NGUI_ICON_DIR,
+										else none (empty). */
 };
 
 

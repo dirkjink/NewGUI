@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>IN India</title>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.21875 0 0 0.21875 32 32)" color-interpolation="sRGB"><stop offset="0" stop-color="#000088"/><stop offset="0.1052" stop-color="#08088c"/><stop offset="0.2104" stop-color="#1e1e96"/><stop offset="0.3156" stop-color="#4444a8"/><stop offset="0.4208" stop-color="#7878c0"/><stop offset="0.526" stop-color="#acacd8"/><stop offset="0.6312" stop-color="#d2d2ea"/><stop offset="0.7364" stop-color="#e8e8f4"/><stop offset="0.8416" stop-color="#f0f0f8"/><stop offset="0.842" stop-color="#e8e8f4"/><stop offset="0.8424" stop-color="#d2d2ea"/><stop offset="0.8428" stop-color="#acacd8"/><stop offset="0.8432" stop-color="#7878c0"/><stop offset="0.8436" stop-color="#4444a8"/><stop offset="0.8439" stop-color="#1e1e96"/><stop offset="0.8443" stop-color="#08088c"/><stop offset="0.8447" stop-color="#000088"/></radialGradient>
+</defs>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#ff9832"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#128806"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.5 0 0 0.5 16 16)" fill="url(#g1)"/>
+</svg>

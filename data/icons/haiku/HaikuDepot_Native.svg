@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>HaikuDepot_Native</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+@media (max-width:21.12px){.lod2{display:inline}}
+</style>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.087467 -0.379023 0.474796 0.109568 19.149544 34.588856)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffb11b"/><stop offset="0.125" stop-color="#ffb320"/><stop offset="0.25" stop-color="#ffba30"/><stop offset="0.375" stop-color="#ffc54b"/><stop offset="0.5" stop-color="#ffd571"/><stop offset="0.625" stop-color="#ffe597"/><stop offset="0.75" stop-color="#fff0b2"/><stop offset="0.875" stop-color="#fff7c2"/><stop offset="1" stop-color="#fff9c7"/></radialGradient>
+</defs>
+<path d="M30 4C15.637 4 4 15.637 4 30C4 44.353 15.637 56 30 56C44.353 56 56 44.353 56 30C56 15.637 44.353 4 30 4Z" class="lod1" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M30 4C15.637 4 4 15.637 4 30C4 44.353 15.637 56 30 56C44.353 56 56 44.353 56 30C56 15.637 44.353 4 30 4Z" class="lod2" display="none" stroke="#000000" fill="none" stroke-width="6"/>
+<path d="M30 4C15.637 4 4 15.637 4 30C4 44.353 15.637 56 30 56C44.353 56 56 44.353 56 30C56 15.637 44.353 4 30 4Z" fill="#3771aa"/>
+<path d="M30 11C30 11 24 17 24 27.5C21 21.5 13.5 20 13.5 20C13.5 20 12 29 21 33.5C21 33.5 21 35 12 35C12 35 16.5 44 28.5 41L28.5 47L31.5 47L31.5 41C43.5 44 48 35 48 35C39 35 39 33.5 39 33.5C48 29 46.5 20 46.5 20C46.5 20 39 21.5 36 27.5C36 17 30 11 30 11Z" class="lod1" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M30 11C30 11 24 17 24 27.5C21 21.5 13.5 20 13.5 20C13.5 20 12 29 21 33.5C21 33.5 21 35 12 35C12 35 16.5 44 28.5 41L28.5 47L31.5 47L31.5 41C43.5 44 48 35 48 35C39 35 39 33.5 39 33.5C48 29 46.5 20 46.5 20C46.5 20 39 21.5 36 27.5C36 17 30 11 30 11Z" class="lod2" display="none" stroke="#000000" fill="none" stroke-width="6"/>
+<path d="M30 11C30 11 24 17 24 27.5C21 21.5 13.5 20 13.5 20C13.5 20 12 29 21 33.5C21 33.5 21 35 12 35C12 35 16.5 44 28.5 41L28.5 47L31.5 47L31.5 41C43.5 44 48 35 48 35C39 35 39 33.5 39 33.5C48 29 46.5 20 46.5 20C46.5 20 39 21.5 36 27.5C36 17 30 11 30 11Z" fill="url(#g1)"/>
+</svg>

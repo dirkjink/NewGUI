@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>IR Iran</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#239f40"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#da0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M24 26C24 26 17 31 24 38C22 32 24 26 24 26Z" transform="matrix(1.074665 0 0 1 1.396483 -1)" fill="#da0000"/>
+<path d="M24 26C24 26 17 31 24 38C22 32 24 26 24 26Z" transform="matrix(-0.956632 0 0 1 58.833236 -1)" fill="#da0000"/>
+<path d="M24 26C24 26 17 31 24 38C22 32 24 26 24 26Z" transform="matrix(-1.067152 -0.538891 -0.560792 1.133901 75.650261 9.329996)" fill="#da0000"/>
+<path d="M28 38L28 26" transform="matrix(1.074665 0 0 1.074665 1.396483 -2.9413)" stroke="#da0000" fill="none" stroke-width="2"/>
+<path d="M24 26C24 26 17 31 24 38C22 32 24 26 24 26Z" transform="matrix(1.201758 -0.574713 0.617624 1.118263 -17.161426 10.692218)" fill="#da0000"/>
+</svg>

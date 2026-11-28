@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>TL East Timor</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391305)" fill="#dc231e"/>
+<path d="M0 56L64 32L0 8" transform="matrix(0.6875 0 0 1 0 0)" fill="#ffc725"/>
+<path d="M0 56L64 32L0 8" transform="matrix(0.5 0 0 1 0 0)" fill="#010000"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M36.785 29.482L45.353 29.482L48 21.333L50.647 29.482L59.215 29.482L52.284 34.518L54.931 42.667L48 37.631L41.069 42.667L43.716 34.518Z" transform="matrix(0.581971 -0.437225 0.437225 0.581971 -29.977186 33.461462)" fill="#ffffff"/>
+</svg>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Device_Harddisk_Be_2</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.347622 0.081513 -0.130454 0.556338 27.743206 2.678832)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffffff"/><stop offset="0.125" stop-color="#fefefe"/><stop offset="0.25" stop-color="#fafafa"/><stop offset="0.375" stop-color="#f3f3f3"/><stop offset="0.5" stop-color="#e9e9e9"/><stop offset="0.625" stop-color="#dfdfdf"/><stop offset="0.75" stop-color="#d8d8d8"/><stop offset="0.875" stop-color="#d4d4d4"/><stop offset="1" stop-color="#d3d3d3"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.323339 0.143859 -0.186525 0.419235 53.477966 28.134428)" color-interpolation="sRGB"><stop offset="0" stop-color="#474747"/><stop offset="0.125" stop-color="#4a4a4a"/><stop offset="0.25" stop-color="#535252"/><stop offset="0.375" stop-color="#616060"/><stop offset="0.5" stop-color="#767474"/><stop offset="0.625" stop-color="#8b8787"/><stop offset="0.75" stop-color="#999595"/><stop offset="0.875" stop-color="#a29d9d"/><stop offset="1" stop-color="#a5a0a0"/></linearGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(-0.293547 -0.19767 0.256295 -0.380608 20.586042 55.587643)" color-interpolation="sRGB"><stop offset="0" stop-color="#7d7d7d"/><stop offset="0.125" stop-color="#808080"/><stop offset="0.25" stop-color="#888888"/><stop offset="0.375" stop-color="#959595"/><stop offset="0.5" stop-color="#a8a8a8"/><stop offset="0.625" stop-color="#bcbcbc"/><stop offset="0.75" stop-color="#c9c9c9"/><stop offset="0.875" stop-color="#d1d1d1"/><stop offset="1" stop-color="#d4d4d4"/></linearGradient>
+<linearGradient id="g4" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.089319 0.112207 -0.286231 0.227847 19.449993 31.452551)" color-interpolation="sRGB"><stop offset="0" stop-color="#596756"/><stop offset="0.125" stop-color="#5e6959"/><stop offset="0.25" stop-color="#6b7062"/><stop offset="0.375" stop-color="#827c70"/><stop offset="0.5" stop-color="#a28c84"/><stop offset="0.625" stop-color="#c29d98"/><stop offset="0.75" stop-color="#d9a9a6"/><stop offset="0.875" stop-color="#e6b0af"/><stop offset="1" stop-color="#ebb2b2"/></linearGradient>
+<linearGradient id="g5" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.208499 0.137943 -0.163808 0.247592 17.569893 41.162872)" color-interpolation="sRGB"><stop offset="0" stop-color="#ff6161"/><stop offset="0.125" stop-color="#ff5e5e"/><stop offset="0.25" stop-color="#ff5555"/><stop offset="0.375" stop-color="#ff4646"/><stop offset="0.5" stop-color="#ff3030"/><stop offset="0.625" stop-color="#ff1b1b"/><stop offset="0.75" stop-color="#ff0c0c"/><stop offset="0.875" stop-color="#ff0303"/><stop offset="1" stop-color="#ff0000"/></linearGradient>
+</defs>
+<path d="M36 61L41 61L64 30L58 27L59 31Z" fill="#010101" fill-opacity="0.502"/>
+<path d="M2 28L2 41L36 59L58 30L58 17L25 5Z" stroke="#010000" fill="none" stroke-width="4"/>
+<path d="M2 28L36 43L58 17L25 5Z" fill="url(#g1)"/>
+<path d="M36 43L36 59L58 30L58 17Z" fill="url(#g2)"/>
+<path d="M2 28L2 41L36 59L36 43Z" fill="url(#g3)"/>
+<path d="M7 35L12.75 37.5" stroke="url(#g4)" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M6 35L9 36" transform="matrix(1 0 0 1 4 1.5)" stroke="#ff0000" fill="none" stroke-width="2"/>
+<path d="M6 35L9 36" transform="matrix(1 0 0 1 0 -0.25)" stroke="#a7ff00" fill="none" stroke-width="2"/>
+<path d="M5 43C5 43 14 41 22 43C24 51 22 61 22 61C22 61 14 65 5 61C3 53 5 43 5 43Z" stroke="#010000" fill="none" stroke-width="3" stroke-linejoin="bevel"/>
+<path d="M5 43C5 43 14 41 22 43C24 51 22 61 22 61C22 61 14 65 5 61C3 53 5 43 5 43Z" fill="url(#g5)"/>
+<path d="M7.553 47.457C12.016 43.006 18.967 44.651 20 48C19 51 14 53 10 50C13 47 16 47 19 52C19 54 17 55 17 56C17 57.783 15 58.109 15 59C13.217 59 13.157 59.431 11.119 56.372" stroke="url(#g1)" fill="none" stroke-width="1.5" stroke-linecap="square"/>
+</svg>

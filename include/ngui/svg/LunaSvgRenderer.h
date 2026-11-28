@@ -21,7 +21,9 @@ namespace ngui::svg {
 	lunasvg reads the icon, its rasterizer plutovg draws it, independent of
 	the drawing backend. Install it with VectorIconRenderer::SetDefault().
 	Dashed strokes are drawn solid: plutovg's dashes can take unbounded
-	memory (an icon needs none; Haiku's HVIF icons have none). An SVG whose
+	memory (an icon needs none; Haiku's HVIF icons have none). Media queries
+	on the width are resolved for the width drawn (ResolveMediaQueries()), so
+	Haiku's icons show their level of detail. An SVG whose
 	content reaches more than 65536 pixels out of the bitmap is BadData:
 	plutovg's rasterizer hangs on such coordinates where long has 32 bits
 	(Windows).

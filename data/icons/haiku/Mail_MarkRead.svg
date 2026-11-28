@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Mail_MarkRead</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.21875 -1 0 64 22)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffff80"/><stop offset="1" stop-color="#ffd400"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.15625 -1 0 64 12)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffffff"/><stop offset="0.125" stop-color="#fefeff"/><stop offset="0.25" stop-color="#fafaff"/><stop offset="0.375" stop-color="#f4f4ff"/><stop offset="0.5" stop-color="#ececff"/><stop offset="0.625" stop-color="#e4e4ff"/><stop offset="0.75" stop-color="#dedeff"/><stop offset="0.875" stop-color="#dadaff"/><stop offset="1" stop-color="#d9d9ff"/></linearGradient>
+</defs>
+<path d="M2 12L40 12L40 40L2 40Z" transform="matrix(1.409091 0 0 1.409091 3.818182 3.818182)" stroke="#000000" stroke-opacity="0.4" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M2 12L40 12L40 40L2 40Z" transform="matrix(1.409091 0 0 1.409091 1 1)" stroke="#bf5000" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M2 12L40 12L40 40L2 40Z" transform="matrix(1.409091 0 0 1.409091 1 1)" fill="url(#g1)"/>
+<path d="M6 13L6 2L36 2L36 13" transform="matrix(1.409091 0 0 1.409091 1 1)" stroke="#000080" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 15L26 22L16 22L6 15L6 2L36 2Z" transform="matrix(1.409091 0 0 1.409091 1 1)" fill="url(#g2)"/>
+<path d="M40 40L28 22L26 24ZM16 24L14 22L2 40ZM40 11.99L26 22L16 22L2 11.99L14 24L28 24Z" transform="matrix(1.409091 0 0 1.409091 1 1)" fill="#bf5000"/>
+<path d="M12 8L30 8M12 16L26 16" transform="matrix(1.409091 0 0 1.409091 1 1)" stroke="#000080" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

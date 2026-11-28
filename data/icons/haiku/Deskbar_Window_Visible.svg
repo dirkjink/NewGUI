@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Deskbar_Window_Visible</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.125 -1 0 63.999996 3.999997)" color-interpolation="sRGB"><stop offset="0.6062" stop-color="#ffff65"/><stop offset="0.6554" stop-color="#fffc62"/><stop offset="0.7047" stop-color="#fff55b"/><stop offset="0.7539" stop-color="#ffe84e"/><stop offset="0.8031" stop-color="#ffd73c"/><stop offset="0.8523" stop-color="#ffc629"/><stop offset="0.9016" stop-color="#ffb91c"/><stop offset="0.9508" stop-color="#ffb215"/><stop offset="1" stop-color="#ffaf12"/></linearGradient>
+</defs>
+<path d="M0 0L0 12L32 12L32 0Z" transform="matrix(1 0 0 1 12 0)" fill="url(#g1)"/>
+<path d="M0 12L0 56L52 56L52 12Z" transform="matrix(1 0 0 1 12 0)" fill="#c8c8c8"/>
+<path d="M0 12L0 56L52 56L52 12Z" transform="matrix(0.692308 0 0 0.727273 20 7.272727)" fill="#ffffff"/>
+<path d="M4 52L4 4L32 4L32 12L52 12L52 8L36 8L36 0L0 0L0 52Z" transform="matrix(1 0 0 1 12 0)" fill="#787878"/>
+<path d="M0 56L52 56L52 12L48 12L48 52L0 52Z" transform="matrix(1 0 0 1 12 0)" fill="#000000"/>
+<path d="M32 4L32 8L36 8L36 4Z" transform="matrix(1 0 0 1 12 0)" fill="#000000"/>
+</svg>

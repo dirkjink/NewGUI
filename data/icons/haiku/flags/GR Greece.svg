@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>GR Greece</title>
+<path d="M0 8L64 8L64 56L0 56Z" fill="#0c5caf"/>
+<path d="M0 8L64 8L64 56L0 56Z" transform="matrix(0.969231 0 0 0.959184 0.984615 1.306123)" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M0 8L64 8L64 56L0 56Z" transform="matrix(0.59375 0 0 0.104167 26 13.166666)" fill="#ffffff"/>
+<path d="M0 8L64 8L64 56L0 56Z" transform="matrix(1 0 0 0.104167 0 33.166666)" fill="#ffffff"/>
+<path d="M0 8L64 8L64 56L0 56Z" transform="matrix(1 0 0 0.104167 0 43.166666)" fill="#ffffff"/>
+<path d="M0 8L64 8L64 56L0 56Z" transform="matrix(0.40625 0 0 0.104167 0 18.166666)" fill="#ffffff"/>
+<path d="M0 8L64 8L64 56L0 56Z" transform="matrix(0.078125 0 0 0.541667 11 3.666667)" fill="#ffffff"/>
+<path d="M0 8L64 8L64 56L0 56Z" transform="matrix(0.59375 0 0 0.104167 26 23.166666)" fill="#ffffff"/>
+</svg>

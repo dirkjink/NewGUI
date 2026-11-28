@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>BT Bhutan</title>
+<path d="M0 8L64 8L0 56Z" fill="#efb22c"/>
+<path d="M0 8L64 8L0 56Z" transform="matrix(-1 0 0 -1 64 64)" fill="#e23d28"/>
+<path d="M7 47C7 47 15.764 46.472 18 42C20 38 13 26 37 36C43.192 38.58 29.837 23.478 36 18C45 10 58 19 59 22C59.501 23.503 43.609 19.376 52 25C60.391 30.624 43.998 22.998 43 22C41 20 51 36 43 41C35 46 25.86 31.978 25 38C23 52 7 47 7 47Z" transform="matrix(1 0 0 1 -3 -1)" fill="#ffffff"/>
+<path d="M20 42C20 42 24 46 24 49C24 52 21 52 26 52C31 52 30 50 28 49C26 48 26 43 26 43L22 39" transform="matrix(1 0 0 1 -1 0)" fill="#ffffff"/>
+<path d="M20 42C20 42 24 46 24 49C24 52 21 52 26 52C31 52 30 50 28 49C26 48 26 43 26 43L22 39" transform="matrix(0.709433 -0.704773 0.704773 0.709433 -8.859741 28.702459)" fill="#ffffff"/>
+<path d="M20 42C20 42 24 46 24 49C24 52 21 52 26 52C31 52 30 50 28 49C26 48 26 43 26 43L22 39" transform="matrix(0.709433 0.647145 0.704773 -0.651425 -2.859741 45.033708)" fill="#ffffff"/>
+<path d="M20 42C20 42 24 46 24 49C24 52 21 52 26 52C31 52 30 50 28 49C26 48 26 43 26 43L22 39" transform="matrix(0.362177 0.810546 0.783863 -0.417656 -22.229405 42.152278)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

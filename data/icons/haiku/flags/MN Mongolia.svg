@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>MN Mongolia</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.033122 0 0 1.043478 -1.037167 -1.391304)" fill="#dc171b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.387097 0 0 1.043478 19.612904 -1.391304)" fill="#47aecf"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.347826 3.951613 28.869566)" fill="#fbea0e"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.347826 12.951613 28.869566)" fill="#fbea0e"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.129032 0 0 0.043478 5.870968 27.608696)" fill="#fbea0e"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.129032 0 0 0.043478 5.870968 33.608696)" fill="#fbea0e"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.129032 0 0 0.043478 5.870968 42.608696)" fill="#fbea0e"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.064516 0 0 0.043478 7.935484 45.608696)" fill="#fbea0e"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.064516 0 0 0.043478 7.935484 30.608696)" fill="#fbea0e"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.25 0 0 0.25 2 15)" fill="#fbea0e"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.125 0 0 0.15625 6 34.5)" fill="#fbea0e"/>
+<path d="M8 18L10 12L12 18" fill="#fbea0e"/>
+</svg>

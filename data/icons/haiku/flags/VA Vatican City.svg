@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>VA Vatican City</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.516129 0 0 1.043478 -0.516129 -1.391304)" fill="#ffe000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.516129 0 0 1.043478 31.483871 -1.391304)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M61.992 21.407L44.89 30.847C44.89 30.847 36.533 26.399 39.72 35.512C45.721 40.703 45.686 33.125 45.686 33.125L59 25L61 27L64 25Z" transform="matrix(-0.567615 -0.172346 -0.168733 0.57977 80.938601 26.982859)" stroke="#9f9f9f" fill="none" stroke-width="3"/>
+<path d="M61.992 21.407L44.89 30.847C44.89 30.847 36.533 26.399 39.72 35.512C45.721 40.703 45.686 33.125 45.686 33.125L59 25L61 27L64 25Z" transform="matrix(0.57977 -0.172346 0.172346 0.57977 13.489834 26.982859)" stroke="#e4c700" fill="none" stroke-width="3"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.080645 0 0 0.021739 44.919357 25.80435)" fill="#ffe000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.080645 0 0 0.021739 44.919357 23.80435)" fill="#ffe000"/>
+<path d="M45 29L45 24L47 21L48 21L50 24L50 29Z" stroke="#e4c700" fill="none" stroke-width="1.5"/>
+</svg>

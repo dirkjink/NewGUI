@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Prefs_DriveSetup_Shared</title>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.1875 0 0 0.171875 12 42)" color-interpolation="sRGB"><stop offset="0" stop-color="#05dd05"/><stop offset="0.1247" stop-color="#05da06"/><stop offset="0.2493" stop-color="#04d10b"/><stop offset="0.374" stop-color="#04c312"/><stop offset="0.4987" stop-color="#02ae1c"/><stop offset="0.6233" stop-color="#019926"/><stop offset="0.748" stop-color="#018b2d"/><stop offset="0.8727" stop-color="#008232"/><stop offset="0.9973" stop-color="#007f33"/></radialGradient>
+</defs>
+<path d="M16 35C10.477 35 6 39.477 6 45C6 50.523 10.477 55 16 55C21.523 55 26 50.523 26 45C26 39.477 21.523 35 16 35Z" transform="matrix(1.371706 0 0 1.371706 8.72968 -27.830719)" stroke="#000000" fill="none" stroke-width="5"/>
+<path d="M16 35C10.477 35 6 39.477 6 45C6 50.523 10.477 55 16 55C21.523 55 26 50.523 26 45C26 39.477 21.523 35 16 35Z" transform="matrix(1.371706 0 0 1.371706 8.72968 -27.830719)" stroke="#037303" fill="none" stroke-width="2"/>
+<path d="M16 35C10.477 35 6 39.477 6 45C6 50.523 10.477 55 16 55C21.523 55 26 50.523 26 45C26 39.477 21.523 35 16 35Z" transform="matrix(0.787301 0 0 0.787301 18.080159 -18.708756)" stroke="#000000" fill="none" stroke-width="5"/>
+<path d="M16 35C10.477 35 6 39.477 6 45C6 50.523 10.477 55 16 55C21.523 55 26 50.523 26 45C26 39.477 21.523 35 16 35Z" transform="matrix(0.787301 0 0 0.787301 18.080159 -18.708756)" fill="url(#g1)"/>
+<path d="M16 35C10.477 35 6 39.477 6 45C6 50.523 10.477 55 16 55C21.523 55 26 50.523 26 45C26 39.477 21.523 35 16 35Z" transform="matrix(0.787301 0 0 0.787301 3.265802 9.273918)" stroke="#000000" fill="none" stroke-width="5"/>
+<path d="M16 35C10.477 35 6 39.477 6 45C6 50.523 10.477 55 16 55C21.523 55 26 50.523 26 45C26 39.477 21.523 35 16 35Z" transform="matrix(0.787301 0 0 0.787301 3.265802 9.273918)" fill="url(#g1)"/>
+<path d="M16 35C10.477 35 6 39.477 6 45C6 50.523 10.477 55 16 55C21.523 55 26 50.523 26 45C26 39.477 21.523 35 16 35Z" transform="matrix(0.787301 0 0 0.787301 33.540556 9.273918)" stroke="#000000" fill="none" stroke-width="5"/>
+<path d="M16 35C10.477 35 6 39.477 6 45C6 50.523 10.477 55 16 55C21.523 55 26 50.523 26 45C26 39.477 21.523 35 16 35Z" transform="matrix(0.787301 0 0 0.787301 33.540556 9.273918)" fill="url(#g1)"/>
+</svg>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>KZ Kazakhstan</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#00aeca"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.4375 0 0 0.4375 18 15)" fill="#fec50b"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.551784 0 0 0.551784 14.342901 11.342902)" stroke="#fec50b" fill="none" stroke-width="3"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.064516 0 0 0.869565 3.935484 4.173913)" fill="#fec50b"/>
+<path d="M27 45C27 45 19 45 17 38C14.735 30.071 19 36 19 36C19 36 27 42 31 42M39 45C41 45 49 41 48 35C41 40 35 41 33 42C33 45 22 47 27 47C32 47 37 47 37 47M38 47L43 48C43 48 30 53 28 51C26 49 29 50 29 50L37 49Z" stroke="#fec50b" fill="none" stroke-width="1"/>
+</svg>

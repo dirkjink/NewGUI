@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>CA Catalan</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.021739 -1.032258 -1.195652)" fill="#f1bf00"/>
+<path d="M0 12L64 12L64 17L0 17Z" transform="matrix(1 0 0 1 0 -1)" fill="#aa1518"/>
+<path d="M0 12L64 12L64 17L0 17Z" transform="matrix(1 0 0 1 0 11)" fill="#aa1518"/>
+<path d="M0 12L64 12L64 17L0 17Z" transform="matrix(1 0 0 1 0 23)" fill="#aa1518"/>
+<path d="M0 12L64 12L64 17L0 17Z" transform="matrix(1 0 0 1 0 35)" fill="#aa1518"/>
+</svg>

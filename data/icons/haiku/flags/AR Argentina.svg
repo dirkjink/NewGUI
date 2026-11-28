@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>AR Argentina</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#73aadf"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869566)" fill="#ffffff"/>
+<path d="M67.493 31.474C67.493 33.367 65.927 34.901 63.996 34.901C62.064 34.901 60.499 33.367 60.499 31.474C60.499 29.581 62.064 28.046 63.996 28.046C65.927 28.046 67.493 29.581 67.493 31.474Z" transform="matrix(1.72504 0 0 1.729443 -77.935218 -22.458279)" fill="#fcd116"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

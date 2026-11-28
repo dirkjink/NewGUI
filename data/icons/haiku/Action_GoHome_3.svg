@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Action_GoHome_3</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(-0.025313 -0.184179 0.433426 -0.059569 8.242626 34.841766)" color-interpolation="sRGB"><stop offset="0" stop-color="#f0f0f0"/><stop offset="0.125" stop-color="#efefef"/><stop offset="0.25" stop-color="#ededed"/><stop offset="0.375" stop-color="#e8e8e8"/><stop offset="0.5" stop-color="#e2e2e2"/><stop offset="0.625" stop-color="#dddddd"/><stop offset="0.75" stop-color="#d8d8d8"/><stop offset="0.875" stop-color="#d6d6d6"/><stop offset="1" stop-color="#d5d5d5"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.046579 0.048408 -0.292739 0.281679 48.902599 30.754807)" color-interpolation="sRGB"><stop offset="0" stop-color="#a2a2a2"/><stop offset="0.125" stop-color="#a3a3a3"/><stop offset="0.25" stop-color="#a5a5a5"/><stop offset="0.375" stop-color="#a9a9a9"/><stop offset="0.5" stop-color="#aeaeae"/><stop offset="0.625" stop-color="#b4b4b4"/><stop offset="0.75" stop-color="#b8b8b8"/><stop offset="0.875" stop-color="#bababa"/><stop offset="1" stop-color="#bbbbbb"/></linearGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.124424 0.151797 -0.459201 0.376396 51.517418 8.131095)" color-interpolation="sRGB"><stop offset="0" stop-color="#ea0606"/><stop offset="0.125" stop-color="#e90606"/><stop offset="0.25" stop-color="#e70606"/><stop offset="0.375" stop-color="#e30606"/><stop offset="0.5" stop-color="#dd0606"/><stop offset="0.625" stop-color="#d70505"/><stop offset="0.75" stop-color="#d30505"/><stop offset="0.875" stop-color="#d10505"/><stop offset="1" stop-color="#d00505"/></linearGradient>
+<linearGradient id="g4" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.084079 0.108921 -0.395795 0.305526 40.172779 21.584946)" color-interpolation="sRGB"><stop offset="0" stop-color="#ff4444"/><stop offset="0.125" stop-color="#ff4242"/><stop offset="0.25" stop-color="#fd3c3c"/><stop offset="0.375" stop-color="#fb3333"/><stop offset="0.5" stop-color="#f82525"/><stop offset="0.625" stop-color="#f51717"/><stop offset="0.75" stop-color="#f30e0e"/><stop offset="0.875" stop-color="#f10808"/><stop offset="1" stop-color="#f10606"/></linearGradient>
+</defs>
+<path d="M16 41L34 50L48 36L48 24L30 18L16 29Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M16 27L16 41L18 42L18 33.75L22 35L22 44L34 50L34 32L22 18Z" fill="url(#g1)"/>
+<path d="M48 22L48 36L34 50L34 32Z" fill="url(#g2)"/>
+<path d="M18 33.75L18 42L22 44L22 35ZM26 37L26 42L30 44L30 38.625ZM38 37L38 42L40 40L40 35ZM44 31L44 36L46 34L46 29Z" fill="#000000"/>
+<path d="M13 30L21 21L35 38L37 37L52 25L38 12L21 17L11 28Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M37 37L52 25L38 12L21 17Z" fill="url(#g3)"/>
+<path d="M11 28L13 30L21 21L35 38L37 37L21 17Z" fill="url(#g4)"/>
+</svg>

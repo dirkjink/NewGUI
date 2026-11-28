@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>TC Turks and Caicos Islands</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#000066"/>
+<path d="M64 12L64 17L10 52L0 52L0 47L54 12ZM0 12L8 12L64 46L64 52L56 52L0 18Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M64 12L7 52L0 52L57 12ZM0 12L64 48L64 52L0 16Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#cc0000"/>
+<path d="M0 26L26 26L26 12L38 12L38 26L64 26L64 38L38 38L38 52L26 52L26 38L0 38Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M0 36L0 28L28 28L28 12L36 12L36 28L64 28L64 36L36 36L36 52L28 52L28 36Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#cc0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M42 24C42 34 43 38 49 40C55 38 56 34 56 24C52 24 45 24 42 24Z" fill="#fdc300"/>
+<path d="M46 37C46 37 46 31 49 31C52 31 52 37 52 37Z" transform="matrix(1 0 0 1.166667 0 -6.166667)" fill="#00a728"/>
+<path d="M46 37C46 37 46 31 49 31C52 31 52 37 52 37Z" transform="matrix(0.666667 0 0 0.5 16.333336 12.5)" fill="#cc0000"/>
+<path d="M51 25L55 26L51 27L54 29L53 30L53 24" transform="matrix(0.718744 0 0 0.861248 14.765935 4.330046)" stroke="#b95a1e" fill="none" stroke-width="1"/>
+</svg>

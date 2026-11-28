@@ -8,27 +8,39 @@
 // The parts of Haiku's BIconUtils (src/libs/icon/IconUtils.cpp, commit
 // b1d497bb69) that NewGUI has: GetVectorIcon() and GetSystemIcon(), for SVG
 // instead of HVIF. Haiku drew an icon of another color space than B_RGBA32
-// into a temporary B_RGBA32 bitmap and converted it; so does NewGUI.
+// into a temporary B_RGBA32 bitmap and converted it; so does NewGUI. The
+// system icons are Haiku's as SVG (data/icons/haiku/): those NewGUI shows
+// itself built in, the others read from the icon directory.
 
 #include <ngui/IconUtils.h>
 
 #include <array>
 #include <atomic>
 #include <cstddef>
+#include <fstream>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <vector>
 
 #include <ngui/Bitmap.h>
+
+#include "Environment.h"
 
 
 namespace ngui::embedded {
 
-extern const unsigned char kDialogInformation[];
-extern const std::size_t kDialogInformationSize;
-extern const unsigned char kDialogIdea[];
-extern const std::size_t kDialogIdeaSize;
-extern const unsigned char kDialogWarning[];
-extern const std::size_t kDialogWarningSize;
-extern const unsigned char kDialogError[];
-extern const std::size_t kDialogErrorSize;
+extern const unsigned char kAlertInfo[];
+extern const std::size_t kAlertInfoSize;
+extern const unsigned char kAlertIdea[];
+extern const std::size_t kAlertIdeaSize;
+extern const unsigned char kAlertWarning[];
+extern const std::size_t kAlertWarningSize;
+extern const unsigned char kAlertStop[];
+extern const std::size_t kAlertStopSize;
 
 } // namespace ngui::embedded
 
@@ -49,13 +61,77 @@ struct SystemIcon {
 };
 
 
-// NewGUI's own icons (data/icons/), built into the library.
+// The icons NewGUI shows itself, built into the library (the list in
+// src/CMakeLists.txt).
 const std::array<SystemIcon, 4> kSystemIcons = {{
-	{"dialog-information", embedded::kDialogInformation, &embedded::kDialogInformationSize},
-	{"dialog-idea", embedded::kDialogIdea, &embedded::kDialogIdeaSize},
-	{"dialog-warning", embedded::kDialogWarning, &embedded::kDialogWarningSize},
-	{"dialog-error", embedded::kDialogError, &embedded::kDialogErrorSize},
+	{"Alert_Info", embedded::kAlertInfo, &embedded::kAlertInfoSize},
+	{"Alert_Idea", embedded::kAlertIdea, &embedded::kAlertIdeaSize},
+	{"Alert_Warning", embedded::kAlertWarning, &embedded::kAlertWarningSize},
+	{"Alert_Stop", embedded::kAlertStop, &embedded::kAlertStopSize},
 }};
+
+// Larger files are no icons (Haiku's largest SVG has some 100 KB).
+constexpr std::uintmax_t kLargestIconFile = 4 * 1024 * 1024;
+
+// The icon directory set and the icons read from it, by path: read once,
+// kept for the process so their spans stay valid.
+std::mutex sIconLock;
+std::optional<std::filesystem::path> sIconDirectory;
+std::map<std::filesystem::path, std::unique_ptr<const std::vector<std::uint8_t>>> sReadIcons;
+
+
+// Whether \a name names a file below the icon directory: relative, without
+// "..", "." or empty parts, without a backslash, colon or NUL.
+bool
+IsIconName(std::string_view name)
+{
+	if (name.empty() || name.find_first_of(std::string_view("\\:\0", 3)) != std::string_view::npos)
+		return false;
+	std::size_t start = 0;
+	while (start <= name.size()) {
+		std::size_t slash = name.find('/', start);
+		if (slash == std::string_view::npos)
+			slash = name.size();
+		const std::string_view part = name.substr(start, slash - start);
+		if (part.empty() || part == "." || part == "..")
+			return false;
+		start = slash + 1;
+	}
+	return true;
+}
+
+
+// The SVG of the icon \a name in the icon directory, empty without it.
+std::span<const std::uint8_t>
+ReadIcon(std::string_view name)
+{
+	if (!IsIconName(name))
+		return {};
+	const std::filesystem::path directory = BIconUtils::SystemIconDirectory();
+	if (directory.empty())
+		return {};
+	std::u8string file(name.begin(), name.end());
+	file += u8".svg";
+	const std::filesystem::path path = directory / std::filesystem::path(file);
+
+	std::scoped_lock lock(sIconLock);
+	if (const auto found = sReadIcons.find(path); found != sReadIcons.end())
+		return *found->second;
+	std::error_code error;
+	if (!std::filesystem::is_regular_file(path, error))
+		return {};
+	const std::uintmax_t size = std::filesystem::file_size(path, error);
+	if (error || size == 0 || size > kLargestIconFile)
+		return {};
+	std::ifstream stream(path, std::ios::binary);
+	auto data = std::make_unique<std::vector<std::uint8_t>>(
+		(std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+	if (!stream.good() && !stream.eof())
+		return {};
+	const std::span<const std::uint8_t> read(*data);
+	sReadIcons.emplace(path, std::move(data));
+	return read;
+}
 
 
 } // namespace
@@ -114,6 +190,31 @@ BIconUtils::SystemIconData(std::string_view name)
 		if (icon.name == name)
 			return {icon.data, *icon.size};
 	}
+	return ReadIcon(name);
+}
+
+
+void
+BIconUtils::SetSystemIconDirectory(const std::filesystem::path& directory)
+{
+	std::scoped_lock lock(sIconLock);
+	if (directory.empty())
+		sIconDirectory.reset();
+	else
+		sIconDirectory = directory;
+}
+
+
+std::filesystem::path
+BIconUtils::SystemIconDirectory()
+{
+	{
+		std::scoped_lock lock(sIconLock);
+		if (sIconDirectory.has_value())
+			return *sIconDirectory;
+	}
+	if (const std::optional<std::string> variable = detail::EnvironmentVariable("NGUI_ICON_DIR"))
+		return std::filesystem::path(std::u8string(variable->begin(), variable->end()));
 	return {};
 }
 

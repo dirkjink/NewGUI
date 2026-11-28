@@ -1,0 +1,15 @@
+--- a/source/svgparser.cpp
++++ b/source/svgparser.cpp
+@@ -618,6 +618,12 @@
+     auto start = value.find("/*");
+     while(start != std::string::npos) {
+         auto end = value.find("*/", start + 2);
++        if(end == std::string::npos) {
++            // an unclosed comment runs to the end; erase(start, npos - start + 2)
++            // wrapped around to a length of 0 for start 1 and never ended
++            value.erase(start);
++            break;
++        }
+         value.erase(start, end - start + 2);
+         start = value.find("/*");
+     }

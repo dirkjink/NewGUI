@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>GI Gibraltar</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.695652 -1.032258 1.73913)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869564)" fill="#da000c"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M26 38L28 37L28 27L30 29L30 25L28 21L31 23L31 22L33 22L33 23L36 21L34 25L34 29L36 27L36 37L38 38Z" transform="matrix(1 0 0 1 0 1)" fill="#da000c"/>
+<path d="M26 38L28 37L28 27L30 29L30 25L28 21L31 23L31 22L33 22L33 23L36 21L34 25L34 29L36 27L36 37L38 38Z" transform="matrix(0.882353 0 0 0.882353 -3.235294 4.470588)" fill="#da000c"/>
+<path d="M26 38L28 37L28 27L30 29L30 25L28 21L31 23L31 22L33 22L33 23L36 21L34 25L34 29L36 27L36 37L38 38Z" transform="matrix(0.882353 0 0 0.882353 10.764706 4.470588)" fill="#da000c"/>
+<path d="M30 37L34 37L34 34C34 34 32 30 30 34C30 36 30 37 30 37Z" transform="matrix(1 0 0 1.207792 0 -6.688312)" fill="#000000"/>
+<path d="M30 37L34 37L34 34C34 34 32 30 30 34C30 36 30 37 30 37Z" transform="matrix(1 0 0 1 -7 0)" fill="#000000"/>
+<path d="M30 37L34 37L34 34C34 34 32 30 30 34C30 36 30 37 30 37Z" transform="matrix(1 0 0 1 7 0)" fill="#000000"/>
+<path d="M30 37L34 37L34 34C34 34 32 30 30 34C30 36 30 37 30 37Z" transform="matrix(0.5 0 0 0.707792 16 3.811688)" fill="#000000"/>
+<path d="M30 37L34 37L34 34C34 34 32 30 30 34C30 36 30 37 30 37Z" transform="matrix(0.5 0 0 0.5 23 11.5)" fill="#000000"/>
+<path d="M30 37L34 37L34 34C34 34 32 30 30 34C30 36 30 37 30 37Z" transform="matrix(0.5 0 0 0.5 9 11.5)" fill="#000000"/>
+<path d="M30 38L32 41L29 43L32 45L32 50L30 50L32 52L30 53L34 53L33 45L36 43L33 41L34 38" fill="#f8d80e"/>
+</svg>

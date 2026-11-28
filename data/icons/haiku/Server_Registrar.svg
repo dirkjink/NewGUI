@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Server_Registrar</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.232579 0.440557 -0.884331 0.466857 58.895508 14.005615)" color-interpolation="sRGB"><stop offset="0" stop-color="#e3ad00"/><stop offset="0.125" stop-color="#e2ac00"/><stop offset="0.25" stop-color="#dea901"/><stop offset="0.375" stop-color="#d8a501"/><stop offset="0.5" stop-color="#d09e02"/><stop offset="0.625" stop-color="#c79704"/><stop offset="0.75" stop-color="#c19304"/><stop offset="0.875" stop-color="#bd9005"/><stop offset="1" stop-color="#bc8f05"/></linearGradient>
+<radialGradient id="g2" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.425125 0.189383 -0.117061 0.262777 17.736938 30.1521)" color-interpolation="sRGB"><stop offset="0.2392" stop-color="#769564"/><stop offset="0.3343" stop-color="#759463"/><stop offset="0.4294" stop-color="#729060"/><stop offset="0.5245" stop-color="#6c8a5b"/><stop offset="0.6196" stop-color="#648254"/><stop offset="0.7147" stop-color="#5d794d"/><stop offset="0.8098" stop-color="#577348"/><stop offset="0.9049" stop-color="#546f45"/><stop offset="1" stop-color="#536e44"/></radialGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(-0.081151 0.012101 0.147483 0.989063 43.369629 4.638519)" color-interpolation="sRGB"><stop offset="0" stop-color="#b58a00"/><stop offset="0.125" stop-color="#b48900"/><stop offset="0.25" stop-color="#af8500"/><stop offset="0.375" stop-color="#a88001"/><stop offset="0.5" stop-color="#9d7802"/><stop offset="0.625" stop-color="#926f02"/><stop offset="0.75" stop-color="#8b6a03"/><stop offset="0.875" stop-color="#866603"/><stop offset="1" stop-color="#856503"/></linearGradient>
+<linearGradient id="g4" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.045836 0.218984 -0.810993 0.169749 54.411865 2.858734)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffefc0"/><stop offset="0.125" stop-color="#ffeebe"/><stop offset="0.25" stop-color="#ffedb8"/><stop offset="0.375" stop-color="#ffeaad"/><stop offset="0.5" stop-color="#ffe69e"/><stop offset="0.625" stop-color="#ffe38f"/><stop offset="0.75" stop-color="#ffe084"/><stop offset="0.875" stop-color="#ffdf7e"/><stop offset="1" stop-color="#ffde7c"/></linearGradient>
+</defs>
+<path d="M43 61L57.236 61 59.683 56.106 43 47.764Z" fill="#000000" fill-opacity="0.4196"/>
+<path d="M6 40L44 59L46 57L46 18L8 6L6 7Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M6 40L44 59L44 20L6 7Z" fill="url(#g1)"/>
+<path d="M40 52L10 37L10 12L40 23Z" fill="url(#g2)"/>
+<path d="M12 36L12 13L10 12L10 37Z" fill="url(#g3)"/>
+<path d="M44 59L46 57L46 18L44 20Z" fill="url(#g3)"/>
+<path d="M8 6L6 7L44 20L46 18Z" fill="url(#g4)"/>
+<path d="M10 37L40 52L40 49L12 36Z" fill="url(#g4)"/>
+<path d="M14 20L32 32M29 23L29 34M25 22L25 32M21 20L21 30M17 19L17 28" stroke="#ffffff" fill="none" stroke-width="2"/>
+</svg>
