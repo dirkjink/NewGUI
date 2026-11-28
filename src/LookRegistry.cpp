@@ -39,7 +39,8 @@ IsCompatible(const LookInfo& info, const gfx::Caps& caps)
 		&& covered(need.conicGradient, caps.conicGradient)
 		&& covered(need.blendModes, caps.blendModes)
 		&& covered(need.offscreenTargets, caps.offscreenTargets)
-		&& covered(need.blurFilter, caps.blurFilter);
+		&& covered(need.blurFilter, caps.blurFilter)
+		&& covered(need.linearBlending, caps.linearBlending);
 }
 
 

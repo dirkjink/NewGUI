@@ -259,6 +259,32 @@ TEST(SnapshotSkiaTest, TheFormInTheDarkColors)
 }
 
 
+TEST(SnapshotSkiaTest, TheFormInLinearLight)
+{
+	// What is tested: The form of SnapshotsAreWhatTheWindowShows in the BeOS
+	// look after the application switched to blending in linear light
+	// (BApplication::SetBlending(Linear)), against its reference snapshot.
+	// Success criteria: It matches SnapshotSkiaTest_LinearForm.be.skia.1x.png
+	// within the text tolerance: the same controls and colors, with lighter
+	// antialiased edges and text and gradients that run in linear light.
+	// Why it matters: The reference, checked by eye, pins what linear
+	// blending does to a whole window (specification 24.1).
+	//
+	// Given
+	FormApp app;
+
+	// When
+	BApplication::SetBlending(gfx::Blending::Linear);
+	ASSERT_TRUE(app.Drive().WaitForIdle().has_value());
+	WindowRef window = app.Window();
+
+	// Then
+	EXPECT_IMAGE_SNAPSHOT(window, "LinearForm",
+		{.look = "be", .backend = "skia", .tolerance = Tolerance::Text()});
+	BApplication::SetBlending(gfx::Blending::Encoded);
+}
+
+
 TEST(SnapshotSkiaTest, TheFormInTheFlatLook)
 {
 	// What is tested: The form of SnapshotsAreWhatTheWindowShows, opened

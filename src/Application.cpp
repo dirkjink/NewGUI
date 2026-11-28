@@ -62,6 +62,7 @@ platform::Platform* sPlatform = nullptr;
 std::atomic<BWindowFrames> sWindowFrames = BWindowFrames::System;
 // which colors the application shows (from any thread)
 std::atomic<BColorScheme> sColorScheme = BColorScheme::System;
+std::atomic<gfx::Blending> sBlending = gfx::Blending::Encoded;
 
 
 bool
@@ -171,6 +172,14 @@ BApplication::BApplication(std::string_view signature, int argc, char** argv)
 			sColorScheme = BColorScheme::Dark;
 		else if (*scheme == "system")
 			sColorScheme = BColorScheme::System;
+	}
+	// how the windows blend (specification 24.1)
+	if (const std::optional<std::string> blending = detail::EnvironmentVariable(
+			"NGUI_BLENDING")) {
+		if (*blending == "linear")
+			sBlending = gfx::Blending::Linear;
+		else if (*blending == "encoded")
+			sBlending = gfx::Blending::Encoded;
 	}
 	// Remote control only when asked (rule T4): here by the environment.
 	if (detail::EnvironmentVariable("NGUI_REMOTE_CONTROL").value_or("") == "1") {
@@ -432,6 +441,22 @@ BColorScheme
 BApplication::ColorScheme()
 {
 	return sColorScheme;
+}
+
+
+void
+BApplication::SetBlending(gfx::Blending blending)
+{
+	if (sBlending.exchange(blending) == blending)
+		return;
+	detail::PostToWindows(kBlendingChanged);
+}
+
+
+gfx::Blending
+BApplication::Blending()
+{
+	return sBlending;
 }
 
 

@@ -33,6 +33,12 @@ Backend::AddFont(FontId, std::span<const std::byte>, std::uint32_t)
 }
 
 
+void
+Backend::SetBlending(Blending)
+{
+}
+
+
 std::expected<std::vector<std::byte>, Error>
 Backend::EncodePng(const PixelData&)
 {

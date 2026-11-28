@@ -138,6 +138,10 @@ inline constexpr std::uint32_t kLookChanged = FourCharCode("_LKC");
 	(BView::MessageReceived()) and draws anew. */
 inline constexpr std::uint32_t kColorsUpdated = FourCharCode("_CLU");
 
+/*!	NewGUI: the way of blending changed (BApplication::SetBlending()): sent
+	to every window, which draws everything anew (specification 24.1). */
+inline constexpr std::uint32_t kBlendingChanged = FourCharCode("_BLC");
+
 
 /*!	Files chosen to open (B_REFS_RECEIVED), e.g. in a BFilePanel: their
 	paths as UTF-8 strings in "paths" (NewGUI; Haiku: entry_refs in

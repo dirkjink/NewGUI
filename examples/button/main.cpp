@@ -128,6 +128,7 @@ constexpr std::uint32_t kChosen = FourCharCode("CHSN");
 constexpr std::uint32_t kOpen = FourCharCode("OPEN");
 constexpr std::uint32_t kLook = FourCharCode("LOOK");
 constexpr std::uint32_t kNotify = FourCharCode("NTFY");
+constexpr std::uint32_t kBlending = FourCharCode("BLND");
 
 
 // The message of the Notify menu's item for \a type.
@@ -451,6 +452,13 @@ public:
 			item->SetMarked(look.id == current);
 			looks->AddItem(std::move(item));
 		}
+		// blending in linear light, for all windows (specification 24.1)
+		auto optionsMenu = std::make_unique<BMenu>(B_TRANSLATE("Options"));
+		auto blending = std::make_unique<BMenuItem>(B_TRANSLATE("Linear blending"),
+			std::make_unique<BMessage>(kBlending));
+		blending->SetMarked(BApplication::Blending() == gfx::Blending::Linear);
+		fBlending = blending.get();
+		optionsMenu->AddItem(std::move(blending));
 		auto menuBar = std::make_unique<BMenuBar>("menu bar");
 		BLayoutBuilder::Menu<>(menuBar.get())
 			.AddMenu(B_TRANSLATE("File"))
@@ -466,6 +474,7 @@ public:
 				.AddItem(B_TRANSLATE("Red"), kStyleRed)
 			.End()
 			.AddMenu(std::move(looks)).End()
+			.AddMenu(std::move(optionsMenu)).End()
 			.AddMenu(B_TRANSLATE("Notify"))
 				.AddItem(B_TRANSLATE("Information"), NotifyMessage(BNotificationType::Information))
 				.AddItem(B_TRANSLATE("Important"), NotifyMessage(BNotificationType::Important))
@@ -604,6 +613,13 @@ public:
 				std::fprintf(stderr, "%s\n", result.error().message.c_str());
 			return;
 		}
+		if (message->what == kBlending) {
+			// every window blends anew, the icons stay as Haiku draws them
+			const bool linear = !fBlending->IsMarked();
+			fBlending->SetMarked(linear);
+			BApplication::SetBlending(linear ? gfx::Blending::Linear : gfx::Blending::Encoded);
+			return;
+		}
 		if (message->what == kNotify) {
 			// a notification of the system, with Haiku's icon of its type
 			const auto type = static_cast<BNotificationType>(message->GetInt32("type", 0));
@@ -647,6 +663,7 @@ private:
 	BListView* fKits = nullptr;
 	BOutlineListView* fClasses = nullptr;
 	BColumnListView* fFiles = nullptr;
+	BMenuItem* fBlending = nullptr;
 	BStatusBar* fStatus = nullptr;
 	BTabView* fTabs = nullptr;
 	std::unique_ptr<BFilePanel> fOpenPanel;

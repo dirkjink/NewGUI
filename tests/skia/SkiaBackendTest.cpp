@@ -371,7 +371,8 @@ TEST(SkiaBackendTest, SurfacesAndRegistration)
 	// readable as premultiplied 8-bit data; invalid sizes or scales give no
 	// surface; "skia" registers once with a higher priority than "dump"; it
 	// draws the paths of the extended profile (Caps::bezierPaths,
-	// concavePolygons) and has GPU surfaces (Skia with OpenGL, phase G).
+	// concavePolygons), blends in linear light if asked (linearBlending,
+	// 24.1) and has GPU surfaces (Skia with OpenGL, phase G).
 	// Why it matters: Tests and the CPU presenter read these pixels
 	// (specification 13.3); the registry decides which backend a program
 	// starts with.
@@ -398,7 +399,7 @@ TEST(SkiaBackendTest, SurfacesAndRegistration)
 	EXPECT_FALSE(SkiaBackend::Register(registry));
 	EXPECT_EQ(registry.Names().front(), "skia");
 	EXPECT_EQ(backend.Capabilities(), (Caps{.gpuSurfaces = true, .bezierPaths = true,
-		.concavePolygons = true}));
+		.concavePolygons = true, .linearBlending = true}));
 }
 
 
