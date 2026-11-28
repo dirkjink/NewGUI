@@ -11,6 +11,7 @@
 #include <atomic>
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -21,6 +22,8 @@
 #include <ngui/TextLayout.h>
 #include <ngui/gfx/Canvas.h>
 #include <ngui/gfx/SvgExportBackend.h>
+
+#include "support/ScopedLook.h"
 
 
 namespace {
@@ -59,6 +62,8 @@ TEST(FontTextSystemTest, MetricsComeFromTheBundledFonts)
 	// font's, the same on every system (specification 20.3).
 	//
 	// Given
+	// the bundled Noto as the role fonts: a look that names none
+	const test::ScopedLook noto("haiku");
 	const auto text = Bundled();
 	const auto large = Bundled(24);
 
@@ -91,6 +96,8 @@ TEST(FontTextSystemTest, ShapingGivesGlyphsPositionsAndClusters)
 	// 10); the clusters let text views map glyphs back to the text (M21).
 	//
 	// Given
+	// the bundled Noto as the role fonts: a look that names none
+	const test::ScopedLook noto("haiku");
 	const auto text = Bundled();
 
 	// When
@@ -120,11 +127,14 @@ TEST(FontTextSystemTest, TruncationUsesTheCharactersAdvances)
 	// text that fits, and the font files the system hands to backends.
 	// Success criteria: With O 9.372, K 7.428, space 3.12 and "…" 9.492 px,
 	// Haiku's algorithm keeps "O…" at 20 px; a text that fits stays; the
-	// three fonts have the ids 1 to 3, their roles and non-empty files.
+	// six bundled fonts come first, Noto's three with the ids 1 to 3 and
+	// their roles, the BeOS look's Liberation fonts after them.
 	// Why it matters: X5 asks for Haiku's truncation with the font's
 	// metrics; backends need the same files to draw the glyphs (13.4).
 	//
 	// Given
+	// the bundled Noto as the role fonts: a look that names none
+	const test::ScopedLook noto("haiku");
 	const auto text = Bundled();
 
 	// When / Then
@@ -132,7 +142,7 @@ TEST(FontTextSystemTest, TruncationUsesTheCharactersAdvances)
 		"O…");
 	EXPECT_EQ(text->Truncate("OK", 20, TruncationMode::End, FontRole::Plain), "OK");
 	const auto fonts = text->Fonts();
-	ASSERT_EQ(fonts.size(), 3u);
+	ASSERT_EQ(fonts.size(), 6u);
 	EXPECT_EQ(fonts[0].id, 1u);
 	EXPECT_EQ(fonts[1].role, FontRole::Bold);
 	EXPECT_EQ(fonts[2].role, FontRole::Fixed);
@@ -267,7 +277,8 @@ TEST(FontTextSystemTest, FontsOfAnySizeAndTheirStyles)
 	// of "Haiku", the run of "Haiku" and the truncation of "Haiku is
 	// here" to 100 pixels at 24.
 	// Success criteria: "Noto Sans" has Regular (font 1) and Bold (font 2),
-	// "Noto Sans Mono" Regular (font 3, monospaced). At 24 the bold font
+	// "Noto Sans Mono" Regular (font 3, monospaced), then the BeOS look's
+	// "Liberation Sans" and "Liberation Mono" (fonts 4 to 6). At 24 the bold font
 	// is font 2 at 24; its width and metrics are twice those at 12 and its
 	// run says 24 pixels; truncation to 100 pixels at 24 cuts as to 50 at
 	// 12.
@@ -276,6 +287,8 @@ TEST(FontTextSystemTest, FontsOfAnySizeAndTheirStyles)
 	// only the roles' (W7).
 	//
 	// Given
+	// the bundled Noto as the role fonts: a look that names none
+	const test::ScopedLook noto("haiku");
 	const auto text = Bundled();
 	TextSystem::SetDefault(text.get());
 	BFont font;
@@ -296,12 +309,13 @@ TEST(FontTextSystemTest, FontsOfAnySizeAndTheirStyles)
 
 	// Then
 	const std::vector<FontFamilyStyle> styles = text->Styles();
-	ASSERT_EQ(styles.size(), 3u);
+	ASSERT_EQ(styles.size(), 6u);
 	EXPECT_EQ(styles[0].family, "Noto Sans");
 	EXPECT_EQ(styles[1].style, "Bold");
 	EXPECT_EQ(styles[1].font, 2u);
 	EXPECT_TRUE(styles[2].fixed);
-	EXPECT_EQ(BFont::Families(), (std::vector<std::string>{"Noto Sans", "Noto Sans Mono"}));
+	EXPECT_EQ(BFont::Families(), (std::vector<std::string>{"Noto Sans", "Noto Sans Mono",
+		"Liberation Sans", "Liberation Mono"}));
 	EXPECT_EQ(spec.font, 2u);
 	EXPECT_EQ(spec.size, 24);
 	EXPECT_FLOAT_EQ(width24, 2 * width12);
@@ -333,6 +347,8 @@ TEST(FontTextSystemTest, GlyphOutlinesComeFromTheFont)
 	// (specification 19.3), so that the text looks the same everywhere.
 	//
 	// Given
+	// the bundled Noto as the role fonts: a look that names none
+	const test::ScopedLook noto("haiku");
 	const auto text = Bundled();
 	ASSERT_NE(text, nullptr);
 	const ShapedText letters = text->Shape("O ", FontRole::Plain);
@@ -379,6 +395,72 @@ TEST(FontTextSystemTest, GlyphOutlinesComeFromTheFont)
 	EXPECT_EQ(count(*paths, "<use "), 5u);
 	EXPECT_NE(words->find("font-family=\"Noto Sans\""), std::string::npos) << *words;
 	EXPECT_NE(words->find(">Hello</text>"), std::string::npos);
+}
+
+
+TEST(FontTextSystemTest, TheBeOSLookDrawsInLiberation)
+{
+	// What is tested: The bundled text system while the BeOS look is
+	// current, then the Haiku look: the role fonts, BFont::Plain() and
+	// Fixed(), the styles and fonts it offers; "a\u2031" (a per ten
+	// thousand sign Liberation Sans lacks) shaped plain and bold, "a\u2501"
+	// (a box drawing line only Noto Sans Mono has) shaped plain.
+	// Success criteria: Under the BeOS look the roles are Liberation Sans
+	// (font 4), Bold (font 5) and Liberation Mono (font 6), and
+	// BFont::Plain() and Fixed() say so; the styles list both families,
+	// Fonts() starts with the six bundled fonts. The sign comes from Noto
+	// Sans (font 1) for the plain text and Noto Sans Bold (font 2) for the
+	// bold, the line from Noto Sans Mono (font 3): Noto first, its role's
+	// first. Under the Haiku look the roles are fonts 1 to 3 again.
+	// Why it matters: The BeOS look draws in free fonts close to BeOS R5's
+	// (specification 24 point 9); what they lack must look the same on every
+	// machine, so it comes from the bundled Noto before the system's fonts.
+	//
+	// Given
+	const test::ScopedLook be("be");
+	const auto text = Bundled();
+	TextSystem::SetDefault(text.get());
+	const auto runFonts = [](const ShapedText& shaped) {
+		std::vector<gfx::FontId> fonts;
+		for (const ShapedFontRun& run : shaped.fontRuns)
+			fonts.push_back(run.font);
+		return fonts;
+	};
+
+	// When
+	const FontSpec plain = text->RoleFont(FontRole::Plain);
+	const FontSpec bold = text->RoleFont(FontRole::Bold);
+	const FontSpec fixed = text->RoleFont(FontRole::Fixed);
+	std::string plainFamily;
+	std::string fixedFamily;
+	BFont::Plain().GetFamilyAndStyle(&plainFamily, nullptr);
+	BFont::Fixed().GetFamilyAndStyle(&fixedFamily, nullptr);
+	const std::optional<FontFamilyStyle> sans = text->Style("Liberation Sans", "Regular");
+	const std::vector<FontFile> files = text->Fonts();
+	const ShapedText sign = text->Shape("a\u2031", FontRole::Plain);
+	const ShapedText boldSign = text->Shape("a\u2031", FontRole::Bold);
+	const ShapedText line = text->Shape("a\u2501", FontRole::Plain);
+	FontSpec haikuPlain{};
+	{
+		const test::ScopedLook haiku("haiku");
+		haikuPlain = text->RoleFont(FontRole::Plain);
+	}
+
+	// Then
+	EXPECT_EQ(plain.font, 4u);
+	EXPECT_EQ(bold.font, 5u);
+	EXPECT_EQ(fixed.font, 6u);
+	EXPECT_EQ(plainFamily, "Liberation Sans");
+	EXPECT_EQ(fixedFamily, "Liberation Mono");
+	ASSERT_TRUE(sans.has_value());
+	EXPECT_EQ(sans->font, 4u);
+	ASSERT_GE(files.size(), 6u);
+	EXPECT_EQ(files[5].id, 6u);
+	EXPECT_EQ(runFonts(sign), (std::vector<gfx::FontId>{4, 1}));
+	EXPECT_EQ(runFonts(boldSign), (std::vector<gfx::FontId>{5, 2}));
+	EXPECT_EQ(runFonts(line), (std::vector<gfx::FontId>{4, 3}));
+	EXPECT_EQ(haikuPlain.font, 1u);
+	TextSystem::SetDefault(nullptr);
 }
 
 

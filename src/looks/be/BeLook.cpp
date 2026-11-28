@@ -18,7 +18,10 @@ std::shared_ptr<const ControlLook>
 CreateBeLook()
 {
 	return std::make_shared<const detail::PortedLook<compat::BeControlLook>>(
-		LookInfo{"be", "BeOS", 1, ConformanceLevel::C1, {}});
+		LookInfo{"be", "BeOS", 1, ConformanceLevel::C1, {},
+			// free fonts close to BeOS R5's Swis721 BT and Courier10 BT
+			{{"Liberation Sans", "Regular"}, {"Liberation Sans", "Bold"},
+				{"Liberation Mono", "Regular"}}});
 }
 
 

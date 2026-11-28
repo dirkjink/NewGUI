@@ -21,6 +21,8 @@
 #include <ngui/gfx/Region.h>
 #include <ngui/text/FontSource.h>
 
+#include "support/ScopedLook.h"
+
 
 namespace {
 
@@ -114,6 +116,8 @@ TEST(BidiTest, ShapingOrdersMirrorsAndJoins)
 	// brackets turned and its letters joined (module X3).
 	//
 	// Given
+	// the bundled Noto as the role fonts: a look that names none
+	const test::ScopedLook noto("haiku");
 	const auto text = WithRightToLeft();
 
 	// When

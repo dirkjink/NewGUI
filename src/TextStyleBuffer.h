@@ -75,6 +75,9 @@ public:
 									std::optional<gfx::Color>* color, bool* sameColor,
 									int32 from, int32 to) const;
 
+			// NewGUI: every style in \a from's family and style (the null
+			// style too) in \a to's, keeping its size and the rest.
+			void				ReplaceFont(const BFont& from, const BFont& to);
 			int32				OffsetToRun(int32 offset) const;
 			void				BumpOffset(int32 delta, int32 index);
 			int32				NumRuns() const;

@@ -261,7 +261,10 @@ if(NGUI_WITH_TEXT)
     foreach(font IN ITEMS
             "NotoSans-Regular|kNotoSansRegular"
             "NotoSans-Bold|kNotoSansBold"
-            "NotoSansMono-Regular|kNotoSansMonoRegular")
+            "NotoSansMono-Regular|kNotoSansMonoRegular"
+            "LiberationSans-Regular|kLiberationSansRegular"
+            "LiberationSans-Bold|kLiberationSansBold"
+            "LiberationMono-Regular|kLiberationMonoRegular")
         string(REPLACE "|" ";" parts "${font}")
         list(GET parts 0 file)
         list(GET parts 1 symbol)

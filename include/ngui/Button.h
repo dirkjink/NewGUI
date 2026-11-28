@@ -8,6 +8,7 @@
 
 
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include <ngui/Control.h>
@@ -63,6 +64,10 @@ public:
 									/*!< Presses it and follows the mouse. */
 			void				AttachedToWindow() override;
 									/*!< A default button tells its window. */
+			void				MessageReceived(BMessage* message) override;
+									/*!< NewGUI: when the look changes, a button made with a
+										frame takes the height its constructor gives it
+										with the new look's font (specification 18.7). */
 			void				KeyDown(std::string_view bytes) override;
 									/*!< Enter and space press and invoke it. */
 
@@ -126,6 +131,8 @@ private:
 			bool				_SetFlag(std::uint32_t flag, bool set);
 
 			gfx::Size			fPreferredSize = {-1, -1};
+			// the height the frame constructor was given
+			std::optional<float> fFrameHeight;
 			std::uint32_t		fFlags = 0;
 			BBehavior			fBehavior = BBehavior::Button;
 			std::unique_ptr<BMessage> fPopUpMessage;

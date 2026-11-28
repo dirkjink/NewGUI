@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <ngui/AppDefs.h>
 #include <ngui/LayoutUtils.h>
 #include <ngui/Message.h>
 #include <ngui/TextSystem.h>
@@ -49,18 +50,33 @@ enum {
 } // namespace
 
 
+namespace {
+
+
+// The least height of a button made with a frame (its constructor): the
+// plain font's size and height.
+float
+MinimumHeight()
+{
+	const TextSystem& text = TextSystem::Default();
+	const FontHeight fh = text.Height(FontRole::Plain);
+	// NewGUI: a pixel count
+	return text.FontSize(FontRole::Plain) + std::ceil(fh.ascent + fh.descent) + 1;
+}
+
+
+} // namespace
+
+
 BButton::BButton(gfx::Rect frame, std::string_view name, std::string_view label,
 	std::unique_ptr<BMessage> message, BResizingMode resizingMode, BViewFlags flags)
 	:
 	BControl(frame, name, label, std::move(message), resizingMode,
 		flags | BViewFlag::WillDraw | BViewFlag::FullUpdateOnResize)
 {
+	fFrameHeight = Bounds().Height();
 	// Resize to minimum height if needed
-	const TextSystem& text = TextSystem::Default();
-	const FontHeight fh = text.Height(FontRole::Plain);
-	float minHeight = text.FontSize(FontRole::Plain) + std::ceil(fh.ascent + fh.descent);
-	// NewGUI: a pixel count
-	minHeight += 1;
+	const float minHeight = MinimumHeight();
 	if (Bounds().Height() < minHeight)
 		ResizeTo(Bounds().Width(), minHeight);
 }
@@ -158,6 +174,21 @@ BButton::AttachedToWindow()
 
 	if (IsDefault())
 		Window()->SetDefaultButton(this);
+}
+
+
+void
+BButton::MessageReceived(BMessage* message)
+{
+	// NewGUI: the look's font may be another (LookInfo::fonts); a button
+	// made with a frame takes the height its constructor would give it now,
+	// so that switching the look is like starting in it (18.7)
+	if (message->what == kLookChanged && fFrameHeight.has_value()) {
+		const float height = std::max(*fFrameHeight, MinimumHeight());
+		if (Bounds().Height() != height)
+			ResizeTo(Bounds().Width(), height);
+	}
+	BControl::MessageReceived(message);
 }
 
 

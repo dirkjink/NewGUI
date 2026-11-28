@@ -81,6 +81,10 @@ public:
 									/*!< Takes its parent's view color. */
 			void				AllAttached() override;
 									/*!< Without layout: fits its height to the menu bar. */
+			void				MessageReceived(BMessage* message) override;
+									/*!< NewGUI: when the look changes, without layout the
+										menu bar and the field take the heights of the new
+										look's font (specification 18.7). */
 			void				MouseDown(gfx::Point where) override;
 									/*!< Opens the menu. */
 			void				KeyDown(std::string_view bytes) override;
@@ -155,6 +159,10 @@ protected:
 
 private:
 	friend class MenuFieldBar;
+
+			// Without layout: the menu bar's preferred height, the field fit
+			// to it (the constructor and AllAttached()).
+			void				_FitWithoutLayout();
 
 			class LabelLayoutItem;
 			class MenuBarLayoutItem;

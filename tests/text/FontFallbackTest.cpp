@@ -20,6 +20,8 @@
 
 #include <ngui/text/FontSource.h>
 
+#include "support/ScopedLook.h"
+
 
 namespace {
 
@@ -95,6 +97,8 @@ TEST(FontFallbackTest, CharactersComeFromTheOtherBundledFonts)
 	// font lacks while another font has them (module X1).
 	//
 	// Given
+	// the bundled Noto as the role fonts: a look that names none
+	const test::ScopedLook noto("haiku");
 	const auto text = std::move(*FontTextSystem::CreateBundled());
 
 	// When
@@ -127,7 +131,7 @@ TEST(FontFallbackTest, CharactersComeFromTheOtherBundledFonts)
 	EXPECT_EQ(none.Runs().size(), 1u);
 	EXPECT_EQ(text->Truncate("→→→→", 20, TruncationMode::End,
 		FontRole::Plain), "→…");
-	EXPECT_EQ(text->Fonts().size(), 3u);
+	EXPECT_EQ(text->Fonts().size(), 6u);
 }
 
 
@@ -137,18 +141,21 @@ TEST(FontFallbackTest, ASourceAddsFontsOfTheSystem)
 	// "a日本한X😀" in the plain role, shaped twice; "日" in the bold role;
 	// "一一一" truncated to 25 px; Thai characters whose fonts cannot be
 	// read (a missing file, a face the collection lacks).
-	// Success criteria: Runs "a" in font 1, "日本" in font 4 (face 0),
-	// "한" in font 5 (face 1), "X😀" in font 1 (the source's font lacks the
-	// emoji, which stays a missing glyph). Fonts() lists 4 and 5 with their
-	// face indices and the mapped file. The source is asked once per font
-	// and character, like the font asked for ("Noto Sans" "Regular", then
-	// "Bold"), not again for the second shaping; the bold "日" reuses font
-	// 4. Truncation uses 一's 12 px (1000 units): "一…" fits 25 px, two
-	// would not. Unreadable fonts are not added and the text keeps its font.
+	// Success criteria: Runs "a" in font 1, "日本" in font 7 (face 0; the
+	// six bundled fonts have 1 to 6), "한" in font 8 (face 1), "X😀" in
+	// font 1 (the source's font lacks the emoji, which stays a missing
+	// glyph). Fonts() lists 7 and 8 with their face indices and the mapped
+	// file. The source is asked once per font and character, like the font
+	// asked for ("Noto Sans" "Regular", then "Bold"), not again for the
+	// second shaping; the bold "日" reuses font 7. Truncation uses 一's
+	// 12 px (1000 units): "一…" fits 25 px, two would not. Unreadable fonts
+	// are not added and the text keeps its font.
 	// Why it matters: Fonts of the system fill in what the bundled ones
 	// lack, loaded once and handed to the backends (module X1).
 	//
 	// Given
+	// the bundled Noto as the role fonts: a look that names none
+	const test::ScopedLook noto("haiku");
 	auto requests = std::make_shared<std::vector<TestSource::Request>>();
 	const auto text = std::move(*FontTextSystem::Create(std::make_unique<TestSource>(requests)));
 
@@ -166,9 +173,9 @@ TEST(FontFallbackTest, ASourceAddsFontsOfTheSystem)
 	// Then
 	ASSERT_EQ(shaped.fontRuns.size(), 4u);
 	EXPECT_EQ(shaped.fontRuns[0].font, 1u);
-	EXPECT_EQ(shaped.fontRuns[1].font, 4u);
+	EXPECT_EQ(shaped.fontRuns[1].font, 7u);
 	EXPECT_EQ(shaped.fontRuns[1].end, 3u);
-	EXPECT_EQ(shaped.fontRuns[2].font, 5u);
+	EXPECT_EQ(shaped.fontRuns[2].font, 8u);
 	EXPECT_EQ(shaped.fontRuns[3].font, 1u);
 	EXPECT_NE(shaped.glyphs[1], 0u);
 	EXPECT_NE(shaped.glyphs[3], 0u);
@@ -180,15 +187,15 @@ TEST(FontFallbackTest, ASourceAddsFontsOfTheSystem)
 	EXPECT_EQ((*requests)[0].style, "Regular");
 	EXPECT_EQ((*requests)[4].style, "Bold");
 	ASSERT_EQ(bold.fontRuns.size(), 1u);
-	EXPECT_EQ(bold.fontRuns[0].font, 4u);
+	EXPECT_EQ(bold.fontRuns[0].font, 7u);
 	EXPECT_EQ(truncated, "一…");
 	EXPECT_TRUE(thai.fontRuns.empty());
-	ASSERT_EQ(fonts.size(), 5u);
-	EXPECT_EQ(fonts[3].id, 4u);
-	EXPECT_EQ(fonts[3].faceIndex, 0u);
-	EXPECT_EQ(fonts[4].id, 5u);
-	EXPECT_EQ(fonts[4].faceIndex, 1u);
-	EXPECT_GT(fonts[4].data.size(), 1000u);
+	ASSERT_EQ(fonts.size(), 8u);
+	EXPECT_EQ(fonts[6].id, 7u);
+	EXPECT_EQ(fonts[6].faceIndex, 0u);
+	EXPECT_EQ(fonts[7].id, 8u);
+	EXPECT_EQ(fonts[7].faceIndex, 1u);
+	EXPECT_GT(fonts[7].data.size(), 1000u);
 }
 
 
@@ -197,14 +204,17 @@ TEST(FontFallbackTest, ClustersStayTogetherAndThreadsShareTheFonts)
 	// What is tested: "日" with a combining acute accent (one grapheme
 	// cluster; the collection lacks the accent, Noto Sans has it), and
 	// "日한" shaped from eight threads at once on a new text system.
-	// Success criteria: The cluster stays in one run, font 4, both glyphs
-	// with cluster 0. From the threads every shaping has the same runs, and
-	// each font is loaded once: Fonts() has five.
+	// Success criteria: The cluster stays in one run, font 7 (after the six
+	// bundled fonts), both glyphs with cluster 0. From the threads every
+	// shaping has the same runs, and each font is loaded once: Fonts() has
+	// eight.
 	// Why it matters: Splitting a cluster between fonts would draw an
 	// accent away from its letter; window threads shape at once (the text
 	// system is thread-safe).
 	//
 	// Given
+	// the bundled Noto as the role fonts: a look that names none
+	const test::ScopedLook noto("haiku");
 	auto requests = std::make_shared<std::vector<TestSource::Request>>();
 	const auto text = std::move(*FontTextSystem::Create(std::make_unique<TestSource>(requests)));
 	const auto shared = std::move(*FontTextSystem::Create(std::make_unique<TestSource>(
@@ -230,10 +240,10 @@ TEST(FontFallbackTest, ClustersStayTogetherAndThreadsShareTheFonts)
 	// Then
 	ASSERT_EQ(accented.glyphs.size(), 2u);
 	ASSERT_EQ(accented.fontRuns.size(), 1u);
-	EXPECT_EQ(accented.fontRuns[0].font, 4u);
+	EXPECT_EQ(accented.fontRuns[0].font, 7u);
 	EXPECT_EQ(accented.clusters, (std::vector<std::uint32_t>{0, 0}));
 	EXPECT_EQ(wrong, 0);
-	EXPECT_EQ(shared->Fonts().size(), 5u);
+	EXPECT_EQ(shared->Fonts().size(), 8u);
 }
 
 

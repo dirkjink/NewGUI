@@ -134,6 +134,28 @@ TextStyleBuffer::NullStyle() const
 
 
 void
+TextStyleBuffer::ReplaceFont(const BFont& from, const BFont& to)
+{
+	std::string fromFamily;
+	std::string fromStyle;
+	std::string toFamily;
+	std::string toStyle;
+	from.GetFamilyAndStyle(&fromFamily, &fromStyle);
+	to.GetFamilyAndStyle(&toFamily, &toStyle);
+	const auto replace = [&](BFont& font) {
+		std::string family;
+		std::string style;
+		font.GetFamilyAndStyle(&family, &style);
+		if (family == fromFamily && style == fromStyle)
+			(void)font.SetFamilyAndStyle(toFamily, toStyle);
+	};
+	for (TextStyleRunEntry& run : fRuns)
+		replace(run.style.font);
+	replace(fNullStyle.font);
+}
+
+
+void
 TextStyleBuffer::SetStyleRange(int32 fromOffset, int32 toOffset, int32 textLen,
 	BFontModeFlags mode, const BFont* font, const std::optional<gfx::Color>* color)
 {

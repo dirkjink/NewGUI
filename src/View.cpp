@@ -450,6 +450,9 @@ BView::MessageReceived(BMessage* message)
 		Invalidate();
 		return;
 	}
+	// the look changed: the window lays out and draws anew already
+	if (message->what == kLookChanged)
+		return;
 
 	if (message->what == kMouseIdle) {
 		std::shared_ptr<BToolTip> tip;
