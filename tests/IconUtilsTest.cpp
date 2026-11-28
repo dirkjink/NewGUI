@@ -20,9 +20,11 @@
 #include <gtest/gtest.h>
 
 #include <ngui/Bitmap.h>
+#include <ngui/MimeType.h>
 #include <ngui/svg/LunaSvgRenderer.h>
 #include <ngui/test/GTest.h>
 
+#include "MimeTable.h"
 #include "support/ScopedEnvironment.h"
 
 
@@ -453,6 +455,156 @@ TEST(IconUtilsTest, HaikusIconsMatchTheirSnapshots)
 		EXPECT_IMAGE_SNAPSHOT(row, "HaikuIcons" + std::to_string(size),
 			{.look = "none", .backend = "lunasvg", .tolerance = test::Tolerance::AntiAliased()});
 	}
+}
+
+
+// Whether \a drawn shows the system icon \a name at its size.
+bool
+ShowsIcon(const BBitmap& drawn, std::string_view name)
+{
+	BBitmap expected(drawn.Bounds(), BColorSpace::RGBA32);
+	if (!BIconUtils::GetSystemIcon(name, &expected).has_value())
+		return false;
+	return std::ranges::equal(drawn.Bits(), expected.Bits());
+}
+
+
+TEST(IconUtilsTest, EveryTypesIconIsOneOfHaikus)
+{
+	// What is tested: Each type of the database (Haiku's src/data/mime_db)
+	// with an icon, drawn by BMimeType::GetIcon() at 32 pixels with the
+	// icon directory set; a type without one (image/png).
+	// Success criteria: All 74 draw the system icon the table names; image/png
+	// has none of its own (NotFound).
+	// Why it matters: The table was made by hand from Haiku's data
+	// (tools/mime/generate-mime-table.py); each name must be an icon that
+	// exists, or a file list would show nothing.
+	//
+	// Given
+	InstalledRenderer renderer;
+	const IconDirectory directory(NGUI_HAIKU_ICONS_DIR);
+	int withIcon = 0;
+
+	// When / Then
+	for (const detail::MimeTableEntry& entry : detail::kMimeTable) {
+		if (entry.icon.empty())
+			continue;
+		SCOPED_TRACE(std::string(entry.type));
+		withIcon++;
+		BBitmap icon({0, 0, 32, 32}, BColorSpace::RGBA32);
+		ASSERT_TRUE(BMimeType(entry.type).GetIcon(&icon).has_value());
+		EXPECT_TRUE(ShowsIcon(icon, entry.icon));
+	}
+	EXPECT_EQ(withIcon, 74);
+	BBitmap icon({0, 0, 32, 32}, BColorSpace::RGBA32);
+	const auto none = BMimeType("image/png").GetIcon(&icon);
+	ASSERT_FALSE(none.has_value());
+	EXPECT_EQ(none.error().code, ErrorCode::NotFound);
+}
+
+
+TEST(IconUtilsTest, TypesFallBackToTheirSupertype)
+{
+	// What is tested: GetTypeIcon() for application/pdf (an icon of its
+	// own), image/png (none, its supertype has one), application/octet-stream
+	// (not in the database), text/x-unknown, x-unknown/y and the supertype
+	// x-unknown.
+	// Success criteria: PDF shows File_PDF; PNG the image supertype's
+	// File_Image_1; octet-stream the generic file icon File_Generic (of the
+	// supertype application); text/x-unknown text's File_Text; the unknown
+	// supertype and its type have none (NotFound).
+	// Why it matters: This is how Haiku's Tracker finds a type's icon
+	// (BNodeInfo::GetTrackerIcon()); most types have none of their own.
+	//
+	// Given
+	InstalledRenderer renderer;
+	const IconDirectory directory(NGUI_HAIKU_ICONS_DIR);
+	const auto iconOf = [](std::string_view type) -> std::optional<BBitmap> {
+		BBitmap icon({0, 0, 32, 32}, BColorSpace::RGBA32);
+		if (!BIconUtils::GetTypeIcon(BMimeType(type), &icon).has_value())
+			return std::nullopt;
+		return icon;
+	};
+
+	// When
+	const auto pdf = iconOf("application/pdf");
+	const auto png = iconOf("image/png");
+	const auto file = iconOf(kFileMimeType);
+	const auto text = iconOf("text/x-unknown");
+
+	// Then
+	ASSERT_TRUE(pdf && png && file && text);
+	EXPECT_TRUE(ShowsIcon(*pdf, "File_PDF"));
+	EXPECT_TRUE(ShowsIcon(*png, "File_Image_1"));
+	EXPECT_TRUE(ShowsIcon(*file, "File_Generic"));
+	EXPECT_TRUE(ShowsIcon(*text, "File_Text"));
+	EXPECT_FALSE(iconOf("x-unknown/y").has_value());
+	EXPECT_FALSE(iconOf("x-unknown").has_value());
+}
+
+
+TEST(IconUtilsTest, FilesShowTheIconsTrackerShows)
+{
+	// What is tested: GetFileIcon() in a temporary folder for: a folder, a
+	// zip file, a file without extension, a program (on POSIX a file its
+	// owner may run, on Windows tool.exe), a link to the zip file and one
+	// to nothing (where links can be made), the root of the file system,
+	// and a path that does not exist.
+	// Success criteria: Folder_generic, File_Archive_ZIP, File_Generic,
+	// App_Generic_2, the zip icon for the link, File_Broken_Link for the
+	// dangling one, Device_Volume for the root; NotFound for the missing
+	// path.
+	// Why it matters: A file list in an application shows each file with
+	// the icon Haiku's Tracker would show; NewGUI has neither types in
+	// attributes nor sniffing, so the kind of file and its name decide.
+	//
+	// Given
+	InstalledRenderer renderer;
+	const IconDirectory directory(NGUI_HAIKU_ICONS_DIR);
+	const std::filesystem::path folder = std::filesystem::temp_directory_path()
+		/ ("ngui-file-icons-" + std::to_string(::testing::UnitTest::GetInstance()->random_seed()));
+	std::filesystem::remove_all(folder);
+	std::filesystem::create_directories(folder / "sub");
+	const auto touch = [&folder](const char* name) {
+		std::ofstream(folder / name) << "x";
+		return folder / name;
+	};
+	const std::filesystem::path zip = touch("a.zip");
+	touch("notes");
+#ifdef _WIN32
+	const std::filesystem::path program = touch("tool.exe");
+#else
+	const std::filesystem::path program = touch("tool");
+	std::filesystem::permissions(program, std::filesystem::perms::owner_exec,
+		std::filesystem::perm_options::add);
+#endif
+	std::error_code linkError;
+	std::filesystem::create_symlink(zip, folder / "link", linkError);
+	if (!linkError)
+		std::filesystem::create_symlink(folder / "gone", folder / "dangling", linkError);
+	const auto shows = [](const std::filesystem::path& path, std::string_view name) {
+		BBitmap icon({0, 0, 32, 32}, BColorSpace::RGBA32);
+		const std::u8string utf8 = path.u8string();
+		return BIconUtils::GetFileIcon(std::string(utf8.begin(), utf8.end()), &icon)
+				.has_value()
+			&& ShowsIcon(icon, name);
+	};
+
+	// Then
+	EXPECT_TRUE(shows(folder / "sub", "Folder_generic"));
+	EXPECT_TRUE(shows(zip, "File_Archive_ZIP"));
+	EXPECT_TRUE(shows(folder / "notes", "File_Generic"));
+	EXPECT_TRUE(shows(program, "App_Generic_2"));
+	if (!linkError) {
+		EXPECT_TRUE(shows(folder / "link", "File_Archive_ZIP"));
+		EXPECT_TRUE(shows(folder / "dangling", "File_Broken_Link"));
+	}
+	EXPECT_TRUE(shows(folder.root_path(), "Device_Volume"));
+	BBitmap icon({0, 0, 32, 32}, BColorSpace::RGBA32);
+	const auto missing = BIconUtils::GetFileIcon("/no/such/file.zip", &icon);
+	ASSERT_FALSE(missing.has_value());
+	EXPECT_EQ(missing.error().code, ErrorCode::NotFound);
+	std::filesystem::remove_all(folder);
 }
 
 

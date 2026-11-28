@@ -53,6 +53,7 @@ add_executable(ngui_tests
     MessageFilterTest.cpp
     MessageRunnerTest.cpp
     MessageTest.cpp
+    MimeTypeTest.cpp
     HeyTest.cpp
     RecordingTest.cpp
     RemoteControlTest.cpp

@@ -20,6 +20,7 @@ namespace ngui {
 
 
 class BBitmap;
+class BMimeType;
 
 
 /*!	Turns a vector icon into pixels: the interface of the icon renderer
@@ -75,6 +76,22 @@ public:
 										\a result; NotFound for an icon neither built in
 										nor in the icon directory. Built in: Alert_Info,
 										Alert_Idea, Alert_Warning, Alert_Stop. */
+	static	std::expected<void, Error> GetTypeIcon(const BMimeType& type, BBitmap* result);
+									/*!< NewGUI: the icon of \a type as Tracker finds it
+										(BNodeInfo::GetTrackerIcon()): the type's own
+										(BMimeType::GetIcon()), else its supertype's;
+										application/octet-stream so gets the generic file
+										icon. NotFound if neither has one. */
+	static	std::expected<void, Error> GetFileIcon(std::string_view path, BBitmap* result);
+									/*!< NewGUI: the icon of the file \a path (UTF-8) as
+										Tracker shows it: a folder's, a volume's for the
+										root of a file system, the target's for a link
+										(the link's own if it leads nowhere); a file's
+										by the type of its name (BMimeType::GuessMimeType(),
+										then GetTypeIcon()), a program's for a file of no
+										known type that can be run (the owner may run it;
+										on Windows .exe, .com, .bat, .cmd). NotFound for
+										a path that does not exist. */
 	static	std::span<const std::uint8_t> SystemIconData(std::string_view name);
 									/*!< NewGUI: the SVG of the system icon \a name, empty
 										for an unknown one. An icon from the directory is

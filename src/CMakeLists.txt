@@ -70,6 +70,8 @@ add_library(ngui
     MessageFilter.cpp
     MessageRunner.cpp
     Messenger.cpp
+    MimeTable.cpp
+    MimeType.cpp
     PropertyInfo.cpp
     remote/Hey.cpp
     record/Recording.cpp
