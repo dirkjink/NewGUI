@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>VI United States Virgin Islands</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.21875 -0.25 0 40.999996 32)" color-interpolation="sRGB"><stop offset="0.4288" stop-color="#002768"/><stop offset="0.429" stop-color="#082e6d"/><stop offset="0.4293" stop-color="#20427b"/><stop offset="0.4295" stop-color="#486492"/><stop offset="0.4297" stop-color="#8093b4"/><stop offset="0.4299" stop-color="#b7c2d5"/><stop offset="0.4302" stop-color="#dfe4ec"/><stop offset="0.4304" stop-color="#f7f8fa"/><stop offset="0.4306" stop-color="#ffffff"/></linearGradient>
+</defs>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M38 43L39 41L41 41L47 34L46 33L50 32L49 36L48 35L42 42L42 43L40 45Z" transform="matrix(1 0 0 1 2 1)" fill="#00cede"/>
+<path d="M38 43L39 41L41 41L47 34L46 33L50 32L49 36L48 35L42 42L42 43L40 45Z" transform="matrix(0.809685 0.544686 -0.407781 0.789886 24.678242 -13.699954)" fill="#00cede"/>
+<path d="M38 43L39 41L41 41L47 34L46 33L50 32L49 36L48 35L42 42L42 43L40 45Z" transform="matrix(0.902589 -0.430503 0.430503 0.902589 -11.288291 24.692461)" fill="#00cede"/>
+<path d="M25 43L21 39L18 39L21 36L16 37L19 35L15 36L18 34L14 34L18 33L14 33L17 32L13 32L16 31L13 31L16 30L13 30L15 29L13 29L14 28L13 28" transform="matrix(1 0 0 1 2 1)" stroke="#178400" fill="none" stroke-width="1"/>
+<path d="M26 32C26 32 7 26 9 20C11 19 29 20 24 23C19.713 25.572 26 27 27 27C28 27 26 32 26 32ZM28 25C28 25 31 21 31 20C30 20 28 20 27 21C24 18 29 17 29 17C29 17 33 11 35 19C36.475 24.901 38 25 38 25ZM26 33C26 33 22 37 23 38C23 39 21 40 21 41C21 42 25 40 25 40L25 38C25 38 28 38 28 36C29 35 29 34 29 34ZM30 36L30 37C30 37 27 39 27 40C27 41 30 45 32 45C34 45 38 41 38 40C38 39 35 37 35 37L35 36Z" transform="matrix(1 0 0 1 2 1)" fill="#ffd600"/>
+<path d="M26 32C26 32 7 26 9 20C11 19 29 20 24 23C19.713 25.572 26 27 27 27C28 27 26 32 26 32ZM26 33C26 33 22 37 23 38C23 39 21 40 21 41C21 42 25 40 25 40L25 38C25 38 28 38 28 36C29 35 29 34 29 34Z" transform="matrix(-0.933535 0 0 1 64.749245 1)" fill="#ffd600"/>
+<path d="M32 23C32 23 29 26 26 24C26 24 19.834 31.917 32 38C45 32 39 24 39 24C36 26 32 23 32 23Z" transform="matrix(1 0 0 1 2 1)" fill="url(#g1)"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.016129 0 0 0.130435 27.983872 29.826088)" fill="#be0a2f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.016129 0 0 0.152174 29.983872 29.630436)" fill="#be0a2f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.016129 0 0 0.173913 31.983871 29.434783)" fill="#be0a2f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.016129 0 0 0.195652 33.983871 29.239131)" fill="#be0a2f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(-0.016129 0 0 0.130435 41.016135 29.826088)" fill="#be0a2f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(-0.016129 0 0 0.152174 39.016134 29.630436)" fill="#be0a2f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(-0.016129 0 0 0.173913 37.016134 29.434783)" fill="#be0a2f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.02627 -0.022369 0.09242 0.185644 3.201931 25.775202)" fill="#00cede"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(-0.019788 -0.021068 -0.078698 0.188372 13.151543 25.646287)" fill="#00cede"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.032258 0 0 0.215269 55.967743 24.111404)" fill="#00cede"/>
+</svg>

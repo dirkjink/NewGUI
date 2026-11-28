@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>KH Cambodia</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#cc0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.521739 -1.032258 15.304348)" fill="#000099"/>
+<path d="M12 44L17 39L17 34L15 32L19 25L23 32L28 32L32 20L32 44Z" fill="#fbe0e0"/>
+<path d="M12 44L17 39L17 34L15 32L19 25L23 32L28 32L32 20L32 44Z" transform="matrix(-1 0 0 1 64 0)" fill="#fbe0e0"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

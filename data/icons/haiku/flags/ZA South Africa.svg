@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>ZA South Africa</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.434783 -1.032258 4.086957)" fill="#de362f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.434783 -1.032258 32.086956)" fill="#002295"/>
+<path d="M0 8L14 8L32 24L64 24L64 40L32 40L14 56L0 56Z" fill="#ffffff"/>
+<path d="M0 8L8 8L32 28L64 28L64 36L32 36L8 56L0 56Z" fill="#007a4d"/>
+<path d="M0 64L39 32L0 0" transform="matrix(0.572145 0 0 0.51493 -0.0927 15.717883)" fill="#010101"/>
+<path d="M0 64L39 32L0 0" transform="matrix(0.562109 0 0 0.562109 -0.204759 13.75045)" stroke="#ffb510" fill="none" stroke-width="5"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

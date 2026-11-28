@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Deskbar_Window_Hidden</title>
+<path d="M0 0L0 12L32 12L32 0Z" transform="matrix(1 0 0 1 12 0)" fill="#989898"/>
+<path d="M0 12L0 56L52 56L52 12Z" transform="matrix(1 0 0 1 12 0)" fill="#c8c8c8"/>
+<path d="M4 52L4 4L32 4L32 12L52 12L52 8L36 8L36 0L0 0L0 52Z" transform="matrix(1 0 0 1 12 0)" fill="#787878"/>
+<path d="M0 56L52 56L52 12L48 12L48 52L0 52Z" transform="matrix(1 0 0 1 12 0)" fill="#000000"/>
+<path d="M32 4L32 8L36 8L36 4Z" transform="matrix(1 0 0 1 12 0)" fill="#000000"/>
+</svg>

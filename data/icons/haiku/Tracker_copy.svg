@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Tracker_copy</title>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.555163 0.090555 -0.080493 0.493478 4.810564 28.310938)" color-interpolation="sRGB"><stop offset="0" stop-color="#fbf5aa"/><stop offset="0.125" stop-color="#fbf3a5"/><stop offset="0.25" stop-color="#fcee95"/><stop offset="0.375" stop-color="#fce67a"/><stop offset="0.5" stop-color="#fdda55"/><stop offset="0.625" stop-color="#fecf30"/><stop offset="0.75" stop-color="#fec715"/><stop offset="0.875" stop-color="#ffc205"/><stop offset="1" stop-color="#ffc000"/></radialGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(-0.331463 0.270243 -0.315951 -0.387524 53.091507 42.1763)" color-interpolation="sRGB"><stop offset="0" stop-color="#010101"/><stop offset="0.125" stop-color="#010101" stop-opacity="0.9745"/><stop offset="0.25" stop-color="#010101" stop-opacity="0.898"/><stop offset="0.375" stop-color="#010101" stop-opacity="0.7706"/><stop offset="0.5" stop-color="#010101" stop-opacity="0.5922"/><stop offset="0.625" stop-color="#010101" stop-opacity="0.4137"/><stop offset="0.75" stop-color="#010101" stop-opacity="0.2863"/><stop offset="0.875" stop-color="#010101" stop-opacity="0.2098"/><stop offset="1" stop-color="#010101" stop-opacity="0.1843"/></linearGradient>
+</defs>
+<path d="M30 62C30 62 38 59 39 58C40 57 40 56 39 55C38 54 30 52 30 52Z" transform="matrix(1 0 0 1 -1 0)" fill="#010101" fill-opacity="0.549"/>
+<path d="M30 62C30 62 38 59 39 58C40 57 40 56 39 55C38 54 30 52 30 52Z" transform="matrix(1 0 0 1 23 -20)" fill="#010101" fill-opacity="0.549"/>
+<path d="M1 21L1 47L29 61L29 35Z" transform="matrix(1 0 0 1 24 -19)" fill="url(#g1)"/>
+<path d="M1 21L1 47L29 61L29 35Z" transform="matrix(1 0 0 1 24 -19)" stroke="#000000" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1 21L1 47L29 61L29 35Z" fill="url(#g1)"/>
+<path d="M1 21L1 47L29 61L29 35Z" stroke="#000000" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M31 33L50 17L51 19L32 35Z" fill="url(#g2)"/>
+<path d="M31 33L50 17L51 19L32 35Z" transform="matrix(0.68913 0 0 0.650327 16.897828 31.238563)" fill="url(#g2)"/>
+<path d="M31 33L50 17L51 19L32 35Z" transform="matrix(1 0 0 1 -27 -14)" fill="url(#g2)"/>
+</svg>

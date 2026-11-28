@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>KN Saint Kitts and Nevis</title>
+<path d="M0 8L0 56L64 8Z" fill="#009e49"/>
+<path d="M0 8L0 56L64 8Z" transform="matrix(-1 0 0 -1 64 64)" fill="#ce1126"/>
+<path d="M48 8L0 44L0 48L52 8Z" fill="#fcd116"/>
+<path d="M48 8L0 44L0 48L52 8Z" transform="matrix(-1 0 0 -1 64 64)" fill="#fcd116"/>
+<path d="M51 8L0 47L0 56L13 56L64 17L64 8Z" fill="#010101"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M36.785 29.482L45.353 29.482L48 21.333L50.647 29.482L59.215 29.482L52.284 34.518L54.931 42.667L48 37.631L41.069 42.667L43.716 34.518Z" transform="matrix(0.447038 -0.32531 0.32531 0.447038 -10.071511 41.496861)" fill="#ffffff"/>
+<path d="M36.785 29.482L45.353 29.482L48 21.333L50.647 29.482L59.215 29.482L52.284 34.518L54.931 42.667L48 37.631L41.069 42.667L43.716 34.518Z" transform="matrix(0.447038 -0.32531 0.32531 0.447038 9.928489 25.496861)" fill="#ffffff"/>
+</svg>

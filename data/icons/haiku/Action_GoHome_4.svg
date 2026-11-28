@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Action_GoHome_4</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.171875 -1 0 62 21)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e5e5e5"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.15625 -1 0 64 12)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffabab"/><stop offset="1" stop-color="#d90000"/></linearGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.046875 -1 0 64 37)" color-interpolation="sRGB"><stop offset="0" stop-color="#80ff80"/><stop offset="1" stop-color="#00b200"/></linearGradient>
+</defs>
+<path d="M34 32L34 20L21 10L8 20L8 32Z" transform="matrix(1 0 0 1 10 10)" stroke="#545454" fill="none" stroke-width="4"/>
+<path d="M34 32L34 20L21 10L8 20L8 32Z" transform="matrix(1 0 0 1 10 10)" fill="url(#g1)"/>
+<path d="M40 22L40 16L21 2L2 16L2 22L21 8Z" transform="matrix(1 0 0 1 10 10)" stroke="#800000" fill="none" stroke-width="4" stroke-linejoin="round"/>
+<path d="M40 22L40 16L21 2L2 16L2 22L21 8Z" transform="matrix(1 0 0 1 10 10)" fill="url(#g2)"/>
+<path d="M40 40L40 34L2 34L2 40Z" transform="matrix(1 0 0 1 10 10)" stroke="#005900" fill="none" stroke-width="4" stroke-linejoin="round"/>
+<path d="M40 40L40 34L2 34L2 40Z" transform="matrix(1 0 0 1 10 10)" fill="url(#g3)"/>
+<path d="M12 20L12 32L18 32L18 20Z" transform="matrix(1 0 0 1 10 10)" fill="#806040"/>
+<path d="M12 20L12 32L18 32L18 20Z" transform="matrix(1.333333 0 0 0.5 16 20)" fill="#806040"/>
+</svg>

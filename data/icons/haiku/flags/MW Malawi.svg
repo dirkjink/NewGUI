@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>MW Malawi</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#ae1c28"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#010101"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#329e34"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.375 0 0 0.375 20 20)" fill="#ffffff"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.621629 0 0 0.621629 12.107872 12.107873)" stroke="#ffffff" stroke-opacity="0.4627" fill="none" stroke-width="5"/>
+</svg>

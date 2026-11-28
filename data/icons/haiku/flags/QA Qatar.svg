@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>QA Qatar</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#70183c"/>
+<path d="M0 0L26.667 0L42.667 6.4L26.667 12.8L42.667 19.2L26.667 25.6L42.667 32L26.667 38.4L42.667 44.8L26.667 51.2L42.667 57.6L26.667 64L0 64Z" transform="matrix(0.629934 0 0 0.748098 -0.157895 8.092091)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

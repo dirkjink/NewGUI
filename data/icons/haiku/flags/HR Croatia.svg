@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>HR Croatia</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#c6353b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#0c3f76"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.065217 23.951612 22.413042)" fill="#c6353b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.065217 29.951612 22.413042)" fill="#c6353b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.065217 35.951612 22.413042)" fill="#c6353b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.065217 23.951612 28.413042)" fill="#c6353b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.065217 29.951612 28.413042)" fill="#c6353b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.065217 35.951612 28.413042)" fill="#c6353b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.065217 32.951612 25.413042)" fill="#c6353b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.065217 26.951612 25.413042)" fill="#c6353b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.065217 32.951612 31.413042)" fill="#c6353b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.065217 26.951612 31.413042)" fill="#c6353b"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.048387 0 0 0.065217 29.951612 34.413042)" fill="#c6353b"/>
+<path d="M24 35L27 35L27 38L30 38L30 41L33 41L33 38L36 38L36 35L39 35L39 37L34 41L29 41L24 37Z" fill="#c6353b"/>
+<path d="M14 24L29 24L29 37C29 37 22 48 14 37C14 36 14 24 14 24Z" transform="matrix(1 0 0 1 10 -1)" stroke="#d0a32b" fill="none" stroke-width="2"/>
+</svg>

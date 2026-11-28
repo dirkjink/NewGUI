@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>GW Guinea Bissau</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.387097 0 0 1.043478 -0.387097 -1.391304)" fill="#e8112a"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.645161 0 0 0.521739 23.354839 3.304348)" fill="#fcd116"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.645161 0 0 0.521739 23.354839 27.304348)" fill="#00874f"/>
+<path d="M11.189 28.704L18.939 28.704L21.333 21.333L23.727 28.704L31.477 28.704L25.208 33.259L27.602 40.629L21.333 36.075L15.064 40.629L17.458 33.259Z" transform="matrix(0.896352 0 0 0.896352 -6.84024 3.21116)" fill="#010000"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Overlay_python</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+</style>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.067452 0.066108 -0.273418 0.278981 21.055719 36.462559)" color-interpolation="sRGB"><stop offset="0" stop-color="#4a8bbd"/><stop offset="0.125" stop-color="#498abc"/><stop offset="0.25" stop-color="#4787b8"/><stop offset="0.375" stop-color="#4381b3"/><stop offset="0.5" stop-color="#3d7aaa"/><stop offset="0.625" stop-color="#3773a2"/><stop offset="0.75" stop-color="#336d9d"/><stop offset="0.875" stop-color="#316a99"/><stop offset="1" stop-color="#306998"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.083701 0.079189 0.617613 -0.652801 1.922199 59.729939)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffd439"/><stop offset="0.125" stop-color="#ffd53b"/><stop offset="0.25" stop-color="#ffd640"/><stop offset="0.375" stop-color="#ffda49"/><stop offset="0.5" stop-color="#ffde56"/><stop offset="0.625" stop-color="#ffe263"/><stop offset="0.75" stop-color="#ffe66c"/><stop offset="0.875" stop-color="#ffe771"/><stop offset="1" stop-color="#ffe873"/></linearGradient>
+</defs>
+<path d="M15 60C10 60 7 61 7 62C7 63 10 64 15 64C20 64 23 63 23 62C23 61 20 60 15 60Z" class="lod1" fill="#010101" fill-opacity="0.2902"/>
+<path d="M9 41L9 40C9 37 10 36 13 36L17 36C20 36 21 37 21 40L21 44C21 47 20 48 17 48L15 48L13 48C10 48 9 49 9 52L9 54L8 54C5 54 4 53 4 50L4 46C4 43 5 42 8 42L15 42L15 41Z" fill="url(#g1)"/>
+<path d="M9 41L9 40C9 37 10 36 13 36L17 36C20 36 21 37 21 40L21 44C21 47 20 48 17 48L15 48L13 48C10 48 9 49 9 52L9 54L8 54C5 54 4 53 4 50L4 46C4 43 5 42 8 42L15 42L15 41Z" transform="matrix(-1 0.000001 -0.000001 -1 31.000044 96.999969)" fill="url(#g2)"/>
+<path d="M12 40C12 40 11 40 11 39C11 39 11 38 12 38C12 38 13 38 13 39C13 39 13 40 12 40Z" fill="#ffffff"/>
+<path d="M12 40C12 40 11 40 11 39C11 39 11 38 12 38C12 38 13 38 13 39C13 39 13 40 12 40Z" transform="matrix(1 0 0 1 7 19)" fill="#ffffff"/>
+</svg>

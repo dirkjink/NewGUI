@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>PW Palau</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#49acd6"/>
+<path d="M67.2 32C67.2 42.604 58.604 51.2 48 51.2C37.396 51.2 28.8 42.604 28.8 32C28.8 21.396 37.396 12.8 48 12.8C58.604 12.8 67.2 21.396 67.2 32Z" transform="matrix(0.6875 0 0 0.6875 -6.999997 10.000001)" fill="#ffde00"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

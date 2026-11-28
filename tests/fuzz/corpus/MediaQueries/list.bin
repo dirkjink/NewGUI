@@ -1,0 +1,1 @@
+only screen and (max-width:20px), print {x} @MEDIA not all{y}

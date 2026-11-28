@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>App_RemoteDesktop_2</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.227732 0.234209 -0.252053 0.245082 46.507034 21.794519)" color-interpolation="sRGB"><stop offset="0" stop-color="#ededed"/><stop offset="0.125" stop-color="#ebebeb"/><stop offset="0.25" stop-color="#e4e4e4"/><stop offset="0.375" stop-color="#d9d9d9"/><stop offset="0.5" stop-color="#c9c9c9"/><stop offset="0.625" stop-color="#b9b9b9"/><stop offset="0.75" stop-color="#aeaeae"/><stop offset="0.875" stop-color="#a7a7a7"/><stop offset="1" stop-color="#a5a5a5"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.01168 0.162381 -0.566895 0.040775 44.485016 19.30442)" color-interpolation="sRGB"><stop offset="0" stop-color="#919191"/><stop offset="0.125" stop-color="#929292"/><stop offset="0.25" stop-color="#969696"/><stop offset="0.375" stop-color="#9b9b9b"/><stop offset="0.5" stop-color="#a3a3a3"/><stop offset="0.625" stop-color="#ababab"/><stop offset="0.75" stop-color="#b0b0b0"/><stop offset="0.875" stop-color="#b4b4b4"/><stop offset="1" stop-color="#b5b5b5"/></linearGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.175034 0.40096 -0.916481 0.400078 63.726318 13.366764)" color-interpolation="sRGB"><stop offset="0" stop-color="#326698"/><stop offset="0.125" stop-color="#326799"/><stop offset="0.25" stop-color="#34689c"/><stop offset="0.375" stop-color="#366ba0"/><stop offset="0.5" stop-color="#3870a6"/><stop offset="0.625" stop-color="#3b74ac"/><stop offset="0.75" stop-color="#3d77b0"/><stop offset="0.875" stop-color="#3f78b3"/><stop offset="1" stop-color="#3f79b4"/></linearGradient>
+<linearGradient id="g4" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.019165 0.144475 -0.224595 0.029793 30.559357 9.112847)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffea00"/><stop offset="0.125" stop-color="#ffe802"/><stop offset="0.25" stop-color="#ffe406"/><stop offset="0.375" stop-color="#ffdc0e"/><stop offset="0.5" stop-color="#ffd118"/><stop offset="0.625" stop-color="#ffc622"/><stop offset="0.75" stop-color="#ffbe2a"/><stop offset="0.875" stop-color="#ffba2e"/><stop offset="1" stop-color="#ffb830"/></linearGradient>
+</defs>
+<path d="M29 39L21 42L55 57C55 57 63 55 63 52C63 49 29 39 29 39Z" fill="#000000" fill-opacity="0.3922"/>
+<path d="M14 37L54 54L54 20L30 13L30 7L14 3Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M14 8L14 37L54 54L54 20Z" fill="url(#g1)"/>
+<path d="M50 48L18 35L16 36L52 51L52 22L50 24Z" fill="#ffffff"/>
+<path d="M16 11L16 36L18 35L18 14L50 23L52 21Z" fill="url(#g2)"/>
+<path d="M18 14L18 35L50 48L50 23Z" fill="url(#g3)"/>
+<path d="M14 3L14 9L30 13.75L30 7Z" fill="url(#g4)"/>
+<path d="M37 34L37 30L36 29L35 30L35 29L34 28L34 29L32 25L31 25L33 30L31 29L31 30L34 34" stroke="#000000" fill="none" stroke-width="2"/>
+<path d="M37 34L37 30L36 29L35 30L35 29L34 28L34 29L32 25L31 25L33 30L31 29L31 30L34 34" fill="#ffffff"/>
+</svg>

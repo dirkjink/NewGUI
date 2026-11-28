@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Misc_NintendoGamecube</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+</style>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.163325 0.189274 -0.425867 0.367482 28.401337 32.183784)" color-interpolation="sRGB"><stop offset="0" stop-color="#767fc2"/><stop offset="0.125" stop-color="#757ec1"/><stop offset="0.25" stop-color="#737cc0"/><stop offset="0.375" stop-color="#6f79bc"/><stop offset="0.5" stop-color="#6a74b8"/><stop offset="0.625" stop-color="#656eb4"/><stop offset="0.75" stop-color="#616bb0"/><stop offset="0.875" stop-color="#5f69af"/><stop offset="1" stop-color="#5e68ae"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.120213 0.073173 -0.19498 0.320324 59.697376 26.550148)" color-interpolation="sRGB"><stop offset="0" stop-color="#555584"/><stop offset="0.125" stop-color="#565685"/><stop offset="0.25" stop-color="#595989"/><stop offset="0.375" stop-color="#5d5f8f"/><stop offset="0.5" stop-color="#646697"/><stop offset="0.625" stop-color="#6b6e9f"/><stop offset="0.75" stop-color="#6f74a5"/><stop offset="0.875" stop-color="#7277a9"/><stop offset="1" stop-color="#7378aa"/></linearGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.375 0 0 1 32 0)" color-interpolation="sRGB"><stop offset="0" stop-color="#babfed"/><stop offset="0.125" stop-color="#b8bdec"/><stop offset="0.25" stop-color="#b3b8ea"/><stop offset="0.375" stop-color="#aab0e7"/><stop offset="0.5" stop-color="#9ea4e3"/><stop offset="0.625" stop-color="#9199df"/><stop offset="0.75" stop-color="#8891dc"/><stop offset="0.875" stop-color="#838cda"/><stop offset="1" stop-color="#818ad9"/></linearGradient>
+<linearGradient id="g4" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.131488 0.000551 -0.002355 0.562495 19.095318 23.728727)" color-interpolation="sRGB"><stop offset="0" stop-color="#efefef"/><stop offset="0.125" stop-color="#eeeeee"/><stop offset="0.25" stop-color="#eaeaea"/><stop offset="0.375" stop-color="#e5e4e4"/><stop offset="0.5" stop-color="#dcdcdc"/><stop offset="0.625" stop-color="#d4d4d4"/><stop offset="0.75" stop-color="#cfcece"/><stop offset="0.875" stop-color="#cbcaca"/><stop offset="1" stop-color="#cac9c9"/></linearGradient>
+<linearGradient id="g5" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(-0.068789 0.000957 -0.007825 -0.562446 27.685234 60.11425)" color-interpolation="sRGB"><stop offset="0.1823" stop-color="#858585"/><stop offset="0.2502" stop-color="#878787"/><stop offset="0.3181" stop-color="#8d8d8e"/><stop offset="0.386" stop-color="#989898"/><stop offset="0.4539" stop-color="#a6a6a8"/><stop offset="0.5217" stop-color="#b5b5b7"/><stop offset="0.5896" stop-color="#c0c0c1"/><stop offset="0.6575" stop-color="#c6c6c8"/><stop offset="0.7254" stop-color="#c8c8ca"/></linearGradient>
+</defs>
+<path d="M60 35.395L36 60L42 60L64 37.395Z" fill="#000000" fill-opacity="0.3882"/>
+<path d="M6 19L6 43L36 58L58 36L58 12L30 2Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M36 32L6 19L6 43L36 58Z" fill="url(#g1)"/>
+<path d="M36 32L58 12L58 36L36 58Z" fill="url(#g2)"/>
+<path d="M36 32L58 12L30 2L6 19Z" fill="url(#g3)"/>
+<path d="M29 27C27.895 27 27 27.672 27 28.5C27 29.328 27.895 30 29 30C30.105 30 31 29.328 31 28.5C31 27.672 30.105 27 29 27Z" transform="matrix(4.2355 0 0 3.572221 -91.379725 -85.171619)" class="lod1" fill="#010101" fill-opacity="0.902"/>
+<path d="M30 35L10 27C10 27 8.375 29.918 8.375 33.25C8.375 36.413 10 40 10 40L30 50C30 50 28.5 45.655 28.5 41.875C28.5 38.155 30 35 30 35Z" fill="url(#g4)"/>
+<path d="M35 27L51 14L30 6L13 18Z" stroke="#010101" stroke-opacity="0.7529" fill="none" stroke-width="1"/>
+<path d="M35 27L51 14L30 6L13 18Z" transform="matrix(1 0 0 1 1 0)" stroke="#ffffff" stroke-opacity="0.349" fill="none" stroke-width="1"/>
+<path d="M12.812 31.219C11.984 31.219 11.312 31.586 11.312 32.631C11.312 33.63 11.703 34.75 12.531 34.75C13.36 34.75 14.844 34.694 14.844 33.451C14.844 32.01 13.641 31.219 12.812 31.219Z" fill="#000000"/>
+<path d="M12.812 31.219C11.984 31.219 11.312 31.586 11.312 32.631C11.312 33.63 11.703 34.75 12.531 34.75C13.36 34.75 14.844 34.694 14.844 33.451C14.844 32.01 13.641 31.219 12.812 31.219Z" transform="matrix(1 0 0 1 4.1875 1.875)" fill="#000000"/>
+<path d="M11.375 37.5L16.5 40Z" stroke="#000000" stroke-opacity="0.3882" fill="none" stroke-width="1"/>
+<path d="M11.375 37.5L16.5 40Z" transform="matrix(1 0 0 1 8.25 3.75)" stroke="#000000" stroke-opacity="0.3882" fill="none" stroke-width="1"/>
+<path d="M12.812 31.219C11.984 31.219 11.312 31.586 11.312 32.631C11.312 33.63 11.703 34.75 12.531 34.75C13.36 34.75 14.844 34.694 14.844 33.451C14.844 32.01 13.641 31.219 12.812 31.219Z" transform="matrix(1 0 0 1 8.3125 4)" fill="#000000"/>
+<path d="M12.812 31.219C11.984 31.219 11.312 31.586 11.312 32.631C11.312 33.63 11.703 34.75 12.531 34.75C13.36 34.75 14.844 34.694 14.844 33.451C14.844 32.01 13.641 31.219 12.812 31.219Z" transform="matrix(1 0 0 1 12.59375 5.96875)" fill="#000000"/>
+<path d="M30 35L27.625 35.25L27.625 48.25L30 50Z" fill="url(#g5)"/>
+</svg>

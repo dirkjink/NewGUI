@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>EG Egypt</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#ce1126"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#000001"/>
+<path d="M25 39C25 39 25 33 24.902 29.987C26 28 27.54 27.616 31 29C30 26 29 26 29 26C29 26 32 24 33 25C34 26 33 28 33 29C36 28 38 28 39 30C39 35 39 39 39 39L34 36L36 42L28 42L30 36Z" transform="matrix(0.858131 0 0 0.858131 4.532888 3.506823)" fill="#c09300"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

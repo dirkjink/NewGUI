@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>HaikuDepot_Installed</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+@media (max-width:21.12px){.lod2{display:inline}}
+</style>
+<path d="M30 4C15.637 4 4 15.637 4 30C4 44.353 15.637 56 30 56C44.353 56 56 44.353 56 30C56 15.637 44.353 4 30 4Z" class="lod1" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M30 4C15.637 4 4 15.637 4 30C4 44.353 15.637 56 30 56C44.353 56 56 44.353 56 30C56 15.637 44.353 4 30 4Z" class="lod2" display="none" stroke="#000000" fill="none" stroke-width="6"/>
+<path d="M30 4C15.637 4 4 15.637 4 30C4 44.353 15.637 56 30 56C44.353 56 56 44.353 56 30C56 15.637 44.353 4 30 4Z" fill="#48bb3c"/>
+<path d="M19 26L28 34L41 16L49 22L30 47L13 33Z" fill="#ffffff"/>
+</svg>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>SH Saint Helena, Ascension and Tristan da Cunha</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.25 -1 0 65 27.000002)" color-interpolation="sRGB"><stop offset="0.5765" stop-color="#ffff00"/><stop offset="0.577" stop-color="#fcfd08"/><stop offset="0.5775" stop-color="#f1f820"/><stop offset="0.5779" stop-color="#e0ef48"/><stop offset="0.5784" stop-color="#c7e280"/><stop offset="0.5789" stop-color="#aed5b7"/><stop offset="0.5794" stop-color="#9dccdf"/><stop offset="0.5799" stop-color="#92c7f7"/><stop offset="0.5804" stop-color="#8fc5ff"/></linearGradient>
+</defs>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#000066"/>
+<path d="M43 24C43 24 43 40 49 40C55 40 55 24 55 24Z" fill="url(#g1)"/>
+<path d="M64 12L64 17L10 52L0 52L0 47L54 12ZM0 12L8 12L64 46L64 52L56 52L0 18Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M64 12L7 52L0 52L57 12ZM0 12L64 48L64 52L0 16Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#cc0000"/>
+<path d="M0 26L26 26L26 12L38 12L38 26L64 26L64 38L38 38L38 52L26 52L26 38L0 38Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M0 36L0 28L28 28L28 12L36 12L36 28L64 28L64 36L36 36L36 52L28 52L28 36Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#cc0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M44 32L46 30L47 32L48 30L48 38L45 38Z" fill="#cf6200"/>
+<path d="M46 34L48 37L52 37L53 33L51 34L50 35L50 30L49 30L49 35Z" fill="#000000"/>
+<path d="M45 26L48 25C48 25 50 27 52 27C54 27 50 28 49 29C48 28 48 28 48 28L47 29L47 26Z" fill="#cf6200"/>
+</svg>

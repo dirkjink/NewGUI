@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>ET Ethiopia</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#078930"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#fcdd08"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#da1219"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.8125 0 0 0.8125 6 6)" fill="#0e46af"/>
+<path d="M21.785 28.482L30.353 28.482L33 20.333L35.647 28.482L44.215 28.482L37.284 33.518L39.931 41.667L33 36.631L26.069 41.667L28.716 33.518Z" transform="matrix(0.727916 0 0 0.727916 7.92736 9.336816)" stroke="#fcdd08" fill="none" stroke-width="2"/>
+<path d="M24 24L29 24" transform="matrix(0.726544 0.68712 -0.68712 0.726544 23.737441 -9.645733)" stroke="#fcdd08" fill="none" stroke-width="1.5"/>
+<path d="M24 24L29 24" transform="matrix(0.685027 -0.728518 0.728518 0.685027 1.86236 28.865081)" stroke="#fcdd08" fill="none" stroke-width="1.5"/>
+<path d="M24 24L29 24" transform="matrix(0.95612 0.292975 -0.292975 0.95612 21.194211 4.289282)" stroke="#fcdd08" fill="none" stroke-width="1.5"/>
+<path d="M24 24L29 24" transform="matrix(0.894781 -0.446506 0.446506 0.894781 -9.927833 26.357673)" stroke="#fcdd08" fill="none" stroke-width="1.5"/>
+<path d="M24 24L29 24" transform="matrix(0.079639 -0.996824 0.996824 0.079639 6.215805 65.567006)" stroke="#fcdd08" fill="none" stroke-width="1.5"/>
+</svg>

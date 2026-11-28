@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Notify_Danger</title>
+<style>
+@media (max-width:19.2px){.lod1{display:inline}}
+@media (max-width:24.95px){.lod2{display:none}}
+</style>
+<path d="M4 60L60 60L32 4Z" fill="#ff4135"/>
+<path d="M4 60L60 60L32 4Z" stroke="#c63229" fill="none" stroke-width="4"/>
+<path d="M37 24L35 42L35 45L29 45L29 42L27 24ZM32 47C29.791 47 28 48.567 28 50.5C28 52.433 29.791 54 32 54C34.209 54 36 52.433 36 50.5C36 48.567 34.209 47 32 47Z" class="lod1" display="none" fill="#ffffff"/>
+<path d="M32 47C29.791 47 28 48.567 28 50.5C28 52.433 29.791 54 32 54C34.209 54 36 52.433 36 50.5C36 48.567 34.209 47 32 47ZM37 24L34 42L34 45L30 45L30 42L27 24Z" class="lod2" fill="#ffffff"/>
+</svg>

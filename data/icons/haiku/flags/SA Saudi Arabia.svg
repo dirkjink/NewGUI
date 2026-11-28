@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>SA Saudi Arabia</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#006c35"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M12 33L19 20C19 20 11 9 13 21C15 33 17 43 20 35C23 27 24 24 20 22C16 20 7 19 14 24C21 29 25 36 26 27C27 18 24 14 22 21C20 28 32 38 32 33C32 28 26 23 29 19C32 15 38 11 36 20C34 29 31 18 32 23C33 28 31 38 35 35C39 32 39 33 39 27C39 21 34 20 38 19C42 18 43 17 42 24C41 31 36 40 40 38C44 36 43 35 43 31C43 27 44 13 46 15C48 17 52 29 49 26C46 23 46 24 44 29C42 34 49 41 48 35C47 29 53 24 51 19C49 14 51 37 52 38" transform="matrix(0.566869 0.004811 -0.003714 0.437567 14.865045 16.6803)" stroke="#ffffff" fill="none" stroke-width="2"/>
+<path d="M21 42L37 42L37 41C37 41 38 41 38 42C39.461 42.269 42 43.14 42 45C40 45 37 45 37 45L37 44C37 44 27 44 25 44C23 44 21 42 21 42Z" transform="matrix(0.999964 0.008487 -0.008487 0.999964 1.292841 -1.267369)" fill="#ffffff"/>
+</svg>

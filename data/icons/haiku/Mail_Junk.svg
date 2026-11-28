@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Mail_Junk</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.296875 -1 0 64 21)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffabab"/><stop offset="0.125" stop-color="#fea6a6"/><stop offset="0.25" stop-color="#fa9696"/><stop offset="0.375" stop-color="#f47b7b"/><stop offset="0.5" stop-color="#ec5656"/><stop offset="0.625" stop-color="#e43030"/><stop offset="0.75" stop-color="#de1515"/><stop offset="0.875" stop-color="#da0505"/><stop offset="1" stop-color="#d90000"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.078125 -1 0 64 29)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e5e5e5"/></linearGradient>
+</defs>
+<path d="M8 34L34 8M21 3C11.059 3 3 11.059 3 21C3 30.941 11.059 39 21 39C30.941 39 39 30.941 39 21C39 11.059 30.941 3 21 3Z" transform="matrix(1.409083 0 0 1.409083 3.818342 3.818342)" stroke="#000000" stroke-opacity="0.4" fill="none" stroke-width="6"/>
+<path d="M8 34L34 8M21 3C11.059 3 3 11.059 3 21C3 30.941 11.059 39 21 39C30.941 39 39 30.941 39 21C39 11.059 30.941 3 21 3Z" transform="matrix(1.409083 0 0 1.409083 1.000176 1.000176)" stroke="#800000" fill="none" stroke-width="6"/>
+<path d="M21 3C11.059 3 3 11.059 3 21C3 30.941 11.059 39 21 39C30.941 39 39 30.941 39 21C39 11.059 30.941 3 21 3ZM8 34L34 8" transform="matrix(1.409083 0 0 1.409083 1.000176 1.000176)" stroke="url(#g1)" fill="none" stroke-width="2"/>
+<path d="M27 33L27 25L33 33L33 25M17 25L17 31C17 32 18 33 19 33L21 33C22.061 33 23 32 23 31L23 25M7 31C7 32 8 33 9 33L11 33C12 33 13 32 13 31L13 25M37 33L37 25M43 25L37 29L43 33" transform="matrix(1.409083 0 0 1.409083 -1.817989 -7.454321)" stroke="#000000" stroke-opacity="0.4" fill="none" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M27 33L27 25L33 33L33 25M17 25L17 31C17 32 18 33 19 33L21 33C22.061 33 23 32 23 31L23 25M7 31C7 32 8 33 9 33L11 33C12 33 13 32 13 31L13 25M43 25L37 29L43 33M37 33L37 25" transform="matrix(1.409083 0 0 1.409083 -4.636155 -10.272487)" stroke="#545454" fill="none" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M27 33L27 25L33 33L33 25M17 25L17 31C17 32 18 33 19 33L21 33C22.061 33 23 32 23 31L23 25M7 31C7 32 8 33 9 33L11 33C12 33 13 32 13 31L13 25M37 33L37 25M43 25L37 29L43 33" transform="matrix(1.409083 0 0 1.409083 -4.636155 -10.272487)" stroke="url(#g2)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

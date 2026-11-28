@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>DM Dominica</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#006b3e"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.086957 -1.032258 27.217392)" fill="#fcd116"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.086957 -1.032258 31.217392)" fill="#010000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.086957 -1.032258 35.217392)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.064516 0 0 1.043478 27.935484 -1.391305)" fill="#fcd116"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.064516 0 0 1.043478 31.935484 -1.391305)" fill="#010000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.064516 0 0 1.043478 35.935484 -1.391305)" fill="#ffffff"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.78125 0 0 0.78125 9.5 8.5)" fill="#d41c2f"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M33 29C29 29 30 39 37 43C41.676 45.672 37 29 37 29" transform="matrix(1 0 0 1 0 -1)" fill="#006b3e"/>
+<path d="M31 28C31 28 35 22 39 31C39 34 37 29 35 29C33 29 31 28 31 28ZM32 31C32 31 30 36 33 39C34 38 34 37 34 37L33 32Z" transform="matrix(1 0 0 1 0 -1)" fill="#9360c9"/>
+<path d="M32 31C32 31 30 36 33 39C34 38 34 37 34 37L33 32Z" transform="matrix(1 0 0 0.25 2 32.25)" fill="#fcd116"/>
+<path d="M32 31C32 31 30 36 33 39C34 38 34 37 34 37L33 32Z" transform="matrix(1 0 0 0.25 -2 19.25)" fill="#fcd116"/>
+</svg>

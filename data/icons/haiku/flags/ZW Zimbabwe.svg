@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>ZW Zimbabwe</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#319208"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.76087 -1.032258 8.152174)" fill="#ffd200"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.456522 -1.032258 17.891304)" fill="#de2010"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.152174 -1.032258 27.630436)" fill="#010101"/>
+<path d="M0 64L54 32L0 0" transform="matrix(0.625 0 0 0.75 0 7.999999)" fill="#ffffff"/>
+<path d="M0 64L54 32L0 0" transform="matrix(0.625 0 0 0.72019 0 8.953909)" stroke="#010101" fill="none" stroke-width="4"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M36.785 29.482L45.353 29.482L48 21.333L50.647 29.482L59.215 29.482L52.284 34.518L54.931 42.667L48 37.631L41.069 42.667L43.716 34.518Z" transform="matrix(0.821662 0 0 0.821662 -27.439781 4.804541)" fill="#de2010"/>
+<path d="M8 38L7 35C7 35 11 29 7 27C4 28 6 27 6 27C6 27 7 22 10 26C13 30 19 33 19 33L18 33L17 38Z" transform="matrix(1 0 0 0.852492 0 4.6053)" fill="#ffd200"/>
+</svg>

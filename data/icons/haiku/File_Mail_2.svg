@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>File_Mail_2</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.16133 0.253685 -0.553757 0.35216 57.935844 33.215488)" color-interpolation="sRGB"><stop offset="0" stop-color="#faf9d2"/><stop offset="0.125" stop-color="#f9f8d0"/><stop offset="0.25" stop-color="#f6f5ca"/><stop offset="0.375" stop-color="#f2f1bf"/><stop offset="0.5" stop-color="#eceab0"/><stop offset="0.625" stop-color="#e5e3a2"/><stop offset="0.75" stop-color="#e1df97"/><stop offset="0.875" stop-color="#dedc91"/><stop offset="1" stop-color="#dddb8f"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.172466 0.134562 -0.211455 0.271018 32.247658 32.021427)" color-interpolation="sRGB"><stop offset="0" stop-color="#010101"/><stop offset="0.125" stop-color="#050504"/><stop offset="0.25" stop-color="#11110c"/><stop offset="0.375" stop-color="#25241b"/><stop offset="0.5" stop-color="#40402f"/><stop offset="0.625" stop-color="#5c5b43"/><stop offset="0.75" stop-color="#706e52"/><stop offset="0.875" stop-color="#7c7a5a"/><stop offset="1" stop-color="#807e5d"/></linearGradient>
+</defs>
+<path d="M41 61L44 62L64 42L60 40Z" fill="#010101" fill-opacity="0.4039"/>
+<path d="M22 26L60 41L40 61L2 42Z" stroke="#000000" fill="none" stroke-width="4" stroke-linejoin="round"/>
+<path d="M22 26L60 41L40 61L2 42Z" fill="url(#g1)"/>
+<path d="M47 38L42 43L48 46L53 41Z" fill="#ff0000"/>
+<path d="M24 34L36 40M20.25 38.25L30 43M15.75 41.875L30 49" stroke="url(#g2)" fill="none" stroke-width="1.2"/>
+<path d="M30 6L24 14L34 22L34 34L42 20L30 12Z" stroke="#ffd306" fill="none" stroke-width="4"/>
+<path d="M30 6L24 14L34 22L34 34L42 20L30 12Z" fill="#fffdc7"/>
+</svg>

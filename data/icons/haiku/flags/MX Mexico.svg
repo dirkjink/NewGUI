@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>MX Mexico</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.322581 0 0 1.043478 -0.322581 -1.391304)" fill="#006846"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.387097 0 0 1.043478 19.612903 -1.391304)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.322581 0 0 1.043478 43.677419 -1.391304)" fill="#ce1126"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M23 33C23 46 41 46 41 33C40.15 33 39 33 38.09 33C38 42 26 42 26 33" fill="#006846"/>
+<path d="M23 33C23 46 41 46 41 33C40.15 33 39 33 38.09 33C38 42 26 42 26 33" transform="matrix(0.555556 0 0 0.403824 14.222222 19.673822)" fill="#0b8489"/>
+<path d="M33 35L33 33L37 34L33 31L33 30L38 33C38 33 40 23 32 24C32 27 34 27 32 26C30 25 32 22 29 24C26 26 28 26 28 26C28 26 27 32 30 33C33 34 32 34 32 34L31 35Z" fill="#8d4520"/>
+<path d="M23 33C23 46 41 46 41 33C40.15 33 39 33 38.09 33C38 42 26 42 26 33" transform="matrix(0.087968 0.422286 0.379292 -0.079011 9.974867 19.183879)" fill="#0b8489"/>
+</svg>

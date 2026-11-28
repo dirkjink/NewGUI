@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>GT Guatemala</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#5695dd"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.387097 0 0 1.043478 19.612904 -1.391304)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M28 19C27 18 26 19 26 19C26 19 20 24 27 35C30 35 31 35 31 35C31 35 23 30 28 19Z" transform="matrix(0.769789 -0.128103 0.128103 0.769789 3.86404 15.381821)" fill="#009900"/>
+<path d="M28 19C27 18 26 19 26 19C26 19 20 24 27 35C30 35 31 35 31 35C31 35 23 30 28 19Z" transform="matrix(-0.868103 -0.104315 -0.093104 0.774801 62.129803 14.628196)" fill="#009900"/>
+<path d="M31 17C31 17 33 13 34 17C34 18 36 19 36 19C36 19 41 27 33 35C31.183 36.514 37 32 36 24C35.723 21.781 35 32 32 33C34 29 34 24 34 24C34 24 28 22 32 18C32 17 31 17 31 17Z" transform="matrix(0.780375 0 0 0.780375 6.302925 11.770802)" fill="#009900"/>
+</svg>

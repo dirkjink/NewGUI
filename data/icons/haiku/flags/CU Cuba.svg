@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>CU Cuba</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#00298f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.195652 -1.032258 16.239132)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.195652 -1.032258 35.239132)" fill="#ffffff"/>
+<path d="M0 64L47 32L0 0Z" transform="matrix(0.625 0 0 0.75 0 7.999999)" fill="#cf132a"/>
+<path d="M36.785 29.482L45.353 29.482L48 21.333L50.647 29.482L59.215 29.482L52.284 34.518L54.931 42.667L48 37.631L41.069 42.667L43.716 34.518Z" transform="matrix(0.554155 0 0 0.554155 -15.599456 13.218163)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

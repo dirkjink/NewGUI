@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>FJ Fiji</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#50b5e0"/>
+<path d="M43 24C43 37 44 39 50 40C56 39 57 37 57 24C54 24 47 24 43 24Z" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.516129 0 0 0.5 -0.516129 3.5)" fill="#07286b"/>
+<path d="M64 12L64 17L10 52L0 52L0 47L54 12ZM0 12L8 12L64 46L64 52L56 52L0 18Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M64 12L7 52L0 52L57 12ZM0 12L64 48L64 52L0 16Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ce1126"/>
+<path d="M0 26L26 26L26 12L38 12L38 26L64 26L64 38L38 38L38 52L26 52L26 38L0 38Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M0 36L0 28L28 28L28 12L36 12L36 28L64 28L64 36L36 36L36 52L28 52L28 36Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ce1126"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.225806 0 0 0.065217 42.774193 30.413044)" fill="#ce1126"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.225806 0 0 0.086957 42.774193 23.217393)" fill="#ce1126"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.064516 0 0 0.26087 47.935482 25.652172)" fill="#ce1126"/>
+</svg>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Overlay_house</title>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.281431 0 0 0.287982 15.523809 50.85714)" color-interpolation="sRGB"><stop offset="0.197" stop-color="#ffffff"/><stop offset="0.2457" stop-color="#fbfbfb"/><stop offset="0.2945" stop-color="#f0f0f0"/><stop offset="0.3433" stop-color="#dddddd"/><stop offset="0.392" stop-color="#c2c2c2"/><stop offset="0.4408" stop-color="#a7a7a7"/><stop offset="0.4896" stop-color="#949494"/><stop offset="0.5384" stop-color="#898989"/><stop offset="0.5871" stop-color="#858585"/></radialGradient>
+</defs>
+<path d="M22 56L22 46L15 39L8 46L8 56ZM6 57L24 57M20 50L20 52L18 52L18 50ZM12 56L12 48L16 48L16 56Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M22 56L22 46L15 39L8 46L8 56ZM20 50L20 52L18 52L18 50ZM12 56L12 48L16 48L16 56Z" fill="url(#g1)"/>
+<path d="M6 46L15 37L24 46M6 57L24 57" stroke="#000000" fill="none" stroke-width="6" stroke-linecap="round"/>
+<path d="M6 57L24 57" stroke="#04eb0f" fill="none" stroke-width="2" stroke-linecap="round"/>
+<path d="M6 46L15 37L24 46" stroke="#f90505" fill="none" stroke-width="2" stroke-linecap="round"/>
+</svg>

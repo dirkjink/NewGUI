@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>GU Guam</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.125 -0.296875 0 42.5 34.5)" color-interpolation="sRGB"><stop offset="0.4939" stop-color="#66afeb"/><stop offset="0.4949" stop-color="#63abe7"/><stop offset="0.496" stop-color="#59a0dc"/><stop offset="0.497" stop-color="#4a8eca"/><stop offset="0.498" stop-color="#3474b0"/><stop offset="0.499" stop-color="#1d5b97"/><stop offset="0.5" stop-color="#0e4985"/><stop offset="0.501" stop-color="#043e7a"/><stop offset="0.502" stop-color="#013a76"/></linearGradient>
+</defs>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#d53748"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.903226 0 0 0.869565 3.096774 4.173913)" fill="#0050c8"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M32 16C32 16 16 21 16 32C16 43 32 48 32 48C32 48 48 43 48 32C48 21 32 16 32 16Z" transform="matrix(0.445313 0 0 0.59375 17.875 13.5)" fill="url(#g1)"/>
+<path d="M38 36L31 37C31 37 33 38 33 39C33 40 29 41 29 41L28 40C28 40 29 38 30 38C31 38 27 36 26 37C27 39 29 43 32 43C40 39 38 36 38 36Z" fill="#fff100"/>
+<path d="M32 27L31.355 30.717L28.663 29.697L30.256 32.095L26 34L30.648 33.814L30.253 36.666L32.237 34.579L35 38L33.825 33.814L38 34L34.218 32.095L35.811 29.697L33.118 30.717Z" transform="matrix(1.021663 -0.314305 0.248326 0.807195 -8.296133 12.021069)" fill="#00926f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.112903 0 0 -0.021739 30.887098 34.195652)" fill="#ffffff"/>
+<path d="M33 30C33 30 32 35 35 37C34 38 34 39 34 39C34 39 31 34 32 31C33 28 33 30 33 30Z" fill="#7b4800"/>
+<path d="M32 16C32 16 16 21 16 32C16 43 32 48 32 48C32 48 48 43 48 32C48 21 32 16 32 16Z" transform="matrix(0.445313 0 0 0.621381 17.875 13.115797)" stroke="#d53748" fill="none" stroke-width="5"/>
+</svg>

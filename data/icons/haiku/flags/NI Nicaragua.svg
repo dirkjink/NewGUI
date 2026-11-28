@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>NI Nicaragua</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.140625 -0.171875 0 32 37)" color-interpolation="sRGB"><stop offset="0.1944" stop-color="#84d6ff"/><stop offset="0.1979" stop-color="#84d5f8"/><stop offset="0.2014" stop-color="#85d4e5"/><stop offset="0.2049" stop-color="#87d1c4"/><stop offset="0.2083" stop-color="#88cc96"/><stop offset="0.2118" stop-color="#8ac869"/><stop offset="0.2153" stop-color="#8cc548"/><stop offset="0.2188" stop-color="#8dc435"/><stop offset="0.2222" stop-color="#8dc32e"/><stop offset="0.2517" stop-color="#8dc435"/><stop offset="0.2813" stop-color="#8cc548"/><stop offset="0.3108" stop-color="#8ac869"/><stop offset="0.3403" stop-color="#88cc96"/><stop offset="0.3698" stop-color="#87d1c4"/><stop offset="0.3993" stop-color="#85d4e5"/><stop offset="0.4288" stop-color="#84d5f8"/><stop offset="0.4583" stop-color="#84d6ff"/></linearGradient>
+</defs>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391305)" fill="#0065c6"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869564)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M22 36L27 27L32 36Z" transform="matrix(1 0 0 1 5 0)" fill="url(#g1)"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.428578 0 0 0.428578 18.285488 18.285488)" stroke="#fdce12" fill="none" stroke-width="4"/>
+</svg>

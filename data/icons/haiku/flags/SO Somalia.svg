@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>SO Somalia</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#4189dd"/>
+<path d="M36.785 29.482L45.353 29.482L48 21.333L50.647 29.482L59.215 29.482L52.284 34.518L54.931 42.667L48 37.631L41.069 42.667L43.716 34.518Z" transform="matrix(0.821662 0 0 0.821662 -7.439781 5.804541)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

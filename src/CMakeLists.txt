@@ -7,18 +7,19 @@ configure_file(
     "${PROJECT_BINARY_DIR}/include/ngui/Version.h"
     @ONLY)
 
-# NewGUI's system icons (data/icons/), embedded as generated sources; drawn
-# by the vector icon renderer (ngui_svg).
+# The system icons NewGUI shows itself, Haiku's (data/icons/haiku/),
+# embedded as generated sources; drawn by the vector icon renderer
+# (ngui_svg). The list matches kSystemIcons in IconUtils.cpp.
 set(embeddedIcons)
 foreach(icon IN ITEMS
-        "dialog-information|kDialogInformation"
-        "dialog-idea|kDialogIdea"
-        "dialog-warning|kDialogWarning"
-        "dialog-error|kDialogError")
+        "Alert_Info|kAlertInfo"
+        "Alert_Idea|kAlertIdea"
+        "Alert_Warning|kAlertWarning"
+        "Alert_Stop|kAlertStop")
     string(REPLACE "|" ";" parts "${icon}")
     list(GET parts 0 file)
     list(GET parts 1 symbol)
-    set(input "${PROJECT_SOURCE_DIR}/data/icons/${file}.svg")
+    set(input "${PROJECT_SOURCE_DIR}/data/icons/haiku/${file}.svg")
     set(output "${CMAKE_CURRENT_BINARY_DIR}/icons/${file}.cpp")
     add_custom_command(
         OUTPUT "${output}"
@@ -299,7 +300,8 @@ endif()
 if(NGUI_WITH_SVG)
     find_package(lunasvg CONFIG REQUIRED)
     add_library(ngui_svg
-        svg/LunaSvgRenderer.cpp)
+        svg/LunaSvgRenderer.cpp
+        svg/MediaQueries.cpp)
     add_library(ngui::svg ALIAS ngui_svg)
     target_link_libraries(ngui_svg
         PUBLIC

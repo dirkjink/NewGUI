@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>GE Georgia</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.129032 0 0 1.043478 27.870968 -1.391304)" fill="#ff0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.173913 -1.032258 26.434784)" fill="#ff0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.064516 0 0 0.217391 11.935484 11.043478)" fill="#ff0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0 -0.064516 0.217391 0 7.043479 20.064516)" fill="#ff0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.064516 0 0 0.217391 47.935484 11.043478)" fill="#ff0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0 -0.064516 0.217391 0 43.043479 20.064516)" fill="#ff0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.064516 0 0 0.217391 11.935484 39.043478)" fill="#ff0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0 -0.064516 0.217391 0 7.043479 48.064516)" fill="#ff0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.064516 0 0 0.217391 47.935484 39.043478)" fill="#ff0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0 -0.064516 0.217391 0 43.043479 48.064516)" fill="#ff0000"/>
+</svg>

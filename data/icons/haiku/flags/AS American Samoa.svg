@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>AS American Samoa</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#000066"/>
+<path d="M64 10L4 32L64 54" fill="#ffffff"/>
+<path d="M64 10L4 32L64 54" stroke="#bd0f21" fill="none" stroke-width="4"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M58 18C58 18 41 22 45 25C44 25 41.778 25.219 41 26C41 27 46 28 44 30C45 30 46 32 46 32C46 32 48 32 48 33C48 34 50 37 50 37L52 37L54 32L53 31C53 31 54 29 55 29C56 29 55 26 55 26L53 26C53 26 56 25 57 24C58 23 58 18 58 18Z" fill="#9c3900"/>
+<path d="M42.372 27.748L37.379 30.433C37.379 30.433 37.689 31.384 36.674 32.768C35.659 34.152 37.296 34.669 37.296 34.669L36.985 33.718C36.985 33.718 43.305 30.599 46.268 30.682C42.683 28.698 42.372 27.748 42.372 27.748ZM55 26L59 25L59 29L55 29" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M39 35L43 35L42 36L50.129 37.626C50.129 37.626 51 32 51.972 37.994C53 39 57 39 57 39L56 41L46 40L55 42L54 45L45 41C45 41 42 39 46 39C49 39 49 40 49 40L49 39L42 37L42 38Z" fill="#ffc120"/>
+</svg>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>KP North Korea</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391303)" fill="#0a216f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.608696 -1.032258 12.52174)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.521739 -1.032258 15.304348)" fill="#d60000"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16ZM17.785 27.186L28.763 27.186L32.154 16.382L35.545 27.186L46.523 27.186L37.643 33.863L41.034 44.667L32.154 37.99L23.274 44.667L26.665 33.863Z" transform="matrix(0.625 0 0 0.625 4 12)" fill="#ffffff"/>
+</svg>

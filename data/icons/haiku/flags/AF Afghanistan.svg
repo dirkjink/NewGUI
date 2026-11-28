@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>AF Afghanistan</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.322581 0 0 1.043478 -0.322581 -1.391305)" fill="#000000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.387097 0 0 1.043478 19.612903 -1.391305)" fill="#bf0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.322581 0 0 1.043478 43.677419 -1.391305)" fill="#009900"/>
+<path d="M32 23.974C27.568 23.974 23.974 27.568 23.974 32C23.974 36.432 27.568 40.026 32 40.026C36.432 40.026 40.026 36.432 40.026 32C40.026 27.568 36.432 23.974 32 23.974ZM28 28C32 25 32 25 36 28C36 32 40 36 36 36C32 36 32 28 32 28C32 28 32 36 28 36C24 36 28 32 28 28Z" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

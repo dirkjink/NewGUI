@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>DO Dominican Republic</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.451613 0 0 0.434783 -0.451613 4.086957)" fill="#002d62"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.451613 0 0 0.434783 35.548387 32.086957)" fill="#002d62"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.451613 0 0 0.434783 35.548387 4.086957)" fill="#ce1126"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.451613 0 0 0.434783 -0.451613 32.086957)" fill="#ce1126"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M29 36C29 36 26 28 32 28C38 28 35 36 35 36Z" fill="#7e7e7e"/>
+</svg>

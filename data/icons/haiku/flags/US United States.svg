@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>US United States</title>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 1.047619 -1.032258 -1.428571)" fill="#ff0505"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 0.095238 -1.032258 11.142858)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 0.095238 -1.032258 19.142858)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 0.095238 -1.032258 27.142858)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 0.095238 -1.032258 35.142858)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 0.095238 -1.032258 43.142858)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(0.516129 0 0 0.571429 -0.516129 2.857143)" fill="#0000ff"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 2 0)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 2 5)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 2 10)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 2 15)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 8 2)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 8 7)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 8 12)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 8 17)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 14 5)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 14 10)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 14 15)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 20 2)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 20 7)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 20 12)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 20 17)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 14 0)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 26 5)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 26 10)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 26 15)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M2 11L3 13" transform="matrix(1 0 0 1 26 0)" stroke="#ffffff" fill="none" stroke-width="3"/>
+<path d="M1 9L63 9L63 51L1 51Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

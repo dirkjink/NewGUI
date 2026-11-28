@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Overlay_mail</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+@media (max-width:21.12px){.lod2{display:inline}}
+</style>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.081885 0.183738 -0.285705 0.127328 26.637447 43.873669)" color-interpolation="sRGB"><stop offset="0" stop-color="#ffffff"/><stop offset="0.125" stop-color="#fefefc"/><stop offset="0.25" stop-color="#faf9f2"/><stop offset="0.375" stop-color="#f4f2e1"/><stop offset="0.5" stop-color="#ece8c9"/><stop offset="0.625" stop-color="#e4ddb1"/><stop offset="0.75" stop-color="#ded6a0"/><stop offset="0.875" stop-color="#dad196"/><stop offset="1" stop-color="#d9d093"/></linearGradient>
+</defs>
+<path d="M4 44L4 60L28 60L28 44Z" class="lod1" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M4 44L4 60L28 60L28 44Z" class="lod2" display="none" stroke="#000000" fill="none" stroke-width="6"/>
+<path d="M4 44L4 60L28 60L28 44Z" fill="url(#g1)"/>
+<path d="M4 44C4 44 14 52 16 52C18 52 28 44 28 44C28 44 24.571 48.8 20.286 52L28 60L19.429 52.8C17.714 54.4 16.715 54 16 54C15.284 54 14.286 54.4 12.571 52.8L4 60L11.714 52C7.429 48.8 4 44 4 44Z" fill="#6b5222"/>
+</svg>

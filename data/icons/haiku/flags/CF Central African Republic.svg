@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>CF Central African Republic</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.26087 -1.032258 5.652174)" fill="#002d82"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.26087 -1.032258 17.652174)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.26087 -1.032258 29.652174)" fill="#289728"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.26087 -1.032258 41.652174)" fill="#ffce00"/>
+<path d="M38.871 29.033L45.846 29.033L48 22.4L50.155 29.033L57.129 29.033L51.487 33.132L53.642 39.765L48 35.666L42.358 39.765L44.513 33.132Z" transform="matrix(0.452315 0 0 0.452315 -11.7111 0.268153)" fill="#ffce00"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.258065 0 0 1.043478 23.741936 -1.391304)" fill="#d20f33"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

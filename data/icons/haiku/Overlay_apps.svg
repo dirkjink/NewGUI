@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Overlay_apps</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+@media (max-width:21.12px){.lod2{display:inline}}
+</style>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.055213 0.080729 -0.249094 0.170365 24.839684 36.133022)" color-interpolation="sRGB"><stop offset="0" stop-color="#fff9ba"/><stop offset="0.125" stop-color="#fff7b4"/><stop offset="0.25" stop-color="#fff2a3"/><stop offset="0.375" stop-color="#ffe987"/><stop offset="0.5" stop-color="#ffdd5f"/><stop offset="0.625" stop-color="#ffd137"/><stop offset="0.75" stop-color="#ffc81b"/><stop offset="0.875" stop-color="#ffc30a"/><stop offset="1" stop-color="#ffc104"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.078449 0.080484 -0.193234 0.188347 18.339594 47.154274)" color-interpolation="sRGB"><stop offset="0" stop-color="#c7e3ff"/><stop offset="0.125" stop-color="#c3ddff"/><stop offset="0.25" stop-color="#b5ccff"/><stop offset="0.375" stop-color="#9fb0ff"/><stop offset="0.5" stop-color="#8089ff"/><stop offset="0.625" stop-color="#6162ff"/><stop offset="0.75" stop-color="#4b46ff"/><stop offset="0.875" stop-color="#3d35ff"/><stop offset="1" stop-color="#392fff"/></linearGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.056689 0.101117 -0.263066 0.147482 33.607666 47.895638)" color-interpolation="sRGB"><stop offset="0" stop-color="#ff9797"/><stop offset="0.125" stop-color="#fd9494"/><stop offset="0.25" stop-color="#f98a8a"/><stop offset="0.375" stop-color="#f17b7b"/><stop offset="0.5" stop-color="#e66464"/><stop offset="0.625" stop-color="#dc4e4e"/><stop offset="0.75" stop-color="#d43f3f"/><stop offset="0.875" stop-color="#d03535"/><stop offset="1" stop-color="#ce3232"/></linearGradient>
+</defs>
+<path d="M12 39L12 46L18 49L22 46L22 39L16 36ZM6 50L6 57L12.001 60L16 57L16 50L10 47ZM18 51L18 57L24 60L28 57L28 50L23 47.25Z" class="lod1" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M12 39L12 46L18 49L22 46L22 39L16 36ZM6 50L6 57L12.001 60L16 57L16 50L10 47ZM18 51L18 57L24 60L28 57L28 50L23 47.25Z" class="lod2" display="none" stroke="#000000" fill="none" stroke-width="6"/>
+<path d="M12 39L12 46L18 49L22 46L22 39L16 36Z" fill="url(#g1)"/>
+<path d="M6 50L6 57L12.001 60L16 57L16 50L10 47Z" fill="url(#g2)"/>
+<path d="M18 51L18 57L24 60L28 57L28 50L23 47.25Z" fill="url(#g3)"/>
+</svg>

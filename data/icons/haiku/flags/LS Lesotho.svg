@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>LS Lesotho</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#00209f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#009542"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M22 39L23 37L24 37L29 29L29 25L31 25L31 29L36 37L37 37L38 39Z" transform="matrix(1 0 0 1 2 0)" fill="#000100"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 32 48 32 48C32 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.222235 0 0 0.277789 24.888491 21.110743)" stroke="#000100" fill="none" stroke-width="6"/>
+</svg>

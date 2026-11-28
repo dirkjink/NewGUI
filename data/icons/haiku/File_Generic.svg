@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>File_Generic</title>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.571429 0 0 0.333333 26 35)" color-interpolation="sRGB"><stop offset="0.4886" stop-color="#896eff"/><stop offset="0.5526" stop-color="#8b71ff"/><stop offset="0.6165" stop-color="#907bff"/><stop offset="0.6804" stop-color="#988bff"/><stop offset="0.7443" stop-color="#a4a2ff"/><stop offset="0.8082" stop-color="#b1b8ff"/><stop offset="0.8722" stop-color="#b9c8ff"/><stop offset="0.9361" stop-color="#bed2ff"/><stop offset="1" stop-color="#c0d5ff"/></radialGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.113045 0.451192 -0.877635 0.219888 56.519764 19.524633)" color-interpolation="sRGB"><stop offset="0" stop-color="#a5b1ff"/><stop offset="0.0923" stop-color="#a7b3ff"/><stop offset="0.1847" stop-color="#aeb9ff"/><stop offset="0.277" stop-color="#b8c3ff"/><stop offset="0.3693" stop-color="#c8d1ff"/><stop offset="0.4616" stop-color="#d7dfff"/><stop offset="0.554" stop-color="#e1e9ff"/><stop offset="0.6463" stop-color="#e8efff"/><stop offset="0.7386" stop-color="#eaf1ff"/><stop offset="0.7713" stop-color="#e8efff"/><stop offset="0.804" stop-color="#e3eaff"/><stop offset="0.8366" stop-color="#dbe1ff"/><stop offset="0.8693" stop-color="#ced4ff"/><stop offset="0.902" stop-color="#c2c8ff"/><stop offset="0.9347" stop-color="#babfff"/><stop offset="0.9673" stop-color="#b5baff"/><stop offset="1" stop-color="#b3b8ff"/></linearGradient>
+</defs>
+<path d="M27 57L29 59L32.136 55.831L37 59L45.399 47.547L64 38L59 35L61 37L36 49ZM58 34L62 31L58 29L55 32Z" fill="#010101" fill-opacity="0.5725"/>
+<path d="M6.25 30C6.25 30 11.875 36 16.875 42.5C21.875 49 26.25 55.75 26.25 55.75L59.125 36.875L32 15Z" stroke="#010101" fill="none" stroke-width="4"/>
+<path d="M6.25 30C6.25 30 11.875 36 16.875 42.5C21.875 49 26.25 55.75 26.25 55.75L59.125 36.875L32 15Z" fill="url(#g1)"/>
+<path d="M2.625 30.875C2.625 30.875 10.953 36.266 19 41.875C27.443 47.76 35.75 52.75 35.75 52.75L58.125 26.375C58.125 26.375 45.446 20.707 35.375 15.375C30.187 12.628 26 9.375 26 9.375Z" stroke="#010101" fill="none" stroke-width="4"/>
+<path d="M2.625 30.875C2.625 30.875 10.953 36.266 19 41.875C27.443 47.76 35.75 52.75 35.75 52.75L58.125 26.375C58.125 26.375 45.446 20.707 35.375 15.375C30.187 12.628 26 9.375 26 9.375Z" fill="url(#g2)"/>
+</svg>

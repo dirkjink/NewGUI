@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>AO Angola</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.521739 -1.032258 3.304348)" fill="#000000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.521739 -1.032258 27.304348)" fill="#ce1126"/>
+<path d="M29 23C29 23 41 25 34 36C31 34 32 35 26 31C25 28 24 32 25 34C27 35 32 38 32 38C32 38 27 41 24 37C22 37 23 40 23 40C23 40 27 44 35 40C40 43 41 45 41 45L42 42L36 38C36 38 46 27 32 20C29 22 29 23 29 23Z" fill="#f9d616"/>
+<path d="M46.269 28.219L43.682 26.312L41.109 28.151L42.131 25.238L39.545 23.337L42.652 23.315L43.741 20.449L44.73 23.335L47.869 23.304L45.38 25.24Z" transform="matrix(0.688538 0 0 0.688538 -1.033223 9.966777)" fill="#f9d616"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

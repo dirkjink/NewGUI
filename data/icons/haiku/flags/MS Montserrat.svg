@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>MS Montserrat</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.375 -0.40625 0 63 32)" color-interpolation="sRGB"><stop offset="0.592" stop-color="#00a2bd"/><stop offset="0.5929" stop-color="#059fb7"/><stop offset="0.5938" stop-color="#1595a6"/><stop offset="0.5946" stop-color="#2e868a"/><stop offset="0.5955" stop-color="#527062"/><stop offset="0.5964" stop-color="#77593b"/><stop offset="0.5972" stop-color="#904a1f"/><stop offset="0.5981" stop-color="#a0400e"/><stop offset="0.599" stop-color="#a53d08"/></linearGradient>
+</defs>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391305)" fill="#07286b"/>
+<path d="M38 22C38 45 39 45 48 48C58 45 59 45 59 22C56 22 42 22 38 22Z" fill="url(#g1)"/>
+<path d="M64 12L64 17L10 52L0 52L0 47L54 12ZM0 12L8 12L64 46L64 52L56 52L0 18Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M64 12L7 52L0 52L57 12ZM0 12L64 48L64 52L0 16Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#cc0000"/>
+<path d="M0 26L26 26L26 12L38 12L38 26L64 26L64 38L38 38L38 52L26 52L26 38L0 38Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M0 36L0 28L28 28L28 12L36 12L36 28L64 28L64 36L36 36L36 52L28 52L28 36Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#cc0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.16129 0 0 0.043478 43.83871 25.608694)" fill="#a53d08"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.032258 0 0 0.391304 47.967743 19.47826)" fill="#a53d08"/>
+<path d="M48 35L44 38C44 38 47 42 48 42C50.828 37.757 48 35 48 35Z" stroke="#ff9a06" fill="none" stroke-width="1"/>
+<path d="M52 28C52 28 52 32 53 33C54 34 52 39 53 42C54 45 48 42 48 42C48 42 51 31 50 30C49 29 50 28 50 28Z" fill="#008021"/>
+<path d="M53 29L53 33L47 36L52 32ZM47 28L46 32L48 32L48 31L48 28Z" transform="matrix(1 0 0 1 0 -1)" fill="#ffe1cf"/>
+<path d="M47 28L46 32L48 32L48 31L48 28Z" transform="matrix(1 0 0 0.5 4 13)" fill="#ffe1cf"/>
+</svg>

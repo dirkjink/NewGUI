@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Prefs_DriveSetup_File</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.113045 0.451192 -0.877635 0.219888 57.519764 21.524633)" color-interpolation="sRGB"><stop offset="0" stop-color="#a5b1ff"/><stop offset="0.0923" stop-color="#a7b3ff"/><stop offset="0.1847" stop-color="#aeb9ff"/><stop offset="0.277" stop-color="#b8c3ff"/><stop offset="0.3693" stop-color="#c8d1ff"/><stop offset="0.4616" stop-color="#d7dfff"/><stop offset="0.554" stop-color="#e1e9ff"/><stop offset="0.6463" stop-color="#e8efff"/><stop offset="0.7386" stop-color="#eaf1ff"/><stop offset="0.7713" stop-color="#e8efff"/><stop offset="0.804" stop-color="#e3eaff"/><stop offset="0.8366" stop-color="#dbe1ff"/><stop offset="0.8693" stop-color="#ced4ff"/><stop offset="0.902" stop-color="#c2c8ff"/><stop offset="0.9347" stop-color="#babfff"/><stop offset="0.9673" stop-color="#b5baff"/><stop offset="1" stop-color="#b3b8ff"/></linearGradient>
+</defs>
+<path d="M9.373 32L32 54.627L54.627 32L32 9.373Z" stroke="#010101" fill="none" stroke-width="6"/>
+<path d="M9.373 32L32 54.627L54.627 32L32 9.373Z" fill="url(#g1)"/>
+</svg>

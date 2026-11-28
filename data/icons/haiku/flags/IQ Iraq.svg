@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>IQ Iraq</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#ce1126"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#000001"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M29 28L29 37L32 37" transform="matrix(1 0 0 0.916667 0 2.166667)" stroke="#009e60" fill="none" stroke-width="1.5"/>
+<path d="M15 37L26 37L26 31L24 34L17 34L22 27" transform="matrix(1 0 0 0.916667 0 2.166667)" stroke="#009e60" fill="none" stroke-width="1.5"/>
+<path d="M36 37L38 36L38 34L39 37L41 37L41 32L42 37L44 37L44 26" transform="matrix(1 0 0 0.916667 0 2.166667)" stroke="#009e60" fill="none" stroke-width="1.5"/>
+<path d="M29 28L29 37L32 37" transform="matrix(1 0 0 0.916667 17 2.083333)" stroke="#009e60" fill="none" stroke-width="1.5"/>
+</svg>

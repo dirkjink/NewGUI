@@ -101,13 +101,13 @@ TypeIconName(BAlertType type)
 {
 	switch (type) {
 		case BAlertType::Info:
-			return "dialog-information";
+			return "Alert_Info";
 		case BAlertType::Idea:
-			return "dialog-idea";
+			return "Alert_Idea";
 		case BAlertType::Warning:
-			return "dialog-warning";
+			return "Alert_Warning";
 		case BAlertType::Stop:
-			return "dialog-error";
+			return "Alert_Stop";
 		case BAlertType::Empty:
 			break;
 	}
@@ -326,7 +326,7 @@ BAlert::Icon() const
 void
 BAlert::_CreateTypeIcon()
 {
-	// The icons are NewGUI's own SVG icons (Haiku: the app_server's
+	// Haiku's icons as SVG, built into the library (Haiku: the app_server's
 	// resources); without a vector icon renderer there is none.
 	const std::string_view name = TypeIconName(fType);
 	if (name.empty())

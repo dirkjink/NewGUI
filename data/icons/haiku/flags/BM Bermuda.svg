@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>BM Bermuda</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.25 -1 0 63.999996 24.000002)" color-interpolation="sRGB"><stop offset="0.7971" stop-color="#ffffff"/><stop offset="0.801" stop-color="#f7fbf7"/><stop offset="0.8049" stop-color="#dfeee1"/><stop offset="0.8088" stop-color="#b7dabb"/><stop offset="0.8128" stop-color="#80bc86"/><stop offset="0.8167" stop-color="#489f52"/><stop offset="0.8206" stop-color="#208b2c"/><stop offset="0.8245" stop-color="#087e16"/><stop offset="0.8284" stop-color="#007a0e"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 0.0625 -0.375 0 61.999996 28.999998)" color-interpolation="sRGB"><stop offset="0.3587" stop-color="#d40f0f"/><stop offset="0.3872" stop-color="#cd1214"/><stop offset="0.4158" stop-color="#ba1a25"/><stop offset="0.4443" stop-color="#982840"/><stop offset="0.4728" stop-color="#6a3c66"/><stop offset="0.5014" stop-color="#3c4f8c"/><stop offset="0.5299" stop-color="#1a5da7"/><stop offset="0.5584" stop-color="#0765b8"/><stop offset="0.587" stop-color="#0068bd"/></linearGradient>
+</defs>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#cc0000"/>
+<path d="M43 24L43 34C43 34 43 39 49 40C55 39 55 34 55 34L55 24Z" fill="url(#g1)"/>
+<path d="M49 25C48 25 48 27 48 27L45 27L46 33C46 33 47 36 48 36C49 36 49 36 50 36C51 36 52 33 52 33L53 27L50 27C50 27 50 25 49 25Z" fill="url(#g2)"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.516129 0 0 0.5 -0.516129 3.5)" fill="#07286b"/>
+<path d="M64 12L64 17L10 52L0 52L0 47L54 12ZM0 12L8 12L64 46L64 52L56 52L0 18Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M64 12L7 52L0 52L57 12ZM0 12L64 48L64 52L0 16Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#cc0000"/>
+<path d="M0 26L26 26L26 12L38 12L38 26L64 26L64 38L38 38L38 52L26 52L26 38L0 38Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#ffffff"/>
+<path d="M0 36L0 28L28 28L28 12L36 12L36 28L64 28L64 36L36 36L36 52L28 52L28 36Z" transform="matrix(0.5 0 0 0.575 0 1.1)" fill="#cc0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

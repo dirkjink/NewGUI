@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>SX Sint Maarten</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.521739 -1.032258 3.304348)" fill="#ed2938"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.521739 -1.032258 27.304348)" fill="#002295"/>
+<path d="M0 64L44 32L0 0Z" transform="matrix(0.625 0 0 0.75 0 7.999999)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M5 25L15 25C15 25 14 30 15 32C16 34 10 33 10 34C10 33 4 34 5 32C6 30 5 25 5 25Z" stroke="#ed2938" fill="none" stroke-width="2"/>
+<path d="M5 25L15 25C15 25 14 30 15 32C16 34 10 33 10 34C10 33 4 34 5 32C6 30 5 25 5 25Z" transform="matrix(0.805175 0 0 0.888889 1.5586 2.777777)" fill="#80cfe1"/>
+<path d="M7 32L7 28L9 27L10.03 26L11 27L13 28L13 32Z" fill="#ffffff"/>
+<path d="M3 32C3 32 0 38 10 38C20 38 17 32 17 32M7 23C7 23 9 20 12 23Z" stroke="#ffff00" fill="none" stroke-width="2"/>
+</svg>

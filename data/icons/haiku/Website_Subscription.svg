@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Website_Subscription</title>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.25 0 0 0.3125 20 40)" color-interpolation="sRGB"><stop offset="0" stop-color="#fffee4"/><stop offset="0.125" stop-color="#fefcdd"/><stop offset="0.25" stop-color="#faf6c8"/><stop offset="0.375" stop-color="#f5eba5"/><stop offset="0.5" stop-color="#ecdc74"/><stop offset="0.625" stop-color="#e4cd44"/><stop offset="0.75" stop-color="#dfc221"/><stop offset="0.875" stop-color="#dbbc0c"/><stop offset="1" stop-color="#daba05"/></radialGradient>
+<radialGradient id="g2" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.125 0 0 0.25 20 8)" color-interpolation="sRGB"><stop offset="0" stop-color="#face79"/><stop offset="0.125" stop-color="#f8cb76"/><stop offset="0.25" stop-color="#f1c36b"/><stop offset="0.375" stop-color="#e5b55a"/><stop offset="0.5" stop-color="#d6a141"/><stop offset="0.625" stop-color="#c68d28"/><stop offset="0.75" stop-color="#ba7f17"/><stop offset="0.875" stop-color="#b3770c"/><stop offset="1" stop-color="#b17409"/></radialGradient>
+</defs>
+<path d="M36 46C36 50 40 54 40 54L40 56L8 56L8 54C8 54 12 50 12 46L12 42C12 32 24 32 24 32C24 32 36 32 36 42ZM24 8C32 8 28 23 24 27C20 23 16 8 24 8ZM20 52C17.791 52 16 53.791 16 56C16 58.209 17.791 60 20 60C22.209 60 24 58.209 24 56C24 53.791 22.209 52 20 52Z" stroke="#010100" fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 46C36 50 40 54 40 54L40 56L8 56L8 54C8 54 12 50 12 46L12 42C12 32 24 32 24 32C24 32 36 32 36 42Z" fill="url(#g1)"/>
+<path d="M24 8C32 8 28 23 24 27C20 23 16 8 24 8Z" fill="url(#g2)"/>
+</svg>

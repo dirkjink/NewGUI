@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>NA Namibia</title>
+<path d="M0 8L0 56L64 8Z" fill="#003580"/>
+<path d="M0 8L0 56L64 8Z" transform="matrix(-1 0 0 -1 64 64)" fill="#009542"/>
+<path d="M48 8L0 44L0 48L52 8Z" fill="#ffffff"/>
+<path d="M48 8L0 44L0 48L52 8Z" transform="matrix(-1 0 0 -1 64 64)" fill="#ffffff"/>
+<path d="M51 8L0 47L0 56L13 56L64 17L64 8Z" fill="#d20f33"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M36.785 29.482L45.353 29.482L48 21.333L50.647 29.482L59.215 29.482L52.284 34.518L54.931 42.667L48 37.631L41.069 42.667L43.716 34.518Z" transform="matrix(0.681037 0 0 0.681037 -19.266844 -2.195459)" fill="#ffce00"/>
+<path d="M36.785 29.482L45.353 29.482L48 21.333L50.647 29.482L59.215 29.482L52.284 34.518L54.931 42.667L48 37.631L41.069 42.667L43.716 34.518Z" transform="matrix(0.616161 -0.290098 0.290098 0.616161 -25.435939 13.805281)" fill="#ffce00"/>
+<path d="M36.785 29.482L45.353 29.482L48 21.333L50.647 29.482L59.215 29.482L52.284 34.518L54.931 42.667L48 37.631L41.069 42.667L43.716 34.518Z" transform="matrix(0.429225 -0.528751 0.528751 0.429225 -24.549805 31.282322)" fill="#ffce00"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.24851 0 0 0.24851 5.547671 12.547671)" stroke="#003580" fill="none" stroke-width="5"/>
+</svg>

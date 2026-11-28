@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>EC Ecuador</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0 -0.1875 1 0 -0.000001 31.000008)" color-interpolation="sRGB"><stop offset="0" stop-color="#0076af"/><stop offset="0.0234" stop-color="#0378ac"/><stop offset="0.0469" stop-color="#0e7fa2"/><stop offset="0.0703" stop-color="#1f8a91"/><stop offset="0.0938" stop-color="#369a7a"/><stop offset="0.1172" stop-color="#4eaa63"/><stop offset="0.1406" stop-color="#5fb552"/><stop offset="0.1641" stop-color="#6abc48"/><stop offset="0.1875" stop-color="#6dbe45"/><stop offset="0.2044" stop-color="#6cbc47"/><stop offset="0.2214" stop-color="#6ab44b"/><stop offset="0.2383" stop-color="#66a853"/><stop offset="0.2552" stop-color="#61985e"/><stop offset="0.2721" stop-color="#5c8768"/><stop offset="0.2891" stop-color="#587b70"/><stop offset="0.306" stop-color="#567374"/><stop offset="0.3229" stop-color="#557176"/><stop offset="0.3533" stop-color="#5a757a"/><stop offset="0.3837" stop-color="#6a8387"/><stop offset="0.4141" stop-color="#85999d"/><stop offset="0.4444" stop-color="#aab8ba"/><stop offset="0.4748" stop-color="#cfd7d8"/><stop offset="0.5052" stop-color="#eaedee"/><stop offset="0.5356" stop-color="#fafbfb"/><stop offset="0.566" stop-color="#ffffff"/><stop offset="0.5968" stop-color="#f7fbfc"/><stop offset="0.6276" stop-color="#dfeef5"/><stop offset="0.6584" stop-color="#b7d8e8"/><stop offset="0.6892" stop-color="#80bad7"/><stop offset="0.7201" stop-color="#489cc6"/><stop offset="0.7509" stop-color="#2086b9"/><stop offset="0.7817" stop-color="#0879b2"/><stop offset="0.8125" stop-color="#0075af"/></linearGradient>
+</defs>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.434783 -1.032258 4.086957)" fill="#fcd116"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.304348 -1.032258 25.26087)" fill="#003793"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.304348 -1.032258 39.26087)" fill="#ce1126"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M23 24C23 24 21 40 27 40C30 40 28 41 28 41L30 41C30 41 31 39 32 41C33 41 34 41 34 41C34 41 32 40 35 40C41 40 39 24 39 24L37 25C37 25 39 39 31 39C23 39 25 25 25 25Z" transform="matrix(0.636364 0 0 1 12.272724 1)" fill="#ce1126"/>
+<path d="M23 24C23 24 21 40 27 40C30 40 28 41 28 41L30 41C30 41 31 39 32 41C33 41 34 41 34 41C34 41 32 40 35 40C41 40 39 24 39 24L37 25C37 25 39 39 31 39C23 39 25 25 25 25Z" transform="matrix(0.757576 0 0 1 8.51515 1)" fill="#003793"/>
+<path d="M23 24C23 24 21 40 27 40C30 40 28 41 28 41L30 41C30 41 31 39 32 41C33 41 34 41 34 41C34 41 32 40 35 40C41 40 39 24 39 24L37 25C37 25 39 39 31 39C23 39 25 25 25 25Z" transform="matrix(1 0 0 1 1 1)" fill="#fcd116"/>
+<path d="M24 21C24 21 27 17 30 20C31 20 32 20 32 20C32 20 35 17 38 21C34 21 32 24 33 25C34 26 31 23 31 24C31 25 27 24 27 24C27 24 30 23 30 22C30 21 24 21 24 21Z" transform="matrix(1 0 0 1 1 1)" fill="#594646"/>
+<path d="M32 16C23.163 16 21 23.163 21 32C21 40.837 23.163 48 32 48C40.837 48 43 40.837 43 32C43 23.163 40.837 16 32 16Z" transform="matrix(0.389205 0 0 0.389205 19.826704 19.772728)" fill="url(#g1)"/>
+</svg>

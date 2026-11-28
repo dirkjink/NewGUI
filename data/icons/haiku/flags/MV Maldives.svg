@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>MV Maldives</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#d20f33"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.774194 0 0 0.695652 7.225806 9.73913)" fill="#007e39"/>
+<path d="M70.4 32C70.4 26.698 66.102 22.4 60.8 22.4C55.498 22.4 51.2 26.698 51.2 32C51.2 37.302 55.498 41.6 60.8 41.6C66.102 41.6 70.4 37.302 70.4 32Z" transform="matrix(1.180499 0.171737 -0.171737 1.180499 -32.617377 -16.297687)" fill="#ffffff"/>
+<path d="M70.4 32C70.4 26.698 66.102 22.4 60.8 22.4C55.498 22.4 51.2 26.698 51.2 32C51.2 37.302 55.498 41.6 60.8 41.6C66.102 41.6 70.4 37.302 70.4 32Z" transform="matrix(1.087726 0.158241 -0.158241 1.087726 -23.247393 -12.913483)" fill="#007e39"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

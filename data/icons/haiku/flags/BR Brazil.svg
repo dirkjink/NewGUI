@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>BR Brazil</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#009b3a"/>
+<path d="M32 12L60 32L32 52L4 32Z" fill="#fede00"/>
+<path d="M32 16C23.163 16 16 23.163 16 32C16 40.837 23.163 48 32 48C40.837 48 48 40.837 48 32C48 23.163 40.837 16 32 16Z" transform="matrix(0.78125 0 0 0.78125 7.5 7.5)" fill="#002676"/>
+<path d="M23 26C23 26 37 26 44 37C44 38 43 39 43 39C43 39 37.76 33.012 36.878 33.499C36.877 33.499 36.876 33.5 36.875 33.5C36 34 27.5 28 21 28C22 26 23 26 23 26Z" fill="#c4dbd7"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

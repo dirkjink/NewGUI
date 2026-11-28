@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>KE Kenia</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.304348 -1.032258 5.26087)" fill="#010101"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#bb0000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.304348 -1.032258 39.26087)" fill="#006600"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.243033 0.543658 -0.034587 0.015462 25.329725 13.608182)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(-0.255889 0.537726 -0.03421 -0.01628 41.283159 14.813702)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M32 17C21 17 21 48 32 48C43 48 44 17 32 17Z" fill="#bb0000"/>
+<path d="M32 17C21 17 21 48 32 48C43 48 44 17 32 17Z" transform="matrix(0.237616 0 0 1 24.396297 0)" fill="#ffffff"/>
+<path d="M32 17C21 17 21 48 32 48C43 48 44 17 32 17Z" transform="matrix(-0.343116 0 0 0.516129 37.17107 15.225807)" fill="#010101"/>
+<path d="M32 17C21 17 21 48 32 48C43 48 44 17 32 17Z" transform="matrix(-0.343116 0 0 0.516129 49.17107 15.225807)" fill="#010101"/>
+</svg>

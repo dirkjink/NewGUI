@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>File_Audio_2</title>
+<style>
+@media (max-width:21.11px){.lod1{display:none}}
+</style>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.571429 0 0 0.333333 26 35)" color-interpolation="sRGB"><stop offset="0.4886" stop-color="#7794c9"/><stop offset="0.5526" stop-color="#7a96cb"/><stop offset="0.6165" stop-color="#839ecf"/><stop offset="0.6804" stop-color="#92aad7"/><stop offset="0.7443" stop-color="#a8bce2"/><stop offset="0.8082" stop-color="#bdceec"/><stop offset="0.8722" stop-color="#ccdaf4"/><stop offset="0.9361" stop-color="#d5e2f8"/><stop offset="1" stop-color="#d8e4fa"/></radialGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.088253 0.35224 -0.877635 0.219888 56.519764 19.524633)" color-interpolation="sRGB"><stop offset="0" stop-color="#a5c5ff"/><stop offset="0.0928" stop-color="#a7c6ff"/><stop offset="0.1856" stop-color="#aecbff"/><stop offset="0.2784" stop-color="#b8d2ff"/><stop offset="0.3712" stop-color="#c8dcff"/><stop offset="0.464" stop-color="#d7e5ff"/><stop offset="0.5568" stop-color="#e1ecff"/><stop offset="0.6496" stop-color="#e8f1ff"/><stop offset="0.7424" stop-color="#eaf2ff"/><stop offset="0.7746" stop-color="#e9f2ff"/><stop offset="0.8068" stop-color="#e7f0ff"/><stop offset="0.839" stop-color="#e4eeff"/><stop offset="0.8712" stop-color="#e0eaff"/><stop offset="0.9034" stop-color="#dbe7ff"/><stop offset="0.9356" stop-color="#d8e5ff"/><stop offset="0.9678" stop-color="#d6e3ff"/><stop offset="1" stop-color="#d5e3ff"/></linearGradient>
+<radialGradient id="g3" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.155868 -0.191556 0.454436 0.369771 27.880306 27.495613)" color-interpolation="sRGB"><stop offset="0" stop-color="#485c85"/><stop offset="0.125" stop-color="#4c6089"/><stop offset="0.25" stop-color="#566a93"/><stop offset="0.375" stop-color="#687ca5"/><stop offset="0.5" stop-color="#8296be"/><stop offset="0.625" stop-color="#9bafd7"/><stop offset="0.75" stop-color="#adc1e9"/><stop offset="0.875" stop-color="#b7cbf3"/><stop offset="1" stop-color="#bbcff7"/></radialGradient>
+<linearGradient id="g4" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.15008 -0.196124 0.441537 0.337878 20.980137 22.046387)" color-interpolation="sRGB"><stop offset="0" stop-color="#010101"/><stop offset="0.125" stop-color="#020202"/><stop offset="0.25" stop-color="#060606"/><stop offset="0.375" stop-color="#0c0c0c"/><stop offset="0.5" stop-color="#141414"/><stop offset="0.625" stop-color="#1c1c1c"/><stop offset="0.75" stop-color="#222222"/><stop offset="0.875" stop-color="#262626"/><stop offset="1" stop-color="#272727"/></linearGradient>
+</defs>
+<path d="M27 57L29 59L32.136 55.831L37 59L45.399 47.547L64 38L59 35L61 37L36 49ZM58 34L62 31L58 29L55 32Z" fill="#010101" fill-opacity="0.5725"/>
+<path d="M6.25 30C6.25 30 11.875 36 16.875 42.5C21.875 49 26.25 55.75 26.25 55.75L59.125 36.875L32 15Z" stroke="#010101" fill="none" stroke-width="4"/>
+<path d="M6.25 30C6.25 30 11.875 36 16.875 42.5C21.875 49 26.25 55.75 26.25 55.75L59.125 36.875L32 15Z" fill="url(#g1)"/>
+<path d="M2.625 30.875C2.625 30.875 10.953 36.266 19 41.875C27.443 47.76 35.75 52.75 35.75 52.75L58.125 26.375C58.125 26.375 45.446 20.707 35.375 15.375C30.187 12.628 26 9.375 26 9.375Z" stroke="#010101" fill="none" stroke-width="4"/>
+<path d="M2.625 30.875C2.625 30.875 10.953 36.266 19 41.875C27.443 47.76 35.75 52.75 35.75 52.75L58.125 26.375C58.125 26.375 45.446 20.707 35.375 15.375C30.187 12.628 26 9.375 26 9.375Z" fill="url(#g2)"/>
+<path d="M33 49L53 27M28 45L47 24M22 41L42 21M17 37L36 18M11 33L31 13" class="lod1" stroke="url(#g3)" fill="none" stroke-width="1"/>
+<path d="M27 42C31.16 44.774 37 36 33 33C29 30 22 28 22 28L30.875 20.625L43 28C40 29 38 35 41 37C45.16 39.774 51 31 47 28C43 25 27 16 27 16L14 26L29 33C26 34 24 40 27 42Z" fill="url(#g4)"/>
+</svg>

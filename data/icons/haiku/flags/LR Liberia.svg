@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>LR Liberia</title>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 1.047619 -1.032258 -1.428571)" fill="#bf092f"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 0.095238 -1.032258 11.142857)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 0.095238 -1.032258 19.142857)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 0.095238 -1.032258 27.142857)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 0.095238 -1.032258 35.142857)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(1.032258 0 0 0.095238 -1.032258 43.142857)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 51L1 51Z" transform="matrix(0.387097 0 0 0.47619 -0.387097 3.714286)" fill="#002868"/>
+<path d="M1 9L63 9L63 51L1 51Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M36.785 29.482L45.353 29.482L48 21.333L50.647 29.482L59.215 29.482L52.284 34.518L54.931 42.667L48 37.631L41.069 42.667L43.716 34.518Z" transform="matrix(0.587287 0 0 0.587287 -16.818221 -1.195461)" fill="#ffffff"/>
+</svg>

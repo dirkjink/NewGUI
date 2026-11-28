@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>RW Rwanda</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.434783 -1.032258 4.086957)" fill="#00a0de"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.326087 -1.032258 24.065218)" fill="#fad201"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.304348 -1.032258 39.260868)" fill="#20603d"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M36.785 29.482L46 31L48 21.333L50 31L59.215 29.482L50 34L54.931 42.667L48 36L41.069 42.667L46 34Z" transform="matrix(0.59874 0 0 0.59874 20.76049 -1.684107)" fill="#fad201"/>
+<path d="M36.785 29.482L46 31L48 21.333L50 31L59.215 29.482L50 34L54.931 42.667L48 36L41.069 42.667L46 34Z" transform="matrix(0.534643 -0.26953 0.26953 0.534643 15.212185 13.304458)" fill="#fad201"/>
+<path d="M36.785 29.482L46 31L48 21.333L50 31L59.215 29.482L50 34L54.931 42.667L48 36L41.069 42.667L46 34Z" transform="matrix(0.384541 -0.458931 0.458931 0.384541 15.983172 27.256399)" fill="#fad201"/>
+</svg>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>App_VirtualBox</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.208482 0.295323 -0.614612 0.433883 36.331764 23.99354)" color-interpolation="sRGB"><stop offset="0" stop-color="#0eb3b5"/><stop offset="0.125" stop-color="#0eafb7"/><stop offset="0.25" stop-color="#0ca4be"/><stop offset="0.375" stop-color="#0a91ca"/><stop offset="0.5" stop-color="#0777da"/><stop offset="0.625" stop-color="#045dea"/><stop offset="0.75" stop-color="#024af6"/><stop offset="0.875" stop-color="#003ffd"/><stop offset="1" stop-color="#003bff"/></linearGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.353733 -0.136614 0.191395 0.495575 22.815512 4.185405)" color-interpolation="sRGB"><stop offset="0" stop-color="#00fbff"/><stop offset="0.125" stop-color="#00f3ff"/><stop offset="0.25" stop-color="#00dcff"/><stop offset="0.375" stop-color="#00b4ff"/><stop offset="0.5" stop-color="#007eff"/><stop offset="0.625" stop-color="#0047ff"/><stop offset="0.75" stop-color="#001fff"/><stop offset="0.875" stop-color="#0008ff"/><stop offset="1" stop-color="#0000ff"/></linearGradient>
+<linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.274191 0.142697 -0.379738 0.729667 52.522491 16.732311)" color-interpolation="sRGB"><stop offset="0" stop-color="#00aaff"/><stop offset="0.125" stop-color="#00a6fd"/><stop offset="0.25" stop-color="#019cf8"/><stop offset="0.375" stop-color="#018aef"/><stop offset="0.5" stop-color="#0270e3"/><stop offset="0.625" stop-color="#0457d7"/><stop offset="0.75" stop-color="#0445ce"/><stop offset="0.875" stop-color="#053bc9"/><stop offset="1" stop-color="#0537c7"/></linearGradient>
+</defs>
+<path d="M30 62L46 62L64 40L52 36Z" fill="#010101" fill-opacity="0.4275"/>
+<path d="M2 17L2 46L30 60L50 40L50 13L23 6Z" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M2 17L2 46L30 60L30 26Z" fill="url(#g1)"/>
+<path d="M2 17L30 26L50 13L23 6Z" fill="url(#g2)"/>
+<path d="M30 60L50 40L50 13L30 26Z" fill="url(#g3)"/>
+<path d="M21 26L25 27L28 36L34 24L36 33L41 26L43 36L47 38M21 14L48 23L48 51L21 39Z" transform="matrix(0.818182 0 0 0.818182 -12.181818 11.818182)" stroke="#ffffff" fill="none" stroke-width="2"/>
+</svg>

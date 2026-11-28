@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>SZ Swaziland</title>
+<defs>
+<linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.355996 0.049168 -0.036342 0.263127 32.271069 22.506552)" color-interpolation="sRGB"><stop offset="0.4387" stop-color="#010000"/><stop offset="0.4589" stop-color="#090808"/><stop offset="0.479" stop-color="#212020"/><stop offset="0.4992" stop-color="#484848"/><stop offset="0.5194" stop-color="#808080"/><stop offset="0.5395" stop-color="#b8b7b7"/><stop offset="0.5597" stop-color="#dfdfdf"/><stop offset="0.5798" stop-color="#f7f7f7"/><stop offset="0.6" stop-color="#ffffff"/></linearGradient>
+</defs>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#3d5db9"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.521739 -1.032258 15.304348)" fill="#ffd900"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869564)" fill="#b10b0b"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.612903 0 0 0.021739 13.387096 27.804348)" fill="#ffd900"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.612903 0 0 0.021739 11.387096 29.804348)" fill="#ffd900"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.758065 0 0 0.021739 8.241935 31.804348)" fill="#ffd900"/>
+<path d="M32 24C23.163 24 16 32 16 32C16 32 23.163 40 32 40C40.837 40 48 32 48 32C48 32 40.837 24 32 24Z" transform="matrix(0.75 0 0 0.75 8 8)" fill="url(#g1)"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.193548 0 0 0.043478 25.80645 28.608696)" fill="#7e7e7e"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.193548 0 0 0.043478 25.80645 32.608696)" fill="#7e7e7e"/>
+<path d="M52 32C52 32 47 33 52 37C57 33 52 32 52 32Z" fill="#3d5da7"/>
+<path d="M52 32C52 32 47 33 52 37C57 33 52 32 52 32Z" transform="matrix(0.883604 -0.468235 0.468235 0.883604 -49.101513 29.363853)" fill="#3d5da7"/>
+<path d="M52 32C52 32 47 33 52 37C57 33 52 32 52 32Z" transform="matrix(0.498554 -0.866859 0.866859 0.498554 -25.820573 58.231993)" fill="#3d5da7"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.027949 0.014775 -0.027161 0.022434 53.779644 27.553209)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.027949 0.014775 -0.027161 0.022434 50.779644 29.553209)" fill="#ffffff"/>
+</svg>

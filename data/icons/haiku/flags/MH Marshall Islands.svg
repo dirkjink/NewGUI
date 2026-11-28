@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>MH Marshall Islands</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#003793"/>
+<path d="M0 56L64 20L64 32Z" fill="#ffffff"/>
+<path d="M0 56L64 8L64 20Z" fill="#dd7400"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M32.237 27.976L31.8 31.717L28.663 29.697L31.256 32.381L27.78 33.564L31.45 33.21L30.253 36.666L32.237 33.579L34.22 36.666L33.023 33.21L36.693 33.564L33.218 32.381L35.811 29.697L32.673 31.717Z" transform="matrix(1.284115 1.393514 -1.393514 1.284115 18.368856 -62.966098)" fill="#ffffff"/>
+<path d="M32.237 27.976L31.8 31.717L28.663 29.697L31.256 32.381L27.78 33.564L31.45 33.21L30.253 36.666L32.237 33.579L34.22 36.666L33.023 33.21L36.693 33.564L33.218 32.381L35.811 29.697L32.673 31.717Z" transform="matrix(-1.296314 -1.382173 1.382173 -1.296314 11.341415 110.039589)" fill="#ffffff"/>
+</svg>

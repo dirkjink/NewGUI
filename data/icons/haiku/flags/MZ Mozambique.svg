@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>MZ Mozambique</title>
+<path d="M1 9L63 9L63 55L1 55Z" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.304348 -1.032258 5.260869)" fill="#007167"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869565)" fill="#000100"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.304348 -1.032258 39.260869)" fill="#fce000"/>
+<path d="M0 8L32 32L0 56Z" fill="#d20f33"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M38.871 29.033L45.846 29.033L48 22.4L50.155 29.033L57.129 29.033L51.487 33.132L53.642 39.765L48 35.666L42.358 39.765L44.513 33.132Z" transform="matrix(1 0 0 1 -37 0)" fill="#fce000"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.129032 0 0 0.108696 6.870968 29.021741)" fill="#ffffff"/>
+<path d="M4 38L3 36L16 26L17 27L20 25L17 29L15 29L10 33L13 34L12 36L8 35L8 37L6 37ZM5 31L3 29L6 26L8 26L19 37L17 38L7 27L7 28Z" fill="#000100"/>
+</svg>

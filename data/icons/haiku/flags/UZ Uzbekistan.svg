@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>UZ Uzbekistan</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#ce2d3f"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 4.869565)" fill="#0099b5"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.304348 -1.032258 22.260869)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 36.869565)" fill="#1eb53a"/>
+<path d="M70.4 32C70.4 26.698 66.102 22.4 60.8 22.4C55.498 22.4 51.2 26.698 51.2 32C51.2 37.302 55.498 41.6 60.8 41.6C66.102 41.6 70.4 37.302 70.4 32Z" transform="matrix(0.64052 0.030434 -0.030434 0.64052 -29.573931 -6.497865)" fill="#ffffff"/>
+<path d="M70.4 32C70.4 26.698 66.102 22.4 60.8 22.4C55.498 22.4 51.2 26.698 51.2 32C51.2 37.302 55.498 41.6 60.8 41.6C66.102 41.6 70.4 37.302 70.4 32Z" transform="matrix(0.633145 0.030083 -0.030083 0.633145 -26.891824 -6.196282)" fill="#0099b5"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 12.545559 19.652941)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 17.545559 19.652941)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 17.545559 15.652941)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 22.545559 19.652941)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 22.545559 15.652941)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 22.545559 11.652941)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 27.545559 19.652941)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 27.545559 15.652941)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 27.545559 11.652941)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 32.545559 19.652941)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 32.545559 15.652941)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.019122 -0.019553 0.031085 0.030399 32.545559 11.652941)" fill="#ffffff"/>
+</svg>

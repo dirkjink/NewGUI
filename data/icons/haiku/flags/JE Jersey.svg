@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>JE Jersey</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#ffffff"/>
+<path d="M0 8L4 8L64 51L64 56L60 56L0 13Z" fill="#df112d"/>
+<path d="M0 8L4 8L64 51L64 56L60 56L0 13Z" transform="matrix(0 0.75 -1.333333 0 74.666672 8.000001)" fill="#df112d"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+<path d="M26 14C26 14 25 21 31 25C33 25 30 25 32 25C38 21 37 14 37 14Z" fill="#df112d"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.177419 0 0 0.065217 25.82258 11.413044)" fill="#f7d917"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.080645 0 0 0.067029 28.919354 16.355072)" stroke="#f7d917" fill="none" stroke-width="5"/>
+</svg>

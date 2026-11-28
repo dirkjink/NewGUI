@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>Overlay_padlock</title>
+<defs>
+<radialGradient id="g1" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="64" gradientTransform="matrix(0.15625 0 0 0.15625 51 43)" color-interpolation="sRGB"><stop offset="0.4178" stop-color="#a8a8a8"/><stop offset="0.4393" stop-color="#a4a4a4"/><stop offset="0.4608" stop-color="#989898"/><stop offset="0.4823" stop-color="#848484"/><stop offset="0.5038" stop-color="#686868"/><stop offset="0.5253" stop-color="#4b4b4b"/><stop offset="0.5469" stop-color="#373737"/><stop offset="0.5684" stop-color="#2b2b2b"/><stop offset="0.5899" stop-color="#272727"/><stop offset="0.639" stop-color="#2c2c2c"/><stop offset="0.6882" stop-color="#3c3c3c"/><stop offset="0.7373" stop-color="#575757"/><stop offset="0.7865" stop-color="#7c7c7c"/><stop offset="0.8356" stop-color="#a0a0a0"/><stop offset="0.8848" stop-color="#bbbbbb"/><stop offset="0.9339" stop-color="#cbcbcb"/><stop offset="0.9831" stop-color="#d0d0d0"/></radialGradient>
+<linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0" gradientTransform="matrix(0.272797 0.239883 -0.175406 0.199473 48.045769 36.824631)" color-interpolation="sRGB"><stop offset="0.4501" stop-color="#f6ed5a"/><stop offset="0.5188" stop-color="#f1e857"/><stop offset="0.5876" stop-color="#e2da4f"/><stop offset="0.6563" stop-color="#c9c241"/><stop offset="0.725" stop-color="#a6a02d"/><stop offset="0.7938" stop-color="#827f19"/><stop offset="0.8625" stop-color="#69670b"/><stop offset="0.9313" stop-color="#5a5903"/><stop offset="1" stop-color="#555400"/></linearGradient>
+</defs>
+<path d="M40 56C36 52 40 44 40 44L60 44C60 44 64 52 60 56C56 60 44 60 40 56Z" transform="matrix(1 0 0 0.947347 0 3.211436)" stroke="#000000" fill="none" stroke-width="4"/>
+<path d="M44 48L44 40C44 40 44 36 50 36C56 36 56 40 56 40L56 48Z" transform="matrix(1 0 0 1 0 0)" stroke="#000000" fill="none" stroke-width="8"/>
+<path d="M44 48L44 40C44 40 44 36 50 36C56 36 56 40 56 40L56 48Z" stroke="url(#g1)" fill="none" stroke-width="4"/>
+<path d="M40 56C36 52 40 44 40 44L60 44C60 44 64 52 60 56C56 60 44 60 40 56Z" fill="url(#g2)"/>
+<path d="M50 49C49 49 48 50 48 51C48 52 48 52 49 53C49 55 49 56 50 56C51 56 51 55 51 53C52 52 52 52 52 51C52 50 51 49 50 49Z" fill="#000000"/>
+<path d="M40 44L60 44" stroke="#000000" fill="none" stroke-width="1"/>
+</svg>

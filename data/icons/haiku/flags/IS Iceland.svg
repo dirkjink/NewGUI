@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>IS Iceland</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#003797"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.258065 0 0 1.043478 15.741936 -1.391304)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.347826 -1.032258 20.869564)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 0.152174 -1.032258 26.630436)" fill="#d72828"/>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(0.129032 0 0 1.043478 19.870968 -1.391305)" fill="#d72828"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>

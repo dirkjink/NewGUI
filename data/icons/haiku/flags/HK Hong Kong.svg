@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" color-interpolation="linearRGB">
+<title>HK Hong Kong</title>
+<path d="M1 9L63 9L63 55L1 55Z" transform="matrix(1.032258 0 0 1.043478 -1.032258 -1.391304)" fill="#de2910"/>
+<path d="M32 32C31 35 12.298 28.054 19 18C19 21 20.879 21.707 23 21C29 19 23 32 32 32Z" transform="matrix(0.392756 0.485559 -0.485559 0.392756 35.194433 4.625864)" fill="#ffffff"/>
+<path d="M32 32C31 35 12.298 28.054 19 18C19 21 20.879 21.707 23 21C29 19 23 32 32 32Z" transform="matrix(-0.376173 0.498516 -0.498516 -0.376173 60.041153 29.095796)" fill="#ffffff"/>
+<path d="M32 32C31 35 12.298 28.054 19 18C19 21 20.879 21.707 23 21C29 19 23 32 32 32Z" transform="matrix(-0.594646 -0.190842 0.190842 -0.594646 42.826392 57.737198)" fill="#ffffff"/>
+<path d="M32 32C31 35 12.298 28.054 19 18C19 21 20.879 21.707 23 21C29 19 23 32 32 32Z" transform="matrix(0.041383 -0.623147 0.623147 0.041383 8.63212 50.889657)" fill="#ffffff"/>
+<path d="M32 32C31 35 12.298 28.054 19 18C19 21 20.879 21.707 23 21C29 19 23 32 32 32Z" transform="matrix(0.624473 0.007588 -0.007588 0.624473 10.019202 12.06755)" fill="#ffffff"/>
+<path d="M1 9L63 9L63 55L1 55Z" stroke="#7e7e7e" fill="none" stroke-width="1"/>
+</svg>
