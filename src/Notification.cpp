@@ -16,6 +16,8 @@
 #include <utility>
 
 #include <ngui/Application.h>
+#include <ngui/Bitmap.h>
+#include <ngui/IconUtils.h>
 #include <ngui/platform/Platform.h>
 
 #include "ApplicationPrivate.h"
@@ -54,6 +56,58 @@ KindOf(BNotificationType type)
 			break;
 	}
 	return platform::NotificationSpec::Kind::Information;
+}
+
+
+// Haiku's notification icon of \a type (data/icons/haiku/Notify_*, by
+// Humdinger's grading: Notice "your normal info", Achtung "slightly more
+// interesting than a notice", Danger the last level of escalation).
+std::string_view
+IconNameOf(BNotificationType type)
+{
+	switch (type) {
+		case BNotificationType::Important:
+			return "Notify_Achtung";
+		case BNotificationType::Error:
+			return "Notify_Danger";
+		case BNotificationType::Information:
+		case BNotificationType::Progress:
+			break;
+	}
+	return "Notify_Notice";
+}
+
+
+// The side of the icon Send() draws when the notification has none: the
+// systems scale it down, so it stays sharp on screens of a higher density.
+constexpr float kDefaultIconSize = 64;
+
+
+// \a icon into \a spec as RGBA bytes, not premultiplied.
+void
+PutIcon(platform::NotificationSpec& spec, const BBitmap& icon)
+{
+	// B_RGBA32 lies as B, G, R, A in memory
+	BBitmap rgba(icon.Bounds(), BColorSpace::RGBA32);
+	if (!rgba.IsValid() || !rgba.ImportBits(icon).has_value())
+		return;
+	const gfx::Rect bounds = rgba.Bounds();
+	spec.iconWidth = static_cast<std::int32_t>(bounds.x1 - bounds.x0);
+	spec.iconHeight = static_cast<std::int32_t>(bounds.y1 - bounds.y0);
+	const auto row = static_cast<std::size_t>(rgba.BytesPerRow());
+	const auto width = static_cast<std::size_t>(spec.iconWidth);
+	spec.icon.resize(width * static_cast<std::size_t>(spec.iconHeight) * 4);
+	const std::span<const std::uint8_t> bits = std::as_const(rgba).Bits();
+	for (std::size_t y = 0; y < static_cast<std::size_t>(spec.iconHeight); y++) {
+		for (std::size_t x = 0; x < width; x++) {
+			const std::uint8_t* from = bits.data() + y * row + x * 4;
+			std::uint8_t* to = spec.icon.data() + (y * width + x) * 4;
+			to[0] = from[2];
+			to[1] = from[1];
+			to[2] = from[0];
+			to[3] = from[3];
+		}
+	}
 }
 
 
@@ -259,27 +313,13 @@ BNotification::Send(Clock::Time timeout) const
 	spec.target = AppMessenger();
 	spec.onClick = fOnClick;
 	if (fIcon != nullptr) {
-		// RGBA, not premultiplied: B_RGBA32 lies as B, G, R, A in memory
-		BBitmap rgba(fIcon->Bounds(), BColorSpace::RGBA32);
-		if (rgba.IsValid() && rgba.ImportBits(*fIcon).has_value()) {
-			const gfx::Rect bounds = rgba.Bounds();
-			spec.iconWidth = static_cast<std::int32_t>(bounds.x1 - bounds.x0);
-			spec.iconHeight = static_cast<std::int32_t>(bounds.y1 - bounds.y0);
-			const auto row = static_cast<std::size_t>(rgba.BytesPerRow());
-			const auto width = static_cast<std::size_t>(spec.iconWidth);
-			spec.icon.resize(width * static_cast<std::size_t>(spec.iconHeight) * 4);
-			const std::span<const std::uint8_t> bits = std::as_const(rgba).Bits();
-			for (std::size_t y = 0; y < static_cast<std::size_t>(spec.iconHeight); y++) {
-				for (std::size_t x = 0; x < width; x++) {
-					const std::uint8_t* from = bits.data() + y * row + x * 4;
-					std::uint8_t* to = spec.icon.data() + (y * width + x) * 4;
-					to[0] = from[2];
-					to[1] = from[1];
-					to[2] = from[0];
-					to[3] = from[3];
-				}
-			}
-		}
+		PutIcon(spec, *fIcon);
+	} else {
+		// Haiku's notification icon of the type; without a vector icon
+		// renderer none
+		BBitmap icon({0, 0, kDefaultIconSize, kDefaultIconSize}, BColorSpace::RGBA32);
+		if (BIconUtils::GetSystemIcon(IconNameOf(fType), &icon).has_value())
+			PutIcon(spec, icon);
 	}
 	return platform->ShowNotification(spec);
 }

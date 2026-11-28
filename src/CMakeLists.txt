@@ -15,7 +15,10 @@ foreach(icon IN ITEMS
         "Alert_Info|kAlertInfo"
         "Alert_Idea|kAlertIdea"
         "Alert_Warning|kAlertWarning"
-        "Alert_Stop|kAlertStop")
+        "Alert_Stop|kAlertStop"
+        "Notify_Notice|kNotifyNotice"
+        "Notify_Achtung|kNotifyAchtung"
+        "Notify_Danger|kNotifyDanger")
     string(REPLACE "|" ";" parts "${icon}")
     list(GET parts 0 file)
     list(GET parts 1 symbol)

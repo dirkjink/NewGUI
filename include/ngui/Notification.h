@@ -44,6 +44,10 @@ enum class BNotificationType : std::uint8_t {
 	(SetOnClickMessage()), as the user may have clicked long after; Send()
 	takes the time it shows as a Clock::Time and returns an Error instead of
 	a status_t. SourceName() is the end of the application's signature.
+	Without an icon of its own a notification shows Haiku's notification
+	icon of its type (Notify_Notice for information and progress,
+	Notify_Achtung for important ones, Notify_Danger for errors; 64 × 64,
+	with a vector icon renderer) where Haiku shows the application's icon.
 	Strings are UTF-8.
 */
 class BNotification {
@@ -107,7 +111,8 @@ public:
 									/*!< NewGUI: no message for a click. */
 
 			const BBitmap*		Icon() const;
-									/*!< The icon, nullptr for none. */
+									/*!< The icon, nullptr for none (Send() then shows
+										Haiku's notification icon of the type). */
 			std::expected<void, Error> SetIcon(const BBitmap* icon);
 									/*!< Takes a copy of \a icon; nullptr for none.
 										InvalidArgument for an invalid bitmap. */

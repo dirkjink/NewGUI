@@ -42,6 +42,12 @@ extern const unsigned char kAlertWarning[];
 extern const std::size_t kAlertWarningSize;
 extern const unsigned char kAlertStop[];
 extern const std::size_t kAlertStopSize;
+extern const unsigned char kNotifyNotice[];
+extern const std::size_t kNotifyNoticeSize;
+extern const unsigned char kNotifyAchtung[];
+extern const std::size_t kNotifyAchtungSize;
+extern const unsigned char kNotifyDanger[];
+extern const std::size_t kNotifyDangerSize;
 
 } // namespace ngui::embedded
 
@@ -64,11 +70,14 @@ struct SystemIcon {
 
 // The icons NewGUI shows itself, built into the library (the list in
 // src/CMakeLists.txt).
-const std::array<SystemIcon, 4> kSystemIcons = {{
+const std::array<SystemIcon, 7> kSystemIcons = {{
 	{"Alert_Info", embedded::kAlertInfo, &embedded::kAlertInfoSize},
 	{"Alert_Idea", embedded::kAlertIdea, &embedded::kAlertIdeaSize},
 	{"Alert_Warning", embedded::kAlertWarning, &embedded::kAlertWarningSize},
 	{"Alert_Stop", embedded::kAlertStop, &embedded::kAlertStopSize},
+	{"Notify_Notice", embedded::kNotifyNotice, &embedded::kNotifyNoticeSize},
+	{"Notify_Achtung", embedded::kNotifyAchtung, &embedded::kNotifyAchtungSize},
+	{"Notify_Danger", embedded::kNotifyDanger, &embedded::kNotifyDangerSize},
 }};
 
 // Larger files are no icons (Haiku's largest SVG has some 100 KB).

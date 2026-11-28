@@ -186,7 +186,7 @@ endif()
 # The vector icon renderer (vcpkg feature svg).
 if(NGUI_WITH_SVG)
     target_sources(ngui_tests PRIVATE AlertIconTest.cpp IconUtilsTest.cpp
-        MediaQueriesTest.cpp)
+        MediaQueriesTest.cpp NotificationIconTest.cpp)
     target_link_libraries(ngui_tests PRIVATE ngui::svg)
     # Haiku's icons as SVG, all of them drawn by the tests
     target_compile_definitions(ngui_tests

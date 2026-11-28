@@ -94,7 +94,7 @@ TEST(CatalogTest, ItReadsWhatMsgfmtWrites)
 	// with an ellipsis and one with line breaks, and the plural message.
 	// Success criteria: "Quit" in "Demo" is "Beenden", "Open…" "Öffnen…",
 	// the about text has its line breaks; "Clicked %d time(s)" is "%d-mal
-	// geklickt" for 1 and 5; 50 texts, language "de".
+	// geklickt" for 1 and 5; 57 texts, language "de".
 	// Why it matters: Catalogs come from gettext's own tools, not from
 	// NewGUI's tests (module G7).
 	//
@@ -111,7 +111,7 @@ TEST(CatalogTest, ItReadsWhatMsgfmtWrites)
 		"%d-mal geklickt");
 	EXPECT_STREQ((*catalog)->GetPluralString("Clicked %d time", "Clicked %d times", 5, "Demo"),
 		"%d-mal geklickt");
-	EXPECT_EQ((*catalog)->CountItems(), 50u);
+	EXPECT_EQ((*catalog)->CountItems(), 57u);
 	EXPECT_EQ((*catalog)->Language(), "de");
 }
 

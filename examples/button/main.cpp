@@ -39,15 +39,19 @@
 // pseudo-localizes them).
 
 
+#include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <ctime>
 #include <functional>
 #include <map>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <ngui/Alert.h>
 #include <ngui/AppDefs.h>
@@ -73,6 +77,8 @@
 #include <ngui/MenuBar.h>
 #include <ngui/MenuField.h>
 #include <ngui/MenuItem.h>
+#include <ngui/MimeType.h>
+#include <ngui/Notification.h>
 #include <ngui/NumberFormat.h>
 #include <ngui/OutlineListView.h>
 #include <ngui/Palette.h>
@@ -121,6 +127,136 @@ constexpr std::uint32_t kName = FourCharCode("NAME");
 constexpr std::uint32_t kChosen = FourCharCode("CHSN");
 constexpr std::uint32_t kOpen = FourCharCode("OPEN");
 constexpr std::uint32_t kLook = FourCharCode("LOOK");
+constexpr std::uint32_t kNotify = FourCharCode("NTFY");
+
+
+// The message of the Notify menu's item for \a type.
+std::unique_ptr<BMessage>
+NotifyMessage(BNotificationType type)
+{
+	auto message = std::make_unique<BMessage>(kNotify);
+	(void)message->AddInt32("type", static_cast<std::int32_t>(type));
+	return message;
+}
+
+
+// The icon of \a type at \a side pixels, as Haiku's Tracker finds it, or
+// nullptr (no renderer or no icon directory).
+std::shared_ptr<const BBitmap>
+TypeIcon(std::string_view type, float side)
+{
+	auto icon = std::make_shared<BBitmap>(gfx::Rect{0, 0, side, side}, BColorSpace::RGBA32);
+	if (!BIconUtils::GetTypeIcon(BMimeType(type), icon.get()).has_value())
+		return nullptr;
+	return icon;
+}
+
+
+// A file's name with its icon before it, as Tracker shows them in one
+// column: the indentation of the rows in folders then moves both.
+class IconNameField : public BStringField {
+public:
+	IconNameField(std::string_view name, std::shared_ptr<const BBitmap> icon)
+		:
+		BStringField(name),
+		fIcon(std::move(icon))
+	{
+	}
+
+	const BBitmap* Icon() const
+	{
+		return fIcon.get();
+	}
+
+private:
+	std::shared_ptr<const BBitmap> fIcon;
+};
+
+
+class IconNameColumn : public BStringColumn {
+public:
+	using BStringColumn::BStringColumn;
+
+	void DrawField(BField* field, BView* owner, DrawContext& context, gfx::Rect rect,
+		const gfx::Color& textColor) override
+	{
+		constexpr float side = 16;
+		if (const auto* named = dynamic_cast<IconNameField*>(field);
+				named != nullptr && named->Icon() != nullptr) {
+			const gfx::Rect pixels = named->Icon()->Bounds();
+			const float x = rect.x0 + kTextMargin;
+			const float y = std::round(rect.y0 + (rect.Height() - side) / 2);
+			context.canvas.DrawImage(named->Icon()->Image(),
+				{0, 0, pixels.Width(), pixels.Height()}, {x, y, x + side, y + side});
+		}
+		rect.x0 += side + kTextMargin;
+		BStringColumn::DrawField(field, owner, context, rect, textColor);
+	}
+};
+
+
+// Haiku's icons at 16, 32 and 64 pixels, one size a row: those NewGUI
+// shows itself (alerts, notifications), file types, a flag. Each drawn for
+// the device pixels, so they stay sharp on screens of a higher density.
+class IconSheet : public BView {
+public:
+	IconSheet()
+		:
+		BView("icons", BViewFlag::WillDraw)
+	{
+		const float width = kGap + static_cast<float>(kNames.size()) * (kLargest + kGap);
+		const float height = kGap + (16 + kGap) + (32 + kGap) + (kLargest + kGap);
+		SetExplicitMinSize({width, height});
+		SetExplicitPreferredSize({width, height});
+	}
+
+	void Draw(DrawContext& context) override
+	{
+		if (fScale != context.scale) {
+			fIcons.clear();
+			fScale = context.scale;
+		}
+		float y = kGap;
+		for (const float side : {16.0f, 32.0f, kLargest}) {
+			float x = kGap;
+			for (const std::string_view name : kNames) {
+				const BBitmap* icon = _Icon(name, side);
+				if (icon != nullptr) {
+					const gfx::Rect pixels = icon->Bounds();
+					context.canvas.DrawImage(icon->Image(),
+						{0, 0, pixels.Width(), pixels.Height()}, {x, y, x + side, y + side});
+				}
+				x += kLargest + kGap;
+			}
+			y += side + kGap;
+		}
+	}
+
+private:
+	static constexpr float kGap = 8;
+	static constexpr float kLargest = 64;
+	static constexpr std::array<std::string_view, 11> kNames = {"Alert_Info", "Alert_Idea",
+		"Alert_Warning", "Alert_Stop", "Notify_Notice", "Notify_Achtung", "Notify_Danger",
+		"Folder_generic", "File_PDF", "App_Generic_2", "flags/DE Germany"};
+
+	const BBitmap* _Icon(std::string_view name, float side)
+	{
+		const std::string key = std::string(name) + "@" + std::to_string(side);
+		auto found = fIcons.find(key);
+		if (found == fIcons.end()) {
+			const float pixels = std::ceil(side * fScale);
+			auto icon = std::make_unique<BBitmap>(gfx::Rect{0, 0, pixels, pixels},
+				BColorSpace::RGBA32);
+			if (!BIconUtils::GetSystemIcon(name, icon.get()).has_value())
+				icon.reset();
+			found = fIcons.emplace(key, std::move(icon)).first;
+		}
+		return found->second.get();
+	}
+
+	std::map<std::string, std::unique_ptr<BBitmap>> fIcons;
+	float fScale = 1;
+};
 
 
 // The counter's label: a right click opens a context menu with the
@@ -292,6 +428,14 @@ public:
 		tabs->TabAt(2)->SetLabel(B_TRANSLATE("Lists"));
 		tabs->AddTab(MakeFiles());
 		tabs->TabAt(3)->SetLabel(B_TRANSLATE("Files"));
+		// scrolled sideways rather than widening the window
+		auto iconsScroll = std::make_unique<BScrollView>("icons scroll",
+			std::make_unique<IconSheet>(), BViewFlags{}, true, false);
+		iconsScroll->SetExplicitMinSize({100, kSizeUnset});
+		iconsScroll->SetExplicitPreferredSize({300, kSizeUnset});
+		iconsScroll->SetExplicitMaxSize({kSizeUnlimited, kSizeUnlimited});
+		tabs->AddTab(std::move(iconsScroll));
+		tabs->TabAt(4)->SetLabel(B_TRANSLATE("Icons"));
 		tabs->AddTab(std::make_unique<BStringView>("About",
 			"NewGUI: Haiku's Interface Kit on SDL3 and Skia"));
 
@@ -322,6 +466,11 @@ public:
 				.AddItem(B_TRANSLATE("Red"), kStyleRed)
 			.End()
 			.AddMenu(std::move(looks)).End()
+			.AddMenu(B_TRANSLATE("Notify"))
+				.AddItem(B_TRANSLATE("Information"), NotifyMessage(BNotificationType::Information))
+				.AddItem(B_TRANSLATE("Important"), NotifyMessage(BNotificationType::Important))
+				.AddItem(B_TRANSLATE("Error"), NotifyMessage(BNotificationType::Error))
+			.End()
 			.AddMenu(B_TRANSLATE("Help"))
 				.AddItem(B_TRANSLATE("About"), kAbout)
 			.End();
@@ -455,6 +604,17 @@ public:
 				std::fprintf(stderr, "%s\n", result.error().message.c_str());
 			return;
 		}
+		if (message->what == kNotify) {
+			// a notification of the system, with Haiku's icon of its type
+			const auto type = static_cast<BNotificationType>(message->GetInt32("type", 0));
+			BNotification notification(type);
+			notification.SetGroup("NewGUI");
+			notification.SetTitle(B_TRANSLATE("NewGUI demo"));
+			notification.SetContent(B_TRANSLATE("A notification with Haiku's icon of its type."));
+			if (const auto sent = notification.Send(); !sent.has_value())
+				std::fprintf(stderr, "%s\n", sent.error().message.c_str());
+			return;
+		}
 		if (message->what == kAbout) {
 			// an info alert, which only needs to be closed
 			fTabs->Select(3);
@@ -500,7 +660,7 @@ private:
 		auto files = std::make_unique<BColumnListView>("files", BViewFlag::Navigable,
 			BBorderStyle::Plain);
 		files->SetAccessibleName(B_TRANSLATE("Files"));
-		auto name = std::make_unique<BStringColumn>(B_TRANSLATE("Name"), 180.0f, 60.0f, 400.0f);
+		auto name = std::make_unique<IconNameColumn>(B_TRANSLATE("Name"), 200.0f, 80.0f, 420.0f);
 		BColumn* nameColumn = name.get();
 		files->AddColumn(std::move(name), 0);
 		files->AddColumn(std::make_unique<BSizeColumn>(B_TRANSLATE("Size"), 90.0f, 50.0f,
@@ -524,7 +684,12 @@ private:
 		auto row = [](const char* rowName, std::optional<std::uint64_t> size,
 			std::time_t modified) {
 			auto made = std::make_unique<BRow>();
-			made->SetField(std::make_unique<BStringField>(rowName), 0);
+			// with the icon of its type as Tracker shows it; a folder has no
+			// size
+			const BMimeType type = size.has_value() ? BMimeType::GuessMimeType(rowName)
+				: BMimeType(kDirectoryMimeType);
+			made->SetField(std::make_unique<IconNameField>(rowName, TypeIcon(type.Type(), 16)),
+				0);
 			if (size.has_value())
 				made->SetField(std::make_unique<BSizeField>(*size), 1);
 			made->SetField(std::make_unique<BDateField>(modified), 2);
@@ -627,9 +792,17 @@ main(int argc, char** argv)
 	// newgui-demo.mo beside the executable (German comes with it);
 	// NGUI_LANGUAGE=x-pseudo shows them pseudo-localized.
 	(void)BLocaleRoster::Default()->LoadCatalog("newgui-demo");
-	// Vector icons (the alerts' type icons) drawn by lunasvg.
+	// Vector icons (Haiku's, as SVG) drawn by lunasvg; those not built into
+	// NewGUI from icons/haiku beside the executable (data/icons/haiku).
 	const svg::LunaSvgRenderer icons;
 	VectorIconRenderer::SetDefault(&icons);
+	if (argc > 0) {
+		const std::string executable(argv[0]);
+		const std::filesystem::path directory
+			= std::filesystem::path(std::u8string(executable.begin(), executable.end()))
+				.parent_path();
+		BIconUtils::SetSystemIconDirectory(directory / "icons" / "haiku");
+	}
 	// SDL3, or the platform NGUI_PLATFORM names (headless for tests)
 	(void)platform::SdlPlatform::Register(platform::PlatformRegistry::Default());
 	ButtonApp app(argc, argv);
