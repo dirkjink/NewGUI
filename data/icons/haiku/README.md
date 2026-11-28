@@ -12,6 +12,59 @@ ported.
   (`BIconUtils::SetSystemIconDirectory()`, `NGUI_ICON_DIR`).
 - `SHA256SUMS` lists the checksum of each file (`sha256sum -c SHA256SUMS`).
 
+## Names
+
+The file names are those of Haiku's artwork directory. That directory
+collects every Haiku vector icon ever made, also drafts and designs no
+longer used ("I still want to keep all Haiku vector icons ever made in this
+folder", Stephan Aßmus, 2009). So several files often show the same thing.
+
+### Category
+
+The part before the first `_` says what an icon stands for:
+
+| Prefix | Icons for |
+|---|---|
+| `App_` | applications |
+| `File_`, `Folder_` | file types and folders, as Tracker shows them |
+| `Device_` | drives, media and hardware |
+| `Prefs_` | preference applications |
+| `Server_` | system servers |
+| `Action_`, `Document_`, `List_` | buttons and menus (back, forward, home, search, stop, save, add) |
+| `Alert_` | the alert types of `BAlert` |
+| `Overlay_` | small emblems drawn over another icon (a Be or Zeta logo, say) |
+| `Color_` | a color palette, see below |
+| `Misc_`, `Website_`, `Mail_`, `Notify_`, `Tray_`, … | everything else |
+
+`flags/` holds the flags of the locale preferences: an ISO 3166 country code
+and the name, plus a few languages without a country (`BR Breton`,
+`CA Catalan`, `EO Esperanto`). `Pulse/` holds the processor makers' logos of
+the Pulse application.
+
+### Variants
+
+- **`_2`, `_3`, `_4`:** another design of the same icon, by another artist
+  or from another time, not another size. For example, `App_Generic_4` came
+  from zuMi in 2009, `Action_GoBack_3` from zuMi's collection in 2012. An
+  unnumbered file is the oldest design.
+- **`_1`:** a numbered first design beside an unnumbered one. The
+  `Action_Go*_1` and `_2` files were `Navigation_Left_1` etc. before 2010.
+- **A letter after the number (`_3b`):** a revision of that design;
+  `Action_GoHome_3b` has a better perspective than `Action_GoHome_3`.
+- **`_Large`:** the same drawing scaled up (by about 1.32) to fill more of
+  the canvas, for icons drawn very small. Tracker's navigator buttons use
+  `Action_GoBack_3_Large` at 16 pixels.
+- **`_Small`:** a part for building other icons; `Misc_Box_Small` is a box
+  from the generic application icon.
+- **A state:** `App_Beam_2_NewMail` and `App_Beam_2_NoMail` are the mail
+  client with and without new mail; `App_Old` marks old (BeOS) applications.
+- **`Color_NN_Name`:** 23 color swatches, numbered in palette order. They
+  are the suggested colors for Haiku icons, not icons for an application.
+
+A name does not say which variant Haiku ships: Haiku's resource files
+contain the icon data itself, not these names. NewGUI picks the variant
+where it uses an icon, for example `Alert_Warning` for `BAlert`.
+
 ## Conversion
 
 The converter followed Haiku's icon library (`src/libs/icon`), not
