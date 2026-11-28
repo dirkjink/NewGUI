@@ -86,12 +86,17 @@ lunasvg does not evaluate media queries; NewGUI resolves them for the size
 it draws an icon at before handing it over (`svg::ResolveMediaQueries()`),
 so small icons show Haiku's simpler level of detail.
 
+## Blending
+
+Haiku blends icons in linear light (gamma 2.2); SVG renderers blend in sRGB,
+which makes semi-transparent shadows and anti-aliased edges darker.
+`color-interpolation="linearRGB"` is set as Icon-O-Matic does, but lunasvg
+ignores it. NewGUI's renderer (`svg::LunaSvgRenderer`) therefore does what
+Haiku's IconRenderer does: the colors go through AGG's gamma table of 2.2
+before drawing, the pixels through its inverse after.
+
 ## Known differences to Haiku's renderer
 
-- Haiku blends in linear light (gamma 2.2). SVG renderers blend in sRGB, so
-  semi-transparent shadows and anti-aliased edges look slightly darker.
-  `color-interpolation="linearRGB"` is set as Icon-O-Matic does, but
-  lunasvg ignores it.
 - Pixel hinting (6 shapes) is not representable in SVG and is ignored.
 
 ## License

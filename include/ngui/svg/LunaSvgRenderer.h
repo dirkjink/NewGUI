@@ -20,6 +20,9 @@ namespace ngui::svg {
 /*!	The vector icon renderer for SVG (library ngui_svg, vcpkg feature svg):
 	lunasvg reads the icon, its rasterizer plutovg draws it, independent of
 	the drawing backend. Install it with VectorIconRenderer::SetDefault().
+	It blends in linear light as Haiku's IconRenderer does: the icon's colors
+	go through a gamma table of 2.2 before drawing, the pixels through its
+	inverse after, so semi-transparent shadows and edges look as in Haiku.
 	Dashed strokes are drawn solid: plutovg's dashes can take unbounded
 	memory (an icon needs none; Haiku's HVIF icons have none). Media queries
 	on the width are resolved for the width drawn (ResolveMediaQueries()), so
