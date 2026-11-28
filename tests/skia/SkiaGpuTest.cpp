@@ -308,6 +308,49 @@ TEST(SkiaGpuTest, TextAndImagesLookAsOnTheCpu)
 }
 
 
+TEST(SkiaGpuTest, TheGpuBlendsInLinearLightToo)
+{
+	// What is tested: Black at half opacity over white on a GPU surface over
+	// an OpenGL context of EGL, with Blending::Linear, then Encoded, on the
+	// same surface; the framebuffer read with glReadPixels() and through
+	// the surface.
+	// Success criteria: With Linear both show 188 (half the light in linear
+	// light, sRGB-encoded), with Encoded 128; the surface stays of kind Gpu.
+	// Skipped without EGL and OpenGL, or if Skia is built without OpenGL.
+	// Why it matters: Windows that render on the GPU (phase G) must blend as
+	// the application chose, as on the CPU (specification 24.1).
+	//
+	// Given
+	const PbufferContext context(8, 8);
+	if (!context.Valid())
+		GTEST_SKIP() << "no OpenGL context of EGL";
+	SkiaBackend backend;
+	if (!backend.Capabilities().gpuSurfaces)
+		GTEST_SKIP() << "Skia is built without OpenGL";
+	const SurfaceRef surface = backend.CreateWindowSurface(PbufferContext::Window(8, 8, 1),
+		SurfaceKind::Gpu);
+	ASSERT_NE(surface, nullptr);
+	Canvas canvas({0, 0, 8, 8});
+	canvas.FillRect({0, 0, 8, 8}, {.color = {0, 0, 0, 0.5f}});
+	const DisplayListRef list = canvas.Finish();
+
+	// When
+	backend.SetBlending(Blending::Linear);
+	Image linearBack;
+	const Image linear = RenderOnGpu(backend, *surface, *list, &linearBack);
+	backend.SetBlending(Blending::Encoded);
+	Image encodedBack;
+	const Image encoded = RenderOnGpu(backend, *surface, *list, &encodedBack);
+
+	// Then
+	EXPECT_NEAR(linear.At(4, 4).r, 188, 2);
+	EXPECT_NEAR(linearBack.At(4, 4).r, 188, 2);
+	EXPECT_NEAR(encoded.At(4, 4).r, 128, 2);
+	EXPECT_NEAR(encodedBack.At(4, 4).r, 128, 2);
+	EXPECT_EQ(surface->Kind(), SurfaceKind::Gpu);
+}
+
+
 TEST(SkiaGpuTest, WithoutOpenGLThereIsNoGpuSurface)
 {
 	// What is tested: CreateWindowSurface() for SurfaceKind::Gpu with a

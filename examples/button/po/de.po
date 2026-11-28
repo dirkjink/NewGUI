@@ -243,6 +243,14 @@ msgctxt "Demo"
 msgid "A notification with Haiku's icon of its type."
 msgstr "Eine Benachrichtigung mit Haikus Icon ihrer Art."
 
+msgctxt "Demo"
+msgid "Options"
+msgstr "Optionen"
+
+msgctxt "Demo"
+msgid "Linear blending"
+msgstr "Lineares Blending"
+
 #, c-format
 msgctxt "Demo"
 msgid "Clicked %d time"

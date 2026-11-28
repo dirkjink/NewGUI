@@ -1172,6 +1172,15 @@ BWindow::DispatchMessage(BMessage* message, BHandler* handler)
 				_FrameChanged();
 			return;
 		}
+		case kBlendingChanged:
+			// the application blends otherwise (specification 24.1): every
+			// surface anew, all of it drawn
+			fSurface.reset();
+			for (const std::unique_ptr<PopupSurface>& popup : fPopups)
+				popup->surface.reset();
+			fMainUpdateWanted = true;
+			_ScheduleUpdate();
+			return;
 		case kLookChanged:
 			// a window with a look of its own keeps it (18.5)
 			if (fOwnLook == nullptr)
@@ -2712,6 +2721,8 @@ BWindow::_Update()
 			return;
 		fBackend = std::move(*backend);
 	}
+	// the application's way of blending (specification 24.1)
+	fBackend->SetBlending(BApplication::Blending());
 	const TextSystem& text = TextSystem::Default();
 	const gfx::Caps caps = fBackend->Capabilities();
 
@@ -3079,6 +3090,7 @@ BWindow::_Snapshot(const BSnapshotOptions& options, BView* view)
 		for (const FontFile& font : text.Fonts())
 			(void)own->AddFont(font.id, font.data, font.faceIndex);
 	}
+	backend->SetBlending(BApplication::Blending());
 
 	const float scale = options.scale > 0 ? options.scale : fScale;
 	const auto recorded = _Record(options, view, backend->Capabilities(), scale, false);

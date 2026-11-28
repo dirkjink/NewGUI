@@ -32,6 +32,11 @@ class PdfDocument;
 /*!	The Skia backend (specification 13), the target backend: renders
 	DisplayLists with Skia into CPU raster surfaces (N32, premultiplied,
 	without a color space, so blending happens in the encoded space, 4.3).
+	With Blending::Linear (SetBlending(), specification 24.1) the surfaces
+	are kSRGBA_8888 in linear sRGB: the pixels stay sRGB-encoded, Skia blends
+	and interpolates in linear light; Pixels() converts them to the CPU
+	presenter's format, a GPU surface draws into such a target and copies it
+	into the framebuffer at EndFrame().
 	Part of the library ngui_skia, built with NGUI_WITH_SKIA; this header
 	includes no Skia header (13.5).
 
@@ -71,8 +76,11 @@ public:
 										Thread-safe. */
 
 			Caps				Capabilities() const override;
-									/*!< The core profile, paths, and GPU surfaces if
-										Skia is built with OpenGL (phase G). */
+									/*!< The core profile, paths, linear blending, and GPU
+										surfaces if Skia is built with OpenGL (phase G). */
+			void				SetBlending(Blending blending) override;
+									/*!< Encoded or Linear for the frames begun from now
+										on. */
 			ImageHandle			CreateImage(const PixelData& pixels) override;
 									/*!< An SkImage copy of \a pixels; 0 if invalid. */
 			void				ReleaseImage(ImageHandle image) override;

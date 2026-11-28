@@ -16,6 +16,7 @@
 
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColor.h"
+#include "include/core/SkColorSpace.h"
 #include "include/core/SkData.h"
 #include "include/core/SkFont.h"
 #include "include/core/SkFontMgr.h"
@@ -76,10 +77,18 @@ public:
 			std::optional<CpuPixels> Pixels() const override;
 									// A GPU surface's pixels are read back.
 
+			// where a frame draws: the surface, or for a GPU surface that
+			// blends in linear light the target it is copied from
+			SkCanvas*			Canvas() const;
+
 			sk_sp<SkSurface>	fSurface;
 			float				fScale;
+			// Blending::Linear: kSRGBA_8888 in linear sRGB (specification
+			// 24.1); for a GPU surface in fTarget
+			bool				fLinear = false;
 #if defined(SK_GL)
 			sk_sp<GrDirectContext> fContext;
+			sk_sp<SkSurface>	fTarget;
 #endif
 	mutable	std::vector<std::byte> fReadback;
 };
@@ -120,6 +129,17 @@ SkiaSurface::Scale() const
 }
 
 
+SkCanvas*
+SkiaSurface::Canvas() const
+{
+#if defined(SK_GL)
+	if (fTarget != nullptr)
+		return fTarget->getCanvas();
+#endif
+	return fSurface->getCanvas();
+}
+
+
 SurfaceKind
 SkiaSurface::Kind() const
 {
@@ -150,8 +170,23 @@ SkiaSurface::Pixels() const
 			fReadback};
 	}
 #endif
+	if (fSurface == nullptr)
+		return std::nullopt;
+	if (fLinear) {
+		// to the CPU presenter's format: premultiplied in the sRGB-encoded
+		// values, where the surface premultiplies in linear light
+		const SkImageInfo info = SkImageInfo::MakeN32Premul(fSurface->width(),
+			fSurface->height(), SkColorSpace::MakeSRGB());
+		fReadback.resize(info.computeMinByteSize());
+		if (!fSurface->readPixels(info, fReadback.data(), info.minRowBytes(), 0, 0))
+			return std::nullopt;
+		return CpuPixels{info.width(), info.height(), info.minRowBytes(),
+			info.colorType() == kBGRA_8888_SkColorType ? PixelFormat::Bgra8Premul
+				: PixelFormat::Rgba8Premul,
+			fReadback};
+	}
 	SkPixmap pixmap;
-	if (fSurface == nullptr || !fSurface->peekPixels(&pixmap))
+	if (!fSurface->peekPixels(&pixmap))
 		return std::nullopt;
 	const PixelFormat format = pixmap.colorType() == kBGRA_8888_SkColorType
 		? PixelFormat::Bgra8Premul : PixelFormat::Rgba8Premul;
@@ -160,13 +195,26 @@ SkiaSurface::Pixels() const
 }
 
 
+// The pixels of a surface that blends in linear light (specification
+// 24.1): sRGB-encoded bytes that Skia decodes for blending and encodes
+// again, in linear sRGB, so colors given in sRGB keep their values.
+SkImageInfo
+_LinearInfo(int width, int height)
+{
+	return SkImageInfo::Make(width, height, kSRGBA_8888_SkColorType, kPremul_SkAlphaType,
+		SkColorSpace::MakeSRGBLinear());
+}
+
+
 sk_sp<SkSurface>
-_MakeRaster(Size device)
+_MakeRaster(Size device, bool linear)
 {
 	const int width = static_cast<int>(std::lround(device.w));
 	const int height = static_cast<int>(std::lround(device.h));
 	if (width <= 0 || height <= 0)
 		return nullptr;
+	if (linear)
+		return SkSurfaces::Raster(_LinearInfo(width, height));
 	// No color space: blending in the encoded space (specification 4.3).
 	return SkSurfaces::Raster(SkImageInfo::MakeN32Premul(width, height));
 }
@@ -175,8 +223,10 @@ _MakeRaster(Size device)
 #if defined(SK_GL)
 // The default framebuffer of the current OpenGL context as a surface of
 // \a device pixels: RGBA8 with an 8-bit stencil, its origin at the bottom.
+// In sRGB when it shows a target that blends in linear light, so that
+// Skia encodes the target's pixels for it.
 sk_sp<SkSurface>
-_WrapFramebuffer(GrDirectContext* context, Size device)
+_WrapFramebuffer(GrDirectContext* context, Size device, bool linear)
 {
 	const int width = static_cast<int>(std::lround(device.w));
 	const int height = static_cast<int>(std::lround(device.h));
@@ -189,7 +239,29 @@ _WrapFramebuffer(GrDirectContext* context, Size device)
 	const SkSurfaceProps properties;
 	// no color space: blending in the encoded space (specification 4.3)
 	return SkSurfaces::WrapBackendRenderTarget(context, target, kBottomLeft_GrSurfaceOrigin,
-		kRGBA_8888_SkColorType, nullptr, &properties);
+		kRGBA_8888_SkColorType, linear ? SkColorSpace::MakeSRGB() : nullptr, &properties);
+}
+
+
+// Fits the GPU surface \a surface to \a device pixels and the way of
+// blending: the framebuffer wrapped anew, a linear target beside it.
+void
+_FitGpuSurface(SkiaSurface& surface, Size device, bool linear)
+{
+	surface.fSurface.reset();
+	surface.fTarget.reset();
+	surface.fSurface = _WrapFramebuffer(surface.fContext.get(), device, linear);
+	surface.fLinear = linear;
+	if (linear && surface.fSurface != nullptr) {
+		surface.fTarget = SkSurfaces::RenderTarget(surface.fContext.get(),
+			skgpu::Budgeted::kYes,
+			_LinearInfo(surface.fSurface->width(), surface.fSurface->height()));
+		// without a linear target on this GPU, Encoded
+		if (surface.fTarget == nullptr) {
+			surface.fSurface = _WrapFramebuffer(surface.fContext.get(), device, false);
+			surface.fLinear = false;
+		}
+	}
 }
 #endif
 
@@ -328,6 +400,8 @@ struct SkiaBackend::Data {
 			std::unordered_map<FontId, sk_sp<SkTypeface>> fonts;
 
 			SkiaSurface*		frame = nullptr;
+			// SetBlending(): Linear
+			bool				linear = false;
 
 			void				RenderList(SkCanvas* canvas, const DisplayList& list,
 									const Transform& transform, int depth);
@@ -712,15 +786,23 @@ SkiaBackend::EncodePng(const PixelData& pixels)
 }
 
 
+void
+SkiaBackend::SetBlending(Blending blending)
+{
+	fData->linear = blending == Blending::Linear;
+}
+
+
 Caps
 SkiaBackend::Capabilities() const
 {
 	// FillPath and StrokePath (extended profile) are drawn natively; with
 	// OpenGL GPU surfaces (phase G).
 #if defined(SK_GL)
-	return Caps{.gpuSurfaces = true, .bezierPaths = true, .concavePolygons = true};
+	return Caps{.gpuSurfaces = true, .bezierPaths = true, .concavePolygons = true,
+		.linearBlending = true};
 #else
-	return Caps{.bezierPaths = true, .concavePolygons = true};
+	return Caps{.bezierPaths = true, .concavePolygons = true, .linearBlending = true};
 #endif
 }
 
@@ -774,11 +856,11 @@ SkiaBackend::CreateWindowSurface(const NativeWindow& window, SurfaceKind kind)
 		sk_sp<GrDirectContext> context = GrDirectContexts::MakeGL(gl);
 		if (context == nullptr)
 			return nullptr;
-		sk_sp<SkSurface> surface = _WrapFramebuffer(context.get(), device);
-		if (surface == nullptr)
-			return nullptr;
-		auto made = std::make_shared<SkiaSurface>(std::move(surface), window.scale);
+		auto made = std::make_shared<SkiaSurface>(nullptr, window.scale);
 		made->fContext = std::move(context);
+		_FitGpuSurface(*made, device, fData->linear);
+		if (made->fSurface == nullptr)
+			return nullptr;
 		return made;
 	}
 #endif
@@ -795,10 +877,12 @@ SkiaBackend::CreateOffscreenSurface(Size device, float scale)
 {
 	if (!device.IsFinite() || !(scale > 0) || !std::isfinite(scale))
 		return nullptr;
-	sk_sp<SkSurface> surface = _MakeRaster(device);
+	sk_sp<SkSurface> surface = _MakeRaster(device, fData->linear);
 	if (!surface)
 		return nullptr;
-	return std::make_shared<SkiaSurface>(std::move(surface), scale);
+	auto made = std::make_shared<SkiaSurface>(std::move(surface), scale);
+	made->fLinear = fData->linear;
+	return made;
 }
 
 
@@ -811,16 +895,16 @@ SkiaBackend::ResizeSurface(Surface& surface, Size device, float scale)
 #if defined(SK_GL)
 	if (skia->fContext != nullptr) {
 		// the framebuffer has the window's new size already
-		skia->fSurface.reset();
-		skia->fSurface = _WrapFramebuffer(skia->fContext.get(), device);
+		_FitGpuSurface(*skia, device, fData->linear);
 		skia->fScale = scale;
 		return;
 	}
 #endif
-	sk_sp<SkSurface> raster = _MakeRaster(device);
+	sk_sp<SkSurface> raster = _MakeRaster(device, fData->linear);
 	if (!raster)
 		return;
 	skia->fSurface = std::move(raster);
+	skia->fLinear = fData->linear;
 	skia->fScale = scale;
 }
 
@@ -834,7 +918,27 @@ SkiaBackend::BeginFrame(Surface& surface, const Color& clear)
 		fData->frame = nullptr;
 	if (fData->frame == nullptr)
 		return;
-	SkCanvas* canvas = fData->frame->fSurface->getCanvas();
+	// a surface made for the other way of blending adapts (SetBlending())
+	SkiaSurface* frame = fData->frame;
+	if (frame->fLinear != fData->linear) {
+		const Size device = frame->DeviceSize();
+#if defined(SK_GL)
+		if (frame->fContext != nullptr) {
+			_FitGpuSurface(*frame, device, fData->linear);
+		} else
+#endif
+		{
+			if (sk_sp<SkSurface> raster = _MakeRaster(device, fData->linear)) {
+				frame->fSurface = std::move(raster);
+				frame->fLinear = fData->linear;
+			}
+		}
+		if (frame->fSurface == nullptr) {
+			fData->frame = nullptr;
+			return;
+		}
+	}
+	SkCanvas* canvas = frame->Canvas();
 	canvas->restoreToCount(1);
 	canvas->resetMatrix();
 	canvas->clear(_Color(clear));
@@ -846,7 +950,7 @@ SkiaBackend::Render(const DisplayList& list, Point offset)
 {
 	if (fData->frame == nullptr || !offset.IsFinite())
 		return;
-	SkCanvas* canvas = fData->frame->fSurface->getCanvas();
+	SkCanvas* canvas = fData->frame->Canvas();
 	fData->RenderList(canvas, list, {offset, fData->frame->fScale}, 0);
 }
 
@@ -866,8 +970,16 @@ SkiaBackend::EndFrame(Surface& surface)
 		return;
 #if defined(SK_GL)
 	// to the GPU; the platform swaps the buffers
-	if (fData->frame->fContext != nullptr)
+	if (fData->frame->fContext != nullptr) {
+		// a linear target into the framebuffer, which Skia encodes for it
+		if (fData->frame->fTarget != nullptr) {
+			SkPaint copy;
+			copy.setBlendMode(SkBlendMode::kSrc);
+			fData->frame->fSurface->getCanvas()->drawImage(
+				fData->frame->fTarget->makeImageSnapshot(), 0, 0, SkSamplingOptions(), &copy);
+		}
 		fData->frame->fContext->flushAndSubmit(fData->frame->fSurface.get(), GrSyncCpu::kNo);
+	}
 #endif
 	fData->frame = nullptr;
 }

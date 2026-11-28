@@ -38,9 +38,22 @@ struct Caps {
 			bool				blendModes = false;			/*!< Extended profile. */
 			bool				offscreenTargets = false;	/*!< Extended profile. */
 			bool				blurFilter = false;			/*!< Extended profile. */
+			bool				linearBlending = false;		/*!< Blending::Linear
+																(specification 24.1). */
 
 			bool				operator==(const Caps& other) const = default;
 									/*!< All flags equal. */
+};
+
+
+/*!	How a backend blends colors and interpolates gradients (specification
+	4.3 and 24.1). */
+enum class Blending : std::uint8_t {
+	Encoded,	/*!< In the sRGB-encoded values, gamma-naive, as Haiku's app_server
+					draws (the default). */
+	Linear		/*!< In linear light: semi-transparent paint and antialiased edges as
+					light physically adds up, only if Caps::linearBlending. The
+					pixels stay sRGB-encoded. */
 };
 
 
@@ -166,6 +179,12 @@ public:
 										(specification 19.1, S4); NotSupported by default.
 										Thread-safe. */
 
+	virtual	void				SetBlending(Blending blending);
+									/*!< How the frames begun from now on blend; a surface
+										made for the other way is adapted at BeginFrame().
+										Ignored by default: a backend without
+										Caps::linearBlending blends Encoded. Render thread
+										only. */
 	virtual	SurfaceRef			CreateWindowSurface(const NativeWindow& window,
 									SurfaceKind kind) = 0;
 									/*!< A surface for \a window; nullptr if \a kind is not

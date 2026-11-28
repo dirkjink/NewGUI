@@ -551,6 +551,8 @@ DrawGpuFrame(sdl3::PlatformState& platform, WindowState& state, const gfx::Displ
 	if (state.gpuSurface->DeviceSize() != device || state.gpuSurface->Scale() != scale)
 		backend->ResizeSurface(*state.gpuSurface, device, scale);
 	platform.AddGpuFonts();
+	// the application's way of blending (specification 24.1)
+	backend->SetBlending(BApplication::Blending());
 	backend->BeginFrame(*state.gpuSurface, clear);
 	backend->Render(frame, {0, 0});
 	backend->EndFrame(*state.gpuSurface);

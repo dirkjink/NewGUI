@@ -171,6 +171,17 @@ public:
 										system's accent color (Palette::WithAccent()). */
 	static	BColorScheme		ColorScheme();
 									/*!< Which colors the application shows. */
+	static	void				SetBlending(gfx::Blending blending);
+									/*!< NewGUI: how the windows blend colors and
+										interpolate gradients (specification 24.1):
+										Encoded (gamma-naive, as Haiku's app_server) by
+										default, or as the environment variable
+										NGUI_BLENDING=encoded or linear says. Every window
+										draws anew; a backend without
+										gfx::Caps::linearBlending stays Encoded. Icons
+										always blend in linear light, as Haiku's. */
+	static	gfx::Blending		Blending();
+									/*!< How the windows blend. */
 			Clock::Time			PulseRate() const;
 									/*!< The interval of Pulse(), 0 if stopped. */
 			bool				IsLaunching() const;

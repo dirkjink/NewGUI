@@ -255,6 +255,7 @@ if(NGUI_WITH_SKIA)
         skia/FlatLookSkiaTest.cpp
         skia/HaikuLookSkiaTest.cpp
         skia/SkiaBackendTest.cpp
+        skia/SkiaBlendingTest.cpp
         skia/SkiaSmokeTest.cpp)
     # The GPU surface (phase G) over an OpenGL context of EGL, where there is
     # EGL (Mesa's llvmpipe in the CI; the test skips without a context).
